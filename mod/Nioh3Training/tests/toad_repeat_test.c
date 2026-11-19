@@ -103,8 +103,8 @@ int main(void) {
     const int ri = MvRepFind(T); assert(ri >= 0);
     // live: the Toad rests in 0xBB8 and its AI picks 0xC67: that pick becomes the repeated 0xC61
     cur_act = 0xBB8; fake_now += 100; Pick(0xC67); assert(h_mvsel(0x3000, 0) == 0xC61 && g_rep_count[ri] == 1);
-    // a step pick (motion 34) is not an attack: it plays natively, nothing counted
-    cur_act = 0xBB8; fake_now += 10; Pick(0xC56); assert(h_mvsel(0x3000, 0) == 0xC56 && g_rep_count[ri] == 1);
+    // asked for, not playing yet: a step pick (motion 34) from rest keeps asking for 0xC61, nothing counted twice (#119454)
+    cur_act = 0xBB8; fake_now += 10; Pick(0xC56); assert(h_mvsel(0x3000, 0) == 0xC61 && g_rep_count[ri] == 1);
     // 0xC61 plays: another attack pick waits (the running move plays to its end)
     cur_act = 0xC61; fake_now += 50; Pick(0xC67); assert(h_mvsel(0x3000, 0) == MV_KEEP);
     // back in rest 0xBB8 by itself: the gap holds the Toad in 0xBB8 (never its 0x2 row)
@@ -115,8 +115,20 @@ int main(void) {
     // or the AI's next pick after the gap is replaced
     cur_act = 0xBB8; fake_now += 3000; g_rep_end[ri] = fake_now - 5000; g_rep_last[ri] = 0; Pick(0xC7A);
     assert(h_mvsel(0x3000, 0) == 0xC61);
+    // live #119454 shape: the Toad never picks an attack from 0xBB8. From rest it picks a step (0xC5E), and its attack (0xC67) while a
+    // step (0xC56) plays. Both are the repeat's chance once the gap passed; a step during the running repeat still plays natively.
+    assert(MvCalm(T, 0xBB8) && MvCalm(T, 0xC56) && MvCalm(T, 0xC5E) && !MvCalm(T, 0xC61) && !MvCalm(T, 0xC67) && MvCalm(T, 0x11));  // 0x11 = its other idle (kind I, motion 51)
+    const LONG c0 = g_rep_count[ri];
+    cur_act = 0xBB8; fake_now += 5000; g_rep_end[ri] = fake_now - 5000; g_rep_last[ri] = 0; Pick(0xC5E);
+    assert(h_mvsel(0x3000, 0) == 0xC61 && g_rep_count[ri] == c0 + 1);
+    cur_act = 0xC61; fake_now += 30; g_rep_seen[ri] = fake_now; Pick(0xC5E); assert(h_mvsel(0x3000, 0) == 0xC5E && g_rep_count[ri] == c0 + 1);
+    cur_act = 0xC56; fake_now += 5000; g_rep_end[ri] = fake_now - 5000; g_rep_last[ri] = 0; Pick(0xC67);
+    assert(h_mvsel(0x3000, 0) == 0xC61 && g_rep_count[ri] == c0 + 2);
+    // within the gap a step from rest is held in 0xBB8 (the pump forces the next round), never a native step out of the gap
+    cur_act = 0xBB8; fake_now += 10; g_rep_seen[ri] = 0; g_rep_last[ri] = 0; g_rep_end[ri] = fake_now; Pick(0xC5E);
+    assert(h_mvsel(0x3000, 0) == 0xBB8 && g_rep_count[ri] == c0 + 2);
     Nioh3Training_SetRepeatLast(T, 0); assert(MvRepeatId(T) == 0);
-    puts("PASS: Giant Toad Repeat last move: low-id attack picks replaced, rest 0xBB8 starts the next repeat (GitHub #126, live #119387)");
+    puts("PASS: Giant Toad Repeat last move: low-id attack picks replaced, rest 0xBB8 / a step from it starts the next repeat (GitHub #126, live #119387 / #119454)");
     free(d);
     return 0;
 }

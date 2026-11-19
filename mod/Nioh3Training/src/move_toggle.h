@@ -234,6 +234,15 @@ static uint32_t MvIdleId(uint32_t chr) {
     if (idle) { s_idle = idle; s_chr = chr; }  // not cached before the boss's rows are merged
     return idle;
 }
+// GitHub #126 (live #119454): a round boundary for Repeat last. Rest, as before; and, only for a boss whose rest is a data rest row (not
+// 0x2: Giant Toad 0xBB8), a short non-attack move of its own (step / turn / walk: no attack motion, not a reaction). The Toad never picks
+// an attack from 0xBB8: it picks a step there and its attack while that step plays (0xC67 during 0xC56, 3 windows, 0 repeats). 0x2 bosses
+// (Yoritomo / Nobuharu / Shingen) keep rest-only boundaries (#69187: their low-id landing recovery is not a boundary).
+static int MvCalm(uint32_t chr, uint32_t act) {
+    if (MvRest(chr, act)) return 1;
+    if (act >= 0x4E20 || !act || act == 0xFFFF || act == 0xFFFFFFFFu || MvIdleId(chr) == 2) return 0;
+    return N3MoveFind(chr, act) >= 0 && !MlAttack(chr, act) && !N3MoveUnsafe(chr, act) && !N3MoveProtected(act);
+}
 // 1 = pick is the running action cur's own next piece (see above). Boss-killing moves never are.
 // 1 = id is a looping part (a link into it carries the loop flag: 0x4E21 > 0x4E22 loops until the game picks the exit 0x4E23)
 static int MvLoops(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].next == id && kN3Next[i].loop) return 1; return 0; }
@@ -350,7 +359,8 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     // 0xC61..) and a data rest row (Toad 0xBB8) count as well; low-id steps / turns / guards / reactions still play natively.
     if (id == 0xFFFF || id == 0xFFFFFFFFu) return 0;
     uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0 || !MvRepLive(i)) return 0;
-    if (id < 0x4E20 && !MvRest(chr, id) && !MvRepAtk(i, chr, id)) return 0;
+    // #119454: from rest the Toad picks a step, not an attack: that pick is the repeat's chance too (data-rest bosses only, MvCalm)
+    if (id < 0x4E20 && !MvRest(chr, id) && !MvRepAtk(i, chr, id) && !(MvRest(chr, ActIdOf(st)) && MvIdleId(chr) != 2)) return 0;
     if (id < 0x4E20 && id != 2 && InterlockedIncrement(&g_rep_lowlog) <= 40) Log("REPEAT chr %u low-id pick 0x%X (%s), action 0x%X", chr, id, MvRest(chr, id) ? "rest" : "attack", ActIdOf(st));
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
     // A native death/reaction pick is not another attack to replace. The log
@@ -383,7 +393,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
             return MvFollow(i, chr, act, id, now);
         else if (!g_rep_seen[i] && attack && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && now - g_rep_last[i] < 30000)
             return rep;  // #91: the previous move is still the action. Keep this request. Do not step the list again.
-        else if (!g_rep_seen[i] && (MvRest(chr, act) || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
+        else if (!g_rep_seen[i] && (MvCalm(chr, act) || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
         else { g_rep_end[i] = now ? now : 1; MvRoundReset(i); }  // back in idle / a reaction / never started: the move has ended, the gap starts now
     }
     // GitHub #91: delay 0 does not wait until the action is idle 2. A positive gap,
@@ -394,7 +404,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     // list stepped every call and 4E7C lasted 47 ms).
     if (!chain_now && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && !g_rep_seen[i] && attack && act != rep && g_rep_last[i] && now - g_rep_last[i] < 30000)
         return rep;
-    if (!chain_now && g_rep_lastn[i] && !MvRest(chr, act) && (gap > 0 || !MvRest(chr, id))) return 0;
+    if (!chain_now && g_rep_lastn[i] && !MvCalm(chr, act) && (gap > 0 || !MvRest(chr, id))) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up (no attacks), the repeat waits
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         if (MvGapLog(i, id)) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
