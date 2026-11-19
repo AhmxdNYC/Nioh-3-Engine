@@ -1121,3 +1121,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-19 11:37 am EST | reports-pc/0 | GH #94 live PASS #120533 on TR 66a836c5 (reports/94 c3c4fbf0). PROVEN live Main PC. NEXT: pc merges into next rc; close #94 when shipped.
 
 2026-11-19 1:01 pm EST | reports-pc/0 GH #131 hold-MA misfire on 1.8.23 | PROVEN: duplicate of #98/#80 (same install 22cdafe8), report input log has menu keys only; #131 closed, #98 status comment | next: none for reports-pc; pc decides whether to reopen hold track (needs RE, deepseek 402) | NOTE to pc, RESULT #120606
+- 2026-11-19 5:23 pm EST | pc/0 | done: 60 fps arm of HoldKeyGap 3 (A7off 16/16 clean, A7on 13 clean + 3 never-started, 0 heavy-first) | proven: fix neutral at 60 fps kb | next: pad arm (KEEPPAD / pad rig) + charged-attack arm with EF 03118095 on kb-120730 rig; live ini needs 'HoldKeyGap = N' inserted at line 7 before kb.py | files D:/nioh3-re/kb-120730 run/holds-A7*.txt
