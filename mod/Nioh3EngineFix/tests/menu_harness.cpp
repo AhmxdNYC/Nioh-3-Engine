@@ -124,6 +124,8 @@ bool SharpAvailable() { return false; }
 namespace inputlog {  // input ring: not under test here
 void ObservePad(int, unsigned, int, int, int, int, int, int) {}
 void ObserveKey(const char*, int, int) {}
+void ObserveKeyboard(const unsigned char*, int) {}
+void ObserveMouse(unsigned, int) {}
 void NoteMenu(const char*, const char*, const char*, const char*, const char*) {}
 }
 
