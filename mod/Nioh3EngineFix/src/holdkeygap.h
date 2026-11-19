@@ -1,14 +1,17 @@
 // holdkeygap.h - HoldKeyGap ([General] HoldKeyGap = 0 by default; human #120716 / #120730, notes/hold-re-120730.md).
 //
-// The move's branch/cancel key scan 0x20DFC0(this, moveRes, t, slot) fires a key at time k when t <= k < t + step, with
-// t = current anim time (1/60 s units) and step = [this + 0x40 + slot*4] (60/fps). Each frame tests [t_n, t_n + s_n) but
-// time then advances by the next frame's step, so with uneven frame times (s_{n+1} > s_n) a gap [t_n + s_n, t_{n+1}) is
-// never tested and a key inside it is skipped (kb-118263: 11.82 -> 12.48 skips the frame-12 martial-art branch of a held
-// attack; the move plays out as a heavy swing). Fixed dt tiles exactly, which is why 60 fps never misses.
+// Mode 3 = THE FIX (held attack -> martial art "heavy first" at high fps under load). The MA branch key of a held windup
+// (key time ~frame 12) has the input condition "button held >= 12" (key cond: button 1, type 0, arg 12; checked by
+// 0x20CF68 -> input vtable +0xB0 0x13507C -> 0x1350B4 -> held getter vtable +0x140 = 0x901BA4). The held getter returns
+// frames_held * 60 / fps_setting ([settings+0x614], e.g. 120). Below the fps setting (CPU load, uneven frames) that
+// under-counts the real hold: at ~90 fps a 220 ms hold reads 11, the key fails once and the MA waits for the next key
+// (~frame 28, ~510 ms) - the player sees a heavy swing first. At 60 setting == real fps, so it never misses.
+// Mode 3 patches the held getter of the input class (vtable slot, verified == 0x901BA4) to return
+// max(stock, real seconds held * 60), real seconds tracked per input object and button once per frame. No button or move ids.
+// Live (Main PC, keyboard, REN_FPS 120 + 12 CPU burners, 16 holds): OFF 7/16 and 8/16 long windups, ON 0/16.
 //
-// The fix is a detour on 0x20DFC0 that remembers each (this, slot, moveRes)'s last window end and, when the next call on the
-// same move starts after it (a gap smaller than kMaxGap), runs the stock scan once over [prevEnd, t + step) instead: the
-// window is only ever widened back to where the last one ended, never shrunk, no move or button ids. Logs "HOLDKEYGAP: ...".
+// Mode 1 (gap fill on the key scan 0x20DFC0) was the first theory and is DISPROVEN live (254k scans, 0 gaps); kept off.
+// Mode 2 = trace / gate probe for RE (logs HKGT/HKGG/HKGK/HKGH lines).
 #pragma once
 #include <cstdint>
 

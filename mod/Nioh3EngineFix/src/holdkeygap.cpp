@@ -35,6 +35,7 @@ struct Entry {
     float prevEnd;
     float prevT;
     uint32_t slot;
+    int64_t qpc;
 };
 constexpr unsigned kSlots = 4096;
 Entry g_tab[kSlots];
@@ -83,6 +84,21 @@ uint64_t GateW(uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
         else if (GI == 1 || GI == 2 || GI == 4) want = IsMa(b) || IsMa(t_lastKey);
         else if (GI == 5) want = IsMa(c);
         else if (GI == 0) want = IsMa(t_lastKey);
+        if (want && GI == 3) {
+            const uint8_t* k = reinterpret_cast<const uint8_t*>(b);
+            const uint64_t* self = reinterpret_cast<const uint64_t*>(a);
+            uint64_t inp = self[0x18 / 8] ? self[0x18 / 8] : self[0x10 / 8];
+            uint64_t inpFn = inp ? (*reinterpret_cast<const uint64_t* const*>(inp))[0xB0 / 8] - g_base : 0;
+            uint64_t f140 = inp ? (*reinterpret_cast<const uint64_t* const*>(inp))[0x140 / 8] : 0;
+            int held = -999;
+            if (f140) held = reinterpret_cast<int (*)(uint64_t, uint32_t)>(f140)(inp, 1);
+            g_log("HKGH key=%llx held1=%d f140=+%llX", (unsigned long long)b, held, (unsigned long long)(f140 ? f140 - g_base : 0));
+            g_log("HKGK key=%llx cond %02x%02x %02x%02x %02x%02x | %02x %02x %02x | %02x%02x %02x%02x %02x%02x flags a8=%llx b0=%llx "
+                  "inp=%p inpB0=+%llX -> %llx",
+                  (unsigned long long)b, k[0x11], k[0x10], k[0x13], k[0x12], k[0x15], k[0x14], k[0x16], k[0x17], k[0x18], k[0x1B],
+                  k[0x1A], k[0x1D], k[0x1C], k[0x1F], k[0x1E], (unsigned long long)self[0x15], (unsigned long long)self[0x16],
+                  (void*)inp, (unsigned long long)inpFn, (unsigned long long)r);
+        }
         if (want) {
             InterlockedIncrement(&g_trace);
             g_log("HKGG +%X this=%p t=%.3f a2=%llx a3=%llx -> %llx", kGateOff[GI], (void*)a, t_t, (unsigned long long)b,
@@ -121,9 +137,136 @@ void WrapVt(int64_t* self) {
     ReleaseSRWLockExclusive(&g_vtLock);
 }
 
+
+// ---- mode 3: held-time fix. The input object's held getter (vtable +0x140, Nioh3+0x901BA4) returns
+// frames_held * 60 / fps_setting ([settings+0x614]). Below the fps setting (CPU load, uneven frames) that under-counts the
+// real hold, so a key that needs "held >= N" at anim frame N (held attack -> martial art, N = 12) fails by one count and the
+// move waits for a later key. Mode 3 returns max(stock, frames_held * measured frame time * 60): the hold in real 1/60 s.
+constexpr uint32_t kHeldRva = 0x901BA4;
+using HeldFn = int (*)(uint64_t inp, int button);
+HeldFn g_heldOrig = nullptr;
+volatile long g_heldUp = 0;
+float g_emaDt = 0.0f;       // seconds per frame, EMA over the player's scan calls
+void* g_heldVt[8];
+volatile long g_nHeldVt = 0;
+SRWLOCK g_heldLock = SRWLOCK_INIT;
+
+// Real seconds each button has been held, per input object of the patched class, advanced once per frame by Tick
+// (called from the owner's slot-0 key scan).
+struct Tracker {
+    uint64_t inp;
+    int64_t lastTick;
+    uint32_t lastCnt[0x40];
+    float heldSec[0x40];
+};
+constexpr int kTrackers = 32;
+Tracker g_tr[kTrackers];
+volatile long g_nTr = 0;
+
+Tracker* FindTr(uint64_t inp) {
+    const long n = g_nTr < kTrackers ? g_nTr : kTrackers;
+    for (long i = 0; i < n; ++i) if (g_tr[i].inp == inp) return &g_tr[i];
+    return nullptr;
+}
+
+void Tick(uint64_t inp, int64_t now, double freq) {
+    Tracker* tr = FindTr(inp);
+    if (!tr) {
+        const long i = InterlockedIncrement(&g_nTr) - 1;
+        if (i >= kTrackers) return;
+        g_tr[i].inp = inp;
+        tr = &g_tr[i];
+    }
+    const float d = tr->lastTick ? (float)((double)(now - tr->lastTick) / freq) : 0.0f;
+    tr->lastTick = now;
+    const float dt = g_emaDt;
+    for (int b = 0; b < 0x40; ++b) {
+        const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)b * 4);
+        if (c == 0) tr->heldSec[b] = 0.0f;
+        else if (c < tr->lastCnt[b] || tr->lastCnt[b] == 0) tr->heldSec[b] = (float)c * (dt > 0.0f ? dt : 1.0f / 60.0f);  // new press
+        else if (d > 0.0f && d < 0.25f) tr->heldSec[b] += d;
+        if (tr->heldSec[b] > (float)c / 30.0f) tr->heldSec[b] = (float)c / 30.0f;  // at most 30 fps worth per frame (pauses)
+        tr->lastCnt[b] = c;
+    }
+}
+
+int HeldHook(uint64_t inp, int button) {
+    const int s = g_heldOrig(inp, button);
+    if (button < 0 || button >= 0x40) return s;
+    Tracker* tr = FindTr(inp);
+    if (!tr) return s;
+    const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)button * 4);
+    const uint32_t lc = tr->lastCnt[button];
+    if (c == 0 || lc == 0 || c < lc) return s;  // press not seen by Tick yet: stock
+    const float dt = tr->heldSec[button] / (float)lc;
+    const float real = tr->heldSec[button] * 60.0f * (float)c / (float)lc;
+    if (real > (float)s + 0.5f && real < 100000.0f) {
+        const int r = (int)real;
+        if (r > s) {
+            const long n = InterlockedIncrement(&g_heldUp);
+            if (g_log && (n <= 30 || (n & 1023) == 0))
+                g_log("HOLDKEYGAP: held fix #%ld button %d frames %u stock %d real %d (frame %.2f ms)", n, button, c, s, r, dt * 1000.0f);
+            return r;
+        }
+    }
+    return s;
+}
+
+uintptr_t ReadVtSlot(uint64_t inp, void*** vtOut) {
+    __try {
+        void** vt = *reinterpret_cast<void***>(inp);
+        *vtOut = vt;
+        return (uintptr_t)vt[0x140 / 8];
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+
+// True when inp is an input object of the patched class (patching it on first sight).
+bool PatchHeldVt(uint64_t inp) {
+    if (!inp || !g_base || (inp & 7)) return false;
+    void** vt = nullptr;
+    const uintptr_t cur = ReadVtSlot(inp, &vt);
+    if (cur == (uintptr_t)&HeldHook) return true;
+    if (cur != g_base + Grva(kHeldRva)) return false;  // another class or unreadable
+    AcquireSRWLockExclusive(&g_heldLock);
+    if ((uintptr_t)vt[0x140 / 8] == cur && g_nHeldVt < 8) {
+        g_heldOrig = reinterpret_cast<HeldFn>(cur);
+        g_heldVt[g_nHeldVt] = vt;
+        InterlockedIncrement(&g_nHeldVt);
+        DWORD old;
+        if (VirtualProtect(&vt[0x140 / 8], 8, PAGE_READWRITE, &old)) {
+            InterlockedExchangePointer(&vt[0x140 / 8], reinterpret_cast<void*>(&HeldHook));
+            VirtualProtect(&vt[0x140 / 8], 8, old, &old);
+            if (g_log) g_log("HOLDKEYGAP: held fix on input vtable +%llX", (unsigned long long)((uintptr_t)vt - g_base));
+        }
+    }
+    ReleaseSRWLockExclusive(&g_heldLock);
+    return true;
+}
+
 uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
     if (!self || !res || slot > 3) return g_orig(self, res, t, slot);
     InterlockedIncrement(&g_calls);
+    if (g_mode == 3) {
+        if (slot == 0 && t > 0.0f) {
+            Entry& q = Lookup(self, 0);
+            LARGE_INTEGER now;
+            QueryPerformanceCounter(&now);
+            static LARGE_INTEGER freq = [] { LARGE_INTEGER f; QueryPerformanceFrequency(&f); return f; }();
+            if (q.self == self && q.qpc) {
+                const float d = (float)(now.QuadPart - q.qpc) / (float)freq.QuadPart;
+                if (d > 0.002f && d < 0.1f) g_emaDt = g_emaDt > 0.0f ? g_emaDt + 0.2f * (d - g_emaDt) : d;
+            }
+            q.self = self;
+            q.slot = 0;
+            q.qpc = now.QuadPart;
+            const uint64_t* o = reinterpret_cast<const uint64_t*>(self);
+            const uint64_t inp = o[3] ? o[3] : o[2];
+            if (PatchHeldVt(inp)) Tick(inp, now.QuadPart, (double)freq.QuadPart);
+        }
+        return g_orig(self, res, t, slot);
+    }
     float* stepp = reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(self) + 0x40 + slot * 4);
     const float step = *stepp;
     Entry& e = Lookup(self, slot);

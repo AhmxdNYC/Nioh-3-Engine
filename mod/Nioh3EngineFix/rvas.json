@@ -1346,6 +1346,15 @@
    ]
   },
   {
+   "rva": "0x901BA4",
+   "kind": "code",
+   "pattern": "48 83 EC 28 4C 63 CA 4C 8B D1 E8 ?? ?? ?? ?? F3 0F 10 0D ?? ?? ?? ?? 0F 57 C0 43 8B 8C 8A A4 00 00 00 44 8B",
+   "offset": 0,
+   "used_in": [
+    "holdkeygap.cpp"
+   ]
+  },
+  {
    "rva": "0x909218",
    "kind": "code",
    "pattern": "41 5E 41 5D 41 5C 5D C3 4C 8B 49 08 49 B8 25 23 22 84 E4 9C",

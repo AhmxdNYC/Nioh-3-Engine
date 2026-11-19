@@ -164,6 +164,7 @@ constexpr Def kDefs[] = {
     {0x89B2FD, kCode, "E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x8B3868, kCode, "48 83 EC 28 48 8B 41 18 48 8B 00 48", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x8F041C, kCode, "40 53 48 83 EC 20 41 8B D8 48 85 C9 74 21 BA E9 FA B3 37 41", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
+    {0x901BA4, kCode, "48 83 EC 28 4C 63 CA 4C 8B D1 E8 ?? ?? ?? ?? F3 0F 10 0D ?? ?? ?? ?? 0F 57 C0 43 8B 8C 8A A4 00 00 00 44 8B", 0, 0x0, 0, 0, 0, ""},  // holdkeygap.cpp
     {0x909218, kCode, "41 5E 41 5D 41 5C 5D C3 4C 8B 49 08 49 B8 25 23 22 84 E4 9C", 8, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x9290D8, kCode, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D AC 24 50 FD FF FF 48 81", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x9A62FC, kCode, "40 53 48 83 EC 20 48 83 02 04 48 8B D9 E8 ?? ?? ?? ?? C6 83", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
