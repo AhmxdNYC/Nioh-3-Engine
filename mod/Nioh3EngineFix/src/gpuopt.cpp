@@ -1135,6 +1135,21 @@ const char* StatusLine(char* buf, size_t n) {
 }
 
 // #79098: called by the menu on the Present thread. Plain value writes only, nothing is hooked or rebuilt here.
+// #119730 LiveCtl 'Tuning.VrsMode' (0/1/2, needs a VRS boot) and 'Tuning.VrsWideExclude' (0-255, needs PSO data from a
+// boot with VrsWideExclude != 0). One-launch A/B arms: off, plain whole frame (exclude 0) and each exclusion mask.
+bool SetVrsTuning(const char* key, const char* val, char* reply, size_t n) {
+    const bool mode = !_stricmp(key, "VrsMode"), wide = !_stricmp(key, "VrsWideExclude");
+    if (!mode && !wide) return false;
+    const int v = atoi(val);
+    if (!g_vrsBootMode || (wide && !g_vrsBootTracking)) {
+        snprintf(reply, n, "%s needs a boot with VrsCeiling 1/2%s", key, wide ? " and VrsWideExclude != 0" : ""); return false;
+    }
+    if (mode ? (v < 0 || v > 2) : (v < 0 || v > 255)) { snprintf(reply, n, "%s out of range (got %s)", key, val); return false; }
+    if (mode) g_vrsMode = v; else g_vrsWideExclude = (unsigned)v;
+    snprintf(reply, n, "VrsMode = %d VrsWideExclude = 0x%X", g_vrsMode, g_vrsWideExclude);
+    LOG("LIVE tuning: %s", reply);
+    return true;
+}
 int VrsBootMode() { return g_vrsBootMode; }
 bool VrsBootTracking() { return g_vrsBootTracking; }
 void VrsSetLive(const vrsmenu::Values& raw) {
