@@ -182,10 +182,7 @@ void Tick(uint64_t inp, int64_t now, double freq) {
     const float dt = g_emaDt;
     for (int b = 0; b < 0x40; ++b) {
         const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)b * 4);
-        if (c == 0) tr->heldSec[b] = 0.0f;
-        else if (c < tr->lastCnt[b] || tr->lastCnt[b] == 0) tr->heldSec[b] = (float)c * (dt > 0.0f ? dt : 1.0f / 60.0f);  // new press
-        else if (d > 0.0f && d < 0.25f) tr->heldSec[b] += d;
-        if (tr->heldSec[b] > (float)c / 30.0f) tr->heldSec[b] = (float)c / 30.0f;  // at most 30 fps worth per frame (pauses)
+        tr->heldSec[b] = NextHeldSec(tr->heldSec[b], c, tr->lastCnt[b], d, dt);
         tr->lastCnt[b] = c;
     }
 }
@@ -197,19 +194,14 @@ int HeldHook(uint64_t inp, int button) {
     if (!tr) return s;
     const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)button * 4);
     const uint32_t lc = tr->lastCnt[button];
-    if (c == 0 || lc == 0 || c < lc) return s;  // press not seen by Tick yet: stock
-    const float dt = tr->heldSec[button] / (float)lc;
-    const float real = tr->heldSec[button] * 60.0f * (float)c / (float)lc;
-    if (real > (float)s + 0.5f && real < 100000.0f) {
-        const int r = (int)real;
-        if (r > s) {
-            const long n = InterlockedIncrement(&g_heldUp);
-            if (g_log && (n <= 30 || (n & 1023) == 0))
-                g_log("HOLDKEYGAP: held fix #%ld button %d frames %u stock %d real %d (frame %.2f ms)", n, button, c, s, r, dt * 1000.0f);
-            return r;
-        }
+    const int r = HeldReal(s, tr->heldSec[button], c, lc);
+    if (r > s) {
+        const float dt = tr->heldSec[button] / (float)lc;
+        const long n = InterlockedIncrement(&g_heldUp);
+        if (g_log && (n <= 30 || (n & 1023) == 0))
+            g_log("HOLDKEYGAP: held fix #%ld button %d frames %u stock %d real %d (frame %.2f ms)", n, button, c, s, r, dt * 1000.0f);
     }
-    return s;
+    return r;
 }
 
 uintptr_t ReadVtSlot(uint64_t inp, void*** vtOut) {
@@ -347,7 +339,7 @@ void Start(const StartInfo& info) {
         g_log("HOLDKEYGAP: off ([General] HoldKeyGap = 0) - move key windows are stock");
         return;
     }
-    const uintptr_t fn = info.base + Grva(kFnRva);
+    const uintptr_t fn = info.base + Grva(kScanRva);
     if (fn == info.base || memcmp((const void*)fn, kHead, sizeof kHead) != 0 || (fn & 7) != 0) {
         g_log("HOLDKEYGAP: not installed (key scan bytes differ - another patch or build)");
         return;
@@ -377,11 +369,12 @@ void Start(const StartInfo& info) {
     memcpy(nb + 1, &rel, 4);
     int64_t v;
     memcpy(&v, nb, 8);
+    g_mode = want;  // set before the jmp is live: the first hooked calls must already run the chosen mode (#121117)
+    g_base = info.base;
+    MemoryBarrier();
     InterlockedExchange64((volatile LONG64*)fn, v);  // one aligned 8-byte store: no thread sees half a jmp
     VirtualProtect((void*)fn, 8, old, &old);
     FlushInstructionCache(GetCurrentProcess(), (void*)fn, 8);
-    g_mode = want;
-    g_base = info.base;
     g_on = true;
     g_log("HOLDKEYGAP: installed at +%X (%s) - [General] HoldKeyGap = %d (a move key between two uneven frames is tested "
           "instead of skipped; max gap %.1f frames)",

@@ -10,8 +10,8 @@
 // max(stock, real seconds held * 60), real seconds tracked per input object and button once per frame. No button or move ids.
 // Live (Main PC, keyboard, REN_FPS 120 + 12 CPU burners, 16 holds): OFF 7/16 and 8/16 long windups, ON 0/16.
 //
-// Mode 1 (gap fill on the key scan 0x20DFC0) was the first theory and is DISPROVEN live (254k scans, 0 gaps); kept off.
-// Mode 2 = trace / gate probe for RE (logs HKGT/HKGG/HKGK/HKGH lines).
+// Mode 1 (gap fill on the key scan 0x20DFC0) was the first theory and is DISPROVEN live (254k scans, 0 gaps); it rewrites the
+// key-scan step, do not use. Mode 2 = trace / gate probe for RE (logs HKGT/HKGG/HKGK/HKGH lines), do not use.
 #pragma once
 #include <cstdint>
 
@@ -24,7 +24,7 @@ struct StartInfo {
     bool knownBuild = false;
 };
 
-constexpr uint32_t kFnRva = 0x20DFC0;  // v2.02 key scan (rvas.json)
+constexpr uint32_t kScanRva = 0x20DFC0;  // v2.02 key scan (rvas.json)
 constexpr unsigned kStolen = 15;      // mov rax,rsp / mov [rax+8],rbx / mov [rax+18],rbp / mov [rax+20],rsi
 constexpr float kMaxGap = 4.0f;       // anim frames (1/60 s); larger jumps are seeks / hitstop resumes, left stock
 
@@ -37,6 +37,24 @@ bool Installed();
 inline float WindowStart(bool sameMove, float prevEnd, float prevT, float t, float step) {
     if (!sameMove || !(step > 0.0f) || !(prevEnd < t) || !(prevT <= t) || !(t - prevEnd < kMaxGap)) return t;
     return prevEnd;
+}
+
+// Mode 3 pure rules (unit-tested, used by holdkeygap.cpp). Real seconds a button is held after one frame: c = the game's
+// frames-held count now, lastCnt = at the previous frame, d = real seconds since the previous frame, dt = EMA frame time.
+inline float NextHeldSec(float heldSec, uint32_t c, uint32_t lastCnt, float d, float dt) {
+    if (c == 0) return 0.0f;
+    if (c < lastCnt || lastCnt == 0) heldSec = (float)c * (dt > 0.0f ? dt : 1.0f / 60.0f);  // new press
+    else if (d > 0.0f && d < 0.25f) heldSec += d;
+    if (heldSec > (float)c / 30.0f) heldSec = (float)c / 30.0f;  // at most 30 fps worth per frame (pauses)
+    return heldSec;
+}
+// Held getter result: max(stock, real hold in 1/60 s). Stock when the press is not tracked yet or the count went back.
+inline int HeldReal(int stock, float heldSec, uint32_t c, uint32_t lastCnt) {
+    if (c == 0 || lastCnt == 0 || c < lastCnt) return stock;
+    const float real = heldSec * 60.0f * (float)c / (float)lastCnt;
+    if (!(real > (float)stock + 0.5f) || !(real < 100000.0f)) return stock;
+    const int r = (int)real;
+    return r > stock ? r : stock;
 }
 
 }  // namespace holdkeygap

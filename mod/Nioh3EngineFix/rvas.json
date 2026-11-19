@@ -357,6 +357,15 @@
    ]
   },
   {
+   "rva": "0x20DFC0",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 58 08 48 89 68 18 48 89 70 20 48 89 50 10 57 41 54 41 55 41 56 41 57 48 83 EC 60 33 FF 0F 29",
+   "offset": 0,
+   "used_in": [
+    "holdkeygap.cpp"
+   ]
+  },
+  {
    "rva": "0x2477D4",
    "kind": "code",
    "pattern": "68 AB 69 03 EB E7 CC CC 41 BA 02 00 00 00 48 8D 41 10 4C 8B",
@@ -416,8 +425,7 @@
    "pattern": "41 5F 41 5E 5F C3 CC CC 48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B 31",
    "offset": 8,
    "used_in": [
-    "aichainguard.cpp",
-    "holdkeygap.cpp"
+    "aichainguard.cpp"
    ]
   },
   {
