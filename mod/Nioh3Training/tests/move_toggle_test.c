@@ -504,6 +504,21 @@ int main(void) {
         g_slot_act[0] = 0; g_slot_chr[0] = 0; g_slot_native[0] = 0;
         puts("PASS: direct-teleport native slot records moves (#92)");
     }
+    // GitHub #126: an attack row below 0x4E20 (kind 'A') is recorded; a movement / reaction row there (kind 'M') still is not.
+    {
+        g_tr.active = g_tr.practice = g_bm.active = 0;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml);
+        fake_now = 800000;
+        assert(!MlAttack(16102u, 0x3FB) && MlAttack(16102u, 0x18D1) && MlAttack(16102u, 0x4E5C) && !MlAttack(16102u, 0xFFFF) && !MlAttack(42u, 0x18D1));
+        const uint32_t seen[] = {2, 0x3FB, 2, 0x18D1, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) MlNote(16102u, seen[k], ++fake_now);
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 1 && ids[0] == 0x18D1);
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && MvRepeatId(16102u) == 0x18D1);
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        memset(g_ml, 0, sizeof g_ml);
+        puts("PASS: attack below 0x4E20 captured for Repeat last move, movement row below it is not (GitHub #126)");
+    }
     // #69187: real repeat implementation, known hazardous captured family, stale
     // history sanitation, and the two-picks-at-one-timestamp death regression.
     {
