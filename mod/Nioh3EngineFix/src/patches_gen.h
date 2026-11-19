@@ -292,6 +292,9 @@ static const uint8_t orig_PG10[] = { 0x49, 0x3B, 0xDC, 0x0F, 0x84, 0xDE, 0x00, 0
 static const uint8_t orig_PG11[] = { 0x48, 0x3B, 0xD8, 0x0F, 0x84, 0xB2, 0x04, 0x00, 0x00 };
 static const uint8_t orig_PG12[] = { 0x48, 0x3B, 0xFB, 0x0F, 0x84, 0x5F, 0x01, 0x00, 0x00 };
 static const uint8_t orig_PG13[] = { 0x49, 0x3B, 0x5E, 0x18, 0x0F, 0x84, 0x80, 0x01, 0x00, 0x00 };
+static const uint8_t orig_PG14[] = { 0x48, 0x3B, 0xD8, 0x0F, 0x84, 0x71, 0x03, 0x00, 0x00 };
+static const uint8_t orig_PG15[] = { 0x49, 0x3B, 0xDC, 0x0F, 0x84, 0xB0, 0x00, 0x00, 0x00 };
+static const uint8_t orig_PG16[] = { 0x49, 0x3B, 0xFF, 0x74, 0x26 };
 static const uint8_t orig_TT1[] = { 0xE8, 0x43, 0xD7, 0xE4, 0xFF };
 static const uint8_t orig_SB1[] = { 0xE8, 0x78, 0x0C, 0x00, 0x00 };
 static const uint8_t orig_SB2[] = { 0xE8, 0x73, 0xA7, 0xFF, 0xFF };
@@ -590,6 +593,9 @@ static const Site kSites[] = {
     { "PG11", "PG", 0x430CB7, 9, orig_PG11, "48 3B D8 0F 84 B2 04 00 00 44 8B 6B 10 41 8B D5 48 8B 05 ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PG12", "PG", 0x43118D, 9, orig_PG12, "48 3B FB 0F 84 5F 01 00 00 4C 63 7F 10 48 B9 25 23 22 84 E4 9C F2 CB", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PG13", "PG", 0x43126F, 10, orig_PG13, "49 3B 5E 18 0F 84 80 01 00 00 44 8B 63 10 44 89 65 58", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG14", "PG", 0x433AD6, 9, orig_PG14, "48 3B D8 0F 84 71 03 00 00 44 8B 7B 10 41 8B D7", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG15", "PG", 0x433E58, 9, orig_PG15, "49 3B DC 0F 84 B0 00 00 00 44 8B 73 10 48 8D 94 24 B0 00 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG16", "PG", 0x433EDE, 5, orig_PG16, "49 3B FF 74 26 48 8D 57 10 44 39 32", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "TT1", "TR", 0x56529C, 5, orig_TT1, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B29E4 },
     { "SB1", "TR", 0x5B6F37, 5, orig_SB1, "E8 ?? ?? ?? ?? 44 38 25 ?? ?? ?? ?? 8A D8", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5B7BB4 },
     { "SB2", "TR", 0x1FDF2D0, 5, orig_SB2, "E8 ?? ?? ?? ?? 4D 8B C7 49 8B D6 48 8B CE E8 ?? ?? ?? ?? 48 8B 07", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1FD9A48 },

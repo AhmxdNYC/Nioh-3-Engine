@@ -28,7 +28,8 @@ DUMP = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else pathlib.Path(r"C:\Use
 fails = []
 # the per-frame pad manager walkers (PadMgrUpdate 43671C -> 4385xx): 42FAC8 mode 3 (jmp from 438752), 430B58 mode 1 (call 43873A),
 # 438604 (call 4385F0), 4309F8 (call 4385F8)
-HOSTS = (0x42FAC8, 0x4309F8, 0x430B58, 0x438604)
+# 433A4C: the pad state update (calls the 2nd pad map at() 431E6C), reached from PadMgrUpdate (GitHub #123 stack 433ADF <- 435546 <- 435473 <- 436797)
+HOSTS = (0x42FAC8, 0x4309F8, 0x430B58, 0x438604, 0x433A4C)
 
 
 def check(cond, msg):
@@ -67,7 +68,7 @@ def main():
     md.detail = True
     ents = pdata(img)
     sites = table()
-    check(len(sites) == 13, "padguard_cave.h: parsed %d sites, want 13" % len(sites))
+    check(len(sites) == 16, "padguard_cave.h: parsed %d sites, want 16" % len(sites))
     doc = json.loads((ROOT / "patches.json").read_text(encoding="utf-8"))
     pg = {int(s["rva"], 16): s for s in doc["sites"] if s["group"] == "PG"}
     check(sorted(pg) == sorted(s["rva"] for s in sites), "patches.json PG sites != padguard_cave.h kWalks")

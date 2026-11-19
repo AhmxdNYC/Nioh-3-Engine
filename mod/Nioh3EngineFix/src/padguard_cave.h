@@ -49,9 +49,14 @@ inline constexpr Site kWalks[] = {
     {0x430CB7,  9, 3, kRbx, {0x48,0x3B,0xD8,0x0F,0x84,0xB2,0x04,0x00,0x00},       3, {0x49,0x8B,0xCE}},
     {0x43118D,  9, 3, kRdi, {0x48,0x3B,0xFB,0x0F,0x84,0x5F,0x01,0x00,0x00},       4, {0x4C,0x8B,0x45,0xB8}},
     {0x43126F, 10, 4, kRbx, {0x49,0x3B,0x5E,0x18,0x0F,0x84,0x80,0x01,0x00,0x00},  4, {0x48,0x8B,0x7D,0xA8}},
+    // 433A4C (pad state update, called from 435546; GitHub #123 fault 433ADF): three walks of [rsi+10h]
+    {0x433AD6,  9, 3, kRbx, {0x48,0x3B,0xD8,0x0F,0x84,0x71,0x03,0x00,0x00},       4, {0x4C,0x8B,0x66,0x10}},             // #123 fault 433ADF
+    {0x433E58,  9, 3, kRbx, {0x49,0x3B,0xDC,0x0F,0x84,0xB0,0x00,0x00,0x00},       5, {0x0F,0x28,0x74,0x24,0x60}},
+    {0x433EDE,  5, 3, kRdi, {0x49,0x3B,0xFF,0x74,0x26},                          3, {0x48,0x8B,0x1B}},
 };
 // clang-format on
 constexpr int kNumSites = (int)(sizeof(kWalks) / sizeof(kWalks[0]));
+static_assert(kNumSites <= 16, "the page holds 16 site blocks, counters and unwind entries");
 
 // page layout: one kBlock per site, then the per-site hit counters, then unwind data
 constexpr size_t kBlock = 0x40, kSlotCont = 0x30, kSlotExit = 0x38;
@@ -155,7 +160,7 @@ inline constexpr uint32_t kAtCalls[] = {0x42FC11, 0x42FD92, 0x4301A2, 0x43028F, 
 constexpr int kNumAtCalls = (int)(sizeof(kAtCalls) / sizeof(kAtCalls[0]));
 constexpr size_t kMapCave = 0x800, kMapRets = 0x880, kMapScratch = 0x900, kMapCounter = 0x940, kMapUnwind = 0x960;
 constexpr size_t kMapScratchLen = 0x40;
-static_assert(kTable + 16 * 12 <= kMapCave && kMapRets + 8 * 16 <= kMapScratch && kMapUnwind + 16 <= 0x1000, "map page layout");
+static_assert(kTable + 12 * (kNumSites + 2) <= kMapCave && kTable + 16 * 12 <= kMapCave && kMapRets + 8 * 16 <= kMapScratch && kMapUnwind + 16 <= 0x1000, "map page layout");
 
 // ---- second map (GitHub #115 / #118 / #63 / #51) ----
 // The pad manager keeps a second unordered_map<uint32, 8-byte pad state> with its own at() copy (431E6C, same FNV-1a lookup,

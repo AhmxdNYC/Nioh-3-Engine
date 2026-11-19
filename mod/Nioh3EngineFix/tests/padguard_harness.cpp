@@ -56,8 +56,8 @@ constexpr uint32_t kFakeUnwind = 0x1000;  // fake host UNWIND_INFO: push rbx ; s
 struct Host {
     uint32_t begin, end;
 };
-static const Host kHosts[] = {{0x42FAC8, 0x4305A4}, {0x4309F8, 0x430B56}, {0x430B58, 0x431409}, {0x438604, 0x438706}};  // dump .pdata
-static RUNTIME_FUNCTION g_hostRf[4];
+static const Host kHosts[] = {{0x42FAC8, 0x4305A4}, {0x4309F8, 0x430B56}, {0x430B58, 0x431409}, {0x438604, 0x438706}, {0x433A4C, 0x433F42}};  // dump .pdata
+static RUNTIME_FUNCTION g_hostRf[5];
 
 static void Commit(uint8_t* base, uint32_t rva, size_t n) {
     const uint32_t lo = rva & ~0xFFFu;
@@ -85,8 +85,8 @@ static uint8_t* MakeImage(bool unwind) {
     if (unwind) {  // the hosts' RUNTIME_FUNCTIONs (fake prolog: push rbx ; sub rsp,20h), like the game's .pdata
         const uint8_t ui[] = {1, 6, 2, 0, 6, 0x32, 1, 0x30};  // v1, prolog 6, 2 codes: @6 ALLOC_SMALL 20h, @1 PUSH_NONVOL rbx
         memcpy(b + kFakeUnwind, ui, sizeof ui);
-        for (int i = 0; i < 4; ++i) g_hostRf[i] = {kHosts[i].begin, kHosts[i].end, kFakeUnwind};
-        CHECK(RtlAddFunctionTable(g_hostRf, 4, (DWORD64)b), "host function table");
+        for (int i = 0; i < 5; ++i) g_hostRf[i] = {kHosts[i].begin, kHosts[i].end, kFakeUnwind};
+        CHECK(RtlAddFunctionTable(g_hostRf, 5, (DWORD64)b), "host function table");
     }
     return b;
 }
@@ -128,7 +128,7 @@ static void Imm(std::vector<uint8_t>& c, uint8_t rex, uint8_t op, uint64_t v) {
 // runs site k with node = v; returns the stop context
 static CONTEXT Run(uint8_t* img, int k, uint64_t v, Regs* in) {
     const uint64_t H = (uint64_t)g_head;
-    Regs r{H, H, 0x1111, 0x2222, H, H, 0x3333, 0x8888, 0x9999, 0xAAAA, H, 0xDDDD, H, 0xFFFF};
+    Regs r{H, H, 0x1111, 0x2222, H, H, 0x3333, 0x8888, 0x9999, 0xAAAA, H, 0xDDDD, H, H};  // r15 = H: 433EDE compares with r15
     if (kWalks[k].node == padguard_cave::kRbx) r.rbx = v;
     else r.rdi = v;
     *in = r;
@@ -230,7 +230,7 @@ int main() {
         si.base = (uintptr_t)b;
         si.knownBuild = true;
         padguard::Start(si);
-        CHECK(Logged("PADGUARD: installed at 13 of 13 pad list walks"), "install line");
+        CHECK(Logged("PADGUARD: installed at 16 of 16 pad list walks"), "install line");
         CHECK(Logged("unwind registered"), "unwind registered");
         for (int k = 0; k < kNumSites; ++k) {
             const uint8_t* s = b + kWalks[k].rva;
@@ -328,7 +328,7 @@ int main() {
         CHECK(b[0x430A38] == 0x48 && b[0x430A38 + 3] == 0x50, "differing site written");
         CHECK(!memcmp(b + 0x438659, kWalks[8].orig, kWalks[8].len), "site with a differing exit written");
         CHECK(b[0x42FB3E] == 0xE9, "other sites must still install");
-        CHECK(Logged("PADGUARD: installed at 11 of 13") && Logged("walks NOT guarded (bytes differ - another patch or build): 430A38 438659"),
+        CHECK(Logged("PADGUARD: installed at 14 of 16") && Logged("walks NOT guarded (bytes differ - another patch or build): 430A38 438659"),
               "partial install lines");
         CHECK(Logged("unwind NOT registered"), "no host table -> unwind not registered (logged)");
     }
@@ -352,7 +352,7 @@ int main() {
         printf("FAILED (%d)\n", g_fail);
         return 1;
     }
-    printf("ALL OK: 13 sites x {null, head, other}: null ends the walk at the stock exit with stock end-of-list flags and no register "
+    printf("ALL OK: 16 sites x {null, head, other}: null ends the walk at the stock exit with stock end-of-list flags and no register "
            "change, head / other identical to stock; counted + logged (rate-limited); chained unwind; off / partial / refused cases\n");
     return 0;
 }
