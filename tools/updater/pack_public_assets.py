@@ -50,6 +50,9 @@ def manifest_with_name_lists(stable_bytes: bytes, version: str, extra_blobs: dic
     prefix = f"https://nioh3-mod-feedback.vercel.app/releases/{version}"
     if files and isinstance(files[0], dict) and isinstance(files[0].get("url"), str) and "/" in files[0]["url"]:
         prefix = files[0]["url"].rsplit("/", 1)[0]
+        # Folder is always the new --version; the base's folder is the OLD release (TECH_DEBT 11-13/11-15).
+        if "/releases/" in prefix:
+            prefix = prefix.rsplit("/releases/", 1)[0] + f"/releases/{version}"
     manifest["version"] = version
     manifest["files"] = [{
         "name": name,

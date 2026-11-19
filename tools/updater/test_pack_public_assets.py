@@ -88,6 +88,14 @@ class PackPublicAssetsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pack.pack("1.7", Path("."), {}, Path("."), Path("."), {}, {})
 
+    def test_url_folder_follows_new_version_not_base(self):
+        names = (*pack.ASIS, *pack.INIS, *pack.TSVS)
+        base = {"version": "1.8.23", "files": [
+            {"name": n, "sha256": "0", "url": "https://h.example/releases/1.8.23/" + n} for n in names]}
+        out = json.loads(pack.manifest_with_name_lists(json.dumps(base).encode(), "1.8.24",
+                                                       {n: n.encode() for n in names}))
+        self.assertTrue(all(f["url"] == "https://h.example/releases/1.8.24/" + f["name"] for f in out["files"]))
+
 
 if __name__ == "__main__":
     unittest.main()
