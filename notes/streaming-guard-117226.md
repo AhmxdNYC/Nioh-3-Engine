@@ -36,3 +36,18 @@ Keep released archive handles open (linger) while owner+0x88 stays below the cap
 lingering file (take its +0x34 spinlock, users == 0, call the stock 0x751784) when an open would hit the cap.
 Same picture, fewer CreateFile/CloseHandle calls. Measure with this same FnProbe list (opens/s must fall) plus
 `[ctx+0x18]` denials (must not rise).
+
+## A/B: FileLinger v1 (EF b60ac52a, branch pc2/streamguard-117226 aa18779a), Main PC, 90 s roam at 12 LP + 90 s at 8 LP
+
+| arm | file opens 0x314A80 (whole session) | closes 0x751784 | field opens/s median |
+|---|---|---|---|
+| FileLinger 0 | 45,480 | 22,952 | 17.7 |
+| FileLinger 1 (max 32, free 24) | 45,865 | 22,740 | 53.5 |
+
+- **No gain.** Kept 13,387 handles, evicted 11,388 of them again, closed 11,351 at once (open count over cap - 24).
+  Only ~2,000 of ~22,700 closes were saved (~9%), and the total open count did not fall (half the opens come from another
+  opener, close site 0x3178C1). Streaming walks through far more than 32-40 distinct files; the game's cap of 64 leaves no
+  room for a useful cache. No crash, no errors, install restored to EF 1c8e1245. **Not shipped**, branch kept as a record.
+- Cost bound: even removing every open+close saves ~27 us x 20-130/s = 0.05-0.35% of one thread walking here.
+  The file churn is not where the streaming CPU goes.
+- The large number is **0x116A24 page lookups: 170k-440k calls/s** in the field (99% from 0x49EFB). That is the next target.

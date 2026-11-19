@@ -321,7 +321,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         return id;
     }
     if (g_rep_seq[i]) return MvSeqPick(i, st, chr, id);  // user #14423: chain repeat (also lets a started chain finish while chasing)
-    DWORD now = GetTickCount(); int gap = MvGapEff(i, chr);
+    DWORD now = GetTickCount(); int gap = MvGapEff(i, chr); int chain_now = 0;
     const uint32_t act = ActIdOf(st);
     const int attack = act >= 0x4E20 && act != 0xFFFF && act != 0xFFFFFFFFu;
     // user #14710: the move plays (the drill or the pump forced it, or the boss picked it itself): followed like a sequence round
@@ -331,13 +331,30 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         if (attack && g_rep_cur[i] != act) { g_rep_cur[i] = act; g_rep_curt[i] = now ? now : 1; }
         // the move or its own next piece plays: the game's follow-up passes, another attack waits; the move ends back in idle by itself
         // (was: the first pick after the repeat = 'finished' -> gap idle, live 22:17:24 0x4EE8 > 0x4EE9 and 0x4E7B > 0x4EA7 > 0x4E7C cut short)
-        if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000) return MvFollow(i, chr, act, id, now);
-        if (!g_rep_seen[i] && (act == 2 || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
-        g_rep_end[i] = now ? now : 1; MvRoundReset(i);  // back in idle / a reaction / never started: the move has ended, the gap starts now
+        // GitHub #91: Last 2/3 at delay 0. A same-family follow-up is another branch of
+        // this move (live 4E7C -> 4E58 for 3 to 17 s). The next captured move starts
+        // there. A different attack still waits (MV_KEEP) so the animation can finish.
+        // One move, and any positive gap, still follow that branch into idle action 2.
+        const int chain91 = gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && g_rep_seen[i]
+            && now - g_rep_last[i] < 30000 && id >= 0x4E20 && id != rep;
+        const uint32_t curp = act == rep ? act : (g_rep_cur[i] ? g_rep_cur[i] : rep);
+        if (chain91 && MvContinues(chr, curp, id)) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
+        else if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || id != 2))
+            return MvFollow(i, chr, act, id, now);
+        else if (!g_rep_seen[i] && attack && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && now - g_rep_last[i] < 30000)
+            return rep;  // #91: the previous move is still the action. Keep this request. Do not step the list again.
+        else if (!g_rep_seen[i] && (act == 2 || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
+        else { g_rep_end[i] = now ? now : 1; MvRoundReset(i); }  // back in idle / a reaction / never started: the move has ended, the gap starts now
     }
-    // A captured cycle can advance only from confirmed native idle. Reactions,
-    // unreadable frames and low-ID landing recovery are not round boundaries.
-    if (g_rep_lastn[i] && act != 2) return 0;
+    // GitHub #91: delay 0 does not wait until the action is idle 2. A positive gap,
+    // and any pick that is not that idle, still refuses a cycle step (#69187:
+    // unreadable frames and low-id landing recovery are not round boundaries).
+    // Last 2/3 at gap 0: an idle pick while the previous attack is still playing
+    // is the game queueing a next piece, not a round boundary (live 06:51, the
+    // list stepped every call and 4E7C lasted 47 ms).
+    if (!chain_now && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && !g_rep_seen[i] && attack && act != rep && g_rep_last[i] && now - g_rep_last[i] < 30000)
+        return rep;
+    if (!chain_now && g_rep_lastn[i] && act != 2 && (gap > 0 || id != 2)) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up (no attacks), the repeat waits
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         if (MvGapLog(i, id)) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
@@ -526,6 +543,14 @@ static __attribute__((noinline)) void MvLastTick(void) {
     const uint64_t me = PlayerChar();
     for (int k = 0; k < g_nsp; ++k) MlActor(g_sp_actor[k], g_sp_chr[k], me, now);
     if (g_tr.active && g_bm.active) MlActor(g_bm.actor ? g_bm.actor : ActorByHandle(g_bm.id), g_tr.chr, me, now);
+    // GitHub #92: a direct teleport's mission boss is a native slot, not a Training
+    // summon and not the Boss Match actor. Record that boss too (skip one already watched).
+    for (int s = 0; s < N3T_SLOTS; ++s) {
+        if (!g_slot_act[s] || !g_slot_chr[s]) continue;
+        int owned = 0;
+        for (int k = 0; k < g_nsp; ++k) if (g_sp_actor[k] == g_slot_act[s]) owned = 1;
+        if (!owned) MlActor(g_slot_act[s], g_slot_chr[s], me, now);
+    }
 }
 // newest first: ids[0] = the last attack the boss started. Returns how many were captured (0..3).
 N3T_API int Nioh3Training_GetLastMoves(uint32_t chr, uint32_t* ids, int cap) {

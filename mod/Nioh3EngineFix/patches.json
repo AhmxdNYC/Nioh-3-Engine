@@ -35,7 +35,7 @@
       "pattern": "0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 69 C8 E8 03 00 00 B8 89 88 88 88", "offset": 6 },
     { "id": "P8c", "group": "VRR", "rva": "0x5AF682", "len": 5, "orig": "E8 0D 6F A9 FF", "kind": "call", "target": "caveTier", "call_at": 0,
       "pattern": "0F 29 74 24 30 48 8B D9 E8 ?? ?? ?? ?? 0F 57 F6 44 8B C0", "offset": 8 },
-    { "id": "P8d", "group": "VRR", "rva": "0x5AF69F", "len": 5, "orig": "E8 F0 6E A9 FF", "kind": "call", "target": "caveTier", "call_at": 0,
+    { "id": "P8d", "group": "VRR", "rva": "0x5AF69F", "len": 5, "orig": "E8 F0 6E A9 FF", "kind": "call", "target": "caveGov", "call_at": 0,
       "pattern": "F3 0F 5E 35 ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 8B 4B 64 69 D0 E8 03 00 00", "offset": 8 },
     { "id": "P9", "group": "VRR", "rva": "0x5AD89B", "len": 6, "orig": "8B 87 14 06 00 00", "kind": "call", "target": "caveTier", "call_at": 0,
       "pattern": "FF 50 08 8B 87 14 06 00 00 33 D2 F7 B7 1C 06 00 00", "offset": 3 },
@@ -47,6 +47,8 @@
       "pattern": "44 89 87 14 06 00 00 89 87 1C 06 00 00", "offset": 0 },
     { "id": "P7", "group": "VRRMENU", "rva": "0x43312B", "len": 5, "orig": "E8 54 33 C1 FF", "kind": "call", "target": "caveMenu", "call_at": 0, "reads": "callee_rel32@1",
       "pattern": "0F 29 74 24 20 48 8B F9 E8 ?? ?? ?? ?? 48 8B 71 50 0F 28 F0", "offset": 8 },
+    { "id": "P10", "group": "VRRHOLD", "rva": "0x198EC09", "len": 5, "orig": "8B 4B 20 FF C1", "kind": "call", "target": "caveHold", "call_at": 0,
+      "pattern": "8B 4B 20 FF C1 89 4B 20 84 C0 75 09 83 F9 1E 0F 8E", "offset": 0, "what": "GitHub #98 (DeepSeek #112736): player notice-list walk 0x35847C; per-walk age counter entry+0x20 vs 30 (0x1E) = hold window in frames" },
     { "id": "W3", "group": "W3", "rva": "0x1A6BF2D", "len": 6, "orig": "FF 15 95 6A E7 01", "kind": "call", "target": "hookPeek", "call_at": 1, "reads": "iat_disp32@2",
       "pattern": "48 8D 4C 24 48 33 D2 FF 15 ?? ?? ?? ?? 85 C0 74 1D", "offset": 7 },
     { "id": "R1", "group": "R1", "rva": "0x4A5346", "len": 6, "orig": "EB 02 F3 90 33 D2", "kind": "ripload", "opcode": "8B 15", "data": "r1Timeout",
@@ -366,6 +368,12 @@
       "pattern": "48 3B FB 0F 84 5F 01 00 00 4C 63 7F 10 48 B9 25 23 22 84 E4 9C F2 CB", "offset": 0, "what": "PadListGuard: loop head `cmp rdi, rbx ; je 4312F5` of a pad list walk in 430B58; padguard.cpp jumps to a cave that ends the walk (same exit, same flags) when the node is null" },
     { "id": "PG13", "group": "PG", "rva": "0x43126F", "len": 10, "orig": "49 3B 5E 18 0F 84 80 01 00 00", "kind": "check",
       "pattern": "49 3B 5E 18 0F 84 80 01 00 00 44 8B 63 10 44 89 65 58", "offset": 0, "what": "PadListGuard: loop head `cmp rbx, qword ptr [r14 + 0x18] ; je 4313F9` of a pad list walk in 430B58; padguard.cpp jumps to a cave that ends the walk (same exit, same flags) when the node is null" },
+    { "id": "PG14", "group": "PG", "rva": "0x433AD6", "len": 9, "orig": "48 3B D8 0F 84 71 03 00 00", "kind": "check",
+      "pattern": "48 3B D8 0F 84 71 03 00 00 44 8B 7B 10 41 8B D7", "offset": 0, "what": "PadListGuard: loop head `cmp rbx, rax ; je 433E50` of a pad list walk in 433A4C (GitHub #123 fault 433ADF); padguard.cpp jumps to a cave that ends the walk (same exit, same flags) when the node is null" },
+    { "id": "PG15", "group": "PG", "rva": "0x433E58", "len": 9, "orig": "49 3B DC 0F 84 B0 00 00 00", "kind": "check",
+      "pattern": "49 3B DC 0F 84 B0 00 00 00 44 8B 73 10 48 8D 94 24 B0 00 00 00", "offset": 0, "what": "PadListGuard: loop head `cmp rbx, r12 ; je 433F11` of a pad list walk in 433A4C; padguard.cpp jumps to a cave that ends the walk (same exit, same flags) when the node is null" },
+    { "id": "PG16", "group": "PG", "rva": "0x433EDE", "len": 5, "orig": "49 3B FF 74 26", "kind": "check",
+      "pattern": "49 3B FF 74 26 48 8D 57 10 44 39 32", "offset": 0, "what": "PadListGuard: loop head `cmp rdi, r15 ; je 433F09` of a pad list walk in 433A4C; padguard.cpp jumps to a cave that ends the walk (same exit, same flags) when the node is null" },
     { "id": "TT1", "group": "TR", "rva": "0x56529C", "len": 5, "orig": "E8 43 D7 E4 FF", "kind": "check", "callee": "0x3B29E4",
       "pattern": "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", "offset": 0, "what": "Tour tick: PerFrameUpdater 5651D0 -> FastTravelSeqTickCall 3B29E4 (game thread, once per pass); tour.cpp retargets it to a thunk that saves rcx/rdx/r8-r11/rax/xmm0-5, runs the tour state machine and jumps to the original ([Debug] Tour != 0 only)" },
     { "id": "SB1", "group": "TR", "rva": "0x5B6F37", "len": 5, "orig": "E8 78 0C 00 00", "kind": "check", "callee": "0x5B7BB4",
@@ -586,7 +594,9 @@
     { "id": "RDC1", "group": "RDC", "rva": "0x133FAF", "len": 6, "orig": "41 0F 2F F0 77 1C", "kind": "jmp", "target": "caveCharLod",
       "pattern": "0F 85 0E 01 00 00 41 0F 2F F0 77 ?? F3 0F 10 8B", "offset": 6, "what": "#67225 RenderDistance: UpdateCharacterLodDistance compare. comiss xmm6, xmm8; ja. caveCharLod scales xmm8 (the limit) then takes the original branch. The wildcard is the ja displacement." },
     { "id": "RDF1", "group": "RDF", "rva": "0x2F3E47", "len": 5, "orig": "E8 04 04 8A 00", "kind": "call", "target": "cavePropDist", "call_at": 0, "callee": "0xB94250",
-      "pattern": "8B 42 04 39 06 75 EF 48 85 D2 74 11 48 8B 52 18 4D 8B C1 49 8B CA E8 ?? ?? ?? ?? FF C3 41 FF C6 48", "offset": 22, "what": "#67225 RenderDistance: PropTableReadParamsBatch16 property memcpy. [rsi] is the key hash (cmp [rsi], eax). cavePropDist copies, then scales ViewDistance, ShadowAbsolutelyRenderDistanceH, ModelViewDistanceArray and LODDistanceArray in the destination only." }
+      "pattern": "8B 42 04 39 06 75 EF 48 85 D2 74 11 48 8B 52 18 4D 8B C1 49 8B CA E8 ?? ?? ?? ?? FF C3 41 FF C6 48", "offset": 22, "what": "#67225 RenderDistance: PropTableReadParamsBatch16 property memcpy. [rsi] is the key hash (cmp [rsi], eax). cavePropDist copies, then scales ViewDistance, ShadowAbsolutelyRenderDistanceH, ModelViewDistanceArray and LODDistanceArray in the destination only." },
+    { "id": "FWP", "group": "FWP", "rva": "0x19B2726", "len": 7, "orig": "48 8B 8F C8 01 00 00", "kind": "jmp", "target": "caveFwp",
+      "pattern": "48 8B 8F C8 01 00 00 E8 ?? ?? ?? ?? FF C3 84 DB 0F 85 ?? ?? ?? ?? 33 C9 FF 15", "offset": 0, "what": "#101247 frame-wait park (note 480): cold block of RenderWaitForFrame's job spin 4A4F1C (rdi = GfxDevice+1EE360, job = [rdi+1C8], bit 0 of [job] = dispatch in flight). Stock kicks the job event every poll and Sleep(0)s every 256th; caveFwp kicks once, parks on its own high-res timer until bit 0 clears, then re-enters the native recheck at 4A4F3B." }
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -740,6 +750,9 @@
     {"group": "RD", "rva": "0x2eeddec", "bytes": "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 48 8D B9 E0 3B 00 00 EB 08 33 C9 FF 15 2E 45 9F 00 48 8B CF E8 7E B1 52 FD 84 C0 75 EC 48 8D 4B 10 48 8B 5C 24 30 48 83 C4 20 5F E9 4B 2C 01 00", "what": "teardown drains before context cleanup"},
     {"group": "RD", "rva": "0x2eede4c", "bytes": "40 53 48 83 EC 20 48 8B D9 48 8B 49 08 48 85 C9 74 34 48 83 7B 10 00 74 15 48 8B 4B 10 45 33 C0 41 8D 50 01 FF 15 22 47 9F 00 48 8B 4B 08 83 CA FF FF 15 BD 44 9F 00 48 8B 4B 08 FF 15 03 45 9F 00 48 83 63 08 00 48 8B 4B 10 48 85 C9 74 0B FF 15 EF 44 9F 00 48 83 63 10 00 48 83 63 18 00 83 63 20 00 83 63 24 00 83 63 28 00 48 83 C4 20 5B C3", "what": "shutdown sentinel and join before ring clear"},
     {"group": "M2S", "rva": "0x493da", "bytes": "33 C0 F0 45 0F B1 28 8B C8 8B D0 0F BA E9 09 F0 41 0F B1 08 3B C2 75 EF", "what": "Seed A: only register operations then unconditional locked CAS493E9 and retry"},
-    {"group": "M2S", "rva": "0x4940a", "bytes": "45 33 ED 44 89 28 33 C0 F0 45 0F B1 29 66 0F 1F 84 00 00 00 00 00 8B C8 8B D0 0F BA E9 09 F0 41 0F B1 09 3B C2 75 EF", "what": "Seed B: output store and zero-source definition then seed; unconditional locked CAS49428 and retry"}
+    {"group": "M2S", "rva": "0x4940a", "bytes": "45 33 ED 44 89 28 33 C0 F0 45 0F B1 29 66 0F 1F 84 00 00 00 00 00 8B C8 8B D0 0F BA E9 09 F0 41 0F B1 09 3B C2 75 EF", "what": "Seed B: output store and zero-source definition then seed; unconditional locked CAS49428 and retry"},
+    {"group": "FWP", "rva": "0x4a4f1c", "bytes": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 33 F6 48 8B F9 48 39 B1 78 01 00 00 74 17 8B DE 48 8B 97 C8 01 00 00 33 C0 F0 0F B1 32 A8 01 0F 85 D6 D7 50 01", "what": "FWP: spin 4A4F1C ABI: rdi = wait object, ebx = poll counter, rsp 16-aligned in the body; the hot recheck 4A4F3B reloads the job and re-tests bit 0 (the cave returns there)"},
+    {"group": "FWP", "rva": "0x19b272d", "bytes": "E8 D2 C3 68 FE FF C3 84 DB 0F 85 FF 27 AF FE 33 C9 FF 15 F4 FB F2 01 90 E9 F1 27 AF FE", "what": "FWP: rest of the stock cold block (kick 3EB04, 256-poll counter, Sleep(0), jmp 4A4F3B); volatile registers dead at the site"},
+    {"group": "FWP", "rva": "0x3eb04", "bytes": "48 83 EC 28 48 8B 49 08 48 85 C9 74 0A 48 8B 49 20 FF 15 2D 38 8A 03 48 83 C4 28 C3", "what": "FWP: kick 3EB04 = SetEvent([[job+8]+20h]) if the holder exists; the cave calls it once per park round"}
   ]
 }

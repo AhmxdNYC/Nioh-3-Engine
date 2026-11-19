@@ -464,6 +464,46 @@ int main(void) {
         cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
         puts("PASS: repeat last move (#68578): attack starts recorded (no links / next pieces / twitches / reactions), Last 1, Last 2 cycle in order without inner gap, gap after the cycle, frozen while repeating, OFF");
     }
+    // GitHub #91: delay 0 chains on the idle pick. It does not wait until ActIdOf is idle 2.
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); MvGapPut(16102u, 0);
+        fake_now = 600000;
+        const uint32_t seen[] = {2, 0x4E6C, 2, 0x4E5C, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) { cur_act = seen[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);
+        cur_act = 0x4E6C; fake_now += 40; Pick(2);
+        assert(h_mvsel(0x3000, 0) == 0x4E5C);  // idle pick at delay 0 starts the next move now
+        assert(ActIdOf(0x3000) == 0x4E6C);     // did not wait for the action to become idle 2
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        memset(g_ml, 0, sizeof g_ml); Nioh3Training_SetMoveRepeat(16102u, 0, 0); MvGapPut(16102u, 0);
+        assert(MvContinues(16102u, 0x4E5Cu, 0x4E60u));
+        fake_now = 620000;
+        const uint32_t pair[] = {2, 0x4E5C, 2, 0x4E6C, 2};
+        for (unsigned k = 0; k < sizeof pair / sizeof pair[0]; ++k) { cur_act = pair[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);
+        cur_act = 0x4E5C; fake_now += 40; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);  // a different attack still waits
+        Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // the same-family branch starts the next captured move
+        assert(ActIdOf(0x3000) == 0x4E5C);
+        fake_now += 20; Pick(2); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // an idle pick does not step the list again
+        fake_now += 2000; Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // still 4E6C until that move is the action
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        puts("PASS: delay 0 does not wait for idle action 2 (#91)");
+    }
+    // GitHub #92: a native-slot boss (direct teleport) is recorded with no summon and no Boss Match.
+    {
+        memset(g_ml, 0, sizeof g_ml);
+        g_tr.active = g_bm.active = 0; g_nsp = 0; g_sp_actor[0] = 0;
+        g_slot_act[0] = actor; g_slot_chr[0] = 16102u; g_slot_native[0] = 44;
+        fake_now = 700000; cur_act = 2; MvLastTick();
+        cur_act = 0x4E5C; fake_now += 20; MvLastTick();
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 1 && ids[0] == 0x4E5C);
+        g_slot_act[0] = 0; g_slot_chr[0] = 0; g_slot_native[0] = 0;
+        puts("PASS: direct-teleport native slot records moves (#92)");
+    }
     // #69187: real repeat implementation, known hazardous captured family, stale
     // history sanitation, and the two-picks-at-one-timestamp death regression.
     {

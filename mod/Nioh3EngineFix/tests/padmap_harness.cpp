@@ -138,6 +138,76 @@ int main(int argc, char** argv) {
     CHECK(*(volatile long*)(page + kMapCounter) == 1001, "B counted as a hit");
     (void)retB;
 
+    // 3. second map (#115): dump checks of at() 431E6C, its miss path and its 7 callers
+    CHECK(memcmp(d.data() + kAt2Miss, kAt2MissOrig, kAtMissLen) == 0, "kAt2Miss bytes differ from the dump");
+    static const uint8_t kHead[4] = {0x48, 0x83, 0xEC, 0x28};
+    CHECK(memcmp(d.data() + kAt2Fn, kHead, 4) == 0, "at2 does not open with sub rsp,28h");
+    memcpy(&disp, d.data() + kAt2Miss + 3, 4);
+    const uintptr_t msg2Rva = kAt2Miss + 7 + disp;
+    CHECK(strcmp((const char*)d.data() + msg2Rva, "invalid unordered_map<K, T> key") == 0, "msg2 string at %zX", (size_t)msg2Rva);
+    CHECK(CallTarget(B + kAt2Miss + 7) - B == 0xB5FB84, "thrower2 %zX", (size_t)(CallTarget(B + kAt2Miss + 7) - B));
+    for (int i = 0; i < kNumAt2Calls; ++i) {
+        CHECK(d[kAt2Calls[i]] == 0xE8 && CallTarget(B + kAt2Calls[i]) - B == kAt2Fn, "call %X is not call at2()", kAt2Calls[i]);
+    }
+    // every call of at2 in the image is in the table (a caller left out would still get the original throw: safe, but log it)
+    int calls2 = 0;
+    for (size_t a = 0x1000; a + 5 < d.size() && a < 0x2C00000; ++a) {
+        if (d[a] != 0xE8) continue;
+        int32_t r;
+        memcpy(&r, &d[a + 1], 4);
+        if (a + 5 + (intptr_t)r == kAt2Fn) ++calls2;
+    }
+    printf("calls of at2 in the image: %d (table %d)\n", calls2, kNumAt2Calls);
+    CHECK(calls2 == kNumAt2Calls, "at2 has %d calls, table %d", calls2, kNumAt2Calls);
+    int into2 = 0;
+    for (size_t a = 0x1000; a + 6 < d.size() && a < 0x2C00000; ++a) {
+        if (d[a] == 0x0F && d[a + 1] == 0x84) {
+            int32_t r;
+            memcpy(&r, &d[a + 2], 4);
+            if (a + 6 + (intptr_t)r == kAt2Miss) ++into2;
+        } else if (d[a] == 0x74 && a + 2 + (int8_t)d[a + 1] == kAt2Miss) {
+            ++into2;
+        }
+    }
+    printf("jumps into the at2 miss path: %d\n", into2);
+    CHECK(into2 >= 3, "expected the two je of at2 + its cold chunk into its miss path");
+
+    // 4. run the second cave in its own block; the first block's scratch / counter stay untouched
+    memset(page + kMap2.scratch, 0, kMapScratchLen);
+    memset(page + kMap2.counter, 0, 4);
+    const uintptr_t cave2 = (uintptr_t)page + kMap2.cave;
+    memcpy(at + 6, &cave2, 8);  // atStub now jumps to the second cave
+    uintptr_t rets2[kNumAt2Calls];
+    for (int i = 0; i < kNumAt2Calls; ++i) rets2[i] = 0x2222 + i;
+    rets2[0] = retA;  // A first this time
+    const size_t len2 = BuildMapMiss(page, rets2, kNumAt2Calls, msg, (uintptr_t)&Thrower, kMap2);
+    printf("map-miss cave 2: %zu bytes\n", len2);
+    CHECK(len2 > 0 && len2 < kMap2.rets - kMap2.cave, "cave2 size %zu", len2);
+    FlushInstructionCache(GetCurrentProcess(), page, 0x2000);
+    memset(page + kMapScratch, 0x11, kMapScratchLen);   // first block: must not be touched
+    memset(page + kMap2.scratch, 0x5A, kMapScratchLen);  // second block: dirty, must be re-zeroed
+    v = callA();
+    CHECK(v == page + kMap2.scratch, "A2: value %p, want scratch2 %p", (void*)v, (void*)(page + kMap2.scratch));
+    zero = true;
+    for (size_t i = 0; i < kMapScratchLen; ++i) zero = zero && page[kMap2.scratch + i] == 0;
+    CHECK(zero, "A2: scratch2 not zeroed");
+    bool firstKept = true;
+    for (size_t i = 0; i < kMapScratchLen; ++i) firstKept = firstKept && page[kMapScratch + i] == 0x11;
+    CHECK(firstKept, "A2: first block scratch touched");
+    CHECK(*(volatile long*)(page + kMap2.counter) == 1, "A2: counter2 %ld", *(volatile long*)(page + kMap2.counter));
+    CHECK(*(volatile long*)(page + kMapCounter) == 1001, "A2: first counter changed");
+    g_phase = 0;
+    g_msgSeen = 0;
+    RtlCaptureContext(&g_ctx);
+    if (g_phase == 0) {
+        g_phase = 1;
+        callB();
+        g_phase = 3;
+    }
+    CHECK(g_phase == 2, "B2: phase %d, want 2 (original thrower reached)", g_phase);
+    CHECK(g_msgSeen == msg, "B2: thrower rcx %zX, want msg", (size_t)g_msgSeen);
+    CHECK(*(volatile long*)(page + kMap2.counter) == 1, "B2 counted as a hit");
+
     if (g_fail) {
         printf("FAILED %d\n", g_fail);
         return 1;

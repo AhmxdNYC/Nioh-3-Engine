@@ -27,7 +27,7 @@ static int MsRead(uint32_t*m,uint8_t*j,uint32_t*o){*m=mission;*j=0;*o=0;return 1
 static int ActorInTable(uint64_t a){return a==actor&&!removed;}
 static uint64_t FindWrapper(uint32_t h){return h==44?(uint64_t)wrapper:0;}
 static int Rd64(uint64_t a,uint64_t*out){*out=*(uint64_t*)a;return 1;}
-static uint64_t NativeEntryActor(uint32_t h,uint32_t c){return h==44&&c==1234?actor:0;}
+static uint64_t NativeEntryActor(uint32_t h,uint32_t c){return h==44&&c&&c==record[1]?actor:0;}
 static int ActorDeadNow(uint64_t a,int*d,uint64_t*h,uint64_t*m){*d=dead;*h=hp;*m=maxhp;return dead||!hp;}
 static int InSp(uint64_t a){for(int i=0;i<g_nsp;i++)if(g_sp_actor[i]==a)return 1;return 0;}
 static int SlotOf(uint64_t a){for(int i=0;i<3;i++)if(g_slot_act[i]==a)return i;return -1;}
@@ -35,12 +35,13 @@ static int NativeSlotAlive(int s);static int SlotAlive(int s);
 static int SlotFree(void){for(int i=0;i<3;i++)if(!SlotAlive(i))return i;return -1;}
 static int KbCollect(uint64_t*a,int n,uint32_t*h){if(!visible)return 0;*a=visible==2?789:actor;*h=visible==2?55:44;return 1;}
 static void Despawn(int i){despawns++;g_sp_actor[i]=0;}
+static int Despawn2(int i,int d){Despawn(i);return 1;}
 '''
 code=preamble+'\n#include "'+(root/'src/boss_vitals.h').as_posix()+'"\nstatic BvCfg g_bv[3];static void BvInit(void){}\n'
 # Avoid selecting the early prototype.
 a=s.index('static int SlotAlive(int s) {');code+=body(s[a:s.index('{',a)].strip())+'\n'
 code+='#include "'+(root/'src/native_slots_game.h').as_posix()+'"\n'
-code+=body('static void SlotDespawn(int s)')
+code+=body('static void SlotDespawn(int s, int deferDead)')
 code+=r"""
 #define N3T_API
 #define MAXSP 3
@@ -62,6 +63,7 @@ code+=r'''
 int main(void){wrapper[3]=(uint64_t)record; uint32_t metaChr=99;
  g_bv[0].infHp=1;g_bv_req[0]=3;g_slot_rehold[0]=1;
  NativeSlotsTick();assert(SlotAlive(0)&&g_slot_chr[0]==1234&&NativeSlotsActive());
+ record[1]=27230;NativeSlotsTick();assert(SlotAlive(0)&&g_slot_chr[0]==27230&&g_slot_act[0]==actor);record[1]=1234;g_slot_chr[0]=1234;
  assert(MetadataActor(MAXSP,&metaChr)==actor && metaChr==1234 && g_nsp==0);
  assert(!MetadataActor(-1,&metaChr) && !metaChr);
  assert(!MetadataActor(META_ACTORS,&metaChr) && !metaChr);
@@ -71,7 +73,7 @@ int main(void){wrapper[3]=(uint64_t)record; uint32_t metaChr=99;
  g_nsp=0;g_sp_actor[0]=0;
  assert(g_nsp==0&&g_slot_fight[0]==1&&!g_slot_aggro[0]&&!g_slot_rehold[0]);
  assert(!g_bv[0].infHp&&!g_bv[0].infKi&&!g_bv_req[0]&&hp==50&&maxhp==100);
- SlotDespawn(0);assert(SlotAlive(0)&&!despawns);
+ SlotDespawn(0,1);assert(SlotAlive(0)&&!despawns);
  assert(!Nioh3Training_SummonSlot(0,5)&&!Nioh3Training_SummonSlotChr(0,55)&&!Nioh3Training_DespawnSlot(0));
  g_rq_op=1;g_rq_slot=0;RqTick();assert(!summons&&SlotAlive(0)); // queued-before-adoption race
  g_rq_op=2;RqTick();assert(SlotAlive(0)&&!despawns); // Remove all preserves borrowed native
@@ -96,7 +98,7 @@ int main(void){wrapper[3]=(uint64_t)record; uint32_t metaChr=99;
  ++mission;assert(!MetadataActor(MAXSP,&metaChr));NativeSlotsTick();assert(!g_slot_act[0]); // lifecycle expires even with no HUD rows
  actor=567;NativeSlotsTick();assert(!g_slot_act[0]); // unseen dormant/next-wave actor not admitted
  g_nsp=1;g_sp_actor[0]=789;g_slot_act[0]=789;g_slot_chr[0]=55;assert(SlotAlive(0));
- SlotDespawn(0);assert(despawns==1&&!g_slot_act[0]);
+ SlotDespawn(0,1);assert(despawns==1&&!g_slot_act[0]);
 
  puts("PASS native metadata subjects and observation: identity/load/death expiry, HUD admission-only with mixed owned/native slots, no implicit stats, native despawn refusal, owned despawn");
 }

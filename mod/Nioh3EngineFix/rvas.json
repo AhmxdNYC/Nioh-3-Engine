@@ -6,6 +6,15 @@
  },
  "rvas": [
   {
+   "rva": "0x3EB04",
+   "kind": "code",
+   "pattern": "48 83 EC 28 48 8B 49 08 48 85 C9 74 0A 48 8B 49 20 FF 15 ??",
+   "offset": 0,
+   "used_in": [
+    "dllmain.cpp"
+   ]
+  },
+  {
    "rva": "0x3FF5E",
    "kind": "code",
    "pattern": "48 8B 0B 44 8A F8 88 44 24 78 4D 8B",
@@ -887,6 +896,77 @@
    ]
   },
   {
+   "rva": "0x431E6C",
+   "kind": "none",
+   "why": "no unique pattern for 0x431E6C",
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x431ED5",
+   "kind": "code",
+   "pattern": "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? CC CC CC 48 8B 41 30 4C 8B 59 18 49 23 C1 4C 8B 51 08 48 03 C0 4D 8B 4C C3 08 4D 3B CA 74 1F 49 8B 0C C3 41 8B 00 41 3B 41 10 0F 85 ?? ?? ?? ?? 49 8B 01 48 89 02 4C 89 4A 08 48 8B C2 C3 4C 89 12 48 83 62 08 00 EB F2",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433AD6",
+   "kind": "code",
+   "pattern": "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 BC 24 B0 00 00 00",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433B16",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 48 8B F8 8A 48 02 66",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433E58",
+   "kind": "code",
+   "pattern": "49 3B DC 0F 84 ?? ?? ?? ?? 44 8B 73 10 48 8D 94 24",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433E79",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D6 48 8B 89",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433EDE",
+   "kind": "code",
+   "pattern": "49 3B FF 74 ?? 48 8D 57 10 44 39 32",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433EFA",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB D5 48 8B 1B E9 ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x436758",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F",
@@ -932,6 +1012,42 @@
    ]
   },
   {
+   "rva": "0x491B30",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 41",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x493050",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED 48 8B F9 8B DD 33 C0 8D 75 01 F0 0F B1 71 34 75 2A 83 CB FF F0 0F",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x4930B0",
+   "kind": "code",
+   "pattern": "EB C5 48 8B CF E8 ?? ?? ?? ?? EB C7",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x4930B5",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? EB C7 33 C9 FF 15 ??",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
    "rva": "0x495AF2",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00",
@@ -947,6 +1063,15 @@
    "offset": 0,
    "used_in": [
     "replayprof.cpp"
+   ]
+  },
+  {
+   "rva": "0x4A4F3B",
+   "kind": "code",
+   "pattern": "48 8B 97 C8 01 00 00 33 C0 F0 0F B1",
+   "offset": 0,
+   "used_in": [
+    "dllmain.cpp"
    ]
   },
   {
@@ -1100,6 +1225,15 @@
    "offset": 0,
    "used_in": [
     "tour.cpp"
+   ]
+  },
+  {
+   "rva": "0x751784",
+   "kind": "code",
+   "pattern": "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8D 59 10 48",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
    ]
   },
   {
@@ -1308,6 +1442,15 @@
    "offset": 0,
    "used_in": [
     "readprobe.cpp"
+   ]
+  },
+  {
+   "rva": "0x19A9246",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB C3 48 8D 0D ?? ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
    ]
   },
   {
@@ -1600,6 +1743,33 @@
    ]
   },
   {
+   "rva": "0x2978718",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 48 8B F0 8A 48 02 F3",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x2978891",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D7 48 8B 89",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x2978924",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 45 40 48 8B 3F EB C3 48",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x2EE8B92",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 48 8D 4F 10 E8 ?? ?? ?? ?? 8B 97 30 47 00 00",
@@ -1788,6 +1958,20 @@
    "iat": "sl.interposer.dll!D3D12CreateDevice",
    "used_in": [
     "memstats.cpp"
+   ]
+  },
+  {
+   "rva": "0x38F4E38",
+   "kind": "global",
+   "pattern": "48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 F6 C2 01 0F 85 ?? ?? ?? ?? 48 8B C3 48 83 C4 20 5B C3 CC CC CC 48 89 5C 24 10 48 89 6C 24 18",
+   "offset": 0,
+   "anchor": "0x5DEB3E",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "lea rax, [rip + 0x33162f3]",
+   "used_in": [
+    "fhlinger.cpp"
    ]
   },
   {

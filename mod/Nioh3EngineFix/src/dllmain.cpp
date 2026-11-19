@@ -37,6 +37,7 @@
 #include "loadmem.h"
 #include "loadstats.h"
 #include "zinflate.h"
+#include "fhlinger.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
@@ -148,7 +149,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.22"
+#define MOD_VERSION "1.8.23"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -156,6 +157,10 @@ void caveFps();
 void caveScale();
 void caveLim();
 void caveTier();
+void caveGov();
+void caveHold();
+extern uint64_t gov_getFps, gov_obj;  // GovFpsFix / GovTrace (GitHub #98)
+extern uint32_t gov_fix, gov_fps;
 void caveMenu();
 void caveL1();
 extern uint64_t vrr_minNs[3];
@@ -166,6 +171,8 @@ extern uint64_t l1_callee;
 extern uint32_t vrr_enable;
 extern uint32_t vrr_tier;
 extern uint32_t vrr_capCur;
+extern uint64_t vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;  // Tier120Floor (GitHub #98)
+extern uint32_t vrr_floorOn, vrr_floorEnters;
 extern uint32_t vrr_arm[3];
 extern uint32_t vrr_cap[3];
 BOOL WINAPI hookPeek(LPMSG msg, HWND wnd, UINT fmin, UINT fmax, UINT remove);
@@ -257,6 +264,7 @@ extern uint64_t w6_wakeAll, w6_wakes;
 // 1.6.0: TG tick governor (caveLim), WG wake gate (WS2/WS3/WSs), DS, CP, SPF
 extern uint32_t tg_cap;
 extern uint32_t vrr_fpsOut;
+extern uint32_t vrr_dtShift;  // DtSmooth (GitHub #98): EMA shift for the VRR frame interval, 0 = off
 extern uint32_t wg_installed;
 void caveDs();
 void caveCP();
@@ -388,6 +396,33 @@ int g_tgFloor = 30, g_tgRatioPct = 125;
 int g_loaderCap = 10;            // 1.7.14: resource-load in-flight cap (16 when LC is applied), for LoadStats
 int g_lcCapWanted = 16;          // 1.7.30: LC = 1 -> 16, LC = 11..64 -> that cap (BuildRepl rewrites the LCa/LCb immediates)
 bool g_tgL1 = false;              // L1 installed this session
+bool g_govTrace = false;          // [VRR] GovTrace (GitHub #98): log the P8d frame governor once per second when it changes
+
+void Log(const char* fmt, ...);
+static bool GovRead(uint64_t obj, int32_t v[3]) {  // level +5C, accumulator +60, cooldown +64; obj is the game's
+    __try { memcpy(v, (const void*)(uintptr_t)(obj + 0x5C), 12); return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+// Called from the OSD stats tick. Threshold = fps*1000/30 with the value P8d handed over (the game's imul + /30).
+extern "C" void GovTraceTick() {
+    if (!g_govTrace) return;
+    static ULONGLONG last = 0;
+    static int32_t prev[3] = {-1, -1, -1};
+    static uint32_t prevFps = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (now - last < 1000) return;
+    last = now;
+    const uint64_t obj = *(volatile uint64_t*)&gov_obj;
+    const uint32_t fps = *(volatile uint32_t*)&gov_fps;
+    int32_t v[3];
+    if (!obj || !GovRead(obj, v)) return;
+    if (!memcmp(v, prev, sizeof(v)) && fps == prevFps) return;
+    memcpy(prev, v, sizeof(v));
+    prevFps = fps;
+    Log("GOV: level %d acc %d thr %d (fps in %u, %s) cooldown %d", v[0], v[1], (int)((int64_t)fps * 1000 / 30), fps,
+        gov_fix ? "stock GetFps" : "tier", v[2]);
+}
 volatile double g_tgRendered = 0, g_tgTicks = 0;
 ULONGLONG g_tgLowerSince = 0;
 
@@ -454,9 +489,13 @@ extern "C" void caveMW();
 extern "C" void caveMWWake();
 extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
 extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
+#include "framewaitpark.h"
+extern "C" void caveFwp();
+extern "C" uint64_t fwp_resume;
 
 struct Config {
     int mw = 0, rd = 0;
+    int fwp = 0, fwpSpinUs = 200, fwpSleepUs = 100;  // #101247 frame-wait park (0 stock, 1 park, 2 measure-only)
     int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, kidstsCapCpus = 0, as0 = 0;
@@ -464,6 +503,11 @@ struct Config {
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
+    int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int dtSmooth = 0;  // GitHub #98 (pc/1 #113171): VRR game dt = EMA of the frame interval, weight 1/2^N (0 = off, 1..6)
+    int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
+    int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
+    char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -593,6 +637,19 @@ Config LoadConfig() {
     }
     c.maxFps = I(L"VRR", L"MaxFps", c.maxFps);
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
+    c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
+    c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
+    c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
+    c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
+    c.dtSmooth = std::clamp(I(L"VRR", L"DtSmooth", c.dtSmooth), 0, 6);
+    c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
+    {
+        wchar_t w[128] = {};
+        GetPrivateProfileStringW(L"VRR", L"StockSites", L"", w, 128, f);
+        for (int i = 0; i < 127 && w[i]; ++i) c.stockSites[i] = (w[i] < 128) ? (char)w[i] : '?';
+    }
+    c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
+    c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
     c.r1Ms = std::clamp(I(L"Tuning", L"R1_TimeoutMs", c.r1Ms), 0, 16);
     c.l1MarginUs = std::clamp(I(L"Tuning", L"L1_MarginUs", c.l1MarginUs), 200, 20000);
@@ -609,6 +666,9 @@ Config LoadConfig() {
     c.e1 = I(L"Patches", L"E1", c.e1);
     c.rd = I(L"Patches", L"RD", 0); // startup-only paired renderer drain
     c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
+    c.fwp = I(L"Patches", L"FWP", 0);  // explicit opt-in, never Auto
+    c.fwpSpinUs = std::clamp(I(L"Patches", L"FWP_SpinUs", 200), 0, 2000);
+    c.fwpSleepUs = std::clamp(I(L"Patches", L"FWP_SleepUs", 100), 20, 1000);
     c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
@@ -823,6 +883,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveScale: return (void*)&caveScale;
         case gen::Target::caveLim: return (void*)&caveLim;
         case gen::Target::caveTier: return (void*)&caveTier;
+        case gen::Target::caveGov: return (void*)&caveGov;
+        case gen::Target::caveHold: return (void*)&caveHold;
         case gen::Target::caveMenu: return (void*)&caveMenu;
         case gen::Target::hookPeek: return (void*)&hookPeek;
         case gen::Target::caveL1: return (void*)&caveL1;
@@ -840,6 +902,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveRDWait: return (void*)&caveRDWait;
         case gen::Target::caveRDWake: return (void*)&caveRDWake;
         case gen::Target::caveMWWake: return (void*)&caveMWWake;
+        case gen::Target::caveFwp: return (void*)&caveFwp;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
         case gen::Target::caveIkKick: return (void*)&caveIkKick;
@@ -910,7 +973,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveRDWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFwp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1522,6 +1585,14 @@ void ConfigureVrr(const Config& c) {
         vrr_maxNs[i] = 1000000000ull / (uint64_t)minF;  // longest interval
         Log("VRR tier %3d: armed=%u clamp %d..%d fps, limiter cap %d", tiers[i], vrr_arm[i], minF, maxF, maxF);
     }
+    vrr_dtShift = (uint32_t)c.dtSmooth;
+    if (c.dtSmooth) Log("VRR DtSmooth=%d: game dt = EMA of the frame interval (weight 1/%d, GitHub #98)", c.dtSmooth, 1 << c.dtSmooth);
+    vrr_floorNs = c.t120Floor ? 1000000000ull / (uint64_t)c.t120Floor : 0;
+    vrr_floorHoldNs = (uint64_t)c.t120FloorHoldMs * 1000000ull;
+    vrr_floorProbeNs = (uint64_t)c.t120FloorProbeS * 1000000000ull;
+    if (c.t120Floor)
+        Log("VRR Tier120Floor: below %d fps for %d ms the 120 tier runs as the 60 tier for %d s, then re-measures (GitHub #98)",
+            c.t120Floor, c.t120FloorHoldMs, c.t120FloorProbeS);
     // stock-equivalent values until the first P1 frame (tier assumed 60 there; overwritten every frame by caveFps)
     auto nd = reinterpret_cast<NearData*>(g_near);
     nd->ticks120 = 2;
@@ -1799,6 +1870,7 @@ DWORD WINAPI Worker(LPVOID) {
         // L1 and FG stay unresolved under Proton unless the OnWine key is 1 (the menu says why).
         if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
+        if (!strcmp(g, "VRRHOLD")) return cfg.vrr != 0 && cfg.holdWindowFix != 0;
         if (!strcmp(g, "W3")) return true;
         if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
         if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
@@ -1818,6 +1890,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
         if (!strcmp(g, "RD")) return cfg.rd != 0;
         if (!strcmp(g, "MW")) return cfg.mw != 0;
+        if (!strcmp(g, "FWP")) return cfg.fwp != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
@@ -1915,7 +1988,43 @@ DWORD WINAPI Worker(LPVOID) {
     {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
+        if (ok) {  // P8d -> caveGov: remember the stock GetFps call target (site still unpatched here; the AOB pins E8)
+            for (Item* it : v)
+                if (!strcmp(it->s->id, "P8d") && it->addr[0] == 0xE8) {
+                    int32_t rel;
+                    memcpy(&rel, it->addr + 1, 4);
+                    gov_getFps = (uint64_t)(uintptr_t)(it->addr + 5 + rel);
+                }
+            gov_fix = (cfg.govFpsFix && gov_getFps) ? 1u : 0u;
+            g_govTrace = cfg.govTrace != 0;
+            if (cfg.govFpsFix || cfg.govTrace)
+                Log("VRR GovFpsFix=%d GovTrace=%d: frame governor threshold (P8d) uses %s (GetFps RVA %X; GitHub #98)", (int)gov_fix,
+                    cfg.govTrace, gov_fix ? "the stock GetFps" : "the tier", gov_getFps ? (unsigned)(gov_getFps - (uint64_t)(uintptr_t)g_base) : 0u);
+        }
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
+        if (ok && cfg.stockSites[0]) {  // GitHub #98 bisection: drop listed tick/tier sites so they keep the stock code
+            static const char* kStockable[] = {"P3a", "P3b", "P3c", "P3d", "P3e", "P3f", "P3g", "P6", "P8a", "P8b", "P8c", "P8d", "P9"};
+            auto listed = [&](const char* id) {
+                for (const char* p = cfg.stockSites; *p;) {
+                    while (*p == ',' || *p == ' ') ++p;
+                    const char* e = p;
+                    while (*e && *e != ',' && *e != ' ') ++e;
+                    if (e > p && strlen(id) == (size_t)(e - p) && !_strnicmp(id, p, e - p)) return true;
+                    p = e;
+                }
+                return false;
+            };
+            std::vector<Item*> keep;
+            std::string left;
+            for (Item* it : v) {
+                bool stockable = false;
+                for (const char* k : kStockable) stockable |= !strcmp(k, it->s->id);
+                if (stockable && listed(it->s->id)) { left += it->s->id; left += ' '; continue; }
+                keep.push_back(it);
+            }
+            v.swap(keep);
+            Log("VRR StockSites=%s: left stock (GitHub #98 bisection, test only): %s", cfg.stockSites, left.empty() ? "none" : left.c_str());
+        }
         if (ok) {
             ConfigureVrr(cfg);
             vrr_enable = cfg.vrr ? 1u : 0u;
@@ -1932,6 +2041,11 @@ DWORD WINAPI Worker(LPVOID) {
                 if (mok) vrr_getDelta60 = callee;
             }
             run("VRR menu quantize (P7)", m, mok);
+        }
+        if (vrrDone && cfg.vrr && cfg.holdWindowFix) {
+            auto h = collect("VRRHOLD");
+            bool hok = run("VRR hold window (P10)", h, allFound(h));
+            Log("VRR HoldWindowFix=1: player notice window in real 60 Hz ticks %s (GitHub #98)", hok ? "installed" : "NOT installed");
         }
     }
     // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).
@@ -2070,6 +2184,33 @@ DWORD WINAPI Worker(LPVOID) {
         if (!installed && !g_mwInstallUncertain) g_mw.enabled = false;
         Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
             installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
+    }
+    // FWP (#101247): RenderWaitForFrame job spin 4A4F1C -> kick once + own high-res timer park. Single site, main thread.
+    if (cfg.fwp == 1 || cfg.fwp == 2) {
+        g_fwpMode = cfg.fwp; g_fwpSpinUs = cfg.fwpSpinUs; g_fwpSleepUs = cfg.fwpSleepUs;
+        g_fwpOn = expGroup("FWP", true, [&]() {
+            Item* it = findItem("FWP");
+            if (!it || !it->addr) return false;
+            const uint8_t* a = it->addr;  // 48 8B 8F C8 01 00 00 | E8 rel32 (kick) | FF C3 84 DB | 0F 85 rel32 (loop head)
+            if (a[7] != 0xE8 || a[16] != 0x0F || a[17] != 0x85) return false;
+            const uintptr_t kick = (uintptr_t)(a + 12) + *reinterpret_cast<const int32_t*>(a + 8);
+            const uintptr_t head = (uintptr_t)(a + 22) + *reinterpret_cast<const int32_t*>(a + 18);
+            if (kick != (uintptr_t)(g_base + Grva(0x3EB04)) || head != (uintptr_t)(g_base + Grva(0x4A4F3B))) {
+                Log("FWP: kick/loop-head targets differ from 3EB04/4A4F3B - stock retained");
+                return false;
+            }
+            LARGE_INTEGER q; QueryPerformanceFrequency(&q); g_fwpQpf = q.QuadPart;
+            if (g_fwpMode == 1) {
+                g_fwpTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+                if (!g_fwpTimer) { Log("FWP: no high-resolution timer - stock retained"); return false; }
+            }
+            g_fwpKick = reinterpret_cast<void (*)(void*)>(kick);
+            fwp_resume = (uint64_t)head;
+            return true;
+        });
+        Log("FWP: %s (RenderWaitForFrame job spin 4A4F1C; mode %d = %s, spin %d us, sleep step %d us)",
+            g_fwpOn ? "installed" : "NOT installed (stock)", g_fwpMode, g_fwpMode == 1 ? "kick once + timer park" : "measure-only stock loop",
+            g_fwpSpinUs, g_fwpSleepUs);
     }
     // Independent FG copy-job crash guard; does not change game settings.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
@@ -2864,6 +3005,17 @@ DWORD WINAPI Worker(LPVOID) {
                         (double)g_tgTicks, (double)g_tgRendered, (l1 - pL1) / 30);
                     pL1 = l1;
                 }
+                if (g_fwpOn && sec % 30 == 0) {
+                    static LONG pC = 0, pP = 0, pK = 0, pB = 0;
+                    static LONG64 pT = 0;
+                    const LONG c = g_fwpCalls, pk = g_fwpParks, kc = g_fwpKicks, b = g_fwpBounded;
+                    const LONG64 t = g_fwpTicks, mx = InterlockedExchange64(&g_fwpMaxTicks, 0);
+                    const double ms = (double)(t - pT) * 1e3 / (double)f.QuadPart;
+                    Log("stats/s FWP: frame-wait spins %ld/30s, total %.1f ms/30s (avg %.0f us, max %.0f us), timer parks %ld, kicks %ld, "
+                        "bounded %ld (mode %d)", c - pC, ms, c > pC ? ms * 1e3 / (double)(c - pC) : 0.0,
+                        (double)mx * 1e6 / (double)f.QuadPart, pk - pP, kc - pK, b - pB, g_fwpMode);
+                    pC = c; pP = pk; pK = kc; pB = b; pT = t;
+                }
                 if (s_dsDone && sec % 30 == 0) {
                     static long pW = 0;
                     static long long pT = 0;
@@ -3064,6 +3216,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.workerCap = cfg.workerCap;
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
+        mh.fwp = cfg.fwp;
         mh.fgOnWine = cfg.fgOnWine;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
@@ -3304,6 +3457,14 @@ DWORD WINAPI Worker(LPVOID) {
             li.base = reinterpret_cast<uintptr_t>(g_base);
             li.knownBuild = known;
             loadmem::Start(li);
+        }
+        {  // #117226 FileLinger: keep released archive handles open ([Patches] FileLinger = 0; fhlinger.cpp)
+            fhlinger::StartInfo fl;
+            fl.log = &Log;
+            fl.iniPath = iniPath.c_str();
+            fl.base = reinterpret_cast<uintptr_t>(g_base);
+            fl.knownBuild = known;
+            fhlinger::Start(fl);
         }
         {  // #108787 Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; zinflate.cpp). Before LoadStats:
             // loadstats::Start patches the inflate call sites for it (also with LoadStats = 0).
