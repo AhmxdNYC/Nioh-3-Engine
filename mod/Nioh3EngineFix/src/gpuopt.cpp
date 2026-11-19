@@ -1157,7 +1157,8 @@ void VrsSetLive(const vrsmenu::Values& raw) {
     const vrsmenu::Values v = vrsmenu::Clamped(raw);
     g_vrsLayouts = (unsigned)v.layouts; g_vrsRate = v.rate;
     g_vrsSkipSkinned = v.skip; g_vrsKeepCharacters = v.keep;
+    if (g_vrsBootTracking) g_vrsWideExclude = (unsigned)v.wide;  // classes were captured this boot; otherwise the ini applies next launch
     g_vrsMode = vrsmenu::LiveMode(v.mode, g_vrsMode, g_vrsBootMode, g_vrsBootTracking);
-    LOG("VRS live: mode=%d (asked %d) layouts=%d rate=%s skipSkinned=%d keepCharacters=%d", g_vrsMode, v.mode, v.layouts, vrsmenu::RateName(v.rate), v.skip, v.keep);
+    LOG("VRS live: mode=%d (asked %d) layouts=%d rate=%s skipSkinned=%d keepCharacters=%d wide=0x%X", g_vrsMode, v.mode, v.layouts, vrsmenu::RateName(v.rate), v.skip, v.keep, g_vrsWideExclude);
 }
 }  // namespace gpuopt

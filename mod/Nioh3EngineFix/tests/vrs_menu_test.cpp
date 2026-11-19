@@ -47,7 +47,7 @@ int main() {
         v.mode = 3; v.rate = 2; v.layouts = 1;
         assert(!Step(v, kRowReset, 1) && !Step(v, kRowReset, -1) && v.mode == 3);  // left / right cannot wipe a tune
         assert(Step(v, kRowReset, 0));
-        assert(v.mode == 0 && v.layouts == 7 && v.rate == 0 && v.skip && v.keep);
+        assert(v.mode == 0 && v.layouts == 7 && v.rate == 0 && v.skip && v.keep && v.wide == 0);
         assert(!Step(v, kRowReset, 0));  // already default: nothing to save
         assert(!Step(v, kRowN, 0));
     }
@@ -59,7 +59,7 @@ int main() {
         };
         Values v; v.mode = 3; v.layouts = 5; v.rate = 2; v.skip = false; v.keep = false;
         SaveValues(v, w);
-        assert(f.size() == 5 && last == L"VrsCeiling");
+        assert(f.size() == 6 && last == L"VrsCeiling" && f[L"VrsWideExclude"] == L"0");
         Values back;
         back.mode = _wtoi(f[L"VrsCeiling"].c_str()); back.layouts = _wtoi(f[L"VrsLayouts"].c_str()); back.rate = _wtoi(f[L"VrsRate"].c_str());
         back.skip = _wtoi(f[L"VrsSkipSkinned"].c_str()) != 0; back.keep = _wtoi(f[L"VrsKeepCharacters"].c_str()) != 0;
@@ -67,13 +67,32 @@ int main() {
         assert(back.mode == 3 && back.layouts == 5 && back.rate == 2 && !back.skip && !back.keep);
         Values bad; bad.mode = 42; bad.layouts = 42; bad.rate = 42;
         SaveValues(bad, w);
-        assert(f[L"VrsCeiling"] == L"0" && f[L"VrsLayouts"] == L"7" && f[L"VrsRate"] == L"0");
+        assert(f[L"VrsCeiling"] == L"0" && f[L"VrsLayouts"] == L"7" && f[L"VrsRate"] == L"0" && f[L"VrsWideExclude"] == L"0");
+        Values masked; masked.wide = 6; masked.mode = 1;
+        SaveValues(masked, w);
+        assert(f[L"VrsWideExclude"] == L"6" && f[L"VrsCeiling"] == L"1");
+        Values customMask; customMask.wide = 128;
+        SaveValues(customMask, w);
+        assert(f[L"VrsWideExclude"] == L"128");
+        Values junkMask; junkMask.wide = 999;
+        SaveValues(junkMask, w);
+        assert(f[L"VrsWideExclude"] == L"0");
     }
     // What each row can do this session.
     {
         Values on; on.mode = 3; Values off;
         for (int row = 0; row < kRowN; ++row) assert(RowEffect(row, on, 0, false) == kNextLaunch);  // started off: nothing is live
-        for (int row = 0; row < kRowN; ++row) assert(RowEffect(row, on, 3, true) == kLive);
+        for (int row = 0; row < kRowN; ++row) assert(RowEffect(row, on, 3, true) == (row == kRowWide ? kNextLaunch : kLive));
+        Values whole; whole.mode = 1; whole.wide = 6;
+        assert(RowEffect(kRowWide, whole, 1, true) == kLive && RowEffect(kRowWide, whole, 1, false) == kNextLaunch);
+        assert(WideName(0) == std::string("Off") && WideName(6) == std::string("On") && WideName(4) == std::string("Custom"));
+        Values guard;
+        assert(Step(guard, kRowWide, -1) == false && guard.wide == 0);
+        assert(Step(guard, kRowWide, 1) && guard.wide == 6);
+        assert(Step(guard, kRowWide, 1) == false && guard.wide == 6);
+        assert(Step(guard, kRowWide, 0) && guard.wide == 0);
+        guard.wide = 128; assert(Step(guard, kRowWide, -1) && guard.wide == 0);
+        guard.wide = 128; assert(Step(guard, kRowWide, 0) && guard.wide == 6);
         assert(RowEffect(kRowRate, off, 3, true) == kSelectiveOnly && RowEffect(kRowMode, off, 3, true) == kLive);
         assert(RowEffect(kRowMode, on, 1, false) == kNextLaunch && RowEffect(kRowMode, off, 1, false) == kLive);
         assert(RowEffect(kRowRate, on, 2, false) == kNextLaunch && RowEffect(kRowReset, off, 1, false) == kLive);
