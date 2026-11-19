@@ -217,6 +217,7 @@ static int MlAttack(uint32_t chr, uint32_t a);  // below: >= 0x4E20, or a low-id
 // follow-ups (Yoritomo 0x18D1 after 0x4E7C, #69187) are not another attack to refuse.
 static int MvRepAtk(int i, uint32_t chr, uint32_t a) {
     if (a == 0xFFFF || a == 0xFFFFFFFFu) return 0;
+    if (MvRest(chr, a)) return 0;  // review #119420: a data rest >= 0x4E20 (Kunimatsu 0x4E22) is not an attack
     if (a >= 0x4E20) return 1;
     int low = (uint32_t)g_rep_id[i] < 0x4E20;
     for (int k = 0; k < g_rep_nlist[i] && k < ML_KEEP && !low; ++k) low = g_rep_list[i][k] < 0x4E20;
