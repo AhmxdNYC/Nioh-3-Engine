@@ -4202,36 +4202,42 @@ static void RememberKeptExtra(uint64_t seal, uint64_t chr, float dist) {
 //  2. FormHide4Tick: a pending begin is dropped; a form already up ends through the normal end path (reason "crouch-cancel":
 //     Fh4Restore = player visible, pad released) - no fade, no ghost exit. A seal the press still spawned (bound or later, up to the
 //     cold-spawn limit) is despawned through SealQueueDespawn and begins no form.
-//  3. Core count guard ([Spirit] FormCrouchCancelKeepCore=1): the press snapshots the two equipped Yang core inventory records
-//     (OnmyoBox+23B6B8 indices, records inv+10+i*F0, the same reads as PickEquipmentTick). For 3 s after a cancel, a record whose u32
-//     +4 drops by exactly 1 (same u16 id) gets the press-time value written back. +4 = count is the Training infinite-soul-core field
-//     (ally #57367, 0xE8 records); on the 0xF0 record it is not yet proven live: the log prints every changed byte so one test shows it.
+//  3. Core count guard ([Spirit] FormCrouchCancelKeepCore=1). human #122360: the first guard read the equipped-core records (inv+10+i*F0)
+//     and could not see the count. Now it uses the table Training's infinite soul cores puts back live (pc #57367, live 11-20 01:55):
+//     records inv+0x1E0AD0 + i*0xE8 (i < 1200, u16 id == u16 base id at +0/+2, u32 count at +4). The press snapshots id + count of every
+//     record; from the cancel until 3 s after it, a record with the same id whose count is exactly one below its press value gets the
+//     press value written back (absolute value: idempotent with Training's own put-back). No id list: works for every core.
 std::atomic<int> g_fccKeepCore{1};
 std::atomic<bool> g_fccEndReq{false};
-struct FccCore { uint32_t idx = 0xFFFFFFFF; uint16_t id = 0; uint32_t count = 0; bool ok = false, done = false; uint8_t rec[0xF0] = {}; };
+constexpr uint64_t kFccInvArr = 0x1E0AD0, kFccInvStride = 0xE8;
+constexpr int kFccInvN = 1200;
+struct FccInv { bool ok = false; int have = 0; uint16_t id[kFccInvN] = {}; uint32_t n[kFccInvN] = {}; bool done[kFccInvN] = {}; };
 struct FccState {
     double pressT = -100, cancelT = -100, watchUntil = -100, suppressUntil = -100;
     int dir = 0; uint32_t core = 0; bool transform = false, decided = false;
-    FccCore y[2];
+    int putBack = 0, other = 0;  // core guard counts of the current cancel
 };
 FccState g_fcc;  // game thread only (PickPoll / FormHide4Tick)
-bool FccReadCores(FccCore (&y)[2]) {
-    y[0] = FccCore{}; y[1] = FccCore{};
+FccInv g_fccInv;
+bool FccReadInvRec(uint64_t inv, int i, uint16_t& id, uint32_t& n) {
+    uint8_t h[8];
+    if (!CopySafe(h, inv + kFccInvArr + uint64_t(i) * kFccInvStride, sizeof h)) return false;
+    uint16_t base = 0; memcpy(&id, h, 2); memcpy(&base, h + 2, 2); memcpy(&n, h + 4, 4);
+    if (!id || id != base || n > 999) id = 0;
+    return true;
+}
+bool FccSnapInv() {
+    FccInv& v = g_fccInv; v.ok = false; v.have = 0;
     if (!gamerva::g_known) return false;  // structure offsets verified for the supported build only
     const uint64_t inv = InvBase();
-    uint64_t count = 0;
-    if (!inv || !Rd(inv + 0x927D0, count) || !count || count > 2500) return false;
-    bool any = false;
-    for (int i = 0; i < 2; ++i) {
-        FccCore& c = y[i];
-        if (!Rd(inv + 0x23B6B8 + 4ull * i, c.idx) || c.idx == 0xFFFFFFFF || c.idx >= count) continue;
-        const uint64_t rec = inv + 0x10 + uint64_t(c.idx) * 0xF0;
-        if (!CopySafe(c.rec, rec, sizeof c.rec)) continue;
-        memcpy(&c.id, c.rec, 2); memcpy(&c.count, c.rec + 4, 4);
-        c.ok = c.id && c.id != 0xFFFF && c.count >= 1 && c.count <= 999;
-        any |= c.ok;
+    if (!inv) return false;
+    for (int i = 0; i < kFccInvN; ++i) {
+        v.done[i] = false;
+        if (!FccReadInvRec(inv, i, v.id[i], v.n[i])) { v.id[i] = 0; continue; }
+        if (v.id[i]) ++v.have;
     }
-    return any;
+    v.ok = v.have > 0;
+    return v.ok;
 }
 void FccPress(double now, int dir) {
     const int ms = g_fccMs.load();
@@ -4245,10 +4251,9 @@ void FccPress(double now, int dir) {
     g_fccPassUntil.store(GetTickCount64() + (ULONGLONG)ms);
     const bool eat = FbEnsureHooked();  // human #122339: L3 in the window cancels only, never crouches
     if (eat) g_fccEatUntil.store(GetTickCount64() + (ULONGLONG)ms);
-    const bool snap = g_fccKeepCore.load() && FccReadCores(g_fcc.y);
-    Log("FormCrouchCancel: press dir=%c core=%X t=%.3f window=%d ms (L3+LS pass FormBlockPad until %.3f) guard=%s Y1 idx=%d id=%X n=%u Y2 idx=%d id=%X n=%u",
-        dir == 1 ? 'L' : 'D', g_fcc.core, now, ms, now + ms / 1000.0, !g_fccKeepCore.load() ? "off" : snap ? "snapshot" : "unreadable",
-        (int)g_fcc.y[0].idx, g_fcc.y[0].id, g_fcc.y[0].count, (int)g_fcc.y[1].idx, g_fcc.y[1].id, g_fcc.y[1].count);
+    const bool snap = g_fccKeepCore.load() && FccSnapInv();
+    Log("FormCrouchCancel: press dir=%c core=%X t=%.3f window=%d ms (stick free, L3 eaten until %.3f) guard=%s (%d inventory records)",
+        dir == 1 ? 'L' : 'D', g_fcc.core, now, ms, now + ms / 1000.0, !g_fccKeepCore.load() ? "off" : snap ? "snapshot" : "unreadable", g_fccInv.have);
 }
 void FccShowPlayer(uint64_t player, double now);
 void FccPadTick(WORD bt, double now) {
@@ -4267,7 +4272,7 @@ void FccPadTick(WORD bt, double now) {
         if (ms > 0 && g_fcc.transform) g_fcc.decided = true;
         return;
     }
-    g_fcc.decided = true; g_fcc.cancelT = now;
+    g_fcc.decided = true; g_fcc.cancelT = now; g_fcc.putBack = g_fcc.other = 0;
     g_fcc.suppressUntil = g_fcc.pressT + 8.5;  // a cold-loaded core spawns up to ~5.5 s late (KnownTransformWaitUntil: press + 8 s)
     g_fcc.watchUntil = now + 3.0;
     g_fccPassUntil.store(GetTickCount64() + 300);  // left stick stays free a moment; the held L3 stays eaten until released (#122339)
@@ -4295,37 +4300,26 @@ void FccShowPlayer(uint64_t player, double now) {
 void FccCoreTick(double now) {
     if (g_fcc.watchUntil < 0) return;
     const bool last = now >= g_fcc.watchUntil;
-    const uint64_t inv = g_fccKeepCore.load() ? InvBase() : 0;
-    for (int i = 0; i < 2 && inv; ++i) {
-        FccCore& c = g_fcc.y[i];
-        if (!c.ok || c.done) continue;
-        uint8_t cur[0xF0];
-        const uint64_t rec = inv + 0x10 + uint64_t(c.idx) * 0xF0;
-        if (!CopySafe(cur, rec, sizeof cur) || !memcmp(cur, c.rec, sizeof cur)) continue;
-        char diff[200]; size_t o = 0; int n = 0;
-        for (int b = 0; b < 0xF0 && n < 12 && o + 16 < sizeof diff; ++b)
-            if (cur[b] != c.rec[b]) { o += (size_t)snprintf(diff + o, sizeof diff - o, " +%02X:%02X>%02X", b, c.rec[b], cur[b]); ++n; }
-        uint16_t id = 0; uint32_t cnt = 0;
-        memcpy(&id, cur, 2); memcpy(&cnt, cur + 4, 4);
-        c.done = true;
-        if (id == c.id && cnt + 1 == c.count) {
-            const bool ok = WrBytes(rec + 4, &c.count, 4);
-            uint32_t back = 0; Rd(rec + 4, back);
-            Log("FormCrouchCancel: core Y%d item %X count %u -> %u after the cancel: press value written back ok=%d (now %u) changed:%s t=%.3f",
-                i + 1, c.id, c.count, cnt, ok && back == c.count, back, diff, now);
+    const uint64_t inv = g_fccKeepCore.load() && g_fccInv.ok ? InvBase() : 0;
+    for (int i = 0; i < kFccInvN && inv; ++i) {
+        if (!g_fccInv.id[i] || g_fccInv.done[i]) continue;
+        uint16_t id = 0; uint32_t n = 0;
+        if (!FccReadInvRec(inv, i, id, n) || n == g_fccInv.n[i]) continue;
+        g_fccInv.done[i] = true;
+        if (id == g_fccInv.id[i] && n + 1 == g_fccInv.n[i]) {
+            const bool ok = WrBytes(inv + kFccInvArr + uint64_t(i) * kFccInvStride + 4, &g_fccInv.n[i], 4);
+            uint32_t back = 0; Rd(inv + kFccInvArr + uint64_t(i) * kFccInvStride + 4, back);
+            ++g_fcc.putBack;
+            Log("FormCrouchCancel: item %X slot %d count %u -> %u after the cancel: put back ok=%d (now %u) t=%.3f",
+                id, i, g_fccInv.n[i], n, ok && back == g_fccInv.n[i], back, now);
         } else {
-            Log("FormCrouchCancel: core Y%d item %X record changed but not a drop by 1 (id %X count %u -> %u) - not touched, changed:%s t=%.3f",
-                i + 1, c.id, id, c.count, cnt, diff, now);
+            ++g_fcc.other;
+            Log("FormCrouchCancel: item %X slot %d changed id %X count %u -> %u (not a drop by 1) - not touched t=%.3f", g_fccInv.id[i], i, id, g_fccInv.n[i], n, now);
         }
     }
     if (!last) return;
-    char s[160]; size_t o = 0;
-    for (int i = 0; i < 2; ++i) {
-        const FccCore& c = g_fcc.y[i];
-        o += (size_t)snprintf(s + o, sizeof s - o, " Y%d %s", i + 1, !c.ok ? "no snapshot" : c.done ? "changed (see above)" : "unchanged");
-    }
-    Log("FormCrouchCancel: core guard done %.1f s after the cancel:%s%s t=%.3f", now - g_fcc.cancelT, s,
-        g_fccKeepCore.load() ? "" : " (FormCrouchCancelKeepCore=0)", now);
+    Log("FormCrouchCancel: core guard done %.1f s after the cancel: %d put back, %d other changes%s t=%.3f", now - g_fcc.cancelT, g_fcc.putBack, g_fcc.other,
+        !g_fccKeepCore.load() ? " (FormCrouchCancelKeepCore=0)" : g_fccInv.ok ? "" : " (no press snapshot)", now);
     g_fcc.watchUntil = -100;
 }
 void FormHide4Tick(uint64_t player) {

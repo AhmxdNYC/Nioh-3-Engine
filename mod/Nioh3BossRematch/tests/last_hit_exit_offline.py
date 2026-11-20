@@ -457,7 +457,7 @@ int main(){
  SctChange(kItSctBase+10,1);check(g_fccMs==300&&ini[L"FormCrouchCancel"]==L"300");g_fccMs=0;SctRowText(kItSctBase+10,false,"",text,sizeof text,&color);check(strstr(text,"OFF"));
  g_fccMs=250;
  g_ftHooked=true;
- const double shipped[]={100,100,0,0,400,1.4,4,0,0,0,250};
+ const double shipped[]={100,100,0,0,400,1.4,4,0,0,0,200};
  for(int w=0;w<11;++w) for(int j=0;j<4;++j) SoulTune(w,1,nullptr);
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
