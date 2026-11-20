@@ -492,6 +492,27 @@ int main(void) {
         Nioh3Training_SetRepeatLast(16102u, 0);
         puts("PASS: delay 0 does not wait for idle action 2 (#91)");
     }
+    // human #122170: Last 2 at the default 1 s delay. Inside the cycle the boss's own attack pick in A's recovery hands straight into B
+    // (no A -> idle -> B freeze); a pick at A's start still waits; B (the cycle's last) keeps the delay before A again.
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); MvGapPut(16102u, 1000);
+        fake_now = 640000;
+        const uint32_t seen[] = {2, 0x4E64, 2, 0x4E68, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) { cur_act = seen[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E64);
+        cur_act = 0x4E64; fake_now += 20; Pick(0x4E6C); assert(h_mvsel(0x3000, 0) == MV_KEEP);   // start-of-move pick: A plays on
+        fake_now += 1641; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == 0x4E68);                   // A's recovery pick: B now
+        assert(ActIdOf(0x3000) == 0x4E64);                                                       // no idle in between
+        fake_now += 20; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == 0x4E68);                      // not stepped again before B plays
+        cur_act = 0x4E68; fake_now += 20; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        fake_now += 2000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);                  // last member: its recovery pick waits for the delay
+        cur_act = 2; fake_now += 500; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);            // delay after the cycle
+        fake_now += 1100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E64);
+        Nioh3Training_SetRepeatLast(16102u, 0); MvGapPut(16102u, 0);
+        puts("PASS: Last 2 hands A into B at the boss's own recovery pick, delay only after the cycle (#122170)");
+    }
     // GitHub #92: a native-slot boss (direct teleport) is recorded with no summon and no Boss Match.
     {
         memset(g_ml, 0, sizeof g_ml);
