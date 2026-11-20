@@ -1,6 +1,6 @@
 # Nioh 3 Engine
 
-[![Mod downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAhmxdNYC%2FNioh-3-Engine%2Fbadges%2Fmod-downloads.json&cacheSeconds=3600)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases)
+[![Mod downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAhmxdNYC%2FNioh-3-Engine%2Fbadges%2Fmod-downloads.json&cacheSeconds=3600)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases) [![Latest release](https://img.shields.io/github/v/release/AhmxdNYC/Nioh-3-Engine?label=latest)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases/latest) [![Player reports solved](https://img.shields.io/endpoint?cacheSeconds=3600&url=https%3A%2F%2Fraw.githubusercontent.com%2FAhmxdNYC%2FNioh-3-Engine%2Fbadges%2Freports-solved.json)](https://github.com/AhmxdNYC/Nioh-3-Engine/issues?q=is%3Aissue+label%3Amod-report) [![Crashes solved](https://img.shields.io/endpoint?cacheSeconds=3600&url=https%3A%2F%2Fraw.githubusercontent.com%2FAhmxdNYC%2FNioh-3-Engine%2Fbadges%2Fcrashes-solved.json)](https://github.com/AhmxdNYC/Nioh-3-Engine/issues?q=is%3Aissue+label%3Acrash-report)
 
 > **Warning: this mod has NOT been tested in online co-op.** Use it offline, or at your own risk online. Back up your saves first.
 
