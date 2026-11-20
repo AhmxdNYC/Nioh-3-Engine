@@ -1170,3 +1170,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-20 00:45 | regression-pc/0 | SESSION END | done: #122016 gate tests cd692d44, #122140 GO #122163 | half-done: gate live run (pc/1) | next: score pc/1 capture with training_gate.py score, RESULT to pc | cd692d44, 0f0d9015
 
+- 2026-11-20 1:20 am EST | pc/0 | Task: keep pc0/fixes-121854 (RC 1.8.25 base) in sync with pc/2's live human fixes. Done: = adbb92f8 (all tonight's TR/BR fixes + e564e233 ContextFlags + 390d12fe slotless-boss edge); regression GO #122030 on 2a96ba57; Training gate tests cd692d44 (#122048); GH #140 keep f295ffb1 (#122156). Half-done: human BR 8f6e388a lacks e564e233 (NOTE #122225). Next: when human session ends -> pc/1 live Training gate run (#122048), then installer-pc RC 1.8.25 rebuild from pc0/fixes-121854 + regression; close GH #140 at ship. Keep merging pc2/arena-pick-121995 into pc0/fixes-121854.
