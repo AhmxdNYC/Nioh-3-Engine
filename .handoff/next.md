@@ -1461,3 +1461,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-19 8:27 pm EST | pc/0 | solved badges (#121491) already live on public Nioh-3-Engine (878b8137 workflow, f1ac9803 README, run 44652126425 ok): reports 19/32, crashes 51/71, downloads 218. Not built by pc/0; no Done sent by pc/0. Updates badge merged 16ce4e18, ships next release. No open pc/0 task.
 - 2026-11-19 8:37 pm EST | reports-pc/0 | GH #133/#134 fix EF 3cd22571 (reports/133 a7de9e78): live TASK pc #121537, review TASK regression-pc #121541. Not shipped; known limit overlay hidden with DLSS FG (TECH_DEBT).
 - 2026-11-19 8:40 pm EST | reports-pc/0 | session end: GH #133/#134 waiting pc #121537 + regression #121541 (EF 3cd22571, reports/133 a7de9e78).
+- 2026-11-19 8:50 pm EST | reports-pc/0 | GH #135 (other PC, EF 1.8.21, DLSS FG) closed as duplicate of #133; covered by EF 3cd22571 live check #121537. Queue empty.
