@@ -1135,3 +1135,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-19 12:56 am EST | pc/0 | v1.8.24 released (#121456), private #126 closed | proven live update 7/7 by installer-pc | next: main-thread hitch profile per #121278 | main merge 8009003a
 
 2026-11-19 8:30 pm EST | pc/0 updates badge 78c66240 built | proven offline only (updater 25 OK, site 5 OK); not deployed | next: regression RESULT -> merge, deploy, README badge, release with Updater | branch pc0/updates-badge-121461
+
+2026-11-19 8:25 pm EST | pc/0 updates badge fixes 7cb796b5 | offline proven (25 OK, self-test PASS) | next: regression recheck RESULT -> merge, deploy, README badge, release | branch pc0/updates-badge-121461
