@@ -5365,6 +5365,7 @@ static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + agg
 #define DR_PREFORCE(a) AgDrillFace(a)
 #define DR_GAP(chr) MvGapEffChr(chr)  // user #14309: per-boss gap (human #68578: none between members of a Last 2 / 3 cycle)
 #define DR_NEXT(chr, id) MvRepNextChr(chr, id)  // human #68578
+#define DR_HAND(chr, id, cur) MvHandFlow(chr, id, cur)  // human #122193: Stand still Flow
 #define DR_SEQ(chr) Nioh3Training_GetMoveRepeatSeq(chr)  // user #14546: a sequence repeat is forced by MvRepTick, not the drill
 #include "drill.h"  // user #13529: move drill in the Stand still stance
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position

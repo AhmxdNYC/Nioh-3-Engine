@@ -37,6 +37,11 @@ static void DrStop(const char* why) {
 #ifndef DR_NEXT
 #define DR_NEXT(chr, id) (id)
 #endif
+// human #122193: Stand still Flow: ms into the running member (cur = its current action) at which the next Last 2 / 3 member is forced
+// (the boss's learned own chain point, move_toggle.h MvHandFlow); 0 = wait for idle as before
+#ifndef DR_HAND
+#define DR_HAND(chr, id, cur) 0
+#endif
 // user #13618 (move_toggle.h REPEAT log): 1 = the Stand still stance holds this boss, so the drill (not the AI) plays its repeat
 static inline int MvRepStanding(uint32_t chr) { return chr && g_ih.phase == 2 && g_ih.chr == chr; }
 // 0 no drill, 1 drill (boss stands still, does the move every gap), 2 drill with the boss AI on (fallback)
@@ -86,6 +91,19 @@ static void DrillTick(void) {
             Log("DRILL chr %u: a forced move does not play with the AI off: AI on for the drill only (the boss uses just 0x%X, idle in the gaps)", chr, id);
         }
         return;
+    }
+    {   // human #122193: Flow inside a Last 2 / 3 cycle: the next member starts where the boss chains attacks itself, not from idle
+        const DWORD hm = cur != 0xFFFFFFFFu ? DR_HAND(chr, g_dr.id, cur) : 0;
+        if (hm && now - g_dr.tForce >= hm && IhEligible(g_ih.actor, g_dr.ctrl)) {
+            const uint32_t was = g_dr.id;
+            DR_PREFORCE(g_ih.actor);
+            { const uint32_t nx = DR_NEXT(chr, id); if (nx) g_dr.id = nx; }
+            DrForceNative(g_dr.ctrl, g_dr.id);
+            g_dr.tForce = now; g_dr.before = cur; g_dr.seen = IhReadAction(g_dr.ctrl) != cur; g_dr.fails = 0;
+            LONG n = ++g_dr.n;
+            if (n <= 300) Log("DRILL chr %u flow: 0x%X -> 0x%X %lu ms in (the boss's own chain point), action now 0x%X", chr, was, g_dr.id, hm, IhReadAction(g_dr.ctrl));
+            return;
+        }
     }
     if (cur == 2 || now - g_dr.tForce > 20000 || (cur < 0x4E20 && cur != 0xFFFFFFFFu && now - g_dr.tLast >= 3000)) {  // back at rest: the move ended
         g_dr.phase = 0; g_dr.tEnd = now; g_dr.fails = 0;
