@@ -1217,3 +1217,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-20 4:35 PM EST | regression-pc/0 | GH #149 review 1d7228f9 offline PASS (#125385) | proven offline, unproven live | next: pc lead live hold test then 1.8.27 | no code commits
 2026-11-20 4:41 PM EST | regression-pc/0 | #125384 hits step 1 668f1f12 offline PASS (#125427) | proven offline: 42 rows 0->N, py 70/74 + C 33/38 = main, auto_moves_test 3 real files ok | next: pc merge + live | logs D:/nioh3-wt/rg-hits-suite, no code commits
 2026-11-20 5:05 pm EST | GH #149 low-fps live PASS accepted (#125507) | proven at ~24 fps, hitstop unproven | next: pc runs hitstop tap chunk vs criteria #125521, then installer-pc 1.8.27 | reports/149 1d7228f9
+2026-11-20 5:20 pm EST | GH #149 tap check PASS #125569, ship decision #125575 | low-fps + taps proven, hitstop unproven | next: pc/installer-pc ship 1.8.27, then reports-pc closes #149 | reports/149 1d7228f9
