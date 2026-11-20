@@ -1509,3 +1509,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-20 1:16 am EST | pc/0 | pc0/fixes-121854 = adbb92f8 (+ pc/2 47a85154 Repeat Flow/Pause #122193, installed TR 47df119b BR 8f6e388a without e564e233). NOTE #122225 to pc/2: build from pc0/fixes-121854. Soul-core summoning-seal cancel (#122193 part 2) is pc/2's next item.
 - 2026-11-20 1:20 am EST | pc/0 | session end; see checkpoints.md 1:20 am entry. pc0/fixes-121854 = adbb92f8.
 - 2026-11-20 1:50 am EST | reports-pc/0 | GH #141 = #113 player (i7-6700), CPU-bound, no mod bug: closed as dup, data on #113, NOTE pc. reports/113 6d03c589 still unshipped.
+- 2026-11-20 1:54 am EST | pc/0 | #122288 crouch cancel BR b1952669 (b1e3d47a) installed, pid 42216, unproven live; next: read FormCrouchCancel log lines after human's tries, then merge to pc0/fixes-121854.

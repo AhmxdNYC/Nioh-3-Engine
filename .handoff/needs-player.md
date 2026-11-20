@@ -42,3 +42,4 @@
 - [ ] Ship v1.8.25? | reply OK to publish the GH #133/#134 + #138 crash-fix release (EF 9618d8c2) after its RC regression GO (DECISION #121821) | all
 - [x] Try the 3-fix test build | reply 'install' (TO-USER #121899): pc/0 closes your game, installs D:/nioh3-re/live-fixes-121854 (TR 8f67a19d, BR 0235202f, EF f31df983) and relaunches | main PC
 - [x] Despawn fix install | reply 'install': pc/0 swaps TR 501507a0 (D:/nioh3-re/live-fixes-121923, + BR 0235202f EF f31df983 unchanged) and relaunches | main PC
+- [ ] Soul Core crouch cancel | press stick (crouch) within 0.25 s of the seal press; check transformation cancels and core count stays | Main PC
