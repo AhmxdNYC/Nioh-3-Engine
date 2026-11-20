@@ -136,3 +136,16 @@ flags (/W4).
 - GameMain+4Dh is expected 0 (cap 10) in retail; LoadStats logs it.
 - Manager queue fields are read from the decompile only (+200h/+210h are counts); LoadStats ignores implausible values.
 - 2026-10-08 PC LoadStats: see `notes\loading-bottleneck.md` - managers drain >= 12 s before the clear, LC/LW/GL1 = 0; the window ends on LoadIsLoadEnd preconditions or a sequencer settle state (probe LG). The 118.7 s Ally route is 25.8 s on PC.
+
+## Boss-rematch first-load split, Main PC 2026-11-20 (#124352, performance-pc/0)
+EF f31df983, BR 67c2e648, LoadStats 1, user graphics. Row R1CBC Yamagata Masakage (Fight now, route native). 3 process-cold launches
+(OS file cache warm after launch 1) + 3 warm re-fights in launch 3 (FN_REPEAT). Death retries could not be produced: the idle player at
+the arena gate is never attacked (300 s x2, also with walking), so "retry" = same-session re-fight.
+| load | mission load s | arena step s | to fight s | read in-call s | inflate CPU-s | loaders busy s | cores |
+| cold L1 | 10.1 | 0.9 | 16.1 | 5.0 | 1.36 | 5.5 | 5.61 |
+| cold L2 | 9.1 | 0.6 | 15.0 | 1.8 | 1.51 | 4.1 | 5.23 |
+| cold L3 | 8.6 | 0.8 | 14.9 | 1.6 | 1.46 | 3.8 | 5.47 |
+| warm 1/2/3 | 8.5 / 8.3 / 9.4 | 0.7 / 0.9 / 0.7 | 14.8 / 14.7 / 14.7 | 1.6-1.8 | 1.5-1.6 | 4.0-4.4 | 5.5-5.8 |
+Every load: set->stage ready 0.0 s; 100 % in stage ready->clear. Loaders idle ~4-5 s of each ~9 s (activation/gate polls, see
+load-fix-99501.md G2/G8). The old 37 s first load is gone (first = retry within 1 s). Leaving the fight (return home) 12.4-13.0 s at
+5.9-6.4 cores is now the longest load in the cycle. Logs: Temp/rm124352/ef-launch{1,2,3}.log (local), captures/rematch/fightnow-20261120-*.

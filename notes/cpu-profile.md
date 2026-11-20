@@ -455,3 +455,58 @@ dotnet fsi cpu_caves.fsx status                    # flags, timer handle, waits/
 dotnet fsi cpu_caves.fsx off L1 ; ... on L1        # A/B without touching code (R1 off = timeout 0)
 dotnet fsi cpu_caves.fsx revert W3,R1,L1           # original bytes back (cave stays allocated)
 ```
+
+## Rerun 2026-11-20 6:42 am EST (TASK #124164, performance-pc/0): current build, measure only
+Main PC, EF f31df983, TR c8b28619, BR 67c2e648, CamKi d30af192; user settings (FG off, XeSS 75 %, REN_FPS 120, VSync on;
+ini W1/W2/W3/R1/L1/W6/WK/FG on, J1/M1/M2/X1/E1 off). Same save spawn, 2 x 30 s standing + 30 s moving (stick loop).
+Script `tools/testmatrix/pc_cpuprof_124164.ps1`, diff `tools/testmatrix/cpuprof_diff.py`, raw `captures/cpuprof-124164/20261120-064028/`.
+
+| window | fps (1% low) | process CPU | [App]Game | Scheduler0 | pump thread |
+|---|---|---|---|---|---|
+| 10-06 base (60 fps lock) | 60 | 8.35-8.53 cores | 92.6 % | 83.0 % | 43 % |
+| S1 standing | 97.5 (63.9) | 6.68 cores | 72.4 % | 70.9 % | gone (<2 %) |
+| S2 standing | 95.6 (58.2) | 6.52 cores | | | |
+| M1 moving | 93.0 (36.9) | 7.19 cores | 81.0 % | 65.8 % | gone |
+CPU per frame: ~0.14 core-s (10-06) -> ~0.068 standing / 0.077 moving (about half).
+
+W1-W7 now (share of one core, self samples; base -> standing / moving):
+- W1 61B1C 0.164 -> 0.011 / 0.010 FIXED (rep stosd residue). W2 1371D0 0.016 -> 0 FIXED. W3 PeekMessage 0.68 + Yield 0.21 -> 0 FIXED.
+- W6 7D9E90 -> ~0 FIXED. W4 frame limiter: now sleeps (ZwDelayExecution, blocked, not spin) via L1. W5 FSR presenter: FG off, not measured.
+- W7 411C0 lock cmpxchg poll 0.18 -> 0.16 / 0.15 STILL THERE (J1 exists, default off).
+New/up (cores of CPU, process-wide): CustomOccluderRayCast chain B616A4/3D7CC8 incl 0.19 -> 0.97 (up, upper bound);
+main thread 418F40 tight 25-byte loop 418F60..418F77 (caller 418C70) 0.003 -> 0.04-0.055 NEW; 1E80B0 (lock) 0.018 -> 0.045-0.063;
+meshlet 48E90 lock + 12-byte loop 49150..4915A 0.09-0.12 (same; M1/M2 off); SynergisticDispatcher 1A7C3E0 incl 0.29 -> 0.59.
+No spin-wait suspect left except Scheduler0 condvar waits (12-15 % samples, normal blocking).
+
+## J1 A/B + occluder split 2026-11-20 6:55-7:02 am EST (TASK #124223, performance-pc/0)
+Main PC, EF f31df983, user settings (FG off, XeSS 75, REN_FPS 120, vsync on, MaxFps 120, W6=1), one launch per arm, 30 s windows.
+| arm | S1 fps / 1%low / cores | S2 | M1 (moving) |
+| J1=0 | 96.8 / 45.9 / 6.52 | 97.9 / 54.6 / 6.53 | 95.2 / 41.8 / 7.17 |
+| J1=1 | 99.1 / 65.3 / 6.57 | 98.5 / 55.9 / 6.60 | 93.6 / 47.5 / 7.13 |
+J1 patched (J1a/b/c OK at 4122D/41265/41397). W7 411C0 self samples -12/-12/-18 % (~0.006 core). Process cores +0.05 standing, -0.04 moving = noise.
+fps within noise; 1% low higher in all 3 J1 windows but one run per arm (OFF S1 45.9 vs 63.9 in #124164). Verdict: J1 no CPU gain.
+Occluder chain B616A4/3D7CC8 is NOT work: it is the shared condvar wait (SleepConditionVariableSRW -> NtWaitForAlertByThreadId)
+used by ~13 idle threads (8x EffectUpdate, Mission, Input, Sound, CustomOccluderRayCast, Scheduler0). "0.97 core incl" = sleep time.
+Occluder thread own CPU 0.13-0.18 core (busy 15-19 %), self work 1989F0 ~3.5-4.3 % + 168580 ~2.3 % of its samples; standing ~ moving.
+Tool: tools/testmatrix/cpuprof_occsplit.py; runner pc_cpuprof_j1_124223.ps1. Captures captures/cpuprof-124223/20261120-065459.
+
+## PP page-pool throttle A/B 2026-11-20 (#124312, performance-pc/0)
+Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, J1=0. PP_Period 1 is not a legal value (clamps to 4), so arm A = PP 0 (stock every-frame sweep), arm B = PP 1 + PP_Period 4. 30 s windows, cpuprof + PresentMon.
+| arm | S1 fps/1%low/cores | S2 | M1 | [App]Game core% S1/S2/M1 |
+| PP 0 | 97.8 / 49.9 / 6.70 | 99.0 / 66.7 / 6.58 | 93.2 / 42.1 / 7.26 | 75.5 / 75.3 / 81.3 |
+| PP 1 (P4) | 98.9 / 63.3 / 6.75 | 98.2 / 57.8 / 6.80 | 92.7 / 40.1 / 7.05 | 74.3 / 75.4 / 82.9 |
+Verdict: no measurable change (fps within 1, cores within run noise, main thread same). Keep shipped default; no further PP work. Captures captures/cpuprof-124312/20261120-072518, harness tools/testmatrix/pc_cpuprof_pp_124312.ps1.
+
+## Never-measured keys WG, WK, FPC, S1, RWb A/B 2026-11-20 (#124439, performance-pc/0)
+Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, PP=1, J1=0. Base = all five 0; each arm = one key 1. 30 s windows (S = standing, M = moving stick loop), cpuprof + PresentMon. Shipped ini: WK=1, WG/FPC/S1/RWb=0.
+| arm | S fps / 1% low / cores | M fps / 1% low / cores | vs base avg (S / M) |
+| base run 1 | 99.6 / 67.6 / 6.61 | 95.0 / 59.4 / 7.25 | |
+| base run 2 | 98.4 / 60.1 / 6.84 | 94.2 / 43.0 / 7.10 | (avg 99.0 / 94.6) |
+| WK | 99.6 / 67.0 / 6.79 | 92.9 / 38.9 / 7.23 | +0.6% / -1.8% |
+| WG run 1 | 91.9 / 24.4 / 6.53 | 87.3 / 29.5 / 6.64 | -7.2% / -7.7% |
+| WG run 2 | 96.4 / 47.3 / 6.65 | 91.4 / 38.4 / 7.15 | -2.6% / -3.4% |
+| FPC | 98.5 / 62.6 / 6.77 | 91.6 / 34.3 / 6.95 | -0.5% / -3.2% |
+| S1 | 97.3 / 51.4 / 6.67 | 92.4 / 34.4 / 6.54 | -1.7% / -2.3% |
+| RWb | 97.3 / 55.9 / 6.56 | 93.3 / 40.7 / 6.94 | -1.7% / -1.4% |
+Verdict: no key gains on Main PC. WG ON is worse both runs (avg -4.9% S / -5.5% M, 1% lows down) -> keep WG 0 (shipped). FPC moving -3.2% is one run, borderline. WK (shipped on) neutral. S1 cut moving cores 7.18 -> 6.54 but fps -2%. Run noise ~1 fps.
+Captures captures/cpuprof-124439/{20261120-080849,20261120-081532,20261120-082602}; harness tools/testmatrix/pc_keyab_124439.ps1.
