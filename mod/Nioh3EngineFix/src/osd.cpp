@@ -36,6 +36,7 @@
 #pragma intrinsic(_ReturnAddress)
 #include "gimerge.h"
 #include "vtdisk.h"
+#include "loop_breaker.h"
 #include "gpuopt.h"
 #include "devremoved.h"
 #include "gpuprof.h"
@@ -138,6 +139,7 @@ volatile LONG g_presentLoopLogged = 0;
 SetCs1Fn g_origSetCs1 = nullptr;
 SetCs1Fn g_realSetCs1 = nullptr;           // GitHub #100: DXGI SetColorSpace1 read from disk (loop breaker)
 volatile LONG g_csLoopLogged = 0;
+volatile LONG g_csSkipLogged = 0, g_presentSkipLogged = 0;  // GitHub #138
 thread_local int t_csDepth = 0;
 // Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
 // IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
@@ -1591,6 +1593,12 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
     if (t_depth >= kPresentLoopDepth) {  // #38 hook loop: skip every hook, present once on DXGI
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138: DXGI itself loops back
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
         if (!InterlockedExchange(&g_presentLoopLogged, 1))
             OLOG("Present re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
                  t_depth, ModuleOf((const void*)g_origPresent).c_str(), g_realPresent ? "" : " (DXGI address unknown: frame skipped)");
@@ -1623,6 +1631,12 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
     if (t_depth >= kPresentLoopDepth) {  // #38 hook loop, see HkPresent
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138, see HkPresent
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present1 still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
         if (!InterlockedExchange(&g_presentLoopLogged, 1))
             OLOG("Present1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
                  t_depth, ModuleOf((const void*)g_origPresent1).c_str(), g_realPresent1 ? "" : " (DXGI address unknown: frame skipped)");
@@ -1655,13 +1669,22 @@ HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags,
 HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
     // GitHub #100: another overlay (a version.dll proxy) re-hooked SetColorSpace1 around ours and called back through the
     // vtable, so the two hooks recursed until the stack overflowed 6 s after start. Same breaker as Present (#38).
-    if (t_csDepth + 1 >= kPresentLoopDepth) {
+    // GitHub #138: with the Steam overlay that DXGI function is detoured back into the loop, so the depth now also counts
+    // the direct call and anything nested below it is dropped (loop_breaker.h).
+    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
+    const loopbrk::Step step = loopbrk::Decide(t_csDepth, kPresentLoopDepth);
+    if (step == loopbrk::Step::Skip) {
+        if (!InterlockedExchange(&g_csSkipLogged, 1))
+            OLOG("SetColorSpace1 still looping after the direct DXGI call (DXGI is patched by another overlay via %s) - nested call dropped",
+                 ModuleOf((const void*)g_realSetCs1).c_str());
+        return S_OK;
+    }
+    if (step == loopbrk::Step::Direct) {
         if (!InterlockedExchange(&g_csLoopLogged, 1))
             OLOG("SetColorSpace1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
-                 t_csDepth + 1, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
+                 t_csDepth, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
         return g_realSetCs1 ? g_realSetCs1(sc, cs) : S_OK;
     }
-    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Enter, sc, reinterpret_cast<void*>(g_origSetCs1), S_OK, false, cs);
     HRESULT hr = g_origSetCs1(sc, cs);
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Returned, sc, reinterpret_cast<void*>(g_origSetCs1), hr, true, cs);

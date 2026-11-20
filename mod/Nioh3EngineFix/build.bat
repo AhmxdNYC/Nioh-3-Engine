@@ -59,6 +59,9 @@ cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_sel
 build\vrs_selective_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1
 build\vrs_ceiling_test.exe || exit /b 1
+rem GH #138 hook-loop breaker: a DXGI function detoured back into the loop must not recurse forever
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\loop_breaker_test.exe /Fobuild\loop_breaker_test.obj tests\loop_breaker_test.cpp || exit /b 1
+build\loop_breaker_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_capture_test.exe /Fobuild\vrs_capture_test.obj tests\vrs_capture_test.cpp || exit /b 1
 build\vrs_capture_test.exe || exit /b 1
 
