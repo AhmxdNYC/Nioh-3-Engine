@@ -3611,6 +3611,9 @@ static int ByNear(const float* pos, const float* bp, int radius) { float dx = po
 // human #122041: the Dojo's weapon-choice character stayed in view during the session. Held bystanders are also faded to alpha 0 (the native
 // Character::FadeOut lerp 2BC5DC on [actor+0x20]+0x240, see FadeOutActor) and faded back to 1 on release. [ArenaSwap] PracticeBystanderHide (default 1).
 static int g_cfg_by_hide = 1;
+// human #122065 (live 00:04:51, 5 held + faded): the weapon-choice character still offered his talk prompt. [ArenaSwap] PracticeBystanderRemove (default 1):
+// each bystander is deleted with the native Character::Delete path 2BF7E8 (the same call Despawn uses) instead of held; the world brings them back on the next load.
+static int g_cfg_by_remove = 1; static int g_by_removed; static uint64_t g_by_del[BY_MAX]; static int g_by_ndel;  // removed pointers: never deleted twice (the table may keep a deleted actor a few frames)
 static int ByFade(uint64_t a, float target) {
     uint64_t c = 0; if (!Rd64(a + 0x20, &c) || !c) return 0;
     __try { ((void (*)(uint64_t, float, float))(B + Grva(0x2BC5DC)))(c + 0x240, target, 15.0f); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -3623,7 +3626,7 @@ static void ByRelease(const char* why, int callAi) {
         for (int i = 0; i < g_by.n; ++i) for (int j = 0; j < n; ++j) if (cur[j] == g_by.a[i]) { ((void (*)(uint64_t))(B + Grva(0x66982C)))(g_by.a[i]); if (g_cfg_by_hide) ByFade(g_by.a[i], 1.0f); back++; break; }
     }
     if (g_by.on) Log("BYSTANDER release (%s): %d held, %d AI back on", why, g_by.n, back);
-    g_by.n = 0; g_by.on = 0; g_by.tNext = 0;
+    g_by.n = 0; g_by.on = 0; g_by.tNext = 0; g_by_ndel = 0;
 }
 static void ByTick(void) {
     const uint8_t* gs = GameState();
@@ -3638,6 +3641,12 @@ static void ByTick(void) {
         if (!a || a == me || InSp(a)) continue;
         float pos[4]; memcpy(pos, (void*)(a + 0x110), sizeof pos);
         if (!ByNear(pos, g_tr.bp, g_cfg_by_radius)) continue;
+        { int d = 0; while (d < g_by_ndel && g_by_del[d] != a) ++d; if (d < g_by_ndel) continue; }
+        if (g_cfg_by_remove && g_by_ndel < BY_MAX) {
+            int ok = 1; __try { ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; g_cfg_by_remove = 0; }
+            if (ok) { g_by_removed++; g_by_del[g_by_ndel++] = a; Log("BYSTANDER removed actor %p handle %08X pos %.0f %.0f %.0f: native delete 2BF7E8 for the Practice arena session", (void*)a, *(uint32_t*)a, pos[0], pos[1], pos[2]); continue; }
+            Log("BYSTANDER delete faulted, PracticeBystanderRemove off: holding instead");
+        }
         int k = 0; while (k < g_by.n && g_by.a[k] != a) ++k;
         if (k == g_by.n) { if (g_by.n >= BY_MAX) continue; g_by.a[g_by.n++] = a; const int hid = g_cfg_by_hide ? ByFade(a, 0.0f) : 0; Log("BYSTANDER hold actor %p handle %08X pos %.0f %.0f %.0f: AI off%s for the Practice arena session", (void*)a, *(uint32_t*)a, pos[0], pos[1], pos[2], hid ? ", hidden" : ""); }
         ((void (*)(uint64_t))(B + Grva(0x668D74)))(a);
@@ -6717,7 +6726,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
         g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); g_nf_reserve = GetPrivateProfileIntA("Summon", "KiBreakHp0Reserve", 1, ini); Log("KiBreakHp0Prime %d, KiBreakHp0Reserve %d", g_nf_prime, g_nf_reserve); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
-        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); g_cfg_by_hide = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderHide", 1, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d, PracticeBystanderHide %d (#122041)", g_cfg_by_radius, g_cfg_by_hide);
+        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); g_cfg_by_hide = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderHide", 1, ini); g_cfg_by_remove = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRemove", 1, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d, PracticeBystanderHide %d (#122041), PracticeBystanderRemove %d (#122065)", g_cfg_by_radius, g_cfg_by_hide, g_cfg_by_remove);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }

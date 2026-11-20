@@ -26,6 +26,7 @@ static int InSp(uint64_t a) { return a == (uint64_t)act[1]; }
 #define __except(x) else if (0)
 #define EXCEPTION_EXECUTE_HANDLER 1
 static int hides, shows; static int Rd64(uint64_t a, uint64_t* o) { *o = a; return 1; }
+static int dels; static uint64_t lastDel; static void Del(uint64_t a) { lastDel = a; ++dels; }
 static void FadeTo(uint64_t c, float t, float f) { (void)c; (void)f; if (t == 0.0f) ++hides; else ++shows; }
 '''
 main = r'''
@@ -38,11 +39,12 @@ int main(void) {
 '''
 # Build a real fake: actors are byte buffers; the AI calls go through B + Grva(rva) -> map rva to functions.
 pre = pre.replace('static float act[5][8];', 'static unsigned char act[5][0x200];')
-prod2 = prod.replace('((void (*)(uint64_t, float, float))(B + Grva(0x2BC5DC)))', 'FadeTo').replace('((void (*)(uint64_t))(B + Grva(0x66982C)))', 'AiOn').replace('((void (*)(uint64_t))(B + Grva(0x668D74)))', 'AiOff')
+prod2 = prod.replace('((void (*)(uint64_t))(B + Grva(0x2BF7E8)))', 'Del').replace('((void (*)(uint64_t, float, float))(B + Grva(0x2BC5DC)))', 'FadeTo').replace('((void (*)(uint64_t))(B + Grva(0x66982C)))', 'AiOn').replace('((void (*)(uint64_t))(B + Grva(0x668D74)))', 'AiOff')
 assert 'AiOn' in prod2 and 'AiOff' in prod2 and 'FadeTo' in prod2
 main = r'''
 static void SetPos(int i, float x, float z) { float p[4] = {x, 0, z, 0}; memcpy(act[i] + 0x110, p, sizeof p); }
 int main(void) {
+    g_cfg_by_remove = 0;  // hold mode first
     g_tr.bp[0] = 1000; g_tr.bp[2] = 1000;
     SetPos(0, 1000, 1100); SetPos(1, 1000, 1000); SetPos(2, 1500, 1000); SetPos(3, 1000, 4900); SetPos(4, 9000, 9000);  // player, our boss, near, near edge, far
     ByTick(); assert(offs == 0 && !g_by.on);  // no session
@@ -55,6 +57,11 @@ int main(void) {
     gs[2] = 1; ons = 0; ByTick(); assert(ons == 0 && g_by.n == 0);  // load: list dropped, no call on freed actors
     gs[2] = 0; g_cfg_by_hide = 0; hides = 0; tick += 1000; ByTick(); assert(g_by.n == 1 && hides == 0); g_tr.active = 0; ByTick(); g_tr.active = 1; g_cfg_by_hide = 1;  // PracticeBystanderHide 0 = AI hold only
     gs[2] = 0; g_cfg_by_radius = 0; offs = 0; ByTick(); assert(offs == 0);  // radius 0 = off
+    // human #122065 remove mode: each in-range bystander deleted once, never the player or our boss, nothing held
+    g_cfg_by_radius = 4000; g_cfg_by_remove = 1; g_tr.active = 1; offs = 0; inTable[3] = 1; tick += 1000; ByTick(); assert(dels == 2 && g_by.n == 0 && offs == 0 && g_by_removed == 2);
+    assert(lastDel != (uint64_t)act[0] && lastDel != (uint64_t)act[1]);
+    tick += 1000; ByTick(); assert(dels == 2);  // still in the table a second later: not deleted twice
+    gs[2] = 1; ByTick(); gs[2] = 0; tick += 1000; ByTick(); assert(dels == 4);  // after a load the list is fresh
     puts("PASS practice-bystander: Practice arena holds nearby world actors, releases on session end, drops on load, Boss Match untouched");
     return 0;
 }
