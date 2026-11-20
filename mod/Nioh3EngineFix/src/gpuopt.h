@@ -99,6 +99,7 @@ bool InstallNow();
 // Actual presenting device only; no dummy/default-adapter inference.
 void ObserveVrsDevice(ID3D12Device* device);
 int VrsSupport(); // 0 unknown, 1 supported, -1 unavailable
+bool SetVrsTuning(const char* key, const char* val, char* reply, size_t n);  // #119730 LiveCtl Tuning.VrsMode / VrsWideExclude
 int VrsBootMode();      // the mode the game started with; 0 = no VRS hooks this session
 bool VrsBootTracking(); // the game started with Selective's shader data and tracking
 void VrsSetLive(const vrsmenu::Values& v);  // no-op when VrsBootMode() is 0

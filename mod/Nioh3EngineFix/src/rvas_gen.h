@@ -54,6 +54,7 @@ constexpr Def kDefs[] = {
     {0x1E72D1, kCode, "4D 85 F6 74 49 49 8B 4E 68 48 85 C9", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x205530, kCode, "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 80 78 12 00 0F 84 ?? ?? ?? ?? 48 8D 4C 24 30 FF 15 ?? ?? ?? ?? 48 8B 44 24", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x20723D, kCode, "48 8B 0B 44 8A F0 88 44 24 78 45 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
+    {0x20DFC0, kCode, "48 8B C4 48 89 58 08 48 89 68 18 48 89 70 20 48 89 50 10 57 41 54 41 55 41 56 41 57 48 83 EC 60 33 FF 0F 29", 0, 0x0, 0, 0, 0, ""},  // holdkeygap.cpp
     {0x2477D4, kCode, "68 AB 69 03 EB E7 CC CC 41 BA 02 00 00 00 48 8D 41 10 4C 8B", 8, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x247950, kCode, "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 ?? ?? ?? ?? 8B 87 70 01 00 00 89", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x247955, kCode, "57 48 83 EC 20 48 8B FA 48 8B D9 E8 ?? ?? ?? ?? 8B 87 70 01", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
@@ -164,6 +165,7 @@ constexpr Def kDefs[] = {
     {0x89B2FD, kCode, "E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x8B3868, kCode, "48 83 EC 28 48 8B 41 18 48 8B 00 48", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x8F041C, kCode, "40 53 48 83 EC 20 41 8B D8 48 85 C9 74 21 BA E9 FA B3 37 41", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
+    {0x901BA4, kCode, "48 83 EC 28 4C 63 CA 4C 8B D1 E8 ?? ?? ?? ?? F3 0F 10 0D ?? ?? ?? ?? 0F 57 C0 43 8B 8C 8A A4 00 00 00 44 8B", 0, 0x0, 0, 0, 0, ""},  // holdkeygap.cpp
     {0x909218, kCode, "41 5E 41 5D 41 5C 5D C3 4C 8B 49 08 49 B8 25 23 22 84 E4 9C", 8, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x9290D8, kCode, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D AC 24 50 FD FF FF 48 81", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x9A62FC, kCode, "40 53 48 83 EC 20 48 83 02 04 48 8B D9 E8 ?? ?? ?? ?? C6 83", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp

@@ -954,6 +954,8 @@ void Start(const StartInfo& info) {
     g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
     if (g_vrsMode < 0 || g_vrsMode > 3) g_vrsMode = 0;
     g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, g_iniPath.c_str()) != 0;
+    g_vrsWideExclude = (g_vrsMode == 1 || g_vrsMode == 2) ? GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, g_iniPath.c_str()) & 0xFFu : 0;
+    LOG("VRS wide exclude=0x%X (#119730; modes 1/2 only; 0=plain whole frame; bits unknown1 blend2 noDepth4 depthOnly8 forward16 motion32 skinned64 gbuffer128)", g_vrsWideExclude);
     g_vrsLayouts=vrsselect::LayoutMask((int)GetPrivateProfileIntW(L"Perf",L"VrsLayouts",7,g_iniPath.c_str()));
     g_vrsRate=vrsselect::RateOption((int)GetPrivateProfileIntW(L"Perf",L"VrsRate",0,g_iniPath.c_str()));
     g_vrsSkipSkinned=GetPrivateProfileIntW(L"Perf",L"VrsSkipSkinned",1,g_iniPath.c_str())!=0;
@@ -1133,6 +1135,21 @@ const char* StatusLine(char* buf, size_t n) {
 }
 
 // #79098: called by the menu on the Present thread. Plain value writes only, nothing is hooked or rebuilt here.
+// #119730 LiveCtl 'Tuning.VrsMode' (0/1/2, needs a VRS boot) and 'Tuning.VrsWideExclude' (0-255, needs PSO data from a
+// boot with VrsWideExclude != 0). One-launch A/B arms: off, plain whole frame (exclude 0) and each exclusion mask.
+bool SetVrsTuning(const char* key, const char* val, char* reply, size_t n) {
+    const bool mode = !_stricmp(key, "VrsMode"), wide = !_stricmp(key, "VrsWideExclude");
+    if (!mode && !wide) return false;
+    const int v = atoi(val);
+    if (!g_vrsBootMode || (wide && !g_vrsBootTracking)) {
+        snprintf(reply, n, "%s needs a boot with VrsCeiling 1/2%s", key, wide ? " and VrsWideExclude != 0" : ""); return false;
+    }
+    if (mode ? (v < 0 || v > 2) : (v < 0 || v > 255)) { snprintf(reply, n, "%s out of range (got %s)", key, val); return false; }
+    if (mode) g_vrsMode = v; else g_vrsWideExclude = (unsigned)v;
+    snprintf(reply, n, "VrsMode = %d VrsWideExclude = 0x%X", g_vrsMode, g_vrsWideExclude);
+    LOG("LIVE tuning: %s", reply);
+    return true;
+}
 int VrsBootMode() { return g_vrsBootMode; }
 bool VrsBootTracking() { return g_vrsBootTracking; }
 void VrsSetLive(const vrsmenu::Values& raw) {
@@ -1140,7 +1157,8 @@ void VrsSetLive(const vrsmenu::Values& raw) {
     const vrsmenu::Values v = vrsmenu::Clamped(raw);
     g_vrsLayouts = (unsigned)v.layouts; g_vrsRate = v.rate;
     g_vrsSkipSkinned = v.skip; g_vrsKeepCharacters = v.keep;
+    if (g_vrsBootTracking) g_vrsWideExclude = (unsigned)v.wide;  // classes were captured this boot; otherwise the ini applies next launch
     g_vrsMode = vrsmenu::LiveMode(v.mode, g_vrsMode, g_vrsBootMode, g_vrsBootTracking);
-    LOG("VRS live: mode=%d (asked %d) layouts=%d rate=%s skipSkinned=%d keepCharacters=%d", g_vrsMode, v.mode, v.layouts, vrsmenu::RateName(v.rate), v.skip, v.keep);
+    LOG("VRS live: mode=%d (asked %d) layouts=%d rate=%s skipSkinned=%d keepCharacters=%d wide=0x%X", g_vrsMode, v.mode, v.layouts, vrsmenu::RateName(v.rate), v.skip, v.keep, g_vrsWideExclude);
 }
 }  // namespace gpuopt

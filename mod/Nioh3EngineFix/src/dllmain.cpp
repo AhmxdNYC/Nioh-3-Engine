@@ -52,6 +52,7 @@
 #include "bootnotice.h"
 #include "padguard.h"
 #include "aichainguard.h"
+#include "holdkeygap.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -149,7 +150,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.23"
+#define MOD_VERSION "1.8.24"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1623,6 +1624,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (gpuopt::SetVrsTuning(key, val, reply, n)) return true;  // #119730
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
     if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
@@ -3605,6 +3607,15 @@ DWORD WINAPI Worker(LPVOID) {
             agi.base = reinterpret_cast<uintptr_t>(g_base);
             agi.knownBuild = known;
             aichainguard::Start(agi);
+        }
+        {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
+           // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
+            holdkeygap::StartInfo hki;
+            hki.log = &Log;
+            hki.iniPath = iniPath.c_str();
+            hki.base = reinterpret_cast<uintptr_t>(g_base);
+            hki.knownBuild = known;
+            holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state

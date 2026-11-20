@@ -3,8 +3,8 @@
 namespace vrsmenu {
 inline bool Supported(bool queryOk, unsigned tier) { return queryOk && tier >= 1; }
 // #79098 live tuning page. No Windows or D3D here: range, stepping, what each row can do this session, and persistence.
-struct Values { int mode = 0, layouts = 7, rate = 0; bool skip = true, keep = true; };
-enum Row { kRowLevel, kRowAdvanced, kRowMode, kRowLayouts, kRowRate, kRowSkip, kRowKeep, kRowReset, kRowN };
+struct Values { int mode = 0, layouts = 7, rate = 0; bool skip = true, keep = true; int wide = 0; };
+enum Row { kRowLevel, kRowAdvanced, kRowMode, kRowLayouts, kRowRate, kRowSkip, kRowKeep, kRowWide, kRowReset, kRowN };
 // #79382 the one setting most players need: higher = more fps, softer picture. All levels stay in Selective,
 // because the whole-frame modes also coarsen menus and effects and sparkle.
 // #79445 surface layouts and coarse rate always at their max (All, 2x2): the human saw no difference, so no level trades them away.
@@ -14,6 +14,7 @@ inline Values Clamped(Values v) {
     if (v.mode < 0 || v.mode > 3) v.mode = 0;
     if (v.layouts < 0 || v.layouts > 7) v.layouts = 7;
     if (v.rate < 0 || v.rate > 2) v.rate = 0;
+    if (v.wide < 0 || v.wide > 255) v.wide = 0;  // #119891 VrsWideExclude mask
     return v;
 }
 inline Values LevelValues(int level) {
@@ -54,16 +55,24 @@ inline bool Step(Values& v, int row, int dir) {
         case kRowRate: v.rate = StepInt(v.rate, dir, 2); break;
         case kRowSkip: v.skip = !v.skip; break;
         case kRowKeep: v.keep = !v.keep; break;
+        case kRowWide:  // Off (0) or the tested glitter mask (blend + depth-off = 6). A custom mask steps onto one of those.
+            if (v.wide != 0 && v.wide != 6) v.wide = dir < 0 ? 0 : 6;
+            else if (dir < 0) v.wide = 0;
+            else if (dir > 0) v.wide = 6;
+            else v.wide = v.wide == 6 ? 0 : 6;
+            break;
         case kRowReset: if (dir == 0) v = Values{}; break;
         default: break;
     }
-    return was.mode != v.mode || was.layouts != v.layouts || was.rate != v.rate || was.skip != v.skip || was.keep != v.keep;
+    return was.mode != v.mode || was.layouts != v.layouts || was.rate != v.rate || was.skip != v.skip || was.keep != v.keep || was.wide != v.wide;
 }
 enum Effect { kLive, kNextLaunch, kSelectiveOnly };
 // bootMode / bootTracking are what the game started with: the draw hooks and the shader data cannot be added later.
 inline Effect RowEffect(int row, const Values& v, int bootMode, bool bootTracking) {
     if (!bootMode) return kNextLaunch;
     if (row == kRowReset || row == kRowAdvanced) return kLive;
+    // The mask is applied on the next draw only when this boot already captured draw classes and shading is whole-frame.
+    if (row == kRowWide) return bootTracking && (v.mode == 1 || v.mode == 2) ? kLive : kNextLaunch;
     if (row == kRowMode || row == kRowLevel) return v.mode == 3 && !bootTracking ? kNextLaunch : kLive;
     if (!bootTracking) return kNextLaunch;
     return v.mode == 3 ? kLive : kSelectiveOnly;
@@ -77,6 +86,7 @@ inline const char* ModeName(int mode) {
     return mode == 1 ? "Whole frame 2x2" : mode == 2 ? "Whole frame 4x4" : mode == 3 ? "Selective" : "Off";
 }
 inline const char* RateName(int rate) { return rate == 1 ? "1x2" : rate == 2 ? "2x1" : "2x2"; }
+inline const char* WideName(int wide) { return wide == 6 ? "On" : wide == 0 ? "Off" : "Custom"; }
 inline const char* LayoutsName(int layouts) {
     static const char* const k[8] = {"None", "6 targets", "7 targets", "6 + 7", "8 targets", "6 + 8", "7 + 8", "All"};
     return layouts >= 0 && layouts <= 7 ? k[layouts] : k[7];
@@ -89,17 +99,19 @@ template<class Write> void SaveValues(const Values& raw, Write write) {
     write(L"Perf", L"VrsRate", digit[v.rate]);
     write(L"Perf", L"VrsKeepCharacters", v.keep ? L"1" : L"0");
     write(L"Perf", L"VrsSkipSkinned", v.skip ? L"1" : L"0");
+    wchar_t wide[4];
+    const int w = v.wide;
+    auto place = [](int n) { return static_cast<wchar_t>(L'0' + n); };
+    if (w >= 100) { wide[0] = place(w / 100); wide[1] = place((w / 10) % 10); wide[2] = place(w % 10); wide[3] = 0; }
+    else if (w >= 10) { wide[0] = place(w / 10); wide[1] = place(w % 10); wide[2] = 0; }
+    else { wide[0] = place(w); wide[1] = 0; }
+    write(L"Perf", L"VrsWideExclude", wide);  // before the enable key, same order as the other values
     write(L"Perf", L"VrsCeiling", digit[v.mode]);
 }
 template<class Write> void Save(bool on, Write write) {
-    // Write the enable key after the preset parameters.
-    if (on) {
-        write(L"Perf", L"VrsLayouts", L"7");
-        write(L"Perf", L"VrsRate", L"0");
-        write(L"Perf", L"VrsKeepCharacters", L"1");
-        write(L"Perf", L"VrsSkipSkinned", L"1");
-        write(L"Perf", L"VrsGBufferMotion1x1", L"0");
-    }
-    write(L"Perf", L"VrsCeiling", on ? L"3" : L"0");
+    // #121288: the On switch is the tested whole-frame 2x2 with the glitter guard (VrsCeiling 1 + VrsWideExclude 6:
+    // see-through and depth-off draws stay 1x1). Mask before the enable key. Off only clears the enable key.
+    if (on) write(L"Perf", L"VrsWideExclude", L"6");
+    write(L"Perf", L"VrsCeiling", on ? L"1" : L"0");
 }
 }

@@ -993,7 +993,7 @@ const ItemDef kItems[kCount] = {
     {"Frame wait parks instead of spinning", "(FWP)", "The render thread sleeps on a timer while it waits for the frame, instead of spinning a core. Experimental.", "Picture unchanged. Applies at the next launch. Lowers CPU use where the frame wait spins; fps gain unproven."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
-    {"World shading", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
+    {"World shading", "(VRS)", "Whole-frame 2x2 shading with the glitter guard: see-through effects and overlays stay full detail. More fps, slightly softer picture.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
@@ -1316,6 +1316,8 @@ int PadDebugSettingRow() {
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
 bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
+// #121260: the held attack fix row also lives on Settings > Game in layout 0, where the General catalog page is not reachable
+bool IsGameFixKey(const char* section, const char* key) { return section && key && strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0; }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
@@ -1370,6 +1372,9 @@ int PageRowsBody(int* out, bool selectable) {
             if (pg == pSCpu)
                 for (int i = 0; i < kConfigN; ++i)
                     if (!strcmp(kConfigSettings[i].section, "Patches") && IsLoadFixKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            if (pg == pSGame)
+                for (int i = 0; i < kConfigN; ++i)
+                    if (IsGameFixKey(kConfigSettings[i].section, kConfigSettings[i].key)) add(kSettingRow + i);
             add(kBackRow);
             return n;
         }
@@ -2338,7 +2343,7 @@ void Change(int id, int dir) {
         extraperf::ApplyPreset(g_selectedEpPreset);
     } else if (id == kVrs) {
         g_vrsPresetOn = !g_bootVrs;
-        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; }
+        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 1; g_vrsVals.wide = 6; }  // #121288 tested 2x2 + glitter guard
         else g_vrsVals.mode = 0;
         VrsValuesChanged();
     } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.
@@ -3784,14 +3789,14 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
             if (id == g_sel) selRow = nb;
-            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Reset to defaults"};
+            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Glitter guard", "Reset to defaults"};
             const int k = id - kVrsRowFirst;
             char lab[96], text[64];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kVrsLabels[k]);
             const vrsmenu::Effect fx = vrsmenu::RowEffect(k, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking());
             const char* note = fx == vrsmenu::kLive ? "live" : fx == vrsmenu::kNextLaunch ? "next launch" : "Selective only";
             const char* value = k == vrsmenu::kRowLevel ? vrsmenu::LevelName(vrsmenu::LevelOf(g_vrsVals)) : k == vrsmenu::kRowAdvanced ? (g_vrsAdvanced ? "Shown" : "Hidden") : k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
-                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : g_vrsVals.keep ? "On" : "Off";
+                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : k == vrsmenu::kRowWide ? vrsmenu::WideName(g_vrsVals.wide) : g_vrsVals.keep ? "On" : "Off";
             if (k == vrsmenu::kRowReset) snprintf(text, sizeof(text), "A: reset (%s)", note);
             else if (k == vrsmenu::kRowAdvanced) snprintf(text, sizeof(text), "A: %s", value);
             else snprintf(text, sizeof(text), "< %s > %s", value, note);
@@ -3974,8 +3979,14 @@ float DrawImpl(unsigned W, unsigned H) {
             "Selective: how coarse. 2x2 saves the most. 1x2 and 2x1 keep one direction sharp.",
             "Selective: full rate for models that declare skinning in their vertex data.",
             "Selective: only known world shaders may go coarse. Off lets characters go coarse too.",
+            "Whole frame 2x2 or 4x4 keeps see-through draws and screen overlays at full detail (rain, fog, the HUD). On is the tested setting. Off is plain whole-frame shading, which glitters. Selective ignores this.",
             "Off, all surfaces, 2x2, both protections on. Saved when the menu closes."};
         snprintf(what, sizeof(what), "%s", kVrsWhat[g_sel - kVrsRowFirst]);
+        if (g_sel == kVrsRowFirst + vrsmenu::kRowWide) {
+            snprintf(effect, sizeof(effect), "%s", vrsmenu::RowEffect(vrsmenu::kRowWide, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking()) == vrsmenu::kLive
+                ? "Applies on the next draw. Saved when the menu closes. Needs Shading mode Whole frame 2x2 or 4x4."
+                : "Saved now. Needs one restart with Shading mode Whole frame, so the draw classes are learned at startup.");
+        } else
         snprintf(effect, sizeof(effect), "%s", !gpuopt::VrsBootMode()
             ? "The game started with this off: it is saved now and needs one restart. After that all rows work live."
             : gpuopt::VrsBootTracking() ? "Applies on the next draw, no restart. Saved when the menu closes."
@@ -4281,6 +4292,7 @@ void Configure(const Host& h) {
         v.rate = (int)GetPrivateProfileIntW(L"Perf", L"VrsRate", 0, g_ini.c_str());
         v.skip = GetPrivateProfileIntW(L"Perf", L"VrsSkipSkinned", 1, g_ini.c_str()) != 0;
         v.keep = GetPrivateProfileIntW(L"Perf", L"VrsKeepCharacters", 1, g_ini.c_str()) != 0;
+        v.wide = (int)GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, g_ini.c_str());
         g_vrsVals = vrsmenu::Clamped(v);
     }
     g_bootVrs = g_vrsVals.mode != 0;

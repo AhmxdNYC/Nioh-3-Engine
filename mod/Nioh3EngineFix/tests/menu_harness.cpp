@@ -352,9 +352,10 @@ int main() {
         CHECK(g_vrsVals.rate == 1 && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1);
         Change(kVrsRowFirst + vrsmenu::kRowMode, 1); CHECK(g_vrsVals.mode == 1 && g_bootVrs && gpuopt::g_vrsLiveStub.mode == 1);
         Change(kVrsRowFirst + vrsmenu::kRowSkip, 1); CHECK(!g_vrsVals.skip && !gpuopt::g_vrsLiveStub.skip);
+        Change(kVrsRowFirst + vrsmenu::kRowWide, 1); CHECK(g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.wide == 6);
         Change(kVrsRowFirst + vrsmenu::kRowReset, 0);
-        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
-        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 3 && gpuopt::g_vrsLiveStub.mode == 3);  // the old ON row is the same value
+        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && g_vrsVals.wide == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0 && gpuopt::g_vrsLiveStub.wide == 0);
+        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 1 && g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.mode == 1 && gpuopt::g_vrsLiveStub.wide == 6);  // #121288 ON = 2x2 + glitter guard
         Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
         Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);
         g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; g_vrsVals.layouts = 5; g_pages.page = savedPage; Change(kVrsPageRow, 0); CHECK(g_vrsAdvanced);  // saved Custom values open with their rows showing
@@ -522,6 +523,11 @@ int main() {
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
     CHECK(has(pSettings, kEpPre) && !has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ !has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA) && has(pSGpu, kEp0));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
+    {  // #121260: Held attack fix (General.HoldKeyGap) is reachable in layout 0 on Settings > Game only
+        int hkg = -1;
+        for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].section, "General") && !strcmp(kConfigSettings[i].key, "HoldKeyGap")) hkg = i;
+        CHECK(hkg >= 0 && has(pSGame, kSettingRow + hkg) && !has(pSCpu, kSettingRow + hkg) && !has(pSGpu, kSettingRow + hkg));
+    }
     CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
     // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
     g_pages.Reset();
