@@ -57,4 +57,19 @@ inline int HeldReal(int stock, float heldSec, uint32_t c, uint32_t lastCnt) {
     return r > stock ? r : stock;
 }
 
+// Tracker slot for a new input object (GH #147): first free slot (n < cap), else the entry idle longest if it has not
+// been ticked for at least staleTicks (an input object freed by a load / respawn / despawned enemy), else -1. Before #147
+// the table never recycled: after 32 input objects of the patched class the player's new input object (after a load or
+// respawn) went untracked and the fix silently fell back to stock for the rest of the session.
+inline int PickTracker(const int64_t* lastTick, int n, int cap, int64_t now, int64_t staleTicks) {
+    if (n < cap) return n;
+    int best = -1;
+    int64_t bestTick = 0;
+    for (int i = 0; i < cap; ++i) {
+        if (now - lastTick[i] < staleTicks) continue;
+        if (best < 0 || lastTick[i] < bestTick) { best = i; bestTick = lastTick[i]; }
+    }
+    return best;
+}
+
 }  // namespace holdkeygap

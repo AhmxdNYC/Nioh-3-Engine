@@ -160,8 +160,11 @@ struct Tracker {
     float heldSec[0x40];
 };
 constexpr int kTrackers = 32;
+constexpr double kStaleSec = 2.0;  // an input object not ticked for 2 s gives up its slot (GH #147)
 Tracker g_tr[kTrackers];
 volatile long g_nTr = 0;
+SRWLOCK g_trLock = SRWLOCK_INIT;
+long g_trNew = 0, g_trReused = 0, g_trFull = 0;
 
 Tracker* FindTr(uint64_t inp) {
     const long n = g_nTr < kTrackers ? g_nTr : kTrackers;
@@ -169,15 +172,49 @@ Tracker* FindTr(uint64_t inp) {
     return nullptr;
 }
 
+// New input object: take a free slot or recycle the stalest one (GH #147: the table used to fill up and never recycle).
+Tracker* NewTr(uint64_t inp, int64_t now, double freq) {
+    AcquireSRWLockExclusive(&g_trLock);
+    Tracker* tr = FindTr(inp);
+    bool reused = false;
+    if (!tr) {
+        int64_t ticks[kTrackers];
+        const int n = (int)(g_nTr < kTrackers ? g_nTr : kTrackers);
+        for (int i = 0; i < n; ++i) ticks[i] = g_tr[i].lastTick;
+        const int i = PickTracker(ticks, n, kTrackers, now, (int64_t)(kStaleSec * freq));
+        if (i >= 0) {
+            tr = &g_tr[i];
+            reused = i < n;
+            tr->inp = 0;  // a concurrent FindTr sees no owner while the slot is reset
+            MemoryBarrier();
+            tr->lastTick = 0;
+            memset(tr->lastCnt, 0, sizeof tr->lastCnt);
+            memset(tr->heldSec, 0, sizeof tr->heldSec);
+            MemoryBarrier();
+            tr->inp = inp;
+            if (!reused) InterlockedIncrement(&g_nTr);
+        }
+    }
+    ReleaseSRWLockExclusive(&g_trLock);
+    if (!tr) {
+        if (g_log && (++g_trFull == 1 || (g_trFull & 4095) == 0))
+            g_log("HOLDKEYGAP: tracker table full (%d busy input objects) - input %p stays stock (#%ld)", kTrackers,
+                  (void*)inp, g_trFull);
+        return nullptr;
+    }
+    const long k = reused ? ++g_trReused : ++g_trNew;
+    if (g_log && (k <= 20 || (k & 255) == 0))
+        g_log("HOLDKEYGAP: tracking input %p (%s #%ld, %ld slots used)", (void*)inp, reused ? "reused stale slot" : "new slot",
+              k, g_nTr < kTrackers ? g_nTr : (long)kTrackers);
+    return tr;
+}
+
 void Tick(uint64_t inp, int64_t now, double freq) {
     Tracker* tr = FindTr(inp);
-    if (!tr) {
-        const long i = InterlockedIncrement(&g_nTr) - 1;
-        if (i >= kTrackers) return;
-        g_tr[i].inp = inp;
-        tr = &g_tr[i];
-    }
+    if (!tr) tr = NewTr(inp, now, freq);
+    if (!tr) return;
     const float d = tr->lastTick ? (float)((double)(now - tr->lastTick) / freq) : 0.0f;
+    if (d > 1.0f) memset(tr->lastCnt, 0, sizeof tr->lastCnt);  // idle over 1 s (pause, freed and reused address): re-seed
     tr->lastTick = now;
     const float dt = g_emaDt;
     for (int b = 0; b < 0x40; ++b) {

@@ -36,6 +36,7 @@
 #pragma intrinsic(_ReturnAddress)
 #include "gimerge.h"
 #include "vtdisk.h"
+#include "loop_breaker.h"
 #include "gpuopt.h"
 #include "devremoved.h"
 #include "gpuprof.h"
@@ -60,6 +61,7 @@
 #include "osd_shaders.h"
 #include "padviz_atlas_data.h"
 #include "padviz_png.h"
+#include "presenter_role.h"
 
 // diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
 extern "C" {
@@ -138,6 +140,7 @@ volatile LONG g_presentLoopLogged = 0;
 SetCs1Fn g_origSetCs1 = nullptr;
 SetCs1Fn g_realSetCs1 = nullptr;           // GitHub #100: DXGI SetColorSpace1 read from disk (loop breaker)
 volatile LONG g_csLoopLogged = 0;
+volatile LONG g_csSkipLogged = 0, g_presentSkipLogged = 0;  // GitHub #138
 thread_local int t_csDepth = 0;
 // Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
 // IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
@@ -249,6 +252,39 @@ volatile LONG g_fsrSeen = 0;
 volatile LONG64 g_nGame = 0, g_nFsr = 0;  // presents per THREAD role (1.7.13): the game/render thread vs the FSR presenter thread
 thread_local int t_isFsr = 0;        // this thread is the FidelityFX presenter (set by NotePresentThread)
 thread_local int t_named = 0;        // this thread's presents were looked at (name logged / FSR presenter checked)
+thread_local int t_foreign = 0;      // GH #133/#134: this thread presents but runs no game code (DLSS-G pacer etc.)
+
+// GH #133/#134: walk this thread's stack once. A frame-generation pacer (DLSS-G "nv.sl.dlss_g.thread.pacer", whose name
+// can still be empty on its first Present) never runs Nioh3.exe code; the game's own present always does.
+presenter_role::Role PresentThreadRole() {
+    auto range = [](HMODULE m) {
+        presenter_role::Range r;
+        if (!m) return r;
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(m);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(reinterpret_cast<const uint8_t*>(m) + dos->e_lfanew);
+        r.lo = (uintptr_t)m;
+        r.hi = r.lo + nt->OptionalHeader.SizeOfImage;
+        return r;
+    };
+    const presenter_role::Range exe = range(GetModuleHandleW(nullptr));
+    const presenter_role::Range start[2] = {range(GetModuleHandleW(L"ntdll.dll")), range(GetModuleHandleW(L"kernel32.dll"))};
+    uintptr_t frames[248];
+    int n = 0;
+    while (n + 62 <= 248) {  // chunks of 62 (the documented per-call limit on old systems)
+        const USHORT got = RtlCaptureStackBackTrace((DWORD)n, 62, reinterpret_cast<PVOID*>(frames + n), nullptr);
+        n += got;
+        if (got < 62) break;
+    }
+    if (n >= 248) return presenter_role::Unknown;  // deeper than we looked: the last frame is not the thread start
+    return presenter_role::Classify(frames, n, exe, start, 2);
+}
+presenter_role::Role PresentThreadRoleSafe() {  // no C++ objects here: __try needs a function without unwinding
+    __try {
+        return PresentThreadRole();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return presenter_role::Unknown;
+    }
+}
 
 void CountPresent(IDXGISwapChain* sc, int64_t now) {
     for (ScCount& e : g_sc)
@@ -286,9 +322,13 @@ void NotePresentThread(int64_t now) {
         InterlockedExchange(&g_fsrSeen, 1);
         t_isFsr = 1;
     }
+    const presenter_role::Role role = PresentThreadRoleSafe();
+    t_foreign = !t_isFsr && role == presenter_role::Foreign;
     if (!t_isFsr) g_gamePresentTid = tid;
     InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
-    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
+    OLOG("Present called from thread %lu \"%s\"%s", tid, name.c_str(),
+         t_foreign ? " - no game code on its stack (frame-generation presenter): the overlay will not draw on the game queue from it"
+                   : role == presenter_role::Game ? "" : " (stack role unknown)");
 }
 
 struct Stats {
@@ -891,7 +931,7 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
 // game's Present (empty thread name, Nioh3.exe) is not the thread that calls ExecuteCommandLists, so refusing
 // that queue left the menu blank after 600 frames. The FSR presenter must wait for its own queue.
 bool OtherThreadQueueOk() {
-    return g_anyThreadQueue || !t_isFsr;
+    return g_anyThreadQueue || (!t_isFsr && !t_foreign);  // GH #133/#134: the DLSS-G pacer is a presenter like FSR's
 }
 
 // The game's presenting queue when the swapchain won't say. Returns an AddRef'd queue, or nullptr (the caller
@@ -1449,7 +1489,7 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
             }
             if (g_needQueue)
                 OLOG("no %s DIRECT queue after 600 frames - overlay off for this swapchain%s",
-                     t_isFsr ? "FSR-presenter" : "presenting-thread",
+                     t_isFsr ? "FSR-presenter" : t_foreign ? "frame-generation-presenter" : "presenting-thread",
                      (!t_isFsr && !g_lastDirectQ) ? " (ExecuteCommandLists saw no game DIRECT queue on any thread)" : "");
             MarkBad(sc);
             return;
@@ -1464,13 +1504,13 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
         q = nullptr;
         if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
         q->Release();
-    } else if (!g_anyThreadQueue && t_isFsr && !t_lastDirectQ) {
+    } else if (!g_anyThreadQueue && (t_isFsr || t_foreign) && !t_lastDirectQ) {
         // Leave the game thread's context in place. Tearing it down here thrashes the only overlay
         // context, and drawing this present would submit on the game queue from the FSR thread.
         static bool logged = false;
         if (!logged) {
             logged = true;
-            OLOG("FSR presenter has no own DIRECT queue yet - not drawing on the game queue");
+            OLOG("%s presenter has no own DIRECT queue yet - not drawing on the game queue", t_isFsr ? "FSR" : "frame-generation");
         }
         return;
     } else if (!g_anyThreadQueue && t_lastDirectQ) {
@@ -1591,6 +1631,12 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
     if (t_depth >= kPresentLoopDepth) {  // #38 hook loop: skip every hook, present once on DXGI
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138: DXGI itself loops back
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
         if (!InterlockedExchange(&g_presentLoopLogged, 1))
             OLOG("Present re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
                  t_depth, ModuleOf((const void*)g_origPresent).c_str(), g_realPresent ? "" : " (DXGI address unknown: frame skipped)");
@@ -1623,6 +1669,12 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
     if (t_depth >= kPresentLoopDepth) {  // #38 hook loop, see HkPresent
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138, see HkPresent
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present1 still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
         if (!InterlockedExchange(&g_presentLoopLogged, 1))
             OLOG("Present1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
                  t_depth, ModuleOf((const void*)g_origPresent1).c_str(), g_realPresent1 ? "" : " (DXGI address unknown: frame skipped)");
@@ -1655,13 +1707,22 @@ HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags,
 HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
     // GitHub #100: another overlay (a version.dll proxy) re-hooked SetColorSpace1 around ours and called back through the
     // vtable, so the two hooks recursed until the stack overflowed 6 s after start. Same breaker as Present (#38).
-    if (t_csDepth + 1 >= kPresentLoopDepth) {
+    // GitHub #138: with the Steam overlay that DXGI function is detoured back into the loop, so the depth now also counts
+    // the direct call and anything nested below it is dropped (loop_breaker.h).
+    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
+    const loopbrk::Step step = loopbrk::Decide(t_csDepth, kPresentLoopDepth);
+    if (step == loopbrk::Step::Skip) {
+        if (!InterlockedExchange(&g_csSkipLogged, 1))
+            OLOG("SetColorSpace1 still looping after the direct DXGI call (DXGI is patched by another overlay via %s) - nested call dropped",
+                 ModuleOf((const void*)g_realSetCs1).c_str());
+        return S_OK;
+    }
+    if (step == loopbrk::Step::Direct) {
         if (!InterlockedExchange(&g_csLoopLogged, 1))
             OLOG("SetColorSpace1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
-                 t_csDepth + 1, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
+                 t_csDepth, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
         return g_realSetCs1 ? g_realSetCs1(sc, cs) : S_OK;
     }
-    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Enter, sc, reinterpret_cast<void*>(g_origSetCs1), S_OK, false, cs);
     HRESULT hr = g_origSetCs1(sc, cs);
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Returned, sc, reinterpret_cast<void*>(g_origSetCs1), hr, true, cs);

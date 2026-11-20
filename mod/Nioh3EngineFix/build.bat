@@ -59,6 +59,9 @@ cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_sel
 build\vrs_selective_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1
 build\vrs_ceiling_test.exe || exit /b 1
+rem GH #138 hook-loop breaker: a DXGI function detoured back into the loop must not recurse forever
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\loop_breaker_test.exe /Fobuild\loop_breaker_test.obj tests\loop_breaker_test.cpp || exit /b 1
+build\loop_breaker_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_capture_test.exe /Fobuild\vrs_capture_test.obj tests\vrs_capture_test.cpp || exit /b 1
 build\vrs_capture_test.exe || exit /b 1
 
@@ -165,6 +168,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem MotionGuard: missing or freed motion data in two game animation reads = "no motion data" instead of a crash ([General] MotionGuard = 1; GitHub #143 / #144)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\motionguard.obj src\motionguard.cpp || exit /b 1
+rem ResInfoGuard: a resource header whose sizes do not add up is rejected instead of a breakpoint ([General] ResInfoGuard = 1; GitHub #145)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\resinfoguard.obj src\resinfoguard.cpp || exit /b 1
 rem HoldKeyGap: a move key between two uneven frames is tested instead of skipped ([General] HoldKeyGap = 0; human #120716)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\holdkeygap.obj src\holdkeygap.cpp || exit /b 1
@@ -260,6 +266,10 @@ rem GPU removal reason for crash records (#96825) + its offline test with a fake
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\devremoved.obj src\devremoved.cpp || exit /b 1
 cl /nologo /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /Febuild\devremoved_test.exe /Fobuild\ tests\devremoved_test.cpp src\devremoved.cpp || exit /b 1
 build\devremoved_test.exe || exit /b 1
+rem GH #133/#134 presenter role: a DLSS-G pacer thread (no game frame) must not draw on the game queue (no game/device)
+if not exist build\prt mkdir build\prt
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\presenter_role_test.exe /Fobuild\prt\ tests\presenter_role_test.cpp || exit /b 1
+build\presenter_role_test.exe || exit /b 1
 rem version resource: CompanyName marks our mods for crashblame (#94704)
 rc /nologo /fo build\nioh3_version.res ..\shared\nioh3_version.rc || exit /b 1
 rem automatic crash upload (crashupload.cpp; [Report] CrashUpload = 1, CrashUrl; bridge #64881)
@@ -270,7 +280,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
    /Fobuild\inputlog.obj src\inputlog.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\fhlinger.obj build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashblame.obj build\devremoved.obj build\nioh3_version.res build\crashupload.obj build\perfsnap.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\ptstart.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\padguard.obj build\aichainguard.obj build\motionguard.obj build\holdkeygap.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\zinflate.obj build\libdeflate\deflate_decompress.obj build\libdeflate\zlib_decompress.obj build\libdeflate\adler32.obj build\libdeflate\utils.obj build\libdeflate\cpu_features.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
+   build\fhlinger.obj build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashblame.obj build\devremoved.obj build\nioh3_version.res build\crashupload.obj build\perfsnap.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\ptstart.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\padguard.obj build\aichainguard.obj build\motionguard.obj build\resinfoguard.obj build\holdkeygap.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\zinflate.obj build\libdeflate\deflate_decompress.obj build\libdeflate\zlib_decompress.obj build\libdeflate\adler32.obj build\libdeflate\utils.obj build\libdeflate\cpu_features.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 rem Ship the Python helpers (only used with [SaveFiles] Native = 0; the default native path needs no Python).
 py ..\..\tools\saves\build_package.py || exit /b 1

@@ -429,6 +429,15 @@
    ]
   },
   {
+   "rva": "0x2E0384",
+   "kind": "code",
+   "pattern": "0F 85 ?? ?? ?? ?? B0 01 48 8B 4D F8",
+   "offset": 0,
+   "used_in": [
+    "resinfoguard.cpp"
+   ]
+  },
+  {
    "rva": "0x310698",
    "kind": "code",
    "pattern": "41 5F 41 5E 5F C3 CC CC 48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B 31",

@@ -53,6 +53,7 @@
 #include "padguard.h"
 #include "aichainguard.h"
 #include "motionguard.h"
+#include "resinfoguard.h"
 #include "holdkeygap.h"
 #include "crashreport.h"
 #include "reportsend.h"
@@ -151,7 +152,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.24"
+#define MOD_VERSION "1.8.25"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -671,7 +672,7 @@ Config LoadConfig() {
     c.fwp = I(L"Patches", L"FWP", 0);  // explicit opt-in, never Auto
     c.fwpSpinUs = std::clamp(I(L"Patches", L"FWP_SpinUs", 200), 0, 2000);
     c.fwpSleepUs = std::clamp(I(L"Patches", L"FWP_SleepUs", 100), 20, 1000);
-    c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
+    c.w6 = A(L"Patches", L"W6", c.w6, 1, 1, "present-wait spin -> WaitOnAddress; Wine: power goes to the GPU; Windows PC2 -0.2..-0.5 cores, no hitches (#124475/#124575)");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
     if (c.ppPeriod != 2 && c.ppPeriod != 4 && c.ppPeriod != 8 && c.ppPeriod != 16) c.ppPeriod = 4;
@@ -3617,6 +3618,15 @@ DWORD WINAPI Worker(LPVOID) {
             mgi.base = reinterpret_cast<uintptr_t>(g_base);
             mgi.knownBuild = known;
             motionguard::Start(mgi);
+        }
+        {  // ResInfoGuard (resinfoguard.cpp, [General] ResInfoGuard = 1): a resource header whose sizes do not add up
+           // is rejected instead of hitting the game's breakpoint (GitHub #145; the reader's own false return)
+            resinfoguard::StartInfo rii;
+            rii.log = &Log;
+            rii.iniPath = iniPath.c_str();
+            rii.base = reinterpret_cast<uintptr_t>(g_base);
+            rii.knownBuild = known;
+            resinfoguard::Start(rii);
         }
         {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
            // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
