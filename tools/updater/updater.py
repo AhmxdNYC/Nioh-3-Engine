@@ -419,15 +419,27 @@ def pause():
         input()
 
 
-def count_enabled(no_count=False, config=None):
+def count_enabled(no_count=False, config=None, dirs=()):
+    """Off with --no-count or [Update] CountUpdate = 0 in the given config, else in a
+    Nioh3Updater.ini next to the updater or in the game folder (any file saying 0 wins).
+    Never raises: an unreadable file or a bad value means do not count."""
     if no_count:
         return False
-    if config is not None:
-        settings = configparser.ConfigParser(interpolation=None)
-        with Path(config).open(encoding="utf-8-sig") as f:
-            settings.read_file(f)
-        return settings.getboolean("Update", "CountUpdate", fallback=True)
-    return True
+    try:
+        if config is not None:
+            files = [Path(config)]
+        else:
+            files = [Path(d) / "Nioh3Updater.ini" for d in dirs]
+        for f in files:
+            if f.is_file():
+                settings = configparser.ConfigParser(interpolation=None)
+                with f.open(encoding="utf-8-sig") as fh:
+                    settings.read_file(fh)
+                if not settings.getboolean("Update", "CountUpdate", fallback=True):
+                    return False
+        return True
+    except Exception:
+        return False
 
 
 def manifest_url(explicit=None, config=None):
@@ -470,7 +482,8 @@ def main(argv=None):
             print(f"Ready: version {result['version']}; {result['changed']} files updated. You can launch Nioh 3.")
             if result['backup']:
                 print(f"Backup ID: {result['backup']}")
-                if endpoint == MANIFEST_URL and count_enabled(args.no_count, args.config):
+                adjacent = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+                if endpoint == MANIFEST_URL and count_enabled(args.no_count, args.config, (adjacent, game)):
                     count_update(result.get("from"), result["version"])
         return 0
     except (Exception, KeyboardInterrupt) as e:

@@ -147,4 +147,4 @@ Release scripts must take `Nioh3Updater.exe` from `staged-site/downloads/Nioh3Up
 
 ## Update count
 
-After an update that changed files, the updater sends one POST to `/api/updates` on the official site with only `{"schema":1,"from":"<old>","to":"<new>"}` (no install id, machine id, path or account). It powers the "updates" badge in the public README. Off with `--no-count` or `CountUpdate = 0` in `Nioh3Updater.ini`; custom manifests are never counted; a failed count never stops an update.
+After an update that changed files, the updater sends one POST to `/api/updates` on the official site with only `{"schema":1,"from":"<old>","to":"<new>"}` (no install id, machine id, path or account). It powers the "updates" badge in the public README. Off with `--no-count`, or a `Nioh3Updater.ini` in the game folder (or next to the updater) holding `[Update]` / `CountUpdate = 0` (read on a plain double-click too; a bad value also means off); custom manifests are never counted; a failed count never stops an update.

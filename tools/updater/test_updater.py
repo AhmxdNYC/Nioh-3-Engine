@@ -160,6 +160,17 @@ class UpdaterTests(unittest.TestCase):
             cfg.write_text("[Update]" + chr(10) + "ManifestUrl=" + u.MANIFEST_URL + chr(10) + "CountUpdate = 0" + chr(10))
             self.assertEqual(u.main(["--game-dir", str(self.root), "--config", str(cfg), "--no-pause"]), 0)
             self.count.assert_not_called()
+            # plain double-click: Nioh3Updater.ini in the game folder is read without --config
+            (self.root / "Nioh3Updater.ini").write_text("[Update]" + chr(10) + "CountUpdate = 0" + chr(10))
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
+            # a bad value never fails the update and means no count
+            (self.root / "Nioh3Updater.ini").write_text("[Update]" + chr(10) + "CountUpdate = maybe" + chr(10))
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
+            self.count.assert_not_called()
+            (self.root / "Nioh3Updater.ini").unlink()
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
+            self.count.assert_called_once()
+            self.count.reset_mock()
         with patch.object(u, "update", return_value={"version": "1.2.3", "changed": 0, "backup": None}):
             self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
         self.count.assert_not_called()
