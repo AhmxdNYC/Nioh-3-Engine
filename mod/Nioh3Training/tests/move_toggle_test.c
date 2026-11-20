@@ -513,6 +513,29 @@ int main(void) {
         Nioh3Training_SetRepeatLast(16102u, 0); MvGapPut(16102u, 0);
         puts("PASS: Last 2 hands A into B at the boss's own recovery pick, delay only after the cycle (#122170)");
     }
+    // human #122193: Pause mode keeps the old A -> idle -> B; the chain point is learned from the boss's own fights for Stand still
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); memset(g_hand, 0, sizeof g_hand); MvGapPut(16102u, 1000);
+        fake_now = 660000;
+        MlNote(16102u, 2, fake_now); MlNote(16102u, 0x4E64, fake_now += 20);
+        MlNote(16102u, 0x4E68, fake_now += 1650);                     // straight into another attack: learned
+        assert(MvHandGet(16102u, 0x4E64) == 1650);
+        MlNote(16102u, 2, fake_now += 900); MlNote(16102u, 0x4E5C, fake_now += 500);
+        assert(MvHandGet(16102u, 0x4E68) == 0);                       // went through idle: not a chain point
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);          // 0x4E68 > 0x4E5C
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 0);              // not learned for 0x4E68
+        g_hand[0].chr = 16102u; g_hand[0].id = 0x4E68; g_hand[0].ms = 1200;
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E68);
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 1200 && MvHandFlow(16102u, 0x4E68, 2) == 0);  // only while an attack runs
+        Nioh3Training_SetRepeatFlow(0, 0);
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 0);
+        cur_act = 0x4E68; fake_now += 20; Pick(0x4E30); h_mvsel(0x3000, 0);
+        fake_now += 1641; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == MV_KEEP);   // Pause: A plays to its end
+        cur_act = 2; fake_now += 100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);  // then B from idle
+        Nioh3Training_SetRepeatFlow(1, 0); Nioh3Training_SetRepeatLast(16102u, 0); MvGapPut(16102u, 0);
+        puts("PASS: Flow / Pause switch, chain point learned only from direct attack-to-attack, Stand still flow gated (#122193)");
+    }
     // GitHub #92: a native-slot boss (direct teleport) is recorded with no summon and no Boss Match.
     {
         memset(g_ml, 0, sizeof g_ml);

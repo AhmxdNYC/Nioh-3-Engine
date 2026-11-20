@@ -38,6 +38,8 @@ static void IhNativeAi(uint64_t a, int on) {
 static uint32_t rep_id; static int g_cfg_rep_gap = 1000; static int forces, force_takes;
 static uint32_t MvRepeatId(uint32_t chr) { return chr == 42450 ? rep_id : 0; }
 static void DrForceNative(uint64_t ctrl, uint32_t id) { assert(ctrl == 0x3000 && id == rep_id); ++forces; if (force_takes) action = id; }
+static DWORD hand_ms;  // human #122193: learned chain point (move_toggle.h MvHandFlow stand-in)
+#define DR_HAND(chr, id, cur) ((cur) >= 0x4E20 ? hand_ms : 0)
 #include "../src/idle_hold.h"
 #include "../src/drill.h"
 static void Reset(void) {
@@ -103,6 +105,14 @@ int main(void) {
             g_ih_chase_t = 0; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2 && IhSelect(0x3000, 0x4FFF) == 0x4FFF);  // no walk-up: uncatalogued passes
         }
     }
+    // human #122193: Stand still Flow: inside a cycle the next member is forced at the learned chain point while the attack still runs
+    Reset(); rep_id = 0x4E64; Step(100); Step(500); assert(forces == 1 && action == 0x4E64);
+    hand_ms = 1500; Step(1000); assert(forces == 1);   // before the chain point: A plays on
+    Step(600); assert(forces == 2);                      // chain point reached: next member forced mid-attack, no idle
+    hand_ms = 0; action = 2; Step(100); Step(100); Step(500); assert(forces == 2);  // no chain point (Pause / last member): idle + gap as before
+    Step(600); assert(forces == 3);
+    action = 0x50; hand_ms = 100; Step(200); assert(forces == 3);  // a reaction / low-id state is never a chain point
+    hand_ms = 0;
     puts("PASS: drill forces the picked move every gap while standing still (AI off), waits for idle / eligibility, stops with the repeat / stance / boss, AI-on fallback after 3 failed forces, aggro walk-up hold (#14147)");
     return 0;
 }

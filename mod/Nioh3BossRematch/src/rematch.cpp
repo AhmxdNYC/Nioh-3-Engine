@@ -4443,6 +4443,7 @@ int ItemsBase(int* out, int cap) {
         add(kItBossStance);
         if (TrainingExport("Nioh3Training_SetSlotAggro")) add(kItBossAggro);
         if (TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578
+        if (TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         if (TrainingExport("Nioh3Training_SetRepeatGapChr")) add(kItBossGap);
         if (TrainingExport("Nioh3Training_ResetSlotPos")) add(kItBossReset);
         if (BvAvailable()) add(kItBvOpenBase + g_bossSlot);
@@ -4513,6 +4514,7 @@ int ItemsBase(int* out, int cap) {
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
         // #14336 item 2: stance / gap / aggro / reset / repeat rows live on the Boss X page only. user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
         if (chr && TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578: also for a Boss Match / Practice boss (no Boss X page)
+        if (chr && TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         for (int c : kMcOrder) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);  // user #22349
         add(kItBack);
         return n;
@@ -4978,6 +4980,7 @@ void UiChange(int dir) {
     if (item == kItBossAggro) { BossAggroSet(dir); return; }
     if (item == kItBossGap) { BossGapStep(dir); return; }
     if (item == kItBossLast) { RepeatLastStep(MoveBoss(), dir); return; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return; }  // human #122193
     if (item == kItStanceTimer) {  // user #14313: 1..10 s
         if (dir) { g_stSec = g_stSec + (dir > 0 ? 1 : -1); g_stSec = g_stSec < 1 ? 1 : g_stSec > 10 ? 10 : g_stSec; g_msg[0] = 0; }
         return;
@@ -5255,6 +5258,7 @@ bool UiAct() {
     if (item == kItBossAggro) { BossAggroSet(0); return false; }
     if (item == kItBossGap) { BossGapStep(0); return false; }
     if (item == kItBossLast) { RepeatLastStep(MoveBoss(), 1); return false; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return false; }  // human #122193
     if (item == kItBossReset) { BossResetPos(); return false; }
     if (item == kItBossRemove) { if (BossRemove()) { g_msg[0] = 0; g_uiPages.Back(g_sel); } return false; }
     if (item == kItStanceTimer) return StanceTimerAct();  // user #14313: arming closes the menu (get ready)
@@ -5529,7 +5533,7 @@ const char* ItemGroup(int item) {
 #endif  // BR_SOULCORE
         nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
-    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
+    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
     if (p == uSummon) return item >= kItSummonA && item < kItSummonRosterEnd ? "Add a boss (Training / Boss Matches)" : nullptr;
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
@@ -5640,6 +5644,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else if (v >= 2) snprintf(lcap, sizeof lcap, "(%s ... %s)", LastMoveText(lchr, ids[v - 1]), LastMoveText(lchr, ids[0]));
             else snprintf(lcap, sizeof lcap, "(last: %s)", LastMoveText(lchr, ids[0]));
             add(sel ? cWhite : v ? cYellow : have ? cGray : cDim, sel, "%s Repeat last move: %-12s %.60s   A / Left / Right", mk, kLm[v < 0 ? 0 : v > 3 ? 3 : v], lcap);
+        } else if (it[i] == kItRepFlow) {  // human #122193
+            const int v = RepFlowGet();
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Between repeated moves: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "Flow (chain like the boss)" : "Pause (back to idle)");
         } else if (it[i] == kItBossGap) {
             const int v = BossGapGet();
             char val[24];
@@ -5927,6 +5934,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItBossStance) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss only: Stand still waits between repeats. Fight normally uses its own attacks. A toggles; Left fights; Right waits.");
         else if (item == kItBossAggro) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: this boss targets you and approaches within 5 m before repeating a move. Also saves the default for newly added bosses.");
         else if (item == kItBossLast) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Let the boss do the attack you want, pause, then pick Last move (or Last 2 / Last 3): the boss keeps repeating it, with Repeat delay after each round.");
+        else if (item == kItRepFlow) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Last 2 / 3 moves: Flow chains them like the boss's own combos (Stand still too, once the boss has chained that move itself); Pause plays each one out to idle.");
         else if (item == kItBossGap) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Delay after this boss repeats a move or chain. Left / Right changes it by 0.25 s. Saved for this boss type.");
         else if (item == kItBossReset) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts this boss back where it first appeared, facing you.");
         else if (item == kItBossRemove) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: removes this boss (and its health bar). The other bosses stay.");
