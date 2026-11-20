@@ -3,7 +3,7 @@
 static ArTable g_action_records;
 static void ArLoadGame(void) {
     char path[MAX_PATH];snprintf(path,sizeof path,"%s\\Nioh3Training_action_records.tsv",g_dir);
-    FILE* f=fopen(path,"rb"); if(!f){Log("ACTIONRECORD: table missing; hits/damage unknown (no hand fallback)");return;}
+    FILE* f=fopen(path,"rb"); if(!f){Log("ACTIONRECORD: table missing; damage unknown, hits from the hitbox rows only (no hand fallback)");return;}
     if(fseek(f,0,SEEK_END)){fclose(f);return;} long n=ftell(f);
     if(n<=0 || n>16*1024*1024 || fseek(f,0,SEEK_SET)){fclose(f);Log("ACTIONRECORD: table size invalid");return;}
     char* text=(char*)malloc((size_t)n+1);if(!text){fclose(f);return;}

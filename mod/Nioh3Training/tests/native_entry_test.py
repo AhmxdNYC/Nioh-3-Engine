@@ -12,6 +12,7 @@ while d: d+=(production[e]=='{')-(production[e]=='}');e+=1
 production=production[:w]+production[e:]
 preamble=r"""
 #include <stdint.h>
+static uint32_t g_practice_arena_mission; // human #121995 mock: no Practice arena pick in these cases
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>

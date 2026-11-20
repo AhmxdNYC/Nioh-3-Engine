@@ -14,6 +14,8 @@ enum { BV_INF_HP = 0, BV_INF_KI = 1, BV_HP_PCT = 2, BV_KI_PCT = 3, BV_REFILL = 4
 enum { BV_REQ_HP = 1, BV_REQ_KI = 2 };
 typedef struct { int infHp, infKi, hpPct, kiPct; } BvCfg;
 static inline void BvDefaults(BvCfg* c) { c->infHp = 0; c->infKi = 0; c->hpPct = 100; c->kiPct = 100; }
+// human #122116: a new Training boss (session boss in a Practice session, or a summon outside any session) starts with infinite health + Ki; a Boss Match does not.
+static inline int BvDummyInf(int cfg, int active, int practice) { return cfg && (!active || practice); }
 static inline int BvClampPct(int v, int lo) { return v < lo ? lo : v > 100 ? 100 : v; }
 // Left / Right steps: 0 (Ki only), 1, 5, 10, 20, ... 100 (A on the menu row re-applies the shown value).
 static inline int BvStepPct(int v, int dir, int lo) {

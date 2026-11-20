@@ -30,6 +30,7 @@ static void PlayerRefill(uint64_t c,uint64_t m){}
 static void TrainRetry(const char*s){}
 static void TrainLost(void){}
 static void KillFadeDue(void){}
+static int wonEnds; static void TrainWonBodyGone(void){wonEnds++;}
 static int FadeOutActor(int i,float f){return 1;}
 static int Despawn(int i){return 1;}
 static DWORD FadeDeleteMs(void){return 10000;}

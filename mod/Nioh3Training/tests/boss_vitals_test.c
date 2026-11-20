@@ -8,6 +8,8 @@ int main(void) {
     const uint64_t M = 51712; const float K = 1040.0f;  // live log 'Boss HP 51712/51712 Ki 1040/1040'
     BvCfg c; BvDefaults(&c);
     // defaults: everything OFF, levels 100 %: no write ever
+    // human #122116: Training dummies start infinite; a Boss Match (session active, not practice) does not; ini 0 = off
+    assert(BvDummyInf(1, 1, 1) && BvDummyInf(1, 0, 0) && !BvDummyInf(1, 1, 0) && !BvDummyInf(0, 1, 1) && !BvDummyInf(0, 0, 0));
     uint64_t h = 0; float k = 0;
     assert(c.infHp == 0 && c.infKi == 0 && c.hpPct == 100 && c.kiPct == 100);
     assert(!BvHpHold(&c, 0, 0, 1, M, &h) && !BvKiHold(&c, 0, 0, 0, 1.0f, K, &k));

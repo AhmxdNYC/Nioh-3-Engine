@@ -10,7 +10,7 @@
 constexpr int uBoss = 940;
 constexpr int kItSeqBase = 0xA0000, kItSeqEnd = kItSeqBase + 0x10000;          // + kN3Moves index of the sequence's first move
 constexpr int kItBossOpenBase = 0xB0000, kItBossOpenEnd = kItBossOpenBase + 64; // + slot: 'Boss C: name   A: open'
-constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66, kItBossLast = -67;
+constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66, kItBossLast = -67, kItRepFlow = -68;
 constexpr int kMcSeq = kMcCount;  // the Sequences group row (kItMoveCatBase - kMcSeq) and page (g_moveCat == kMcSeq)
 bool IsBossOpenItem(int item) { return item >= kItBossOpenBase && item < kItBossOpenEnd; }
 bool IsSeqItem(int item) { return item >= kItSeqBase && item < kItSeqBase + N3_MOVE_COUNT; }
@@ -69,6 +69,17 @@ void BossAggroSet(int dir) {
     const int on = f(g_bossSlot, dir ? dir > 0 : !v);
     Log("Rematch: menu Boss %c aggro -> %d", 'A' + g_bossSlot, on);
     snprintf(g_msg, sizeof g_msg, on ? "Boss %c aggro ON: it keeps you as its target and walks up to you (5 m) before its repeating move." : "Boss %c aggro OFF: it behaves as before.", 'A' + g_bossSlot);
+}
+// human #122193: 'Between moves: Flow / Pause' for Repeat last 2 / 3 (global, [Training] RepeatFlow)
+int RepFlowGet() { using Fn = int (*)(); const auto f = (Fn)TrainingExport("Nioh3Training_GetRepeatFlow"); return f ? f() : -1; }
+void RepFlowToggle() {
+    using Fn = int (*)(int, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetRepeatFlow");
+    const int v = RepFlowGet();
+    if (!f || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs the Nioh3Training.asi of this build (Flow / Pause)."); return; }
+    const int on = f(!v, 1);
+    Log("Rematch: menu repeat between moves -> %s", on ? "Flow" : "Pause");
+    snprintf(g_msg, sizeof g_msg, on ? "Flow: Last 2 / 3 moves chain straight into each other like the boss's own combos (also in Stand still)." : "Pause: each repeated move plays out to idle before the next one starts.");
 }
 int BossGapGet() {
     using Fn = int (*)(uint32_t);

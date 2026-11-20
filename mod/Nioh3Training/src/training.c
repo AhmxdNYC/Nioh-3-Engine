@@ -811,6 +811,7 @@ static __attribute__((noinline)) void GaugeTick(void) {
 }
 static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
 static int g_cfg_autoretry = 1;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118). user #13229/#13230: ALWAYS 1 in Training/Rematch (ini and API cannot turn it off); see TrainTick / TrainLost
+static uint32_t g_practice_arena_mission;  // human #121995, see NativeFirst
 static int g_practice_next;  // user #13223: set by Boss Rematch's Practice pages before the session starts; consumed into g_tr.practice
 static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice, arena; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
@@ -1784,7 +1785,7 @@ static void FightBeginSession(void) {
     FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name, g_tr.tok, g_tr.chr);
 }
 static int TrainStart(const char* tok, float d) {
-    if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
+    if (GameState() && GameState()[2]) { g_practice_next = 0; Log("TRAIN %s: a load is running, refused", tok); return 0; }  // #121923: a refused session never leaves Practice set
     memset(&g_np, 0, sizeof g_np);
     memset(&g_fb, 0, sizeof g_fb);
     TrainClear("train start");
@@ -1846,7 +1847,17 @@ static void TrainStop(const char* why) {
     g_sum_nodeath = 0;
     g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
+}// human #121968 (live 23:19: Hanzo killed in a Training-here session, the menu stayed on Active bosses and 'Train here' / 'Train in a boss
+// arena' stayed hidden): an in-place Training session (no arena, no native Boss Match) whose won boss body is gone has nothing left to run,
+// so it ends like Despawn all (#121923). Fight again = the Training page pick / Repeat last. Arena sessions keep their Return gate.
+static int AnySlotAlive(void);
+static int TrainWonEndsSession(int active, int arena, int won, int bodyGone, int spawnPending, int slotAlive, int nativeSlots) {
+    return active && !arena && won && bodyGone && !spawnPending && !slotAlive && !nativeSlots;
 }
+static void TrainWonBodyGone(void) {
+    if (TrainWonEndsSession(g_tr.active, g_tr.arena, g_tr.tWin != 0, g_tr.bodyGone, g_sp.active, AnySlotAlive(), NativeSlotsActive())) TrainStop("boss defeated, body removed");
+}
+
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
 // warp back into the arena and respawn the boss there (no open-world summon). NoDeath + round reset as for 'train'.
 static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp, float face) {
@@ -1855,6 +1866,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr; g_tr.arena = 1;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
+    g_practice_arena_mission = 0;  // human #121995: the arena Practice session is attached
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
     FightBeginSession();
@@ -1935,9 +1947,9 @@ static void TrainTick(void) {
     // mission scripts (Character::FadeOut f30); native delete 6 s later frees the slot (immediately if the fade could not start). BodyFade = 0: the body stays.
     if (g_tr.tWin && g_cfg_tr_win <= 0 && !g_tr.bodyGone && !g_tr.tFade && g_cfg_body_fade && now - g_tr.tWin >= (DWORD)g_cfg_body_delay && g_nsp > 0 && g_sp_actor[g_nsp - 1]) {
         Log("TRAIN round %d: fading out the dead boss body %d ms after the kill", g_tr.round, g_cfg_body_delay);
-        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = now; else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); }
+        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = now; else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); TrainWonBodyGone(); }
     }
-    if (g_tr.tFade && !g_tr.bodyGone && now - g_tr.tFade >= FadeDeleteMs()) { g_tr.bodyGone = 1; if (g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: deleting the faded boss body", g_tr.round); Despawn(g_nsp - 1); } }
+    if (g_tr.tFade && !g_tr.bodyGone && now - g_tr.tFade >= FadeDeleteMs()) { g_tr.bodyGone = 1; if (g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: deleting the faded boss body", g_tr.round); Despawn(g_nsp - 1); } TrainWonBodyGone(); }
 }
 // C API (bridge 4942) for Boss Rematch: Nioh3Training_Summon(missionId or charId) starts a no-load session (1 = started), _Retry() resets the round, _StopTraining() ends it.
 __declspec(dllexport) int Nioh3Training_Summon(uint32_t id) {
@@ -2175,7 +2187,9 @@ static uint32_t NativeEntrySequenceLive(const ArenaRow* r) {
 }
 static int g_native_fallback, g_native_roster;
 static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id[0] != 'S' && !g_native_roster; }
-static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
+// human #121995: a Training page 'Train in a boss arena' pick goes to the boss's arena (arena swap in place / cross-world switch) as a Practice
+// session. That mission skips native-first until the session attaches or the next pick, so the async swap / switch arrival keeps the arena route.
+static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback && !(r && g_practice_arena_mission && r->mission == g_practice_arena_mission); }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
 // human #107514 'Train in this arena': set by Boss Rematch right before its Fight now request; consumed by that entry only.
@@ -3585,6 +3599,59 @@ static int BhScreenVisible(int* why) {  // 1 = no load cover (GAMESTATE[2]), no 
     if (g_fd_ok && (g_fd_want || g_fd.pend || g_fd.phase == 2 || FdAlpha() > 24)) { *why = 3; return 0; }
     *why = 0; return 1;
 }
+// human #122020 (live 23:47 Dojo RE18C, Practice arena session by the legacy arena route): the arena world's own characters (11 in the actor
+// table, two within 10 m of the boss spot) attacked the Training dummy and killed it while it stood idle. A Practice arena session is only the
+// player and the Training boss: every other actor within ByRadius of the boss's round-1 spot has its AI held off (the BOSSHOLD switch,
+// 668D74, re-applied each second) and back on (66982C) when the session ends. Any arena, no row ids. Load = the table is rebuilt: list dropped.
+enum { BY_MAX = 64 };
+static struct { uint64_t a[BY_MAX]; int n, on; DWORD tNext; } g_by;
+static int g_cfg_by_radius = 4000;  // [ArenaSwap] PracticeBystanderRadius (units, 0 = off)
+static int ByWanted(int active, int arena, int practice, int radius) { return active && arena && practice && radius > 0; }
+static int ByNear(const float* pos, const float* bp, int radius) { float dx = pos[0] - bp[0], dz = pos[2] - bp[2]; return dx * dx + dz * dz <= (float)radius * (float)radius; }
+// human #122041: the Dojo's weapon-choice character stayed in view during the session. Held bystanders are also faded to alpha 0 (the native
+// Character::FadeOut lerp 2BC5DC on [actor+0x20]+0x240, see FadeOutActor) and faded back to 1 on release. [ArenaSwap] PracticeBystanderHide (default 1).
+static int g_cfg_by_hide = 1;
+// human #122065 (live 00:04:51, 5 held + faded): the weapon-choice character still offered his talk prompt. [ArenaSwap] PracticeBystanderRemove (default 1):
+// each bystander is deleted with the native Character::Delete path 2BF7E8 (the same call Despawn uses) instead of held; the world brings them back on the next load.
+static int g_cfg_by_remove = 1; static int g_by_removed; static uint64_t g_by_del[BY_MAX]; static int g_by_ndel;  // removed pointers: never deleted twice (the table may keep a deleted actor a few frames)
+static int ByFade(uint64_t a, float target) {
+    uint64_t c = 0; if (!Rd64(a + 0x20, &c) || !c) return 0;
+    __try { ((void (*)(uint64_t, float, float))(B + Grva(0x2BC5DC)))(c + 0x240, target, 15.0f); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static void ByRelease(const char* why, int callAi) {
+    int back = 0;
+    if (callAi && g_by.n) {
+        uint64_t cur[1024]; const int n = Actors(cur, 1024);
+        for (int i = 0; i < g_by.n; ++i) for (int j = 0; j < n; ++j) if (cur[j] == g_by.a[i]) { ((void (*)(uint64_t))(B + Grva(0x66982C)))(g_by.a[i]); if (g_cfg_by_hide) ByFade(g_by.a[i], 1.0f); back++; break; }
+    }
+    if (g_by.on) Log("BYSTANDER release (%s): %d held, %d AI back on", why, g_by.n, back);
+    g_by.n = 0; g_by.on = 0; g_by.tNext = 0; g_by_ndel = 0;
+}
+static void ByTick(void) {
+    const uint8_t* gs = GameState();
+    if (gs && gs[2]) { if (g_by.on) ByRelease("load", 0); return; }
+    if (!ByWanted(g_tr.active, g_tr.arena, g_tr.practice, g_cfg_by_radius)) { if (g_by.on) ByRelease("Practice arena session ended", 1); return; }
+    const DWORD now = GetTickCount();
+    if (g_by.on && (int)(now - g_by.tNext) < 0) return;
+    g_by.tNext = now + 1000; g_by.on = 1;
+    uint64_t cur[1024]; const int n = Actors(cur, 1024); const uint64_t me = PlayerChar();
+    for (int j = 0; j < n; ++j) {
+        const uint64_t a = cur[j];
+        if (!a || a == me || InSp(a)) continue;
+        float pos[4]; memcpy(pos, (void*)(a + 0x110), sizeof pos);
+        if (!ByNear(pos, g_tr.bp, g_cfg_by_radius)) continue;
+        { int d = 0; while (d < g_by_ndel && g_by_del[d] != a) ++d; if (d < g_by_ndel) continue; }
+        if (g_cfg_by_remove && g_by_ndel < BY_MAX) {
+            int ok = 1; __try { ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; g_cfg_by_remove = 0; }
+            if (ok) { g_by_removed++; g_by_del[g_by_ndel++] = a; Log("BYSTANDER removed actor %p handle %08X pos %.0f %.0f %.0f: native delete 2BF7E8 for the Practice arena session", (void*)a, *(uint32_t*)a, pos[0], pos[1], pos[2]); continue; }
+            Log("BYSTANDER delete faulted, PracticeBystanderRemove off: holding instead");
+        }
+        int k = 0; while (k < g_by.n && g_by.a[k] != a) ++k;
+        if (k == g_by.n) { if (g_by.n >= BY_MAX) continue; g_by.a[g_by.n++] = a; const int hid = g_cfg_by_hide ? ByFade(a, 0.0f) : 0; Log("BYSTANDER hold actor %p handle %08X pos %.0f %.0f %.0f: AI off%s for the Practice arena session", (void*)a, *(uint32_t*)a, pos[0], pos[1], pos[2], hid ? ", hidden" : ""); }
+        ((void (*)(uint64_t))(B + Grva(0x668D74)))(a);
+    }
+}
 static void BhTick(void) {
     if (!g_bh.phase) return;
     DWORD now = GetTickCount();
@@ -3667,6 +3734,22 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     g_pick = 0;
     // #107514: an arena-only pick never takes the in-place swap (it spawns the boss); Boss Rematch then does the native load and its own warp
     if (g_arena_only_next && !NativeFirst(FindRow(mission))) { g_arena_only_next = 0; Log("FIGHTNOW mission 0x%X: Train in this arena: no native row here, in-place swap refused", mission); return 0; }
+    // #121854: a Training page pick (Boss Rematch SetPracticeNext(1)) is a Practice session. Native-first would start a real Boss Match
+    // (own mission load, real AI) and drop the Practice flag, so a mission row takes the Training here route instead: boss summoned
+    // where the player stands, Idle stance, retry in place. Boss Matches picks send SetPracticeNext(0) and keep native-first.
+    // human #121995: the pick still goes to the boss's arena: the legacy arena route (in-place swap / cross-world switch, TrainAttachArena keeps
+    // Practice). Only when that route refuses does the boss come to the player (Training here). Never a native Boss Match.
+    g_practice_arena_mission = 0;
+    if (g_practice_next && !g_arena_only_next && NativeFirst(FindRow(mission))) {
+        g_practice_arena_mission = mission;
+        int ok = FightNowEntry(mission);
+        Log("FIGHTNOW mission 0x%X: Training pick: practice in the boss arena (arena swap / world switch, no native Boss Match) -> %d", mission, ok);
+        if (ok) return ok;
+        g_practice_arena_mission = 0;
+        ok = Nioh3Training_Summon(mission); if (!ok) g_practice_next = 0;
+        Log("FIGHTNOW mission 0x%X: Training pick: arena route refused, training here (in-place summon, Practice) -> %d", mission, ok);
+        return ok;
+    }
     return FightNowEntry(mission);
 }
 N3T_API void Nioh3Training_SetArenaOnlyNext(int on) { g_arena_only_next = on != 0; }
@@ -4135,6 +4218,22 @@ N3T_API int Nioh3Training_SlotCount(void) { return N3T_SLOTS; }  // user #14309:
 N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot >= N3T_SLOTS || g_slot_native[slot] || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
 N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
 static void SlotDespawn(int s, int deferDead) { if (s < 0 || s >= N3T_SLOTS || g_slot_native[s]) return; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn2(i, deferDead); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
+// human #121923 (live 23:03: 'Despawn all' removed the Practice boss, the menu kept reopening on the Practice page): removing the session's
+// last boss by the user (Despawn all / the last slot's Remove) ends the Training session. g_tr.active stayed 1, so SessionMode kept
+// reporting Practice / Boss Match to EngineFix's #13529 current-mode page and the Return gate. Any boss (no row ids); a pending summon or a
+// native boss still alive keeps the session.
+static int AnySlotAlive(void);
+// regression #122030: the session boss gets a slot only when one is free at spawn (WatchTick). With all 4 slots taken by earlier summons
+// it has none, so Remove on the last slot boss must not end a session whose own boss (last spawn, body not gone) is still in the world.
+static int SessionBossAlive(void) {
+    if (!g_tr.active || g_tr.bodyGone || g_nsp <= 0 || !g_sp_actor[g_nsp - 1]) return 0;
+    uint64_t cur[1024]; const int n = Actors(cur, 1024);
+    for (int i = 0; i < n; ++i) if (cur[i] == g_sp_actor[g_nsp - 1]) return 1;
+    return 0;
+}
+static void TrainStopIfNoBoss(const char* why) {
+    if (g_tr.active && !g_sp.active && !AnySlotAlive() && !SessionBossAlive()) TrainStop(why);
+}
 static void RqTick(void) {
     LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
     int s = (int)g_rq_slot;
@@ -4146,8 +4245,8 @@ static void RqTick(void) {
         if (g_rq_chr) snprintf(tok, sizeof tok, "%u", g_rq_chr); else if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "R%04X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, 400.0f + 150.0f * (float)(s % 5));  // #14309: letters spread 4 / 5.5 / 7 / 8.5 / 10 m if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
-    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }
-    else if (op == 3) { SlotDespawn(s, 1); Log("MENU despawn slot %c", 'A' + s); }
+    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); TrainStopIfNoBoss("despawn all"); }
+    else if (op == 3) { const int had = SlotAlive(s); SlotDespawn(s, 1); Log("MENU despawn slot %c", 'A' + s); if (had) TrainStopIfNoBoss("last boss removed"); }
     else if (op == 4) {  // user #13223: Practice > Training here (no load, no teleport: boss summoned where the player stands, Idle stance, retry in place)
         if (GameState() && GameState()[2]) { Log("MENU training here: a load is running, refused"); return; }
         g_practice_next = 1; int ok = Nioh3Training_Summon(g_rq_mission); if (!ok) g_practice_next = 0;
@@ -4942,7 +5041,7 @@ static __attribute__((noinline)) void Exec(char* line) {
                 Log("  actor %p%s%s handle %08X %08X pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2]); }
         } else if (!strcmp(op, "despawn")) {
             char w[16] = "all"; sscanf(line, "%*s %15s", w);
-            if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); }
+            if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); TrainStopIfNoBoss("despawn all command"); }
             else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn2(i, 1); break; } }
             else Despawn2(atoi(w), 1);
         } else if (!strcmp(op, "kill")) {
@@ -5266,8 +5365,10 @@ static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + agg
 #define DR_PREFORCE(a) AgDrillFace(a)
 #define DR_GAP(chr) MvGapEffChr(chr)  // user #14309: per-boss gap (human #68578: none between members of a Last 2 / 3 cycle)
 #define DR_NEXT(chr, id) MvRepNextChr(chr, id)  // human #68578
+#define DR_HAND(chr, id, cur) MvHandFlow(chr, id, cur)  // human #122193: Stand still Flow
 #define DR_SEQ(chr) Nioh3Training_GetMoveRepeatSeq(chr)  // user #14546: a sequence repeat is forced by MvRepTick, not the drill
 #include "drill.h"  // user #13529: move drill in the Stand still stance
+#include "player_log.h"  // human #122228: inputs + player actions timeline ([Record] PlayerLog)
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
 static int IhIdleStance(void) { return InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) != 0; }
 static int TrActive(void) { return g_tr.active; }
@@ -6414,12 +6515,15 @@ static void FieldArriveTick(void) {
     FieldArriveStop(ok ? "summon queued" : "summon refused");
 }
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
+static int g_cfg_dummy_inf = 1;  // [Summon] DummyInfiniteVitals (human #122116)
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
     g_slot_native[s] = 0;
     HgNew(s);
     InterlockedExchange(&g_slot_fight[s], 0); InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     g_slot_ih[s] = 0; BvInit(); BvDefaults(&g_bv[s]); g_bv_live[s].live = 0;
+    // human #122116: Training dummies start with infinite health and Ki (Active bosses > Boss X turns them off). A Boss Match keeps normal vitals.
+    if (BvDummyInf(g_cfg_dummy_inf, g_tr.active, g_tr.practice)) { g_bv[s].infHp = 1; g_bv[s].infKi = 1; Log("BOSSVITALS Boss %c: Training dummy starts with infinite health and Ki (#122116)", 'A' + s); }
 }
 #include "native_slots_game.h"
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
@@ -6458,6 +6562,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
+    __try { ByTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BYSTANDER tick exception %08lX, off", GetExceptionCode()); g_by.n = 0; g_by.on = 0; g_cfg_by_radius = 0; }  // human #122020
     __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
@@ -6475,6 +6580,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { StanceTimerTick(); SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); for (int k = 0; k < N3T_SLOTS; ++k) g_sph[k].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
+    __try { PlTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_plog = 0; Log("PLAYERLOG tick exception %08lX - off", GetExceptionCode()); }  // human #122228
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     __try { DrillTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DRILL tick exception %08lX", GetExceptionCode()); g_dr_off = 1; DrStop("exception"); }
     __try { AggroTick(); ResetPosTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO tick exception %08lX", GetExceptionCode()); g_ag_off = 1; for (int i = 0; i < MV_CHASE_MAX; ++i) g_mv_chase[i] = 0; }  // user #13787
@@ -6579,6 +6685,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             Log("RETURN gate (#9324): native interact hidden within %d cm of the gate (buttons 0x%X), EngineFix export %s", g_cfg_gate_mask_r, g_cfg_gate_mask_btn, p_osdMask ? "found" : "MISSING: the native end-mission prompt can open");
             {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
                 g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
+                g_cfg_plog = GetPrivateProfileIntA("Record", "PlayerLog", 0, ini); Log("PLAYERLOG (#122228): [Record] PlayerLog %d", g_cfg_plog);
                 g_rec_max = GetPrivateProfileIntA("Record", "MaxMinutes", 20, ini); Log("RECORD (#9291): Enable %d, Script %s, OutRoot %s, MaxMinutes %d", g_cfg_rec, g_rec_script, g_rec_out, g_rec_max); }
             g_cfg_rh_ls = GetPrivateProfileIntA("Return", "LoadScreen", 1, ini); Log("RETURN loading screen (#8902): [Return] LoadScreen %d, EngineFix export %s", g_cfg_rh_ls, p_osdLoad ? "found" : "missing (black only)");
             if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }
@@ -6626,7 +6733,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
         g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); g_nf_reserve = GetPrivateProfileIntA("Summon", "KiBreakHp0Reserve", 1, ini); Log("KiBreakHp0Prime %d, KiBreakHp0Reserve %d", g_nf_prime, g_nf_reserve); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
-        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
+        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); g_cfg_by_hide = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderHide", 1, ini); g_cfg_by_remove = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRemove", 1, ini); g_cfg_dummy_inf = GetPrivateProfileIntA("Summon", "DummyInfiniteVitals", 1, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d, PracticeBystanderHide %d (#122041), PracticeBystanderRemove %d (#122065)", g_cfg_by_radius, g_cfg_by_hide, g_cfg_by_remove);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }

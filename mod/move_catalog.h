@@ -52,7 +52,7 @@ static void N3CatInit(int hand) {
     if (!hand) return;
     for (int i = 0; i < N3_MOVE_COUNT && i < N3CAT_CAP; ++i) g_n3cat[i] = kN3Moves[i];
     for (int i = 0; i < N3_NEXT_COUNT && i < N3CAT_NEXT_CAP; ++i) g_n3nx[i] = kN3Next[i];
-    // Hit/damage metadata never seeds from hand facts; archive records or unknown only.
+    // Hit/damage metadata never seeds from hand facts; archive records, else the runtime hitbox-row count (hits only, #121846), else unknown.
     for (int i = 0; i < N3_MOTION_COUNT && i < N3CAT_MOTION_CAP; ++i) g_n3mo[i] = kN3Motion[i];
     g_n3cat_n = N3_MOVE_COUNT < N3CAT_CAP ? N3_MOVE_COUNT : N3CAT_CAP; g_n3nx_n = N3_NEXT_COUNT < N3CAT_NEXT_CAP ? N3_NEXT_COUNT : N3CAT_NEXT_CAP;
     g_n3fa_n = 0; g_n3mo_n = N3_MOTION_COUNT < N3CAT_MOTION_CAP ? N3_MOTION_COUNT : N3CAT_MOTION_CAP;
@@ -122,7 +122,7 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
     }
     for (int i = 0; i < g_n3fa_n; ++i) if (g_n3fa[i].chr == chr) g_n3fa[i].chr = 0;
     for (int k = 0; k < n && g_n3fa_n < N3CAT_FACT_CAP; ++k) if (m[k].fact) {
-        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].record_known ? m[k].hits : 0; f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab;
+        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].hits;  /* archive or runtime hitbox count (ArApply, #121846) */ f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab;
         g_n3fa[g_n3fa_n] = f; g_n3fa_n = g_n3fa_n + 1;
     }
     for (int k = 0; k < n; ++k) {
