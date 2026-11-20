@@ -1,0 +1,34 @@
+## top 15 self (cores, process-wide; base -> new)
+Nioh3+48E90                                 0.100 ->  0.118  same lock+tightloop KIDSTS[s66:TS_MESHLET_REQ]
+Nioh3+1E80B0                                0.018 ->  0.063  up   lock           [App]Game
+Nioh3+411C0                                 0.073 ->  0.063  same lock,xchg      KIDSTS[s2:StageUpdate],KIDSTS[s4:UpdStgEdt],KIDSTS[s66:TS_ME
+ntdll.dll!ZwSetEvent                        0.025 ->  0.058  up                  ?,KIDSTS[s12:PhysUpdate],KIDSTS[s2:StageUpdate],KIDSTS[s3:Ch
+Nioh3+418F40                                0.003 ->  0.055  NEW  tightloop      [App]Game
+Nioh3+D80B0                                 0.111 ->  0.047  down tightloop      KIDSTS[s9:CollisionUpdate]
+Nioh3+1A7BF0                                0.019 ->  0.044  up   lock           KIDSTaskScheduler
+Nioh3+B94230                                0.013 ->  0.043  up                  ?,KIDSTS[s3:CharacterUpdate],KTGLGraph.Cache.FileLoad.Poll,S
+Nioh3+B94250                                0.015 ->  0.038  up                  ?,KIDSTaskScheduler,SynergisticDispatcherTask,[App]Game
+Nioh3+121FC0                                0.020 ->  0.028  up   lock           KIDSTaskScheduler
+Nioh3+6EFD0                                 0.044 ->  0.028  down                KIDSTaskScheduler
+Nioh3+425B0                                 0.031 ->  0.027  same lock           KIDSTaskScheduler
+ntdll.dll!NtAlertThreadByThreadIdEx         0.013 ->  0.026  up                  ?,KIDSTS[s3:CharacterUpdate],KIDSTS[s4:UpdStgEdt],KIDSTaskSc
+Nioh3+2515B0                                0.015 ->  0.021  up   tightloop      KIDSTS[s66:TS_MESHLET_REQ]
+Nioh3+469C0                                 0.022 ->  0.021  same                KIDSTS[s2:StageUpdate]
+
+## top 15 incl (cores, process-wide; base -> new) - upper bound, includes blocked children
+Nioh3+40800                                 1.409 ->  1.490  same QueryPerformanceCounter,lock,xchg KIDSTS[s10:StgGdtUpd],KIDSTS[s12:PhysUpdate],KIDSTS[s2:Stage
+Nioh3+3FE14                                 1.266 ->  1.326  same lock,xchg      KIDSTS[s10:StgGdtUpd],KIDSTS[s12:PhysUpdate],KIDSTS[s2:Stage
+Nioh3+B618E8                                0.193 ->  1.200  up                  ?,KIDSTaskScheduler,[App]CustomOccluderRayCastThrea,[App]Eff
+Nioh3+B616A4                                0.193 ->  1.200  up                  ?,KIDSTaskScheduler,[App]CustomOccluderRayCastThrea,[App]Eff
+Nioh3+3D7CC8                                0.172 ->  1.138  up                  ?,KIDSTaskScheduler,[App]CustomOccluderRayCastThrea,[App]Eff
+Nioh3+403A0                                 0.487 ->  0.613  same Sleep,lock,xchg KIDSTS[s12:PhysUpdate],KIDSTS[s2:StageUpdate],KIDSTS[s4:UpdS
+Nioh3+3E7CC                                 0.486 ->  0.613  same lock           KIDSTS[s12:PhysUpdate],KIDSTS[s2:StageUpdate],KIDSTS[s4:UpdS
+Nioh3+1A7C3E0                               0.286 ->  0.611  up                  SynergisticDispatcherTask
+Nioh3+2EEDFA0                               0.286 ->  0.611  up                  SynergisticDispatcherTask
+Nioh3+1113B4                                0.309 ->  0.564  up                  KIDSTaskScheduler
+Nioh3+111184                                0.309 ->  0.564  up                  KIDSTaskScheduler
+Nioh3+9FC2F4                                0.236 ->  0.477  up                  ?
+Nioh3+1A74130                               0.307 ->  0.456  up                  [App]Game
+Nioh3+5ACF80                                0.264 ->  0.454  up                  KIDSTaskScheduler
+Nioh3+27049CC                               0.306 ->  0.442  up                  [App]Game
+

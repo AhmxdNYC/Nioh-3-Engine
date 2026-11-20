@@ -455,3 +455,25 @@ dotnet fsi cpu_caves.fsx status                    # flags, timer handle, waits/
 dotnet fsi cpu_caves.fsx off L1 ; ... on L1        # A/B without touching code (R1 off = timeout 0)
 dotnet fsi cpu_caves.fsx revert W3,R1,L1           # original bytes back (cave stays allocated)
 ```
+
+## Rerun 2026-11-20 6:42 am EST (TASK #124164, performance-pc/0): current build, measure only
+Main PC, EF f31df983, TR c8b28619, BR 67c2e648, CamKi d30af192; user settings (FG off, XeSS 75 %, REN_FPS 120, VSync on;
+ini W1/W2/W3/R1/L1/W6/WK/FG on, J1/M1/M2/X1/E1 off). Same save spawn, 2 x 30 s standing + 30 s moving (stick loop).
+Script `tools/testmatrix/pc_cpuprof_124164.ps1`, diff `tools/testmatrix/cpuprof_diff.py`, raw `captures/cpuprof-124164/20261120-064028/`.
+
+| window | fps (1% low) | process CPU | [App]Game | Scheduler0 | pump thread |
+|---|---|---|---|---|---|
+| 10-06 base (60 fps lock) | 60 | 8.35-8.53 cores | 92.6 % | 83.0 % | 43 % |
+| S1 standing | 97.5 (63.9) | 6.68 cores | 72.4 % | 70.9 % | gone (<2 %) |
+| S2 standing | 95.6 (58.2) | 6.52 cores | | | |
+| M1 moving | 93.0 (36.9) | 7.19 cores | 81.0 % | 65.8 % | gone |
+CPU per frame: ~0.14 core-s (10-06) -> ~0.068 standing / 0.077 moving (about half).
+
+W1-W7 now (share of one core, self samples; base -> standing / moving):
+- W1 61B1C 0.164 -> 0.011 / 0.010 FIXED (rep stosd residue). W2 1371D0 0.016 -> 0 FIXED. W3 PeekMessage 0.68 + Yield 0.21 -> 0 FIXED.
+- W6 7D9E90 -> ~0 FIXED. W4 frame limiter: now sleeps (ZwDelayExecution, blocked, not spin) via L1. W5 FSR presenter: FG off, not measured.
+- W7 411C0 lock cmpxchg poll 0.18 -> 0.16 / 0.15 STILL THERE (J1 exists, default off).
+New/up (cores of CPU, process-wide): CustomOccluderRayCast chain B616A4/3D7CC8 incl 0.19 -> 0.97 (up, upper bound);
+main thread 418F40 tight 25-byte loop 418F60..418F77 (caller 418C70) 0.003 -> 0.04-0.055 NEW; 1E80B0 (lock) 0.018 -> 0.045-0.063;
+meshlet 48E90 lock + 12-byte loop 49150..4915A 0.09-0.12 (same; M1/M2 off); SynergisticDispatcher 1A7C3E0 incl 0.29 -> 0.59.
+No spin-wait suspect left except Scheduler0 condvar waits (12-15 % samples, normal blocking).
