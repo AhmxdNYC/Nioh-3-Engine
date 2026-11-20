@@ -1784,7 +1784,7 @@ static void FightBeginSession(void) {
     FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name, g_tr.tok, g_tr.chr);
 }
 static int TrainStart(const char* tok, float d) {
-    if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
+    if (GameState() && GameState()[2]) { g_practice_next = 0; Log("TRAIN %s: a load is running, refused", tok); return 0; }  // #121923: a refused session never leaves Practice set
     memset(&g_np, 0, sizeof g_np);
     memset(&g_fb, 0, sizeof g_fb);
     TrainClear("train start");
@@ -4143,6 +4143,14 @@ N3T_API int Nioh3Training_SlotCount(void) { return N3T_SLOTS; }  // user #14309:
 N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot >= N3T_SLOTS || g_slot_native[slot] || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
 N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
 static void SlotDespawn(int s, int deferDead) { if (s < 0 || s >= N3T_SLOTS || g_slot_native[s]) return; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn2(i, deferDead); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
+// human #121923 (live 23:03: 'Despawn all' removed the Practice boss, the menu kept reopening on the Practice page): removing the session's
+// last boss by the user (Despawn all / the last slot's Remove) ends the Training session. g_tr.active stayed 1, so SessionMode kept
+// reporting Practice / Boss Match to EngineFix's #13529 current-mode page and the Return gate. Any boss (no row ids); a pending summon or a
+// native boss still alive keeps the session.
+static int AnySlotAlive(void);
+static void TrainStopIfNoBoss(const char* why) {
+    if (g_tr.active && !g_sp.active && !AnySlotAlive()) TrainStop(why);
+}
 static void RqTick(void) {
     LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
     int s = (int)g_rq_slot;
@@ -4154,8 +4162,8 @@ static void RqTick(void) {
         if (g_rq_chr) snprintf(tok, sizeof tok, "%u", g_rq_chr); else if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "R%04X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, 400.0f + 150.0f * (float)(s % 5));  // #14309: letters spread 4 / 5.5 / 7 / 8.5 / 10 m if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
-    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }
-    else if (op == 3) { SlotDespawn(s, 1); Log("MENU despawn slot %c", 'A' + s); }
+    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); TrainStopIfNoBoss("despawn all"); }
+    else if (op == 3) { const int had = SlotAlive(s); SlotDespawn(s, 1); Log("MENU despawn slot %c", 'A' + s); if (had) TrainStopIfNoBoss("last boss removed"); }
     else if (op == 4) {  // user #13223: Practice > Training here (no load, no teleport: boss summoned where the player stands, Idle stance, retry in place)
         if (GameState() && GameState()[2]) { Log("MENU training here: a load is running, refused"); return; }
         g_practice_next = 1; int ok = Nioh3Training_Summon(g_rq_mission); if (!ok) g_practice_next = 0;
@@ -4950,7 +4958,7 @@ static __attribute__((noinline)) void Exec(char* line) {
                 Log("  actor %p%s%s handle %08X %08X pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2]); }
         } else if (!strcmp(op, "despawn")) {
             char w[16] = "all"; sscanf(line, "%*s %15s", w);
-            if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); }
+            if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); TrainStopIfNoBoss("despawn all command"); }
             else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn2(i, 1); break; } }
             else Despawn2(atoi(w), 1);
         } else if (!strcmp(op, "kill")) {
