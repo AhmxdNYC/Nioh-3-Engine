@@ -61,8 +61,33 @@ static void TestMode3() {
     std::printf("PASS mode 3\n");
 }
 
+// GH #147: the tracker table recycles stale slots instead of filling up for the rest of the session.
+static void TestTrackers() {
+    int64_t t[4] = {100, 200, 300, 400};
+    const int64_t stale = 1000;
+    assert(holdkeygap::PickTracker(t, 2, 4, 450, stale) == 2);   // free slot first
+    assert(holdkeygap::PickTracker(t, 4, 4, 1150, stale) == 0);  // full: 100 and 200 are stale, oldest wins
+    assert(holdkeygap::PickTracker(t, 4, 4, 1250, stale) == 0);
+    assert(holdkeygap::PickTracker(t, 4, 4, 1050, stale) == -1); // full and all ticked in the last 'stale': none
+    int64_t u[4] = {5000, 900, 5000, 5000};
+    assert(holdkeygap::PickTracker(u, 4, 4, 5100, stale) == 1);  // only the idle one is taken, busy ones (the player) kept
+    // 40 input objects come and go (enemies, loads); a new player object after them still gets a slot
+    int64_t ring[32] = {};
+    int n = 0;
+    for (int obj = 0; obj < 40; ++obj) {
+        const int64_t now = 10000 + obj * 3000;
+        const int i = holdkeygap::PickTracker(ring, n, 32, now, stale);
+        assert(i >= 0);
+        if (i == n) ++n;
+        ring[i] = now;
+    }
+    assert(holdkeygap::PickTracker(ring, n, 32, 10000 + 41 * 3000, stale) >= 0);
+    std::printf("PASS trackers\n");
+}
+
 int main() {
     TestMode3();
+    TestTrackers();
     const float fixed[] = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     assert(FiresStock(fixed, 8, 10.0f, 12.0f, false) == 1);
     assert(FiresStock(fixed, 8, 10.0f, 12.0f, true) == 1);

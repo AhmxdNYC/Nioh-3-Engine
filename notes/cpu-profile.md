@@ -510,3 +510,23 @@ Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, PP=1, J1=0
 | RWb | 97.3 / 55.9 / 6.56 | 93.3 / 40.7 / 6.94 | -1.7% / -1.4% |
 Verdict: no key gains on Main PC. WG ON is worse both runs (avg -4.9% S / -5.5% M, 1% lows down) -> keep WG 0 (shipped). FPC moving -3.2% is one run, borderline. WK (shipped on) neutral. S1 cut moving cores 7.18 -> 6.54 but fps -2%. Run noise ~1 fps.
 Captures captures/cpuprof-124439/{20261120-080849,20261120-081532,20261120-082602}; harness tools/testmatrix/pc_keyab_124439.ps1.
+
+## GHDM depth shader re-check at MAX + FG 2026-11-20 (#124558, performance-pc/0)
+Main PC RX 9070, EF f31df983, 2560x1440, MAX preset (REN_RAT 100, XeSS), VRR MaxFps 240. One launch per run; ShaderHot twin PSOs + LiveCtl toggle
+Hot.ghdm 0 = stock / 1 = fast (shipped), ABBA 2 pairs standing then 2 pairs moving, 20 s windows, PresentMon + cpuprof. 8/8 acks per run.
+fastab could not be used: its tour does not install on this build ("Tour: not installed (TT1 / SB1-SB3 call sites differ)").
+gpu-shaders/backup (stock .file) was gone; stock container rebuilt from gpu-shaders/extract/0x0104840c.bin (holds orig digest b6429c52) via idrk.pack.
+| arm (2 runs avg) | stock S fps/1%/cores | fast S | stock M | fast M | delta S / M |
+| MAX + FSR FG | 155.7 / 113.1 / 6.83 | 155.6 / 108.9 / 6.88 | 143.4 / 86.0 / 7.39 | 144.3 / 73.8 / 7.34 | -0.1% / +0.6% |
+| MAX, FG off | 96.8 / 72.5 / 7.21 | 97.3 / 72.3 / 7.40 | 88.0 / 55.4 / 8.02 | 89.7 / 55.0 / 7.93 | +0.6% / +1.9% |
+| USER (XeSS 75, FG off, 1 run) | 103.4 / 52.1 / 7.01 | 104.0 / 61.0 / 6.87 | 89.8 / 52.8 / 7.54 | 92.0 / 54.2 / 7.66 | +0.5% / +2.4% |
+Moving windows are noisy (first moving window is always lowest). Screenshot pair (FG off): same picture, 0.5% px differ >32 (animation).
+Verdict: old +8.7% / +11% (MAX/FG) NOT reproduced; real gain ~0-2%, under the 3% bar. Shipped ON since 10-06 with same look, costs nothing: keep as is, no further GHDM work.
+Captures captures/ghdm-124558/20261120/{maxfg1,maxfg2,max1,max2,user1}; harness tools/testmatrix/pc_ghdm_124558.ps1.
+
+## 2026-11-20 10:26 am EST: W6-default smoke on Main PC (TASK #124623, performance-pc/0)
+Candidate bf105baf (branch pc0/w6-win-default-124575), my build EF 6b04b252 (regression built c100b7b2). Ini W6 = -1, MaxFps 240,
+user config 1440p XeSS 75% HIGH, FG off, VSync on. Log: `auto W6 = 1 (native Windows ...)`, W6 applied 1 site, waker installed.
+stats/s exp: W6 waits 98-100/s avg 190 us (slept ~97, spun 1). 60 s walk fps 103.4, 1% low 66.7, no crash.
+GHDM base same config moving (#124558, 8:53 am): 88.7-94.2 fps, 1% low 51.8-56.7, so no hitch spike. PASS.
+Restored EF f31df983 + ini + saves, lock 381 free. Script tools/testmatrix/pc_w6smoke_124623.ps1.
