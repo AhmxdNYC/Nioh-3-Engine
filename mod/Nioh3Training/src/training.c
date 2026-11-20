@@ -6513,12 +6513,15 @@ static void FieldArriveTick(void) {
     FieldArriveStop(ok ? "summon queued" : "summon refused");
 }
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
+static int g_cfg_dummy_inf = 1;  // [Summon] DummyInfiniteVitals (human #122116)
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
     g_slot_native[s] = 0;
     HgNew(s);
     InterlockedExchange(&g_slot_fight[s], 0); InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     g_slot_ih[s] = 0; BvInit(); BvDefaults(&g_bv[s]); g_bv_live[s].live = 0;
+    // human #122116: Training dummies start with infinite health and Ki (Active bosses > Boss X turns them off). A Boss Match keeps normal vitals.
+    if (BvDummyInf(g_cfg_dummy_inf, g_tr.active, g_tr.practice)) { g_bv[s].infHp = 1; g_bv[s].infKi = 1; Log("BOSSVITALS Boss %c: Training dummy starts with infinite health and Ki (#122116)", 'A' + s); }
 }
 #include "native_slots_game.h"
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
@@ -6726,7 +6729,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
         g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); g_nf_reserve = GetPrivateProfileIntA("Summon", "KiBreakHp0Reserve", 1, ini); Log("KiBreakHp0Prime %d, KiBreakHp0Reserve %d", g_nf_prime, g_nf_reserve); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
-        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); g_cfg_by_hide = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderHide", 1, ini); g_cfg_by_remove = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRemove", 1, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d, PracticeBystanderHide %d (#122041), PracticeBystanderRemove %d (#122065)", g_cfg_by_radius, g_cfg_by_hide, g_cfg_by_remove);
+        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); g_cfg_by_hide = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderHide", 1, ini); g_cfg_by_remove = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRemove", 1, ini); g_cfg_dummy_inf = GetPrivateProfileIntA("Summon", "DummyInfiniteVitals", 1, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d, PracticeBystanderHide %d (#122041), PracticeBystanderRemove %d (#122065)", g_cfg_by_radius, g_cfg_by_hide, g_cfg_by_remove);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
