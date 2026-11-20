@@ -37,7 +37,8 @@ void FormHideEndBegin(uint64_t,uint64_t){++binds;}
 void FormHideEndReason(uint64_t,uint64_t,double){}
 uint64_t attempted=0;double attemptedT=-1;
 double pendAt=1,pendTrig=2,pendCapT=3;bool pendEdge=true,pendSpawn=true;uint64_t pendPlayer=4,pendCap=5;
-void cleanupFailed(const char* reason){
+int despawns=0;int SealQueueDespawn(uint64_t){++despawns;return 1;}  // #122288 crouch-cancel branch in the cleanup slice
+void cleanupFailed(const char* reason,double now=0){
 '''+cleanup+r'''
 }
 
@@ -87,11 +88,15 @@ int main(){
  check(canStart(13.87,10));check(!canStart(18.01,10));
  g_pickCore=0;check(!canStart(13.87,10));g_pickCore=0x5129B;transforms=false;check(!canStart(13.87,10));
  transforms=true;g_orbT=-100;g_sealEdgeT=-100;check(!canStart(13.87,10));
- for(const char* why : {"throw-done-no-seal","press-no-seal","throw-cancelled"}) {
+ for(const char* why : {"throw-done-no-seal","press-no-seal","throw-cancelled","crouch-cancel"}) {
   pendAt=1;pendTrig=2;pendCapT=3;pendEdge=pendSpawn=true;pendPlayer=4;pendCap=5;
   cleanupFailed(why);check(!pendAt&&!pendTrig&&!pendEdge&&!pendSpawn&&!pendPlayer&&!pendCap&&pendCapT==-1);
  }
  pendAt=1;cleanupFailed("ghost-exit");check(pendAt==1);
+ // human #122288: a crouch cancel despawns the bound seal unless it was alive at the press; other reasons never despawn.
+ {const uint64_t keep=g_fh4.seal;const bool a=alive;g_fh4.seal=77;alive=false;despawns=0;cleanupFailed("crouch-cancel");check(despawns==1);
+  alive=true;cleanupFailed("crouch-cancel");check(despawns==1);alive=false;cleanupFailed("throw-cancelled");check(despawns==1);
+  g_fh4.seal=0;cleanupFailed("crouch-cancel");check(despawns==1);g_fh4.seal=keep;alive=a;}
  // #82145: 5.49-second launch capture and matching late admission; 17.2 seconds remains refused.
  reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.1;
  check(!tick(15.48));check(canStart(15.49,10));check(!tick(15.49,789,15.49));check(g_fh4.seal==789&&binds==1);
