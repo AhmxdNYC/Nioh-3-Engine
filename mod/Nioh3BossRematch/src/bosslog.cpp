@@ -3090,11 +3090,16 @@ bool FormSealContinuation(uint64_t actor) { return actor && g_fh4.owner && actor
 // human #56935: no actions at all, camera free -> right stick untouched). The IAT slot is taken on the FIRST form start, not at load, so this hook sits outside EngineFix's PadLatency/VPad hooks
 // and also masks the harness pipe pad. Keyboard (DirectInput) is not masked. 0 = off.
 std::atomic<int> g_fbMask{0xFF4F}, g_fbRT{1}, g_fbLS{1};
-// human #122288: [Spirit] FormCrouchCancel = window in ms (default 250, 0 = off). From the soul-core press (d-pad LEFT/DOWN edge or the
+// human #122288: [Spirit] FormCrouchCancel = window in ms (default 200 per human #122339, 0 = off). From the soul-core press (d-pad LEFT/DOWN edge or the
 // game's accept) until press + window, FormBlockPad lets L3 (0x0040) and the left stick through, so the game's own crouch (and its seal
 // cancel) is never masked. FccPadTick (below) decides the cancel itself.
-std::atomic<int> g_fccMs{250};
-std::atomic<ULONGLONG> g_fccPassUntil{0};  // GetTickCount64 deadline of the pass-through window
+std::atomic<int> g_fccMs{200};  // human #122339: 200 ms default
+std::atomic<ULONGLONG> g_fccPassUntil{0};  // GetTickCount64 deadline of the left-stick pass-through window
+// human #122339: the crouch press inside the window only cancels - the game never sees it (no real crouch). L3 is eaten from the press
+// until press + window, and a press that went down inside the window stays eaten until it is released.
+std::atomic<ULONGLONG> g_fccEatUntil{0};
+bool g_fccEatHeld[4] = {};
+std::atomic<long> g_fccEaten{0};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
 std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
@@ -3127,6 +3132,15 @@ struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
 struct FbState { DWORD packet; FbPad pad; };
 DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
+    if (r == ERROR_SUCCESS && st && user < 4) {  // human #122339: eat the crouch-cancel L3 (form up or not)
+        FbState* s = (FbState*)st;
+        if (s->pad.buttons & 0x0040) {
+            if (g_fccEatHeld[user] || GetTickCount64() < g_fccEatUntil.load(std::memory_order_relaxed)) {
+                if (!g_fccEatHeld[user]) { g_fccEatHeld[user] = true; g_fccEaten.fetch_add(1, std::memory_order_relaxed); }
+                s->pad.buttons &= (WORD)~0x0040;
+            }
+        } else g_fccEatHeld[user] = false;
+    }
     if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
         if (g_fbStyle.load(std::memory_order_relaxed) && user < 4) {  // ally #57627: watch for a style shift chord (raw, before masking)
@@ -3152,7 +3166,7 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
         const bool trig = g_fbRT.load(std::memory_order_relaxed);
         bool ls = g_fbLS.load(std::memory_order_relaxed);
-        if (GetTickCount64() < g_fccPassUntil.load(std::memory_order_relaxed)) { m &= (WORD)~0x0040; ls = false; }  // human #122288 crouch window
+        if (GetTickCount64() < g_fccPassUntil.load(std::memory_order_relaxed)) ls = false;  // human #122288 window: stick free; L3 eaten above (#122339)
         if ((s->pad.buttons & m) || (trig && (s->pad.rt || s->pad.lt)) || (ls && (s->pad.lx || s->pad.ly))) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
@@ -3225,10 +3239,10 @@ WORD PickPadButtons() {
 extern "C" __declspec(dllexport) int Nioh3BossRematch_PadBlockActive() {
     return g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000 ? 1 : 0;
 }
-void FormBlockSet(bool on) {
-    if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
+// human #122339: the hook install, shared by the first form start and the crouch-cancel press (L3 must be eaten before any form).
+bool FbEnsureHooked() {
     static bool hooked = false, tried = false;
-    if (on && !tried) {
+    if (!tried) {
         tried = true;
         void** slot = FbXInputSlot();
         DWORD old = 0, t = 0;
@@ -3240,6 +3254,11 @@ void FormBlockSet(bool on) {
         }
         Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
+    return hooked;
+}
+void FormBlockSet(bool on) {
+    if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
+    const bool hooked = on ? FbEnsureHooked() : g_fbPrev != nullptr;
     if (!hooked || g_fbActive.exchange(on) == on) return;
     if (on) { g_fbPressStyle.store(g_fbPressArm.load() >= 0 ? g_fbPressArm.load() : g_styleFree.load()); g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(0); g_fbInjT0.store(0);
         for (auto& u : g_fbUser) u.rt = true, u.chordA = false, u.other = true, u.lastRt = GetTickCount64();  // an RT held at the press is not a style shift
@@ -4175,7 +4194,7 @@ static void RememberKeptExtra(uint64_t seal, uint64_t chr, float dist) {
     if (KeptExtra(seal, chr, &ignored)) return;
     for (int i = 0; i < 4; ++i) if (!g_keptChr[i]) { g_keptChr[i] = chr; g_keptDist[i] = dist; return; }
 }
-// human #122288: crouch cancel at the soul core transformation start. [Spirit] FormCrouchCancel = window in ms (default 250, 0 = off).
+// human #122288: crouch cancel at the soul core transformation start. [Spirit] FormCrouchCancel = window in ms (default 200 per human #122339, 0 = off).
 // An L3 (crouch) press within the window after the soul-core press (PickPoll: d-pad LEFT/DOWN edge or the game's accept) cancels the
 // transformation of that press, for every core (no id list):
 //  1. FormBlockPad lets L3 + the left stick through during the window (g_fccPassUntil), so the game's own crouch reaches it and cuts the
@@ -4224,6 +4243,8 @@ void FccPress(double now, int dir) {
     g_fcc.transform = ms > 0 && ScOn() && g_fhMode.load() == 4;
     if (!g_fcc.transform) { g_fccPassUntil.store(0); return; }
     g_fccPassUntil.store(GetTickCount64() + (ULONGLONG)ms);
+    const bool eat = FbEnsureHooked();  // human #122339: L3 in the window cancels only, never crouches
+    if (eat) g_fccEatUntil.store(GetTickCount64() + (ULONGLONG)ms);
     const bool snap = g_fccKeepCore.load() && FccReadCores(g_fcc.y);
     Log("FormCrouchCancel: press dir=%c core=%X t=%.3f window=%d ms (L3+LS pass FormBlockPad until %.3f) guard=%s Y1 idx=%d id=%X n=%u Y2 idx=%d id=%X n=%u",
         dir == 1 ? 'L' : 'D', g_fcc.core, now, ms, now + ms / 1000.0, !g_fccKeepCore.load() ? "off" : snap ? "snapshot" : "unreadable",
@@ -4249,14 +4270,14 @@ void FccPadTick(WORD bt, double now) {
     g_fcc.decided = true; g_fcc.cancelT = now;
     g_fcc.suppressUntil = g_fcc.pressT + 8.5;  // a cold-loaded core spawns up to ~5.5 s late (KnownTransformWaitUntil: press + 8 s)
     g_fcc.watchUntil = now + 3.0;
-    g_fccPassUntil.store(GetTickCount64() + 300);  // the held L3 keeps reaching the game for the crouch itself
+    g_fccPassUntil.store(GetTickCount64() + 300);  // left stick stays free a moment; the held L3 stays eaten until released (#122339)
     g_fccEndReq.store(true);
     if (g_rtT0.exchange(-100) > -50) Log("FormCrouchCancel: x8 RunThrow closed t=%.3f", now);
     g_runFadeAt.store(0);
     const bool fading = g_plOutT0.load() > 0 && now >= g_plOutT0.load();
     g_plOutT0.store(0);
-    Log("FormCrouchCancel: L3 t=%.3f press t=%.3f delta=%d ms window=%d ms -> CANCELLED (form %s, start fade %s) core=%X",
-        now, g_fcc.pressT, dms, ms, g_fh4.owner ? "up: ends now" : "not begun: begin dropped", fading ? "undone" : "not started", g_fcc.core);
+    Log("FormCrouchCancel: L3 t=%.3f press t=%.3f delta=%d ms window=%d ms -> CANCELLED (form %s, start fade %s) core=%X, L3 eaten from the game %ld (no crouch)",
+        now, g_fcc.pressT, dms, ms, g_fh4.owner ? "up: ends now" : "not begun: begin dropped", fading ? "undone" : "not started", g_fcc.core, g_fccEaten.load());
     if (fading) FccShowPlayer(g_plOutChr.load(), now);
 }
 // The start fade-out (PlayerFadeOut) may already have lowered the player's root multipliers before FormHide took over: put back the
@@ -7106,7 +7127,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 250};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200};
         v = shipped[which];
     } else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
@@ -7476,7 +7497,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
-        const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 250);
+        const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
         g_fccMs.store(ms < 0 ? 0 : ms > 1000 ? 1000 : ms);
         g_fccKeepCore.store(IniInt(L"Spirit", L"FormCrouchCancelKeepCore", 1));
         Log("FormCrouchCancel: window %d ms%s, core count guard %s", g_fccMs.load(), g_fccMs.load() ? "" : " (off)", g_fccKeepCore.load() ? "on" : "off");

@@ -22,7 +22,7 @@ def cut(begin, end):
 
 
 state_and_hook = cut('std::atomic<int> g_fbMask{0xFF4F}', '\nvoid** FbXInputSlot() {')
-form_block_set = cut('void FormBlockSet(bool on) {', '\n// pc #56435:')
+form_block_set = cut('bool FbEnsureHooked() {', '\n// pc #56435:')
 
 prelude = r'''
 #define WIN32_LEAN_AND_MEAN
@@ -227,19 +227,30 @@ int main() {
     Off(t + 300); CHECK(g_fbInjT0.load() == 0);
     g_fbStyle = 1;
 
-    // ---- human #122288 FormCrouchCancel: inside the window L3 (0x0040) and the left stick reach the game, nothing else ----
+    // ---- human #122288/#122339 FormCrouchCancel: inside the window the left stick reaches the game; L3 is eaten (no real crouch) ----
     {
         const ULONGLONG c0 = t + 500;
         On(c0);
-        g_fccPassUntil = c0 + 250;
+        g_fccPassUntil = c0 + 200; g_fccEatUntil = c0 + 200;
         { auto s = Read(c0 + 10, 0x0040 | A | 0x0004, 200, 200, 3000, 4000, 50, 60);
-          CHECK(s.pad.buttons == 0x0040 && s.pad.lx == 3000 && s.pad.ly == 4000 && s.pad.lt == 0 && s.pad.rt == 0 && s.pad.rx == 50); }
-        { auto s = Read(c0 + 249, 0x0040, 0, 0, 1, 1); CHECK(s.pad.buttons == 0x0040 && s.pad.lx == 1); }
-        { auto s = Read(c0 + 250, 0x0040 | A, 0, 0, 1, 1); CHECK(s.pad.buttons == 0 && s.pad.lx == 0 && s.pad.ly == 0); }  // window over: masked again
+          CHECK(s.pad.buttons == 0 && s.pad.lx == 3000 && s.pad.ly == 4000 && s.pad.lt == 0 && s.pad.rt == 0 && s.pad.rx == 50); }
+        { auto s = Read(c0 + 199, 0x0040, 0, 0, 1, 1); CHECK(s.pad.buttons == 0 && s.pad.lx == 1); }
+        { auto s = Read(c0 + 200, 0x0040 | A, 0, 0, 1, 1); CHECK(s.pad.buttons == 0 && s.pad.lx == 0 && s.pad.ly == 0); }  // window over: masked again
         g_fccPassUntil = 0;
         { auto s = Read(c0 + 260, 0x0040, 0, 0, 7, 7); CHECK(s.pad.buttons == 0 && s.pad.lx == 0); }  // off: L3 + stick masked as before
+        Read(c0 + 270);  // L3 released
         Off(c0 + 300);
         t = c0 + 300;
+        // no form up (FormHideDelayMs): L3 inside the eat window is still eaten, a held L3 stays eaten past the window until released
+        const ULONGLONG e0 = t + 100;
+        g_fccEatUntil = e0 + 200;
+        { auto s = Read(e0 + 5, 0x0040 | A); CHECK(s.pad.buttons == A); }
+        { auto s = Read(e0 + 400, 0x0040 | A); CHECK(s.pad.buttons == A); }   // held past the window: still eaten
+        { auto s = Read(e0 + 450, A); CHECK(s.pad.buttons == A); }            // released
+        { auto s = Read(e0 + 460, 0x0040); CHECK(s.pad.buttons == 0x0040); }  // a new press after the window reaches the game
+        { auto s = Read(e0 + 470, 0x0040, 0, 0, 0, 0, 0, 0, 1); CHECK(s.pad.buttons == 0x0040); }  // other pad, outside the window
+        Read(e0 + 480);
+        g_fccEatUntil = 0; t = e0 + 500;
     }
 
     // ---- #83466 queued soul-core d-pad press: OR'd in for the 120 ms pulse, also during a form ----
