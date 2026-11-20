@@ -1,5 +1,7 @@
 # Nioh 3 Engine
 
+[![Downloads](https://img.shields.io/github/downloads/AhmxdNYC/Nioh-3-Engine/total?label=downloads)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases)
+
 > **Warning: this mod has NOT been tested in online co-op.** Use it offline, or at your own risk online. Back up your saves first.
 
 Open-source engine fixes, boss practice add-ons and reverse-engineering research for **Nioh 3 on PC (Steam, game version 2.02)**.
