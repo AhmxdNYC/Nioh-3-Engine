@@ -76,6 +76,24 @@ static int MvGapLog(int i, uint32_t pick) {
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
 static volatile int g_cfg_rep_gap = 1000;
 #define MV_REP_GAP_MAX 10000
+// human #122193: 'Between moves' for Repeat last 2 / 3: 1 = Flow (the next captured move starts where the boss chains attacks itself,
+// #122170), 0 = Pause (each move plays out to idle first, the old behaviour). Global, [Training] RepeatFlow, default 1.
+static volatile int g_cfg_rep_flow = 1;
+// human #122193: Stand still has the AI off, so no AI pick marks the hand-over point. Learned instead, per boss character and attack: how
+// long the attack ran before the boss itself went straight into another attack (no rest / step / reaction between). Fed by the move
+// recorder (MlNote, the boss's own fights) and by Fight-normally hand-overs (MvRepeatPick). The drill forces the next member at that time.
+#define MV_HAND_MAX 128
+static struct { uint32_t chr, id; DWORD ms; } g_hand[MV_HAND_MAX]; static int g_hand_next;
+static DWORD MvHandGet(uint32_t chr, uint32_t id) { for (int k = 0; chr && k < MV_HAND_MAX; ++k) if (g_hand[k].chr == chr && g_hand[k].id == id) return g_hand[k].ms; return 0; }
+static void MvHandPut(uint32_t chr, uint32_t id, DWORD ms) {
+    if (!chr || !id || ms < 300 || ms > 15000) return;  // a start-of-move pick (< MV_HAND_MIN_MS) or a stalled move is not a hand-over
+    int f = -1;
+    for (int k = 0; k < MV_HAND_MAX && f < 0; ++k) if (g_hand[k].chr == chr && g_hand[k].id == id) f = k;
+    if (f < 0) { f = g_hand_next; g_hand_next = (g_hand_next + 1) % MV_HAND_MAX; g_hand[f].chr = chr; g_hand[f].id = id; g_hand[f].ms = ms; }
+    else if (ms < g_hand[f].ms) g_hand[f].ms = ms;  // earliest seen chain point
+    else return;
+    Log("HANDOVER chr %u 0x%X: the boss chains into its next attack %lu ms in (learned, used by Stand still Flow)", chr, id, ms);
+}
 // user #14309 / #14336: 'Gap between repeats' is per boss (Boss X page). Per character id (the repeat table is per character too); a boss with
 // no entry uses RepeatGapMs. Saved as [Moves.<chr>] RepeatGapMs, loaded with the move switches (MvLoadPrefs).
 #define MV_GAP_MAX 32
@@ -193,6 +211,7 @@ static volatile LONG g_rep_subs;                    // log cap for follow-up pic
 #define MV_KEEP 0xFFFFu            // select result: no new action now (the running one plays on)
 #define MV_STUCK_MS 5000           // an action that did not change for this long takes the game's pick anyway (no endless loop part)
 #define MV_PASS_MAX 8
+#define MV_HAND_MIN_MS 300         // human #122170: Last 2/3 hand-over picks only after this much of the running move (start-of-move picks are not one)
 static uint32_t g_rep_pass[MV_REP_MAX][MV_PASS_MAX]; static int g_rep_npass[MV_REP_MAX];  // follow-up picks passed this round (commit veto bypass)
 static DWORD g_rep_curt[MV_REP_MAX];                  // when g_rep_cur last changed
 static uint32_t g_rep_from[MV_REP_MAX];               // the action read when the head was requested (still playing = not the head yet)
@@ -390,7 +409,16 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         const int chain91 = gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && g_rep_seen[i]
             && now - g_rep_last[i] < 30000 && MvRepAtk(i, chr, id) && id != rep;
         const uint32_t curp = act == rep ? act : (g_rep_cur[i] ? g_rep_cur[i] : rep);
-        if (chain91 && MvContinues(chr, curp, id)) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
+        // human #122170: Last 2/3 inside a cycle (or delay 0) went A -> idle -> ~1 s -> B. The boss's own AI picks its next attack inside A's
+        // recovery (live 00:43:49 0x4E4E / 0x4E7B / 0x4E5C during 0x4E64 at 1641-1719 ms, then idle 0x2 at 1750): that pick is where the game
+        // itself hands one attack into the next, so the next captured move takes it (fluid A -> B like the boss's own combo). Picks in A's
+        // first MV_HAND_MIN_MS are the start-of-move decision (live '0 ms after the start'), not a hand-over; those still wait (MV_KEEP).
+        const int hand = g_cfg_rep_flow && chain91 && !MvContinues(chr, curp, id) && now - g_rep_seen[i] >= MV_HAND_MIN_MS
+            && !MvLastUnsafe(chr, id) && !N3MoveUnsafe(chr, curp) && !N3MoveProtected(curp);
+        if (hand && InterlockedIncrement(&g_rep_subs) <= 400)
+            Log("REPEAT chr %u cycle: game pick 0x%X during 0x%X %lu ms in = hand-over point, next captured move starts now (#122170)", chr, id, curp, now - g_rep_seen[i]);
+        if (hand) MvHandPut(chr, rep, now - g_rep_seen[i]);
+        if (chain91 && (hand || MvContinues(chr, curp, id))) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
         else if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || !MvRest(chr, id)))
             return MvFollow(i, chr, act, id, now);
         else if (!g_rep_seen[i] && attack && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && now - g_rep_last[i] < 30000)
@@ -557,7 +585,7 @@ N3T_API uint32_t Nioh3Training_GetMoveRepeat(uint32_t chr) { return MvRepeatId(c
 // (MvContinues: same chain link / motion family). Hit reactions, Ki break and status actions are < 0x4E20 and never recorded. While a
 // repeat is armed for that boss nothing is recorded (the captured moves stay what the player saw).
 #define ML_MAX 8
-static struct { uint32_t chr, act, ids[ML_KEEP]; int n; DWORD t; } g_ml[ML_MAX];
+static struct { uint32_t chr, act, ids[ML_KEEP]; int n; DWORD t; uint32_t atk; DWORD tatk; int brk; } g_ml[ML_MAX];  // atk/tatk/brk: #122193 hand-over learning
 static SRWLOCK g_ml_lock = SRWLOCK_INIT;
 #include "../../move_last_rule.h"
 // GitHub #126: ids below 0x4E20 count only by the data rule of move_last_rule.h (attack motion + attack facts): low-id attacks of bosses like
@@ -584,11 +612,20 @@ static void MlNote(uint32_t chr, uint32_t act, DWORD now) {
         take = 0;
     }
     if (take && MlAttack(chr, prev) && MvContinues(chr, prev, act)) take = 0;  // the running attack's next piece, not a new move
+    // human #122193: the boss went from its last attack straight into this one (nothing but that attack's own pieces between): learn when
+    const int nat = !(r >= 0 && g_rep_id[r]);
+    uint32_t hid = 0; DWORD hms = 0;
+    if (!MlAttack(chr, act)) g_ml[s].brk = 1;  // rest / step / reaction: not a direct chain
+    else if (take || (nat && mi >= 0 && !(MlAttack(chr, prev) && MvContinues(chr, prev, act)))) {
+        if (nat && g_ml[s].atk && !g_ml[s].brk) { hid = g_ml[s].atk; hms = now - g_ml[s].tatk; }
+        g_ml[s].atk = act; g_ml[s].tatk = now ? now : 1; g_ml[s].brk = 0;
+    }
     if (take) {
         for (int k = ML_KEEP - 1; k > 0; --k) g_ml[s].ids[k] = g_ml[s].ids[k - 1];
         g_ml[s].ids[0] = act; if (g_ml[s].n < ML_KEEP) ++g_ml[s].n;
     }
     ReleaseSRWLockExclusive(&g_ml_lock);
+    if (hid) MvHandPut(chr, hid, hms);
     if (take) Log("LASTMOVE chr %u captured 0x%X \"%s\" (after 0x%X; last %d: 0x%X 0x%X 0x%X)", chr, act, kN3Moves[mi].label ? kN3Moves[mi].label : "", prev, g_ml[s].n,
                   g_ml[s].ids[0], g_ml[s].ids[1], g_ml[s].ids[2]);
 }
@@ -672,6 +709,26 @@ static DWORD WINAPI MvRepGapSaveThread(LPVOID p) {
 }
 // bridge 12958: Training menu 'Repeat delay' slider. Clamped 0..10000 ms, applies to the next pick, persist = save [Training] RepeatGapMs.
 N3T_API int Nioh3Training_GetRepeatGap(void) { return g_cfg_rep_gap; }
+static DWORD WINAPI MvRepFlowSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    WritePrivateProfileStringA("Training", "RepeatFlow", g_cfg_rep_flow ? "1" : "0", ini); WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+// human #122193: 1 = Flow, 0 = Pause between the moves of a Repeat last 2 / 3 cycle
+N3T_API int Nioh3Training_GetRepeatFlow(void) { return g_cfg_rep_flow; }
+N3T_API int Nioh3Training_SetRepeatFlow(int on, int persist) {
+    g_cfg_rep_flow = on ? 1 : 0;
+    Log("REPEAT between moves: %s%s", on ? "Flow" : "Pause", persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, MvRepFlowSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    return g_cfg_rep_flow;
+}
+// human #122193: Stand still Flow: ms into the running member at which the drill starts the next one (0 = wait for idle as before). Only
+// inside a Last 2 / 3 cycle (no gap before the next member), only while an attack (not a reaction / rest) runs, only once learned.
+static DWORD MvHandFlow(uint32_t chr, uint32_t id, uint32_t cur) {
+    const int i = MvRepFind(chr);
+    if (!g_cfg_rep_flow || i < 0 || !MvRepLive(i) || g_rep_nlist[i] < 2 || g_rep_lastn[i] < 2 || MvGapEff(i, chr) != 0) return 0;
+    if (!MvRepAtk(i, chr, cur) || N3MoveUnsafe(chr, cur) || N3MoveProtected(cur)) return 0;
+    return MvHandGet(chr, id);
+}
 N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist) {
     if (ms < 0) ms = 0; if (ms > MV_REP_GAP_MAX) ms = MV_REP_GAP_MAX;
     g_cfg_rep_gap = ms;
@@ -736,6 +793,7 @@ static __attribute__((noinline)) void MvRepTick(void) {
     }
 }
 static void MvLoadPrefs(const char* ini) {
+    g_cfg_rep_flow = GetPrivateProfileIntA("Training", "RepeatFlow", 1, ini) ? 1 : 0;  // human #122193
     { int gap = (int)GetPrivateProfileIntA("Training", "RepeatGapMs", 1000, ini); g_cfg_rep_gap = gap < 0 ? 0 : gap > MV_REP_GAP_MAX ? MV_REP_GAP_MAX : gap; }
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
         char section[40], key[24];

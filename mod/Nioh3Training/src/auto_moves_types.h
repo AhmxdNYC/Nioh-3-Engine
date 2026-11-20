@@ -9,7 +9,7 @@ typedef struct {
     uint8_t great;     // u16 +0x04 bit 0x2000 = GreatAttack (unblockable)
     uint8_t attack;    // block || hit window || great (the static-row rule of tools/add_static_boss_rows.py / gen_boss_move_facts.py)
     uint8_t fact;      // listed in boss_move_facts.h style: block || own hitbox rows || great
-    uint8_t hits;      // archive hit count when record_known; otherwise 0 = unknown (nwin retains old parser estimate)
+    uint8_t hits;      // archive hit count when record_known; otherwise the runtime hit windows (AmRuntimeHits), 0 = unknown
     uint8_t nwin;      // raw hit windows (before the spawn / untimed rule)
     uint8_t nrows, untimed, spawns;  // own hitbox rows, untimed (spawned-object) rows, non-ambient spawn events
     uint8_t link;      // next is a real move (not idle, not self): a sequence link, as in boss_sequences.h
@@ -28,4 +28,7 @@ static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) chang
 _Static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");
 #endif
 typedef struct { int n; uint32_t size, off[AM_NSUB], len[AM_NSUB]; AmMove m[AM_MAXMOVES]; } AmTable;
+// human #121846 (lifts #85979): the hit count read from the action's own hitbox rows (AmWindows). Unknown (0) when a spawned object or an
+// untimed row can also hit, or the action owns no timed hitbox row. Used for every action the archive records do not cover.
+static inline uint8_t AmRuntimeHits(const AmMove* m) { return (m->spawns || m->untimed) ? 0 : m->nwin; }
 

@@ -186,7 +186,7 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
             if (!amb) ++nonamb;
         }
         m->spawns = (uint8_t)(nonamb > 255 ? 255 : nonamb);
-        m->hits = (m->spawns || m->untimed) ? 0 : m->nwin;
+        m->hits = AmRuntimeHits(m);
         m->attack = m->block || m->nwin || m->great;
         m->fact = m->block || m->nrows || m->great;
     }

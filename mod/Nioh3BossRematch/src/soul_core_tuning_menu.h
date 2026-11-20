@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 10;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 11;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -28,10 +28,12 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
     return 1;
 }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
-                                      "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:"};
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0};
+                                      "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
+                                      "Crouch cancel window:"};  // human #122288
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200};
 void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
+    else if (w == 10 && v <= 0) snprintf(b, n, "OFF");  // human #122288
     else if (w == 7 || w == 8) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");
     else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
@@ -83,6 +85,7 @@ bool SctChange(int item, int dir) {
     char t[24]; SctValueText(w, v, t, sizeof t);
     Log("Rematch: menu Soul core %s -> %s (human #58117)", kSctLabel[w], t);
     if (w == 9) { snprintf(g_msg, sizeof g_msg, "%s %s. Live and saved; hidden yokai finishes its attack.", kSctLabel[w], t); return true; }
+    if (w == 10) { snprintf(g_msg, sizeof g_msg, "%s %s. Live from the next soul core press. Saved.", kSctLabel[w], t); return true; }  // human #122288
     snprintf(g_msg, sizeof g_msg, live ? "%s %s. Applies on the next LEFT soul core use. Saved." : "%s %s. Saved; the speed hooks are off this session, applies next launch.",
              kSctLabel[w], t);
     return true;
@@ -136,6 +139,7 @@ const char* SctFooter(int item) {
     case 6: return "Exit: yokai animation speed after its last hit (ramps up from Transform speed). x0.5 steps, x1-x8 (x1 = off). [Spirit] SealTailSpeed. Live, saved.";
     case 7: return "ON: the start smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
     case 8: return "ON: the end smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
+    case 10: return "Crouch (L3) this soon after a soul core press cancels the transformation (no real crouch); the core is not spent. OFF = no cancel. 50 ms steps, 0-1000. [Spirit] FormCrouchCancel. Live, saved.";
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }

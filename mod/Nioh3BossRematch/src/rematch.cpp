@@ -3074,12 +3074,46 @@ bool WavesGateNow() {
     const uint32_t scroll = rcore::ScrollMission(g_rows, row);  // the row's catalogue story_mission (was 0xCC96)
     return s.msOk && scroll && s.ms28 == scroll;
 }
+// #121854 (human v1.8.24): the won native attempt retired at the gate (#80065, so a new Fight now is accepted) left g_activeRow -1,
+// so the gate page's Fight again refused 'native boss row is no longer owned' and only Return worked. The retired win keeps owning
+// that gate's Fight again while the pump is idle, in the same mission, with no newer attempt (any AttemptBegin / AttemptReturning
+// bumps g_attemptSequence) and no load since. Same rule for every boss.
+std::atomic<int> g_retiredRow{-1};
+std::atomic<uint32_t> g_retiredMission{0};
+std::atomic<uint64_t> g_retiredSequence{0};
+int RetiredGateRow(const Snap& s) {
+    const int row = g_retiredRow.load();
+    if (row < 0 || (size_t)row >= g_rows.size() || g_retiredSequence.load() != g_attemptSequence) return -1;
+    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_activeRow.load() >= 0) return -1;
+    if (!s.msOk || !s.ms28 || s.ms28 != g_retiredMission.load()) return -1;
+    return row;
+}
+void RetireWonAttempt() {
+    const int row = g_attempt.row;
+    const uint32_t mission = g_attempt.mission;
+    Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
+    ToIdle("won native attempt settled at the gate", true);
+    if (g_attemptPhase.load() != aNone || row < 0) return;  // quarantined or no row: the gate offers no Fight again
+    g_retiredMission.store(mission);
+    g_retiredSequence.store(g_attemptSequence);
+    g_retiredRow.store(row);
+    Log("Rematch: the retired win keeps the gate's Fight again for row %d (mission 0x%X)", row, mission);
+}
 int NativeGateRow() {
     if (WavesGateNow()) return g_activeRow.load();
     const uint32_t mission = NativeGateMission();
     if (!mission) return -1;
     const int row = g_activeRow.load();
-    return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission ? row : -1;
+    if (row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission) return row;
+    const int won = RetiredGateRow(ReadSnap());
+    return won >= 0 && g_rows[(size_t)won].missionId == mission ? won : -1;
+}
+// The game thread revalidates a queued native Fight again: the open attempt, or the won one retired at this gate (#121854).
+bool NativeAgainOwned(int row, const Snap& s) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (RetiredGateRow(s) != row && (g_attemptPhase.load() != aActive || g_attempt.row != row || g_attempt.mission != s.ms28)) return false;
+    if (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission()) return false;
+    return true;
 }
 void ScrollCoverTick(const Snap& s, ULONGLONG t) {
     if (!g_scrollCover) return;
@@ -3279,10 +3313,8 @@ void Tick() {
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
-    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) {
-        Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
-        ToIdle("won native attempt settled at the gate", true);
-    }
+    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) RetireWonAttempt();
+    if (s.st[2] && g_retiredRow.load() >= 0) g_retiredRow.store(-1);  // a load (return, reload, new mission) ends the retired gate
     if (g_resume.armed.load()) {
         const bool sess = g_resume.inPlace.load() && (TrainingOwnsFight() || fight::g_active || g_fight.load() || g_swappedInPlace.load());
         g_resume.session.store(sess ? 1 : 0);
@@ -3398,9 +3430,7 @@ void Tick() {
         const int row = (int)(g_pend >> 8) - 1;
         if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {
             const char* why = nullptr;
-            if (kind == kReqNativeAgain && (row < 0 || (size_t)row >= g_rows.size() ||
-                g_attemptPhase.load() != aActive || g_attempt.row != row ||
-                g_attempt.mission != s.ms28 || (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission())))
+            if (kind == kReqNativeAgain && !NativeAgainOwned(row, s))
                 why = "native gate no longer owns this fight";
             else if (!g_exitOk) why = g_exitWhy;
             else if (kind == kReqPracticeExit) why = PracticeReturnGate(s);
@@ -4413,6 +4443,7 @@ int ItemsBase(int* out, int cap) {
         add(kItBossStance);
         if (TrainingExport("Nioh3Training_SetSlotAggro")) add(kItBossAggro);
         if (TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578
+        if (TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         if (TrainingExport("Nioh3Training_SetRepeatGapChr")) add(kItBossGap);
         if (TrainingExport("Nioh3Training_ResetSlotPos")) add(kItBossReset);
         if (BvAvailable()) add(kItBvOpenBase + g_bossSlot);
@@ -4483,6 +4514,7 @@ int ItemsBase(int* out, int cap) {
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
         // #14336 item 2: stance / gap / aggro / reset / repeat rows live on the Boss X page only. user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
         if (chr && TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578: also for a Boss Match / Practice boss (no Boss X page)
+        if (chr && TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         for (int c : kMcOrder) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);  // user #22349
         add(kItBack);
         return n;
@@ -4948,6 +4980,7 @@ void UiChange(int dir) {
     if (item == kItBossAggro) { BossAggroSet(dir); return; }
     if (item == kItBossGap) { BossGapStep(dir); return; }
     if (item == kItBossLast) { RepeatLastStep(MoveBoss(), dir); return; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return; }  // human #122193
     if (item == kItStanceTimer) {  // user #14313: 1..10 s
         if (dir) { g_stSec = g_stSec + (dir > 0 ? 1 : -1); g_stSec = g_stSec < 1 ? 1 : g_stSec > 10 ? 10 : g_stSec; g_msg[0] = 0; }
         return;
@@ -5019,6 +5052,11 @@ void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss
         const TabMemo& m = g_tabMemo[which];
         g_uiPages = m.pages; g_sel = m.sel; g_uiBoss = m.uiBoss; g_bossSlot = m.bossSlot;
         g_listStop = m.listStop; g_trainStop = m.trainStop;
+    }
+    // human #122092: the menu shortcut during Training opens Practice; with a live Training boss it lands inside Active bosses (Back = the Practice page).
+    if (which == 2 && !resume && g_uiPages.page == uPracticeHub && PracticeToolsAvailable() && SpawnedCount() > 0) {
+        g_uiPages.Enter(uTools, 0); g_sel = 0;
+        Log("Rematch: menu opened on Active bosses (%d boss%s live, #122092)", SpawnedCount(), SpawnedCount() == 1 ? "" : "es");
     }
 }
 void UiMove(int dir) {
@@ -5220,6 +5258,7 @@ bool UiAct() {
     if (item == kItBossAggro) { BossAggroSet(0); return false; }
     if (item == kItBossGap) { BossGapStep(0); return false; }
     if (item == kItBossLast) { RepeatLastStep(MoveBoss(), 1); return false; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return false; }  // human #122193
     if (item == kItBossReset) { BossResetPos(); return false; }
     if (item == kItBossRemove) { if (BossRemove()) { g_msg[0] = 0; g_uiPages.Back(g_sel); } return false; }
     if (item == kItStanceTimer) return StanceTimerAct();  // user #14313: arming closes the menu (get ready)
@@ -5494,7 +5533,7 @@ const char* ItemGroup(int item) {
 #endif  // BR_SOULCORE
         nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
-    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
+    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
     if (p == uSummon) return item >= kItSummonA && item < kItSummonRosterEnd ? "Add a boss (Training / Boss Matches)" : nullptr;
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
@@ -5605,6 +5644,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else if (v >= 2) snprintf(lcap, sizeof lcap, "(%s ... %s)", LastMoveText(lchr, ids[v - 1]), LastMoveText(lchr, ids[0]));
             else snprintf(lcap, sizeof lcap, "(last: %s)", LastMoveText(lchr, ids[0]));
             add(sel ? cWhite : v ? cYellow : have ? cGray : cDim, sel, "%s Repeat last move: %-12s %.60s   A / Left / Right", mk, kLm[v < 0 ? 0 : v > 3 ? 3 : v], lcap);
+        } else if (it[i] == kItRepFlow) {  // human #122193
+            const int v = RepFlowGet();
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Between repeated moves: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "Flow (chain like the boss)" : "Pause (back to idle)");
         } else if (it[i] == kItBossGap) {
             const int v = BossGapGet();
             char val[24];
@@ -5892,6 +5934,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItBossStance) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss only: Stand still waits between repeats. Fight normally uses its own attacks. A toggles; Left fights; Right waits.");
         else if (item == kItBossAggro) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: this boss targets you and approaches within 5 m before repeating a move. Also saves the default for newly added bosses.");
         else if (item == kItBossLast) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Let the boss do the attack you want, pause, then pick Last move (or Last 2 / Last 3): the boss keeps repeating it, with Repeat delay after each round.");
+        else if (item == kItRepFlow) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Last 2 / 3 moves: Flow chains them like the boss's own combos (Stand still too, once the boss has chained that move itself); Pause plays each one out to idle.");
         else if (item == kItBossGap) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Delay after this boss repeats a move or chain. Left / Right changes it by 0.25 s. Saved for this boss type.");
         else if (item == kItBossReset) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts this boss back where it first appeared, facing you.");
         else if (item == kItBossRemove) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: removes this boss (and its health bar). The other bosses stay.");

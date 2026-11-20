@@ -51,6 +51,7 @@ static const char* SummonTok(uint32_t m){return "test";}
 static int SummonStart(const char*t,float d){summons++;return 1;}
 static int Nioh3Training_Summon(uint32_t m){return 1;}
 static void SumNoDeathRelease(const char*s){}
+static void TrainStopIfNoBoss(const char*s){} // #121923: no Training session in this test (g_tr.active 0); covered by despawn_ends_session_test.py
 static void DespawnAll(const char*s){for(int i=0;i<g_nsp;i++)if(g_sp_actor[i])Despawn(i);g_nsp=0;}
 """
 code+='#include "'+(root/'src/metadata_actors_game.h').as_posix()+'"\n'
