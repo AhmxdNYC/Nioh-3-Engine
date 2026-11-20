@@ -51,9 +51,9 @@ int main(void) {
                 for (int k = 1; k < c0; ++k) assert(AmU16(d, q + 2 + 2 * k) == first[r] + k);  // contiguous
                 q += AmU16(d, o0 + 64 + 2 * r);
             }
-            const int nhb = (int)(g_t.len[2] / AM_HB); const uint32_t cap = AmImageSize(na, nhb, cnt);
+            const int nhb = (int)(g_t.len[2] / AM_HB); const int n7 = (int)(g_t.len[7] / AM_OBJ), n8 = (int)(g_t.len[8] / AM_OBJC); const uint32_t cap = AmImageSize(na, nhb, cnt, n7, n8);
             uint8_t* img = (uint8_t*)malloc(cap);
-            const uint32_t sz = AmBuildImage(img, cap, d + g_t.off[1], na, d + g_t.off[2], nhb, first, cnt);
+            const uint32_t sz = AmBuildImage(img, cap, d + g_t.off[1], na, d + g_t.off[2], nhb, first, cnt, d + g_t.off[7], n7, d + g_t.off[8], n8);
             assert(sz == cap && AmParse(img, sz, &t2) == na);
             assert(!memcmp(t2.m, g_t.m, sizeof(AmMove) * (size_t)na));
             free(img);
