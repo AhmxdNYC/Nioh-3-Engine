@@ -257,6 +257,10 @@ rem GPU removal reason for crash records (#96825) + its offline test with a fake
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\devremoved.obj src\devremoved.cpp || exit /b 1
 cl /nologo /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /Febuild\devremoved_test.exe /Fobuild\ tests\devremoved_test.cpp src\devremoved.cpp || exit /b 1
 build\devremoved_test.exe || exit /b 1
+rem GH #133/#134 presenter role: a DLSS-G pacer thread (no game frame) must not draw on the game queue (no game/device)
+if not exist build\prt mkdir build\prt
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\presenter_role_test.exe /Fobuild\prt\ tests\presenter_role_test.cpp || exit /b 1
+build\presenter_role_test.exe || exit /b 1
 rem version resource: CompanyName marks our mods for crashblame (#94704)
 rc /nologo /fo build\nioh3_version.res ..\shared\nioh3_version.rc || exit /b 1
 rem automatic crash upload (crashupload.cpp; [Report] CrashUpload = 1, CrashUrl; bridge #64881)

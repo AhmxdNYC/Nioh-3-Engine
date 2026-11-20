@@ -60,6 +60,7 @@
 #include "osd_shaders.h"
 #include "padviz_atlas_data.h"
 #include "padviz_png.h"
+#include "presenter_role.h"
 
 // diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
 extern "C" {
@@ -249,6 +250,39 @@ volatile LONG g_fsrSeen = 0;
 volatile LONG64 g_nGame = 0, g_nFsr = 0;  // presents per THREAD role (1.7.13): the game/render thread vs the FSR presenter thread
 thread_local int t_isFsr = 0;        // this thread is the FidelityFX presenter (set by NotePresentThread)
 thread_local int t_named = 0;        // this thread's presents were looked at (name logged / FSR presenter checked)
+thread_local int t_foreign = 0;      // GH #133/#134: this thread presents but runs no game code (DLSS-G pacer etc.)
+
+// GH #133/#134: walk this thread's stack once. A frame-generation pacer (DLSS-G "nv.sl.dlss_g.thread.pacer", whose name
+// can still be empty on its first Present) never runs Nioh3.exe code; the game's own present always does.
+presenter_role::Role PresentThreadRole() {
+    auto range = [](HMODULE m) {
+        presenter_role::Range r;
+        if (!m) return r;
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(m);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(reinterpret_cast<const uint8_t*>(m) + dos->e_lfanew);
+        r.lo = (uintptr_t)m;
+        r.hi = r.lo + nt->OptionalHeader.SizeOfImage;
+        return r;
+    };
+    const presenter_role::Range exe = range(GetModuleHandleW(nullptr));
+    const presenter_role::Range start[2] = {range(GetModuleHandleW(L"ntdll.dll")), range(GetModuleHandleW(L"kernel32.dll"))};
+    uintptr_t frames[248];
+    int n = 0;
+    while (n + 62 <= 248) {  // chunks of 62 (the documented per-call limit on old systems)
+        const USHORT got = RtlCaptureStackBackTrace((DWORD)n, 62, reinterpret_cast<PVOID*>(frames + n), nullptr);
+        n += got;
+        if (got < 62) break;
+    }
+    if (n >= 248) return presenter_role::Unknown;  // deeper than we looked: the last frame is not the thread start
+    return presenter_role::Classify(frames, n, exe, start, 2);
+}
+presenter_role::Role PresentThreadRoleSafe() {  // no C++ objects here: __try needs a function without unwinding
+    __try {
+        return PresentThreadRole();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return presenter_role::Unknown;
+    }
+}
 
 void CountPresent(IDXGISwapChain* sc, int64_t now) {
     for (ScCount& e : g_sc)
@@ -286,9 +320,13 @@ void NotePresentThread(int64_t now) {
         InterlockedExchange(&g_fsrSeen, 1);
         t_isFsr = 1;
     }
+    const presenter_role::Role role = PresentThreadRoleSafe();
+    t_foreign = !t_isFsr && role == presenter_role::Foreign;
     if (!t_isFsr) g_gamePresentTid = tid;
     InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
-    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
+    OLOG("Present called from thread %lu \"%s\"%s", tid, name.c_str(),
+         t_foreign ? " - no game code on its stack (frame-generation presenter): the overlay will not draw on the game queue from it"
+                   : role == presenter_role::Game ? "" : " (stack role unknown)");
 }
 
 struct Stats {
@@ -891,7 +929,7 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
 // game's Present (empty thread name, Nioh3.exe) is not the thread that calls ExecuteCommandLists, so refusing
 // that queue left the menu blank after 600 frames. The FSR presenter must wait for its own queue.
 bool OtherThreadQueueOk() {
-    return g_anyThreadQueue || !t_isFsr;
+    return g_anyThreadQueue || (!t_isFsr && !t_foreign);  // GH #133/#134: the DLSS-G pacer is a presenter like FSR's
 }
 
 // The game's presenting queue when the swapchain won't say. Returns an AddRef'd queue, or nullptr (the caller
@@ -1449,7 +1487,7 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
             }
             if (g_needQueue)
                 OLOG("no %s DIRECT queue after 600 frames - overlay off for this swapchain%s",
-                     t_isFsr ? "FSR-presenter" : "presenting-thread",
+                     t_isFsr ? "FSR-presenter" : t_foreign ? "frame-generation-presenter" : "presenting-thread",
                      (!t_isFsr && !g_lastDirectQ) ? " (ExecuteCommandLists saw no game DIRECT queue on any thread)" : "");
             MarkBad(sc);
             return;
@@ -1464,13 +1502,13 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
         q = nullptr;
         if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
         q->Release();
-    } else if (!g_anyThreadQueue && t_isFsr && !t_lastDirectQ) {
+    } else if (!g_anyThreadQueue && (t_isFsr || t_foreign) && !t_lastDirectQ) {
         // Leave the game thread's context in place. Tearing it down here thrashes the only overlay
         // context, and drawing this present would submit on the game queue from the FSR thread.
         static bool logged = false;
         if (!logged) {
             logged = true;
-            OLOG("FSR presenter has no own DIRECT queue yet - not drawing on the game queue");
+            OLOG("%s presenter has no own DIRECT queue yet - not drawing on the game queue", t_isFsr ? "FSR" : "frame-generation");
         }
         return;
     } else if (!g_anyThreadQueue && t_lastDirectQ) {
