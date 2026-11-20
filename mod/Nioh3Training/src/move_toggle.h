@@ -193,6 +193,7 @@ static volatile LONG g_rep_subs;                    // log cap for follow-up pic
 #define MV_KEEP 0xFFFFu            // select result: no new action now (the running one plays on)
 #define MV_STUCK_MS 5000           // an action that did not change for this long takes the game's pick anyway (no endless loop part)
 #define MV_PASS_MAX 8
+#define MV_HAND_MIN_MS 300         // human #122170: Last 2/3 hand-over picks only after this much of the running move (start-of-move picks are not one)
 static uint32_t g_rep_pass[MV_REP_MAX][MV_PASS_MAX]; static int g_rep_npass[MV_REP_MAX];  // follow-up picks passed this round (commit veto bypass)
 static DWORD g_rep_curt[MV_REP_MAX];                  // when g_rep_cur last changed
 static uint32_t g_rep_from[MV_REP_MAX];               // the action read when the head was requested (still playing = not the head yet)
@@ -390,7 +391,15 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         const int chain91 = gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && g_rep_seen[i]
             && now - g_rep_last[i] < 30000 && MvRepAtk(i, chr, id) && id != rep;
         const uint32_t curp = act == rep ? act : (g_rep_cur[i] ? g_rep_cur[i] : rep);
-        if (chain91 && MvContinues(chr, curp, id)) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
+        // human #122170: Last 2/3 inside a cycle (or delay 0) went A -> idle -> ~1 s -> B. The boss's own AI picks its next attack inside A's
+        // recovery (live 00:43:49 0x4E4E / 0x4E7B / 0x4E5C during 0x4E64 at 1641-1719 ms, then idle 0x2 at 1750): that pick is where the game
+        // itself hands one attack into the next, so the next captured move takes it (fluid A -> B like the boss's own combo). Picks in A's
+        // first MV_HAND_MIN_MS are the start-of-move decision (live '0 ms after the start'), not a hand-over; those still wait (MV_KEEP).
+        const int hand = chain91 && !MvContinues(chr, curp, id) && now - g_rep_seen[i] >= MV_HAND_MIN_MS
+            && !MvLastUnsafe(chr, id) && !N3MoveUnsafe(chr, curp) && !N3MoveProtected(curp);
+        if (hand && InterlockedIncrement(&g_rep_subs) <= 400)
+            Log("REPEAT chr %u cycle: game pick 0x%X during 0x%X %lu ms in = hand-over point, next captured move starts now (#122170)", chr, id, curp, now - g_rep_seen[i]);
+        if (chain91 && (hand || MvContinues(chr, curp, id))) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
         else if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || !MvRest(chr, id)))
             return MvFollow(i, chr, act, id, now);
         else if (!g_rep_seen[i] && attack && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && now - g_rep_last[i] < 30000)
