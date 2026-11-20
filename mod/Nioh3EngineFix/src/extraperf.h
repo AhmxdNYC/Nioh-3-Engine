@@ -95,6 +95,7 @@ bool RdAvailable();
 void SetRdDraw(uintptr_t getDrawDistanceLimit);
 void SetRdPlace(uintptr_t getPlaceableDrawDistance);
 void SetRdChar(uintptr_t fallThrough, uintptr_t taken);
+bool RdChars();                      // GH #142: scale the character activation distance too (default off)
 void SetRdProp(uintptr_t propMemcpy);
 
 // #67772 XSSR: the RLR parameter-object lookup ApplySsrQuality uses (2386FC(table, key)) and the global whose +0x530 is the
