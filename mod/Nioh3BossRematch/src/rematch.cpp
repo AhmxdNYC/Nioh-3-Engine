@@ -3074,12 +3074,46 @@ bool WavesGateNow() {
     const uint32_t scroll = rcore::ScrollMission(g_rows, row);  // the row's catalogue story_mission (was 0xCC96)
     return s.msOk && scroll && s.ms28 == scroll;
 }
+// #121854 (human v1.8.24): the won native attempt retired at the gate (#80065, so a new Fight now is accepted) left g_activeRow -1,
+// so the gate page's Fight again refused 'native boss row is no longer owned' and only Return worked. The retired win keeps owning
+// that gate's Fight again while the pump is idle, in the same mission, with no newer attempt (any AttemptBegin / AttemptReturning
+// bumps g_attemptSequence) and no load since. Same rule for every boss.
+std::atomic<int> g_retiredRow{-1};
+std::atomic<uint32_t> g_retiredMission{0};
+std::atomic<uint64_t> g_retiredSequence{0};
+int RetiredGateRow(const Snap& s) {
+    const int row = g_retiredRow.load();
+    if (row < 0 || (size_t)row >= g_rows.size() || g_retiredSequence.load() != g_attemptSequence) return -1;
+    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_activeRow.load() >= 0) return -1;
+    if (!s.msOk || !s.ms28 || s.ms28 != g_retiredMission.load()) return -1;
+    return row;
+}
+void RetireWonAttempt() {
+    const int row = g_attempt.row;
+    const uint32_t mission = g_attempt.mission;
+    Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
+    ToIdle("won native attempt settled at the gate", true);
+    if (g_attemptPhase.load() != aNone || row < 0) return;  // quarantined or no row: the gate offers no Fight again
+    g_retiredMission.store(mission);
+    g_retiredSequence.store(g_attemptSequence);
+    g_retiredRow.store(row);
+    Log("Rematch: the retired win keeps the gate's Fight again for row %d (mission 0x%X)", row, mission);
+}
 int NativeGateRow() {
     if (WavesGateNow()) return g_activeRow.load();
     const uint32_t mission = NativeGateMission();
     if (!mission) return -1;
     const int row = g_activeRow.load();
-    return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission ? row : -1;
+    if (row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission) return row;
+    const int won = RetiredGateRow(ReadSnap());
+    return won >= 0 && g_rows[(size_t)won].missionId == mission ? won : -1;
+}
+// The game thread revalidates a queued native Fight again: the open attempt, or the won one retired at this gate (#121854).
+bool NativeAgainOwned(int row, const Snap& s) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (RetiredGateRow(s) != row && (g_attemptPhase.load() != aActive || g_attempt.row != row || g_attempt.mission != s.ms28)) return false;
+    if (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission()) return false;
+    return true;
 }
 void ScrollCoverTick(const Snap& s, ULONGLONG t) {
     if (!g_scrollCover) return;
@@ -3279,10 +3313,8 @@ void Tick() {
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
-    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) {
-        Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
-        ToIdle("won native attempt settled at the gate", true);
-    }
+    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) RetireWonAttempt();
+    if (s.st[2] && g_retiredRow.load() >= 0) g_retiredRow.store(-1);  // a load (return, reload, new mission) ends the retired gate
     if (g_resume.armed.load()) {
         const bool sess = g_resume.inPlace.load() && (TrainingOwnsFight() || fight::g_active || g_fight.load() || g_swappedInPlace.load());
         g_resume.session.store(sess ? 1 : 0);
@@ -3398,9 +3430,7 @@ void Tick() {
         const int row = (int)(g_pend >> 8) - 1;
         if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {
             const char* why = nullptr;
-            if (kind == kReqNativeAgain && (row < 0 || (size_t)row >= g_rows.size() ||
-                g_attemptPhase.load() != aActive || g_attempt.row != row ||
-                g_attempt.mission != s.ms28 || (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission())))
+            if (kind == kReqNativeAgain && !NativeAgainOwned(row, s))
                 why = "native gate no longer owns this fight";
             else if (!g_exitOk) why = g_exitWhy;
             else if (kind == kReqPracticeExit) why = PracticeReturnGate(s);
