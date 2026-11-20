@@ -1514,3 +1514,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-20 2:17 am EST | pc/0 | #122360 BR 67c2e648 (c297bfb7) pid 18344, core put-back via Training table; verify live put back ok=1.
 - 2026-11-20 2:22 am EST | reports-pc/0 | GH #142 fix reports/142 0f2192e1, EF df7c188a (RenderDistance no longer scales character activation RDC; opt-in RenderDistanceCharacters=1) staged D:/nioh3-re/live-reports-142; offline PASS. Live TASK pc #122389, review regression #122390. Close #142 at release.
 - 2026-11-20 2:18 am EST | pc/0 | crouch cancel c297bfb7 / BR 67c2e648 awaiting live put-back proof; then merge to pc0/fixes-121854 + Done TO-USER.
+- 2026-11-20 2:27 am EST | pc/0 | GH #142 live check (#122389, EF df7c188a) TASKed to pc2 (Main PC pid 18344 held for human crouch test). If pc2 BLOCKED: run on Main PC after the human's session.
