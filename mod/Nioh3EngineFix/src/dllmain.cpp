@@ -671,7 +671,7 @@ Config LoadConfig() {
     c.fwp = I(L"Patches", L"FWP", 0);  // explicit opt-in, never Auto
     c.fwpSpinUs = std::clamp(I(L"Patches", L"FWP_SpinUs", 200), 0, 2000);
     c.fwpSleepUs = std::clamp(I(L"Patches", L"FWP_SleepUs", 100), 20, 1000);
-    c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
+    c.w6 = A(L"Patches", L"W6", c.w6, 1, 1, "present-wait spin -> WaitOnAddress; Wine: power goes to the GPU; Windows PC2 -0.2..-0.5 cores, no hitches (#124475/#124575)");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
     if (c.ppPeriod != 2 && c.ppPeriod != 4 && c.ppPeriod != 8 && c.ppPeriod != 16) c.ppPeriod = 4;
