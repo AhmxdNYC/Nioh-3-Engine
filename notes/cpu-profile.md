@@ -496,3 +496,17 @@ Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, J1=0. PP_P
 | PP 0 | 97.8 / 49.9 / 6.70 | 99.0 / 66.7 / 6.58 | 93.2 / 42.1 / 7.26 | 75.5 / 75.3 / 81.3 |
 | PP 1 (P4) | 98.9 / 63.3 / 6.75 | 98.2 / 57.8 / 6.80 | 92.7 / 40.1 / 7.05 | 74.3 / 75.4 / 82.9 |
 Verdict: no measurable change (fps within 1, cores within run noise, main thread same). Keep shipped default; no further PP work. Captures captures/cpuprof-124312/20261120-072518, harness tools/testmatrix/pc_cpuprof_pp_124312.ps1.
+
+## Never-measured keys WG, WK, FPC, S1, RWb A/B 2026-11-20 (#124439, performance-pc/0)
+Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, PP=1, J1=0. Base = all five 0; each arm = one key 1. 30 s windows (S = standing, M = moving stick loop), cpuprof + PresentMon. Shipped ini: WK=1, WG/FPC/S1/RWb=0.
+| arm | S fps / 1% low / cores | M fps / 1% low / cores | vs base avg (S / M) |
+| base run 1 | 99.6 / 67.6 / 6.61 | 95.0 / 59.4 / 7.25 | |
+| base run 2 | 98.4 / 60.1 / 6.84 | 94.2 / 43.0 / 7.10 | (avg 99.0 / 94.6) |
+| WK | 99.6 / 67.0 / 6.79 | 92.9 / 38.9 / 7.23 | +0.6% / -1.8% |
+| WG run 1 | 91.9 / 24.4 / 6.53 | 87.3 / 29.5 / 6.64 | -7.2% / -7.7% |
+| WG run 2 | 96.4 / 47.3 / 6.65 | 91.4 / 38.4 / 7.15 | -2.6% / -3.4% |
+| FPC | 98.5 / 62.6 / 6.77 | 91.6 / 34.3 / 6.95 | -0.5% / -3.2% |
+| S1 | 97.3 / 51.4 / 6.67 | 92.4 / 34.4 / 6.54 | -1.7% / -2.3% |
+| RWb | 97.3 / 55.9 / 6.56 | 93.3 / 40.7 / 6.94 | -1.7% / -1.4% |
+Verdict: no key gains on Main PC. WG ON is worse both runs (avg -4.9% S / -5.5% M, 1% lows down) -> keep WG 0 (shipped). FPC moving -3.2% is one run, borderline. WK (shipped on) neutral. S1 cut moving cores 7.18 -> 6.54 but fps -2%. Run noise ~1 fps.
+Captures captures/cpuprof-124439/{20261120-080849,20261120-081532,20261120-082602}; harness tools/testmatrix/pc_keyab_124439.ps1.
