@@ -3599,6 +3599,42 @@ static int BhScreenVisible(int* why) {  // 1 = no load cover (GAMESTATE[2]), no 
     if (g_fd_ok && (g_fd_want || g_fd.pend || g_fd.phase == 2 || FdAlpha() > 24)) { *why = 3; return 0; }
     *why = 0; return 1;
 }
+// human #122020 (live 23:47 Dojo RE18C, Practice arena session by the legacy arena route): the arena world's own characters (11 in the actor
+// table, two within 10 m of the boss spot) attacked the Training dummy and killed it while it stood idle. A Practice arena session is only the
+// player and the Training boss: every other actor within ByRadius of the boss's round-1 spot has its AI held off (the BOSSHOLD switch,
+// 668D74, re-applied each second) and back on (66982C) when the session ends. Any arena, no row ids. Load = the table is rebuilt: list dropped.
+enum { BY_MAX = 64 };
+static struct { uint64_t a[BY_MAX]; int n, on; DWORD tNext; } g_by;
+static int g_cfg_by_radius = 4000;  // [ArenaSwap] PracticeBystanderRadius (units, 0 = off)
+static int ByWanted(int active, int arena, int practice, int radius) { return active && arena && practice && radius > 0; }
+static int ByNear(const float* pos, const float* bp, int radius) { float dx = pos[0] - bp[0], dz = pos[2] - bp[2]; return dx * dx + dz * dz <= (float)radius * (float)radius; }
+static void ByRelease(const char* why, int callAi) {
+    int back = 0;
+    if (callAi && g_by.n) {
+        uint64_t cur[1024]; const int n = Actors(cur, 1024);
+        for (int i = 0; i < g_by.n; ++i) for (int j = 0; j < n; ++j) if (cur[j] == g_by.a[i]) { ((void (*)(uint64_t))(B + Grva(0x66982C)))(g_by.a[i]); back++; break; }
+    }
+    if (g_by.on) Log("BYSTANDER release (%s): %d held, %d AI back on", why, g_by.n, back);
+    g_by.n = 0; g_by.on = 0; g_by.tNext = 0;
+}
+static void ByTick(void) {
+    const uint8_t* gs = GameState();
+    if (gs && gs[2]) { if (g_by.on) ByRelease("load", 0); return; }
+    if (!ByWanted(g_tr.active, g_tr.arena, g_tr.practice, g_cfg_by_radius)) { if (g_by.on) ByRelease("Practice arena session ended", 1); return; }
+    const DWORD now = GetTickCount();
+    if (g_by.on && (int)(now - g_by.tNext) < 0) return;
+    g_by.tNext = now + 1000; g_by.on = 1;
+    uint64_t cur[1024]; const int n = Actors(cur, 1024); const uint64_t me = PlayerChar();
+    for (int j = 0; j < n; ++j) {
+        const uint64_t a = cur[j];
+        if (!a || a == me || InSp(a)) continue;
+        float pos[4]; memcpy(pos, (void*)(a + 0x110), sizeof pos);
+        if (!ByNear(pos, g_tr.bp, g_cfg_by_radius)) continue;
+        int k = 0; while (k < g_by.n && g_by.a[k] != a) ++k;
+        if (k == g_by.n) { if (g_by.n >= BY_MAX) continue; g_by.a[g_by.n++] = a; Log("BYSTANDER hold actor %p handle %08X pos %.0f %.0f %.0f: AI off for the Practice arena session", (void*)a, *(uint32_t*)a, pos[0], pos[1], pos[2]); }
+        ((void (*)(uint64_t))(B + Grva(0x668D74)))(a);
+    }
+}
 static void BhTick(void) {
     if (!g_bh.phase) return;
     DWORD now = GetTickCount();
@@ -6496,6 +6532,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
+    __try { ByTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BYSTANDER tick exception %08lX, off", GetExceptionCode()); g_by.n = 0; g_by.on = 0; g_cfg_by_radius = 0; }  // human #122020
     __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
@@ -6664,7 +6701,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
         g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); g_nf_reserve = GetPrivateProfileIntA("Summon", "KiBreakHp0Reserve", 1, ini); Log("KiBreakHp0Prime %d, KiBreakHp0Reserve %d", g_nf_prime, g_nf_reserve); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
-        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
+        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini); g_cfg_by_radius = GetPrivateProfileIntA("ArenaSwap", "PracticeBystanderRadius", 4000, ini); Log("Practice arena bystander hold (#122020): PracticeBystanderRadius %d", g_cfg_by_radius);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
