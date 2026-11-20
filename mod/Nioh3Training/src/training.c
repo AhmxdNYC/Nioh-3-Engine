@@ -3667,6 +3667,14 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     g_pick = 0;
     // #107514: an arena-only pick never takes the in-place swap (it spawns the boss); Boss Rematch then does the native load and its own warp
     if (g_arena_only_next && !NativeFirst(FindRow(mission))) { g_arena_only_next = 0; Log("FIGHTNOW mission 0x%X: Train in this arena: no native row here, in-place swap refused", mission); return 0; }
+    // #121854: a Training page pick (Boss Rematch SetPracticeNext(1)) is a Practice session. Native-first would start a real Boss Match
+    // (own mission load, real AI) and drop the Practice flag, so a mission row takes the Training here route instead: boss summoned
+    // where the player stands, Idle stance, retry in place. Boss Matches picks send SetPracticeNext(0) and keep native-first.
+    if (g_practice_next && !g_arena_only_next && NativeFirst(FindRow(mission))) {
+        int ok = Nioh3Training_Summon(mission); if (!ok) g_practice_next = 0;
+        Log("FIGHTNOW mission 0x%X: Training pick: training here (in-place summon, Practice), no native Boss Match -> %d", mission, ok);
+        return ok;
+    }
     return FightNowEntry(mission);
 }
 N3T_API void Nioh3Training_SetArenaOnlyNext(int on) { g_arena_only_next = on != 0; }
