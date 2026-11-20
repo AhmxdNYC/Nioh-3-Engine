@@ -1,0 +1,17 @@
+[06:55:00] lock: acquired (device pc)
+[06:55:00] Nioh3EngineFix.asi F31DF983
+[06:55:00] Nioh3Training.asi C8B28619
+[06:55:00] Nioh3BossRematch.asi 67C2E648
+[06:55:00] Nioh3CamKiProbe.asi D30AF192
+[06:55:00] config: FRAME_GENERATION=OFF REN_RAT=75 RESOLUTION_SCALING=XESS REN_FPS=120 VSYNC=ON
+[06:55:00] ini: W6 =1 | J1 =0 | CpuStats = 1 | VirtualPad = 1 | MaxFps =120 | VirtualPad = 1 | XHALF=0
+[06:55:11] game pid 40508
+[06:55:55] title->field True
+[06:56:15] state: ok frame=6409 active=1 loading=0 paused=0 player=1 pos=132925.0,23421.5,215347.0 field=1 menu_pause=0 fg=0 armed=1 pad_reads=21708 pad_age_ms=0 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:56:59] WIN S1 fps=96.8 low1=45.9 n=2901 prof=True state=ok frame=10648 active=1 loading=0 paused=0 player=1 pos=132925.0,23421.4,215347.0 field=1 menu_pause=0 fg=0 armed=1 pad_reads=38683 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:57:42] WIN S2 fps=97.9 low1=54.6 n=2937 prof=True state=ok frame=14925 active=1 loading=0 paused=0 player=1 pos=132925.0,23421.4,215347.0 field=1 menu_pause=0 fg=0 armed=1 pad_reads=55813 pad_age_ms=1 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:58:29] WIN M1 fps=95.2 low1=41.8 n=2852 prof=True state=ok frame=19441 active=1 loading=0 paused=0 player=1 pos=135373.3,23116.4,212923.2 field=1 menu_pause=0 fg=0 armed=1 pad_reads=73896 pad_age_ms=6 key_age_ms=9 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:58:46] ini+config restored 74134797
+[06:58:46] save restored robocopy 1
+[06:58:46] lock released: 
+[06:58:46] done

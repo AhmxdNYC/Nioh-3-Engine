@@ -82,6 +82,7 @@ const int kPresetRes[kNumPresets] = {0, 0, 0, 0, 3, 0};
 const float kResMul[kResLevels] = {1.0f, 0.9f, 0.8f, 0.7f, 0.6f};
 volatile LONG g_res = 0;
 bool g_resInst = false;
+bool g_rdChars = false;  // GH #142: [ExtraPerf] RenderDistanceCharacters (default 0)
 volatile LONG g_rdPct = 100;  // #67225: 50..100, step 5. 100 = the game's distance. Not part of any preset.
 bool g_rdDraw = false, g_rdPlace = false, g_rdChar = false, g_rdProp = false;
 // #43269: the Optimizations preset row. Custom is not a level row; PresetName returns it when the XCLD-style levels match none of these.
@@ -268,10 +269,15 @@ void Configure(const StartInfo& si) {
     int pct = 100;
     if (rdEnd != rdBuf && rd == rd) pct = (int)(rd * 100.0 + (rd >= 0 ? 0.5 : -0.5));
     g_rdPct = SnapRd(pct);
+    // GH #142: the character limit at UpdateCharacterLodDistance is the actor ACTIVATION distance (+0xAE14), not only a
+    // draw distance. Scaled to 0.50, a far camera (battle-scroll / cutscene camera) switched the player's own character off
+    // and it stayed invisible. Characters keep the game's distance unless the ini asks for the old behaviour.
+    g_rdChars = GetPrivateProfileIntW(L"ExtraPerf", L"RenderDistanceCharacters", 0, ini) != 0;
     UpdateCaveData();
 }
 
 bool Wanted() { return g_wanted; }
+bool RdChars() { return g_rdChars; }
 
 void SetRcoInstalled() {
     g_rco = true;

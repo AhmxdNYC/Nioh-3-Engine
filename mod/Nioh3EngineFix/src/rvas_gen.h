@@ -26,6 +26,7 @@ constexpr Def kDefs[] = {
     {0x61BAC, kCode, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x61BC2, kCode, "4C 63 86 80 00 00 00 41 FF C4 41 0F", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x85960, kCode, "48 8B 15 ?? ?? ?? ?? 33 C0 48 85 D2 74 1C 4C 8B 42 08 4C 39", 0, 0x0, 0, 0, 0, ""},  // savefiles.cpp
+    {0xA0BA8, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 20 44 8B 51 10 49 8B F9", 0, 0x0, 0, 0, 0, ""},  // motionguard.cpp
     {0xD3958, kCode, "4C 8B 41 18 45 33 C9 49 8B C8 49 8B 40 08 EB 04 48 8B 40 10 44 38 48 19 75 0D 39 50 20 72 F1 4C 8B C0 48 8B", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0xD63C0, kCode, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 07 48 8B 01 48 FF 60 08 32 C0 C3 CC CC 48 8B 0D ??", 0, 0x0, 0, 0, 0, ""},  // menu.cpp
     {0xD8400, kCode, "33 C0 44 8B E8 40 84 F6 74 21 4D 85", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
@@ -61,6 +62,7 @@ constexpr Def kDefs[] = {
     {0x252510, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 57 48 81 EC 50 01 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x283950, kCode, "48 8B 0D ?? ?? ?? ?? 33 C0 48 85 C9 74 0C 38 41 3E 75 05 38", 0, 0x0, 0, 0, 0, ""},  // autocont.cpp
     {0x2BE284, kCode, "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 4C 8B C9 48 8B 00 80 B8 79", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0x2E0384, kCode, "0F 85 ?? ?? ?? ?? B0 01 48 8B 4D F8", 0, 0x0, 0, 0, 0, ""},  // resinfoguard.cpp
     {0x310698, kCode, "41 5F 41 5E 5F C3 CC CC 48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B 31", 8, 0x0, 0, 0, 0, ""},  // aichainguard.cpp
     {0x310C18, kCode, "40 53 48 83 EC 20 48 83 79 18 08 48 8B D9 72 12 E8 ?? ?? ?? ?? 48 8B 13 48 8B C8 4C 8B 00 41 FF 50 58 33 C0 48 C7 43 18 07 00 00 00 48 89 43 10 66 89 03 48 83 C4 20 5B C3 CC CC CC 40 53 48 83 EC 20 48 8B", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
     {0x311ED5, kCode, "45 33 C9 45 33 C0 33 C9 41 8D 51 01 FF 15 ?? ?? ?? ?? 49 89", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
@@ -128,6 +130,7 @@ constexpr Def kDefs[] = {
     {0x436CF8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x438659, kCode, "49 3B DE 74 CC 8B 73 10 48 8D 4F 50", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x43866E, kCode, "E8 ?? ?? ?? ?? 4C 8B 97 F0 00 00 00", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x48A150, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 44 0F B7 59 08 45 33 C9", 0, 0x0, 0, 0, 0, ""},  // motionguard.cpp
     {0x491B30, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 41", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x493050, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED 48 8B F9 8B DD 33 C0 8D 75 01 F0 0F B1 71 34 75 2A 83 CB FF F0 0F", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x4930B0, kCode, "EB C5 48 8B CF E8 ?? ?? ?? ?? EB C7", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp

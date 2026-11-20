@@ -52,6 +52,8 @@
 #include "bootnotice.h"
 #include "padguard.h"
 #include "aichainguard.h"
+#include "motionguard.h"
+#include "resinfoguard.h"
 #include "holdkeygap.h"
 #include "crashreport.h"
 #include "reportsend.h"
@@ -2790,7 +2792,7 @@ DWORD WINAPI Worker(LPVOID) {
             extraperf::SetRdPlace(cal);
             return true;
         });
-        const bool rdChar = expGroup("RDC", true, [&]() {
+        const bool rdChar = expGroup("RDC", extraperf::RdChars(), [&]() {  // GH #142: off by default
             Item* it = findItem("RDC1");
             if (!it || !it->found) return false;
             uint8_t* s = it->addr;
@@ -3607,6 +3609,24 @@ DWORD WINAPI Worker(LPVOID) {
             agi.base = reinterpret_cast<uintptr_t>(g_base);
             agi.knownBuild = known;
             aichainguard::Start(agi);
+        }
+        {  // MotionGuard (motionguard.cpp, [General] MotionGuard = 1): missing or freed motion data in the root-motion track
+           // lookup / motion key walk reads as "no motion data" instead of crashing (GitHub #143 / #144 / #103; game-side)
+            motionguard::StartInfo mgi;
+            mgi.log = &Log;
+            mgi.iniPath = iniPath.c_str();
+            mgi.base = reinterpret_cast<uintptr_t>(g_base);
+            mgi.knownBuild = known;
+            motionguard::Start(mgi);
+        }
+        {  // ResInfoGuard (resinfoguard.cpp, [General] ResInfoGuard = 1): a resource header whose sizes do not add up
+           // is rejected instead of hitting the game's breakpoint (GitHub #145; the reader's own false return)
+            resinfoguard::StartInfo rii;
+            rii.log = &Log;
+            rii.iniPath = iniPath.c_str();
+            rii.base = reinterpret_cast<uintptr_t>(g_base);
+            rii.knownBuild = known;
+            resinfoguard::Start(rii);
         }
         {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
            // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
