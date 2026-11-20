@@ -39,3 +39,4 @@
 - [ ] Kasha early-end fix: keep or remove? | play with Kasha on Main PC (test BR 64e63f0c installed), reply to #108114 | Main PC
 - [ ] Ally on full-power charger | Ally powered off 3x at 15% battery ~1 min after Nioh launch (11:07-11:11 am EST); keep it on its full-power charger until >40% so the pre-ship test #109819 can run | ally
 - [ ] Turn on the Ally | Ally has been offline since ~10:55 am EST 11-18; its boot-crash check of EF a8d37067 (GH #115/#118, TASK #116774) is the last gate. Power it on with the helper running, or reply 'ship without Ally' | ally
+- [ ] Ship v1.8.25? | reply OK to publish the GH #133/#134 + #138 crash-fix release (EF 9618d8c2) after its RC regression GO (DECISION #121821) | all
