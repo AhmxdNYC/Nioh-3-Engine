@@ -3,7 +3,7 @@
 # backup + byte-exact restore). Game-folder files touched are put back exactly at the end.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\video\showcase_rec.ps1 -Rel D:\nioh3-re\showcase-121603\rel\full
 #        -Out D:\nioh3-re\showcase-121603\clips [-Arms off,on] [-RematchRow R7B35] [-Sec 20]
-param([string]$Rel, [string]$Out, [string[]]$Arms = @("off", "on"), [string]$RematchRow = "", [int]$Sec = 20, [int]$OwnerPid = 0)
+param([string]$Rel, [string]$Out, [string[]]$Arms = @("off", "on"), [string]$RematchRow = "", [string]$TrainChr = "", [int]$Sec = 20, [int]$OwnerPid = 0)
 $ErrorActionPreference = "Continue"
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path))
 $tm = Join-Path $repo "tools\testmatrix"
@@ -147,6 +147,17 @@ try {
         $null = Force-Front
         $job = Start-Job -ScriptBlock { param($f, $o, $s) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t $s -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\field_${arm}_move.mp4", $Sec
         Start-Sleep 1; $null = VP stick L 0 1 ([int](($Sec - 2) * 1000)); Wait-Job $job -Timeout ($Sec + 30) | Out-Null; Remove-Job $job -Force; T "  clip field_${arm}_move.mp4"
+        if ($TrainChr -and $arm -eq $Arms[-1]) {
+            # Training in the field via the add-on's command file (as Temp/live119487/toad.ps1): summon, no-death, repeat last move
+            $tc = "$GameDir\Nioh3Training.cmd"
+            function TCmd([string]$c) { $w = 0; while ((Test-Path $tc) -and $w -lt 50) { Start-Sleep -Milliseconds 200; $w++ }; [IO.File]::WriteAllText($tc, "$c`r`n"); T "  train cmd: $c" }
+            $null = Force-Front
+            $job = Start-Job -ScriptBlock { param($f, $o) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t 55 -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\training_$TrainChr.mp4"
+            TCmd "nodeath 1"; Start-Sleep 2; TCmd "summon $TrainChr"; Start-Sleep 15; TCmd "replast $TrainChr 1"
+            Wait-Job $job -Timeout 90 | Out-Null; Remove-Job $job -Force; T "  clip training_$TrainChr.mp4"
+            TCmd "replast $TrainChr 0"; Start-Sleep 2; TCmd "despawn all"; Start-Sleep 5
+            Remove-Item $tc -Force -ErrorAction SilentlyContinue
+        }
         if ($RematchRow -and $arm -eq $Arms[-1]) {
             $job = Start-Job -ScriptBlock { param($f, $o) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t 75 -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\rematch_$RematchRow.mp4"
             T "  rematch fight $RematchRow -> $(RMP "fight $RematchRow")"
