@@ -144,3 +144,7 @@ stable downgrade; explicit backup rollback remains available.
 ## Release packaging (1.8.9+)
 
 Release scripts must take `Nioh3Updater.exe` from `staged-site/downloads/Nioh3Updater.exe` in the release worktree (tracked, rebuilt from `tools/updater` with PyInstaller 6.16.0), never copy it from the previous release folder: that chain kept the stale Oct 27 build (61474cd1) in 1.8.4 to 1.8.8 packages. Current build: 75c7251d (from 02b671be source). Template: `release/repack-release.sh.txt`.
+
+## Update count
+
+After an update that changed files, the updater sends one POST to `/api/updates` on the official site with only `{"schema":1,"from":"<old>","to":"<new>"}` (no install id, machine id, path or account). It powers the "updates" badge in the public README. Off with `--no-count`, or a `Nioh3Updater.ini` in the game folder (or next to the updater) holding `[Update]` / `CountUpdate = 0` (read on a plain double-click too; a bad value also means off); custom manifests are never counted; a failed count never stops an update.
