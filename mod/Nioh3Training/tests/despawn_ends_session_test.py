@@ -24,6 +24,7 @@ helper = 'static void TrainStopIfNoBoss(const char* why)'
 fn = [
     'static int AnySlotAlive(void);',
     body('static int SlotAlive(int s)'),
+    body('static int SessionBossAlive(void)') if 'static int SessionBossAlive(void) {' in s else '',
     body(helper) if helper + ' {' in s else '',
     body('static void SlotDespawn(int s, int deferDead)'),
     body('static void RqTick(void)'),
@@ -58,6 +59,7 @@ static int NativeSlotsActive(void) { return nativeAlive; }
 static const char* SummonTok(uint32_t m) { (void)m; return 0; }
 static int SummonStart(const char* t, float d) { (void)t; (void)d; return 1; }
 static int Nioh3Training_Summon(uint32_t m) { (void)m; return 1; }
+static int Actors(uint64_t* o, int m) { int n = 0; for (int i = 0; i < g_nsp && n < m; ++i) if (g_sp_actor[i]) o[n++] = g_sp_actor[i]; return n; }  // the world = every not-deleted spawn
 static int Despawn2(int i, int defer) { (void)defer; if (!g_sp_actor[i]) return 0; g_sp_actor[i] = 0; return 1; }
 static int DespawnAll(const char* why) { (void)why; int n = 0; g_sp.active = 0; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) { g_sp_actor[i] = 0; ++n; } g_nsp = 0; return n; }
 static void SumNoDeathRelease(const char* w) { (void)w; }
@@ -91,6 +93,15 @@ int main(void) {
     Op(3, 1); assert(stops == 1 && Nioh3Training_SessionMode() == 0);
     /* Remove on an already empty slot (e.g. the boss removed for the Return gate) does not end the session */
     Practice(0); Op(3, 2); assert(stops == 0 && Nioh3Training_SessionMode() == 2);
+    /* regression #122030: all 4 slots taken by earlier summons, so the session boss (last spawn) has no slot.
+       Removing the 4 slot bosses keeps the session while its own boss lives; Despawn all (deletes it too) still ends it. */
+    Practice(0); for (int k = 0; k < 4; ++k) { g_sp_actor[g_nsp] = 0x1000 + k; g_slot_act[k] = 0x1000 + k; g_slot_chr[k] = 10 + k; ++g_nsp; }
+    g_sp_actor[g_nsp++] = 0xD000;  /* session boss, no slot */
+    for (int k = 0; k < 4; ++k) Op(3, k);
+    assert(stops == 0 && Nioh3Training_SessionMode() == 2 && "last slot Remove ended a session whose boss is alive");
+    Op(2, 0); assert(stops == 1 && Nioh3Training_SessionMode() == 0);
+    /* same, but the session boss already won and its body is gone: the last Remove ends it */
+    Practice(0); g_slot_act[0] = 0x1000; g_sp_actor[g_nsp++] = 0x1000; g_tr.bodyGone = 1; Op(3, 0); assert(stops == 1);
     /* a native boss still alive keeps a Boss Match session */
     Practice(1); g_tr.practice = 0; g_slot_native[2] = 1; g_slot_act[2] = 0xC000; nativeAlive = 1;
     Op(2, 0); assert(stops == 0 && Nioh3Training_SessionMode() == 1);

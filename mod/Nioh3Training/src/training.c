@@ -4206,8 +4206,16 @@ static void SlotDespawn(int s, int deferDead) { if (s < 0 || s >= N3T_SLOTS || g
 // reporting Practice / Boss Match to EngineFix's #13529 current-mode page and the Return gate. Any boss (no row ids); a pending summon or a
 // native boss still alive keeps the session.
 static int AnySlotAlive(void);
+// regression #122030: the session boss gets a slot only when one is free at spawn (WatchTick). With all 4 slots taken by earlier summons
+// it has none, so Remove on the last slot boss must not end a session whose own boss (last spawn, body not gone) is still in the world.
+static int SessionBossAlive(void) {
+    if (!g_tr.active || g_tr.bodyGone || g_nsp <= 0 || !g_sp_actor[g_nsp - 1]) return 0;
+    uint64_t cur[1024]; const int n = Actors(cur, 1024);
+    for (int i = 0; i < n; ++i) if (cur[i] == g_sp_actor[g_nsp - 1]) return 1;
+    return 0;
+}
 static void TrainStopIfNoBoss(const char* why) {
-    if (g_tr.active && !g_sp.active && !AnySlotAlive()) TrainStop(why);
+    if (g_tr.active && !g_sp.active && !AnySlotAlive() && !SessionBossAlive()) TrainStop(why);
 }
 static void RqTick(void) {
     LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
