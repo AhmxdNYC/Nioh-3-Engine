@@ -59,6 +59,9 @@ cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_sel
 build\vrs_selective_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1
 build\vrs_ceiling_test.exe || exit /b 1
+rem GH #138 hook-loop breaker: a DXGI function detoured back into the loop must not recurse forever
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\loop_breaker_test.exe /Fobuild\loop_breaker_test.obj tests\loop_breaker_test.cpp || exit /b 1
+build\loop_breaker_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_capture_test.exe /Fobuild\vrs_capture_test.obj tests\vrs_capture_test.cpp || exit /b 1
 build\vrs_capture_test.exe || exit /b 1
 
@@ -257,6 +260,10 @@ rem GPU removal reason for crash records (#96825) + its offline test with a fake
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\devremoved.obj src\devremoved.cpp || exit /b 1
 cl /nologo /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /Febuild\devremoved_test.exe /Fobuild\ tests\devremoved_test.cpp src\devremoved.cpp || exit /b 1
 build\devremoved_test.exe || exit /b 1
+rem GH #133/#134 presenter role: a DLSS-G pacer thread (no game frame) must not draw on the game queue (no game/device)
+if not exist build\prt mkdir build\prt
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\presenter_role_test.exe /Fobuild\prt\ tests\presenter_role_test.cpp || exit /b 1
+build\presenter_role_test.exe || exit /b 1
 rem version resource: CompanyName marks our mods for crashblame (#94704)
 rc /nologo /fo build\nioh3_version.res ..\shared\nioh3_version.rc || exit /b 1
 rem automatic crash upload (crashupload.cpp; [Report] CrashUpload = 1, CrashUrl; bridge #64881)

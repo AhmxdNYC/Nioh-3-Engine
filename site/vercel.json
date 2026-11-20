@@ -11,6 +11,10 @@
     "api/crash.py": {
       "maxDuration": 30,
       "excludeFiles": "{releases/**,downloads/**}"
+    },
+    "api/updates.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{releases/**,downloads/**}"
     }
   }
 }

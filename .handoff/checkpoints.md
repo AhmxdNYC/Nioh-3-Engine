@@ -1128,3 +1128,20 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-19 6:41 pm EST | regression-pc/0 #121203 HoldKeyGap menu row 47d9e6ee offline GO (#121227) | proven offline | next: pc live check of the menu row | no code change
 - 2026-11-19 11:44 pm EST | installer-pc/0 | test_catalog RELEASE pin bumped 3e6e730f->daa61c1d (v1.8.23) after regression #121227 | proven: PASS with Patches.FWP masked; still red on FWP uncovered (#121191) | next: FWP catalog row/iniOnly owner pc; installer gate waits for human OK on TR 66a836c5 + HoldKeyGap 47d9e6ee | main d199518e
 - 2026-11-19 6:49 pm EST | pc/1 #121190 menu row live check done | proven: row missing in default menu, works in Layout 1, HKG=3 16/16 | next: Layout-0 row fix on pc0/hold-keygap-fixes-121117 then re-run Temp/hkgmenu121190 | evidence D:/nioh3-re/live-hkgmenu121190, RESULT #121260
+
+2026-11-19 7:11 pm EST | pc/1 #121288 RC 1.8.24 menu live check done | proven live Main PC: HoldKeyGap row + ini + install log; VRS on/off row | Glitter guard row unreachable (needs add(kVrsPageRow) on GPU page) | next: lead fixes row, re-run same script Temp/rc1824-121288 (run.sh, t.ps1) | RESULT #121321
+2026-11-19 7:18 pm EST | regression-pc/0 | #121287 1.8.24 RC 700a8686 offline GO (#121334) | proven offline: suite RC = v1.8.23 base 113 pass/31 fail, audit PASS, catalog/gen PASS, HoldKeyGap/VRS defaults 0, test_holdkeygap + catalog_capacity PASS | next: installer-pc install/update check, then ship; bump test_catalog RELEASE | no code change, logs D:/nioh3-wt/rc1824-suite
+- 2026-11-19 7:58 pm EST | installer-pc/0 #121442 | v1.8.24 published (GH Latest 16/16, site 17/17, live update 7/7) | proven | next: none for installer; pin test_catalog already 852642c3 | main 8009003a, uo latest-build e1de9e71
+- 2026-11-19 12:56 am EST | pc/0 | v1.8.24 released (#121456), private #126 closed | proven live update 7/7 by installer-pc | next: main-thread hitch profile per #121278 | main merge 8009003a
+
+2026-11-19 8:30 pm EST | pc/0 updates badge 78c66240 built | proven offline only (updater 25 OK, site 5 OK); not deployed | next: regression RESULT -> merge, deploy, README badge, release with Updater | branch pc0/updates-badge-121461
+
+2026-11-19 8:25 pm EST | pc/0 updates badge fixes 7cb796b5 | offline proven (25 OK, self-test PASS) | next: regression recheck RESULT -> merge, deploy, README badge, release | branch pc0/updates-badge-121461
+
+2026-11-19 8:35 pm EST | pc/0 updates badge merged to main (GO #121505) | offline proven, not live | next: include in next release + site deploy + README badge | 7cb796b5
+
+2026-11-19 8:40 pm EST | pc/0 updates badge merged to main (GO #121505) | offline proven, not live | next: include in next release + site deploy + README badge | 7cb796b5
+2026-11-19 8:37 pm EST | reports-pc/0 | GH #133+#134 (same player, 1.8.24, NVIDIA DLSS-G + ReShade dxgi proxy): overlay's first frame drawn on the game DIRECT queue from nv.sl.dlss_g.thread.pacer -> device removed / Steam overlay null read. Fix: foreign presenter (no Nioh3.exe frame on stack) treated like FSR presenter. Offline PASS (build.bat, presenter_role_test 9/9), live UNPROVEN.
+  NEXT: wait pc live no-regression RESULT (TASK #121537) + regression-pc review (TASK #121541); then hand to pc for next release; close #133/#134 after ship. Branch reports/133 a7de9e78, EF 3cd22571 staged D:/nioh3-re/live-reports-133.
+2026-11-19 8:40 pm EST | reports-pc/0 session end | TASK #121522 GH #133+#134. DONE: fix EF 3cd22571 (reports/133 a7de9e78, pushed), offline PASS, issues commented, RESULT #121549. HALF: live pc #121537 + review regression-pc #121541 pending. NEXT: on their RESULTs, hand fix to pc for next release; close #133/#134 after ship. Staged D:/nioh3-re/live-reports-133.
+- 2026-11-19 8:53 pm EST | pc/0 #121537 EF 3cd22571 live no-regression PASS (RESULT #121590) | proven: 3 boots no crash, menu 4x, FSR boot | unproven: in-game FG switch | next: reports-pc decides ship | logs D:/nioh3-re/live-fg133-121537
