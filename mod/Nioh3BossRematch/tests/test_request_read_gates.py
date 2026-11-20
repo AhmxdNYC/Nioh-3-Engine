@@ -67,6 +67,8 @@ void CoverTick(const Snap&, ULONGLONG) {}
 void UnbeatenTick(const Snap&, ULONGLONG) {} // save veto tested by test_fight_result.py
 @FUNCTIONS@
 void ToIdle(const char*,bool=false) {}
+std::atomic<int> g_activeRow{-1};  // #121854: the retired native win keeps its gate's Fight again
+@RETIRED@
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;
 float g_posAtLoad[4]{},g_posLive[4]{};
 ULONGLONG g_loadRiseAt=0;
@@ -88,6 +90,7 @@ uint32_t g_pend=0; ULONGLONG g_pendAt=0, exitNow=40000;  // exitNow - g_pendAt >
 std::vector<rcore::Row> g_rows;
 bool WavesGateNow() { return false; }
 uint32_t NativeGateMission() { return 0; }
+@RETIRED_GATE@
 void ScrollCoverOn(const char*,ULONGLONG) {}
 std::atomic<uint64_t> g_requestEpoch{0};
 uint64_t g_nativeAgainSequence=0,g_nativeAgainEpoch=0; int g_nativeAgainRow=-1; ULONGLONG g_nativeAgainAt=0;
@@ -163,7 +166,7 @@ int main() {
     printf("%d actual-source admission checks PASS (%zu snapshot reads faulted)\n",checks,addresses.size());
 }
 """.replace('@SNAPSHOT@',snapshot).replace('@FUNCTIONS@','\n'.join(function(sig) for sig in (
-    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
+    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt).replace('@RETIRED@',text[text.index('std::atomic<int> g_retiredRow'):text.index('int RetiredGateRow(')]+'int RetiredGateRow(const Snap&);\n'+function('void RetireWonAttempt(')).replace('@RETIRED_GATE@',function('int RetiredGateRow(')+'\n'+function('bool NativeAgainOwned('))
 setup=Path(os.environ.get('N3_MSVC_SETUP', r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
