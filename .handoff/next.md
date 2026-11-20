@@ -1467,3 +1467,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-19 9:00 pm EST | reports-pc/0 | GH #133 EF 3cd22571 live PASS pc #121590 (3 boots, FG off + FSR FG, no NVIDIA). Waits regression #121541; then ship candidate (human OK). Close #133/#134 at release.
 - 2026-11-19 9:15 pm EST | reports-pc/0 | GH #138 (1.8.24 stack overflow, Steam overlay + dxgi proxy; #100 breaker's direct DXGI call detoured back): fix EF 43739f67 reports/138 5d702450, offline PASS (loop_breaker_test). Live TASK pc + review TASK regression-pc (re #121608). Staged D:/nioh3-re/live-gh138. Not shipped.
 - 2026-11-19 9:10 pm EST | reports-pc/0 | GH #133 EF 3cd22571 regression GO #121610 + live PASS #121590 = ship-ready; NOTE pc: ship with #138 as v1.8.25 after its gates (human OK). #138 waits pc live + regression.
+- 2026-11-19 9:20 pm EST | reports-pc/0 | GH #139 (2nd PC, 1.8.24) closed dup of #138; covered by EF 43739f67 live/review. Queue empty.
