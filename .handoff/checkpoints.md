@@ -1141,3 +1141,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-19 8:35 pm EST | pc/0 updates badge merged to main (GO #121505) | offline proven, not live | next: include in next release + site deploy + README badge | 7cb796b5
 
 2026-11-19 8:40 pm EST | pc/0 updates badge merged to main (GO #121505) | offline proven, not live | next: include in next release + site deploy + README badge | 7cb796b5
+2026-11-19 8:37 pm EST | reports-pc/0 | GH #133+#134 (same player, 1.8.24, NVIDIA DLSS-G + ReShade dxgi proxy): overlay's first frame drawn on the game DIRECT queue from nv.sl.dlss_g.thread.pacer -> device removed / Steam overlay null read. Fix: foreign presenter (no Nioh3.exe frame on stack) treated like FSR presenter. Offline PASS (build.bat, presenter_role_test 9/9), live UNPROVEN.
+  NEXT: wait pc live no-regression RESULT (TASK #121537) + regression-pc review (TASK #121541); then hand to pc for next release; close #133/#134 after ship. Branch reports/133 a7de9e78, EF 3cd22571 staged D:/nioh3-re/live-reports-133.
