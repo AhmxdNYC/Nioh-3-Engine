@@ -1779,7 +1779,7 @@ LONG CALLBACK SwVeh(EXCEPTION_POINTERS* e) {
     CONTEXT* c = e->ContextRecord;
     const uint64_t dr6 = c->Dr6, slot = g_swSlot;
     if (!(dr6 & 3)) return EXCEPTION_CONTINUE_SEARCH;
-    if (!slot) { c->Dr0 = c->Dr1 = 0; c->Dr7 &= ~(0xFull | (0xFFull << 16)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }  // human #122102: stray Dr0/Dr1 hit after disarm
+    if (!slot) { c->ContextFlags |= CONTEXT_DEBUG_REGISTERS; c->Dr0 = c->Dr1 = 0; c->Dr7 &= ~(0xFull | (0xFFull << 16)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }  // human #122102: stray Dr0/Dr1 hit after disarm
     const LONG i = InterlockedIncrement(&g_swN) - 1;
     if (i < 96) {
         SwHit& h = g_swHits[i];
@@ -1896,7 +1896,7 @@ LONG CALLBACK YwVeh(EXCEPTION_POINTERS* e) {
     if (!(c->Dr6 & 4)) return EXCEPTION_CONTINUE_SEARCH;
     // human #122102 (fatal 0x80000004 at Nioh3+0x59624, 00:23:26 right after a YawWatch window): a thread the disarm pass missed kept Dr2 armed;
     // its next write trapped after g_ywAddr was cleared and nobody handled it. A stray Dr2 hit now disarms this thread and continues.
-    if (!g_ywAddr) { c->Dr2 = 0; c->Dr7 &= ~((3ull << 4) | (0xFull << 24)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }
+    if (!g_ywAddr) { c->ContextFlags |= CONTEXT_DEBUG_REGISTERS; c->Dr2 = 0; c->Dr7 &= ~((3ull << 4) | (0xFull << 24)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }
     const uint64_t rip = c->Rip;
     LONG n = g_ywN;
     for (LONG i = 0; i < n && i < 24; ++i) if (g_ywHits[i].fr[0] == rip) { InterlockedIncrement(&g_ywHits[i].cnt); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }
