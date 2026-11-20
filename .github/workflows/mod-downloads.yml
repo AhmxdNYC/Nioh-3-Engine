@@ -1,0 +1,35 @@
+name: mod-downloads-badge
+# Counts real mod downloads (installer + full/combined zip packages) across all
+# releases and publishes a shields.io endpoint JSON on the 'badges' branch.
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count mod package downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate \
+            --jq '.[].assets[] | "\(.name)\t\(.download_count)"' > assets.tsv
+          total=$(grep -E $'^(Nioh3-Setup(-Linux)?\.(exe|pyz)|Nioh3-.*-(combined|full-install)\.zip|Nioh3(BossRematch|EngineFix)-[0-9.]+(-beta)?\.zip)\t' assets.tsv \
+            | awk -F'\t' '{s+=$2} END{print s+0}')
+          echo "mod downloads: $total"
+          mkdir out
+          printf '{"schemaVersion":1,"label":"mod downloads","message":"%s","color":"brightgreen"}\n' "$total" > out/mod-downloads.json
+      - name: Publish to badges branch
+        run: |
+          cd out
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mod-downloads.json
+          git commit -qm "mod downloads badge"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" badges
