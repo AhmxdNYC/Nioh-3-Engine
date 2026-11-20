@@ -75,10 +75,23 @@ function Force-Front {
     return ([HA]::GetForegroundWindow() -eq $h)
 }
 function VPS([string]$k) { $r = VP-State; if ($r -match "(?:^| )$k=(\S+)") { return $Matches[1] }; return "" }
+# video (gdigrab, AMD encoder) + game sound (WASAPI loopback, tools\video\loopback_rec.py) started together, muxed into <name>.mp4
+$script:APy = "D:\nioh3-re\showcase-121603\venv\Scripts\python.exe"; $script:ARec = Join-Path $repo "tools\video\loopback_rec.py"
+function Start-Clip([string]$name, [int]$sec) {
+    $v = Start-Process $ff -ArgumentList "-y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t $sec -c:v h264_amf -b:v 40M `"$Out\${name}_v.mp4`"" -WindowStyle Hidden -PassThru
+    $a = if (Test-Path $script:APy) { Start-Process $script:APy -ArgumentList "-I `"$script:ARec`" `"$Out\${name}.wav`" $sec" -WindowStyle Hidden -PassThru } else { $null }
+    @{ name = $name; v = $v; a = $a; sec = $sec }
+}
+function End-Clip($c) {
+    $c.v.WaitForExit(($c.sec + 40) * 1000) | Out-Null; if ($c.a) { $c.a.WaitForExit(($c.sec + 40) * 1000) | Out-Null }
+    $n = $c.name
+    if ($c.a -and (Test-Path "$Out\$n.wav")) { & $ff -y -loglevel error -i "$Out\${n}_v.mp4" -i "$Out\$n.wav" -c:v copy -c:a aac -b:a 192k -shortest "$Out\$n.mp4"; Remove-Item "$Out\${n}_v.mp4" -Force }
+    else { Move-Item "$Out\${n}_v.mp4" "$Out\$n.mp4" -Force }
+    T "  clip $n.mp4 (audio: $([bool]$c.a))"
+}
 function Rec([string]$name, [int]$sec) {
     $null = Force-Front
-    & $ff -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t $sec -c:v h264_amf -b:v 40M "$Out\$name.mp4"
-    T "  clip $name.mp4 exit $LASTEXITCODE"
+    End-Clip (Start-Clip $name $sec)
 }
 $files = @("Nioh3EngineFix.asi", "Nioh3EngineFix.ini", "Nioh3Training.asi", "Nioh3BossRematch.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch_bosses.tsv", "Nioh3CamKiProbe.asi",
            "Nioh3Training_actionsets.tsv", "Nioh3Training_action_records.tsv", "Nioh3Training_arenas.tsv", "Nioh3Training_bgm.tsv")
@@ -145,25 +158,25 @@ try {
         Launch
         Rec "field_${arm}_stand" $Sec
         $null = Force-Front
-        $job = Start-Job -ScriptBlock { param($f, $o, $s) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t $s -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\field_${arm}_move.mp4", $Sec
-        Start-Sleep 1; $null = VP stick L 0 1 ([int](($Sec - 2) * 1000)); Wait-Job $job -Timeout ($Sec + 30) | Out-Null; Remove-Job $job -Force; T "  clip field_${arm}_move.mp4"
+        $job = Start-Clip "field_${arm}_move" $Sec
+        Start-Sleep 1; $null = VP stick L 0 1 ([int](($Sec - 2) * 1000)); End-Clip $job
         if ($TrainChr -and $arm -eq $Arms[-1]) {
             # Training in the field via the add-on's command file (as Temp/live119487/toad.ps1): summon, no-death, repeat last move
             $tc = "$GameDir\Nioh3Training.cmd"
             function TCmd([string]$c) { $w = 0; while ((Test-Path $tc) -and $w -lt 50) { Start-Sleep -Milliseconds 200; $w++ }; [IO.File]::WriteAllText($tc, "$c`r`n"); T "  train cmd: $c" }
             $null = Force-Front
-            $job = Start-Job -ScriptBlock { param($f, $o) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t 55 -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\training_$TrainChr.mp4"
+            $job = Start-Clip "training_$TrainChr" 55
             TCmd "nodeath 1"; Start-Sleep 2; TCmd "summon $TrainChr"; Start-Sleep 15; TCmd "replast $TrainChr 1"
-            Wait-Job $job -Timeout 90 | Out-Null; Remove-Job $job -Force; T "  clip training_$TrainChr.mp4"
+            End-Clip $job
             TCmd "replast $TrainChr 0"; Start-Sleep 2; TCmd "despawn all"; Start-Sleep 5
             Remove-Item $tc -Force -ErrorAction SilentlyContinue
         }
         if ($RematchRow -and $arm -eq $Arms[-1]) {
-            $job = Start-Job -ScriptBlock { param($f, $o) & $f -y -loglevel error -f gdigrab -framerate 60 -draw_mouse 0 -i desktop -t 75 -c:v h264_amf -b:v 40M $o } -ArgumentList $ff, "$Out\rematch_$RematchRow.mp4"
+            $job = Start-Clip "rematch_$RematchRow" 75
             T "  rematch fight $RematchRow -> $(RMP "fight $RematchRow")"
             $e = Wait-RM { param($x) (F $x 'fnow') -in @('pass', 'fail') } 70 1; T "  rematch status: $e"
             if ($e) { $null = VP stick L 0 1 4000 }
-            Wait-Job $job -Timeout 100 | Out-Null; Remove-Job $job -Force; T "  clip rematch_$RematchRow.mp4"
+            End-Clip $job
         }
         Close-Game
     }
