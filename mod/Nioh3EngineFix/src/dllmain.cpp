@@ -2791,7 +2791,7 @@ DWORD WINAPI Worker(LPVOID) {
             extraperf::SetRdPlace(cal);
             return true;
         });
-        const bool rdChar = expGroup("RDC", true, [&]() {
+        const bool rdChar = expGroup("RDC", extraperf::RdChars(), [&]() {  // GH #142: off by default
             Item* it = findItem("RDC1");
             if (!it || !it->found) return false;
             uint8_t* s = it->addr;

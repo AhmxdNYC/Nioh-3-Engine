@@ -967,7 +967,7 @@ const ItemDef kItems[kCount] = {
      "Slightly softer fog shafts and glow. Applies now. Part of Extreme HQ. Not measured yet."},
     {"Reflections at half size", "(XSSR)", "Screen-space reflections traced at half size (the game's SSR STANDARD path); 2 also halves the ray steps.",
      "Softer reflections on wet / shiny surfaces. Applies now. Part of Extreme HQ. Not measured yet."},
-    {"Render distance", "(RenderDistance)", "How far entities, characters and grass are drawn (1.00 = the game). Lower hides distant detail.",
+    {"Render distance", "(RenderDistance)", "How far entities and grass are drawn (1.00 = the game). Lower hides distant detail. Characters keep the game distance.",
      "Pop-in closer to the camera. Applies now. Separate from the presets. Estimate 0.3-1 ms on the Ally, not measured in game yet."},
     {"Upscaler sharpening", "(XSHARP)", "FSR 3 sharpening strength (RCAS), overriding the game's FSR sharpness. Game = your FSR setting.",
      "Crisper image, more shimmer at high values. Applies now. Only with the game's FSR upscaler. Separate from the presets (use with Extreme)."},
