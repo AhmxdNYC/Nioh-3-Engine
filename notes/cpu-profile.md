@@ -477,3 +477,15 @@ New/up (cores of CPU, process-wide): CustomOccluderRayCast chain B616A4/3D7CC8 i
 main thread 418F40 tight 25-byte loop 418F60..418F77 (caller 418C70) 0.003 -> 0.04-0.055 NEW; 1E80B0 (lock) 0.018 -> 0.045-0.063;
 meshlet 48E90 lock + 12-byte loop 49150..4915A 0.09-0.12 (same; M1/M2 off); SynergisticDispatcher 1A7C3E0 incl 0.29 -> 0.59.
 No spin-wait suspect left except Scheduler0 condvar waits (12-15 % samples, normal blocking).
+
+## J1 A/B + occluder split 2026-11-20 6:55-7:02 am EST (TASK #124223, performance-pc/0)
+Main PC, EF f31df983, user settings (FG off, XeSS 75, REN_FPS 120, vsync on, MaxFps 120, W6=1), one launch per arm, 30 s windows.
+| arm | S1 fps / 1%low / cores | S2 | M1 (moving) |
+| J1=0 | 96.8 / 45.9 / 6.52 | 97.9 / 54.6 / 6.53 | 95.2 / 41.8 / 7.17 |
+| J1=1 | 99.1 / 65.3 / 6.57 | 98.5 / 55.9 / 6.60 | 93.6 / 47.5 / 7.13 |
+J1 patched (J1a/b/c OK at 4122D/41265/41397). W7 411C0 self samples -12/-12/-18 % (~0.006 core). Process cores +0.05 standing, -0.04 moving = noise.
+fps within noise; 1% low higher in all 3 J1 windows but one run per arm (OFF S1 45.9 vs 63.9 in #124164). Verdict: J1 no CPU gain.
+Occluder chain B616A4/3D7CC8 is NOT work: it is the shared condvar wait (SleepConditionVariableSRW -> NtWaitForAlertByThreadId)
+used by ~13 idle threads (8x EffectUpdate, Mission, Input, Sound, CustomOccluderRayCast, Scheduler0). "0.97 core incl" = sleep time.
+Occluder thread own CPU 0.13-0.18 core (busy 15-19 %), self work 1989F0 ~3.5-4.3 % + 168580 ~2.3 % of its samples; standing ~ moving.
+Tool: tools/testmatrix/cpuprof_occsplit.py; runner pc_cpuprof_j1_124223.ps1. Captures captures/cpuprof-124223/20261120-065459.
