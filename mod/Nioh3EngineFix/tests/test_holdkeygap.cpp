@@ -55,9 +55,19 @@ static void TestMode3() {
     assert(holdkeygap::HeldReal(7, 1.0f, 5, 10) == 7);
     // new press re-seeds from the count (c < last): 3 frames at 10 ms EMA
     assert(holdkeygap::NextHeldSec(2.0f, 3, 50, 0.01f, 0.01f) > 0.029f && holdkeygap::NextHeldSec(2.0f, 3, 50, 0.01f, 0.01f) < 0.031f);
-    // pause: a 1 s gap is not added; cap at 30 fps worth per frame
+    // pause: a 1 s gap is not added; cap at kMinHeldFps (15) worth per frame
     assert(holdkeygap::NextHeldSec(0.1f, 11, 10, 1.0f, 0.01f) == 0.1f);
-    assert(holdkeygap::NextHeldSec(0.3f, 11, 10, 0.2f, 0.01f) <= 11.0f / 30.0f + 1e-6f);
+    assert(holdkeygap::NextHeldSec(0.6f, 11, 10, 0.2f, 0.01f) <= 11.0f / 15.0f + 1e-6f);
+    // GH #149: 60 setting at 25 / 20 / 16 real fps (CPU-bound lows), 220 ms hold -> stock < 12, fix >= 12. With the old
+    // 30 fps cap these stayed at 10-11 (the player's log: frames 5 stock 5 real 10, frame 33.33 ms).
+    const float lows[] = {25.0f, 20.0f, 16.0f};
+    for (float fps : lows) {
+        const int f = Mode3Held(fps, 60, 220.0f, &stock);
+        assert(stock < 12);
+        assert(f >= 12 && f <= 15);
+    }
+    // the player's logged frame: 5 counted frames held 200 ms real -> 12, not 10
+    assert(holdkeygap::HeldReal(5, holdkeygap::NextHeldSec(0.16f, 5, 4, 0.04f, 0.04f), 5, 4) >= 12);
     std::printf("PASS mode 3\n");
 }
 
