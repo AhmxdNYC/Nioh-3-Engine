@@ -94,6 +94,10 @@ def publish_gate(names):
     boss_rematch_soul_cores(payload)
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
+# #121461 updates badge: after an update that changed files, one POST of the two version numbers
+# (no install id, machine id, path or account). Only for the official manifest; --no-count or
+# [Update] CountUpdate = 0 turns it off. Never blocks or fails an update.
+COUNT_URL = "https://nioh3-mod-feedback.vercel.app/api/updates"
 
 
 def https(url):
@@ -109,8 +113,20 @@ class SecureRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def count_update(old, new, url=COUNT_URL, opener=None):
+    """Best effort; returns True when the counter answered 2xx."""
+    try:
+        body = json.dumps({"schema": 1, "from": old, "to": new}).encode("utf-8")
+        req = urllib.request.Request(https(url), data=body, method="POST",
+                                     headers={"User-Agent": "Nioh3Updater/1", "Content-Type": "application/json"})
+        with (opener or urllib.request.build_opener(SecureRedirect())).open(req, timeout=5) as r:
+            return 200 <= r.status < 300
+    except Exception:
+        return False
+
+
 def fetch(url, limit=MAX_FILE):
-    # GET only; no cookies, telemetry, machine identifiers or uploads.
+    # GET only; no cookies, machine identifiers or uploads (the one update count is count_update).
     req = urllib.request.Request(https(url), headers={"User-Agent": "Nioh3Updater/1"})
     with urllib.request.build_opener(SecureRedirect()).open(req, timeout=30) as r:
         https(r.geturl())
@@ -321,7 +337,7 @@ def update(root, manifest_url=MANIFEST_URL, progress=print):
             except Exception:
                 restore(root, backup)
                 raise
-            return {"version": m["version"], "changed": len(changed), "backup": backup.name}
+            return {"version": m["version"], "changed": len(changed), "backup": backup.name, "from": current}
 
 
 def rollback(root, backup_id):
@@ -403,6 +419,17 @@ def pause():
         input()
 
 
+def count_enabled(no_count=False, config=None):
+    if no_count:
+        return False
+    if config is not None:
+        settings = configparser.ConfigParser(interpolation=None)
+        with Path(config).open(encoding="utf-8-sig") as f:
+            settings.read_file(f)
+        return settings.getboolean("Update", "CountUpdate", fallback=True)
+    return True
+
+
 def manifest_url(explicit=None, config=None):
     """Explicit URL wins; an explicitly requested config must exist and be valid."""
     if explicit:
@@ -422,6 +449,7 @@ def main(argv=None):
     p.add_argument("--manifest", metavar="HTTPS_URL", help="Use this HTTPS release manifest")
     p.add_argument("--config", type=Path, help="Read [Update] ManifestUrl from this INI")
     p.add_argument("--no-pause", action="store_true", help="For scripted use")
+    p.add_argument("--no-count", action="store_true", help="Do not add this update to the public update count")
     p.add_argument("--self-test", action="store_true", help="Test update/rollback on generated temporary files only")
     args = p.parse_args(argv)
     try:
@@ -442,6 +470,8 @@ def main(argv=None):
             print(f"Ready: version {result['version']}; {result['changed']} files updated. You can launch Nioh 3.")
             if result['backup']:
                 print(f"Backup ID: {result['backup']}")
+                if endpoint == MANIFEST_URL and count_enabled(args.no_count, args.config):
+                    count_update(result.get("from"), result["version"])
         return 0
     except (Exception, KeyboardInterrupt) as e:
         print(f"Update stopped: {e or 'Cancelled'}", file=sys.stderr)

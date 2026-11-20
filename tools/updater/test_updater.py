@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import patch
 import updater as u
 
+REAL_COUNT_UPDATE = u.count_update
+
 
 class UpdaterTests(unittest.TestCase):
     def setUp(self):
@@ -23,6 +25,7 @@ class UpdaterTests(unittest.TestCase):
         self.net = patch.object(u, "fetch", side_effect=self.fetch).start()
         self.addCleanup(patch.stopall)
         patch.object(u, "game_running", return_value=False).start()
+        self.count = patch.object(u, "count_update", return_value=True).start()
 
     def fetch(self, url, limit=u.MAX_FILE):
         return self.fixture.read_bytes() if url == self.url else self.payload
@@ -141,6 +144,50 @@ class UpdaterTests(unittest.TestCase):
         with patch.object(u, "update", return_value={"version":"1.2.3","changed":0,"backup":None}) as apply:
             self.assertEqual(u.main(["--game-dir", str(self.root), "--manifest", self.url, "--no-pause"]), 0)
             self.assertEqual(apply.call_args.args[1], self.url)
+
+    def test_update_count_only_official_changed_and_opt_out(self):
+        (self.root / "Nioh3.exe").write_bytes(b"fake executable")
+        # custom manifest: never counted
+        self.assertEqual(u.main(["--game-dir", str(self.root), "--manifest", self.url, "--no-pause"]), 0)
+        self.count.assert_not_called()
+        fake = {"version": "1.2.3", "changed": 2, "backup": "b" * 32, "from": "1.2.2"}
+        with patch.object(u, "update", return_value=fake):
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
+            self.count.assert_called_once_with("1.2.2", "1.2.3")
+            self.count.reset_mock()
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause", "--no-count"]), 0)
+            cfg = self.root / "off.ini"
+            cfg.write_text("[Update]" + chr(10) + "ManifestUrl=" + u.MANIFEST_URL + chr(10) + "CountUpdate = 0" + chr(10))
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--config", str(cfg), "--no-pause"]), 0)
+            self.count.assert_not_called()
+        with patch.object(u, "update", return_value={"version": "1.2.3", "changed": 0, "backup": None}):
+            self.assertEqual(u.main(["--game-dir", str(self.root), "--no-pause"]), 0)
+        self.count.assert_not_called()
+
+    def test_count_update_body_and_never_raises(self):
+        sent = {}
+
+        class Resp:
+            status = 202
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        class Opener:
+            def open(self, req, timeout):
+                sent.update(url=req.full_url, method=req.get_method(), body=json.loads(req.data), timeout=timeout)
+                return Resp()
+
+        class Boom:
+            def open(self, req, timeout):
+                raise OSError("offline")
+
+        fresh = type("M", (), {"count_update": staticmethod(REAL_COUNT_UPDATE)})
+        self.assertTrue(fresh.count_update("1.8.23", "1.8.24", opener=Opener()))
+        self.assertEqual(sent["body"], {"schema": 1, "from": "1.8.23", "to": "1.8.24"})
+        self.assertEqual((sent["method"], sent["timeout"]), ("POST", 5))
+        self.assertEqual(sent["url"], "https://nioh3-mod-feedback.vercel.app/api/updates")
+        self.assertFalse(fresh.count_update("1.8.23", "1.8.24", opener=Boom()))
+        self.assertFalse(fresh.count_update("1.8.23", "1.8.24", url="http://x/api/updates", opener=Opener()))
 
     def test_packaged_updater_prefers_adjacent_game(self):
         (self.root / "Nioh3.exe").write_bytes(b"fake executable")
