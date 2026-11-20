@@ -1,6 +1,6 @@
 # Nioh 3 Engine
 
-[![Downloads](https://img.shields.io/github/downloads/AhmxdNYC/Nioh-3-Engine/total?label=downloads)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases)
+[![Mod downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAhmxdNYC%2FNioh-3-Engine%2Fbadges%2Fmod-downloads.json&cacheSeconds=3600)](https://github.com/AhmxdNYC/Nioh-3-Engine/releases)
 
 > **Warning: this mod has NOT been tested in online co-op.** Use it offline, or at your own risk online. Back up your saves first.
 
