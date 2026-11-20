@@ -227,6 +227,21 @@ int main() {
     Off(t + 300); CHECK(g_fbInjT0.load() == 0);
     g_fbStyle = 1;
 
+    // ---- human #122288 FormCrouchCancel: inside the window L3 (0x0040) and the left stick reach the game, nothing else ----
+    {
+        const ULONGLONG c0 = t + 500;
+        On(c0);
+        g_fccPassUntil = c0 + 250;
+        { auto s = Read(c0 + 10, 0x0040 | A | 0x0004, 200, 200, 3000, 4000, 50, 60);
+          CHECK(s.pad.buttons == 0x0040 && s.pad.lx == 3000 && s.pad.ly == 4000 && s.pad.lt == 0 && s.pad.rt == 0 && s.pad.rx == 50); }
+        { auto s = Read(c0 + 249, 0x0040, 0, 0, 1, 1); CHECK(s.pad.buttons == 0x0040 && s.pad.lx == 1); }
+        { auto s = Read(c0 + 250, 0x0040 | A, 0, 0, 1, 1); CHECK(s.pad.buttons == 0 && s.pad.lx == 0 && s.pad.ly == 0); }  // window over: masked again
+        g_fccPassUntil = 0;
+        { auto s = Read(c0 + 260, 0x0040, 0, 0, 7, 7); CHECK(s.pad.buttons == 0 && s.pad.lx == 0); }  // off: L3 + stick masked as before
+        Off(c0 + 300);
+        t = c0 + 300;
+    }
+
     // ---- #83466 queued soul-core d-pad press: OR'd in for the 120 ms pulse, also during a form ----
     t += 1000;
     pressq::Queue(g_pressQ, 1, t);

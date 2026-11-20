@@ -118,7 +118,7 @@ print('9 shipped defaults cross-checks PASS')
 
 import re
 br=ini_values(root/'Nioh3BossRematch.ini')
-keys=['SealExitRevealMs','SealExitSmokeFwd','SealExitSmokeSide','SealExitSmokeRepeatMs','FormHideDelayMs','SealSpeed','SealTailSpeed','SmokeFreezeStart','SmokeFreezeEnd','SealExitAtLastHitMs']
+keys=['SealExitRevealMs','SealExitSmokeFwd','SealExitSmokeSide','SealExitSmokeRepeatMs','FormHideDelayMs','SealSpeed','SealTailSpeed','SmokeFreezeStart','SmokeFreezeEnd','SealExitAtLastHitMs','FormCrouchCancel']
 source=(root/'src/bosslog.cpp').read_text()
 fallbacks=dict(re.findall(r'GetPrivateProfileStringW\(L"Spirit", L"([^"]+)", L"([^"]+)"',source))
 expected=[float(br.get(('Spirit',key),fallbacks.get(key,''))) for key in keys]

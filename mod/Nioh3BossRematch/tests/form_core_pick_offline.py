@@ -43,7 +43,7 @@ void PickEquipmentTick(){} // live reads are tested independently; model delayed
 ui = r'''
 bool SoulCoreForms(bool* hooked){if(hooked)*hooked=true;return g_scForms.load();}
 bool SoulCoreFormsSet(int dir,bool* up){*up=false;bool v=dir?dir>0:!g_scForms.load();g_scForms=v;return v;}
-double SoulTune(int,int,bool*){return 0;}
+double SoulTune(int,int,bool*){return 0;}void FccPress(double,int){}void FccPadTick(WORD,double){}
 } namespace rematch {
 char g_msg[512]; int g_sel=0,g_confirm=0;
 constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
