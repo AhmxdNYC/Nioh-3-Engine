@@ -523,3 +523,10 @@ gpu-shaders/backup (stock .file) was gone; stock container rebuilt from gpu-shad
 Moving windows are noisy (first moving window is always lowest). Screenshot pair (FG off): same picture, 0.5% px differ >32 (animation).
 Verdict: old +8.7% / +11% (MAX/FG) NOT reproduced; real gain ~0-2%, under the 3% bar. Shipped ON since 10-06 with same look, costs nothing: keep as is, no further GHDM work.
 Captures captures/ghdm-124558/20261120/{maxfg1,maxfg2,max1,max2,user1}; harness tools/testmatrix/pc_ghdm_124558.ps1.
+
+## 2026-11-20 10:26 am EST: W6-default smoke on Main PC (TASK #124623, performance-pc/0)
+Candidate bf105baf (branch pc0/w6-win-default-124575), my build EF 6b04b252 (regression built c100b7b2). Ini W6 = -1, MaxFps 240,
+user config 1440p XeSS 75% HIGH, FG off, VSync on. Log: `auto W6 = 1 (native Windows ...)`, W6 applied 1 site, waker installed.
+stats/s exp: W6 waits 98-100/s avg 190 us (slept ~97, spun 1). 60 s walk fps 103.4, 1% low 66.7, no crash.
+GHDM base same config moving (#124558, 8:53 am): 88.7-94.2 fps, 1% low 51.8-56.7, so no hitch spike. PASS.
+Restored EF f31df983 + ini + saves, lock 381 free. Script tools/testmatrix/pc_w6smoke_124623.ps1.
