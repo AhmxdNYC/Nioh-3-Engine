@@ -811,6 +811,7 @@ static __attribute__((noinline)) void GaugeTick(void) {
 }
 static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
 static int g_cfg_autoretry = 1;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118). user #13229/#13230: ALWAYS 1 in Training/Rematch (ini and API cannot turn it off); see TrainTick / TrainLost
+static uint32_t g_practice_arena_mission;  // human #121995, see NativeFirst
 static int g_practice_next;  // user #13223: set by Boss Rematch's Practice pages before the session starts; consumed into g_tr.practice
 static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice, arena; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
@@ -1865,6 +1866,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr; g_tr.arena = 1;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
+    g_practice_arena_mission = 0;  // human #121995: the arena Practice session is attached
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
     FightBeginSession();
@@ -2185,7 +2187,9 @@ static uint32_t NativeEntrySequenceLive(const ArenaRow* r) {
 }
 static int g_native_fallback, g_native_roster;
 static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id[0] != 'S' && !g_native_roster; }
-static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
+// human #121995: a Training page 'Train in a boss arena' pick goes to the boss's arena (arena swap in place / cross-world switch) as a Practice
+// session. That mission skips native-first until the session attaches or the next pick, so the async swap / switch arrival keeps the arena route.
+static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback && !(r && g_practice_arena_mission && r->mission == g_practice_arena_mission); }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
 // human #107514 'Train in this arena': set by Boss Rematch right before its Fight now request; consumed by that entry only.
@@ -3680,9 +3684,17 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     // #121854: a Training page pick (Boss Rematch SetPracticeNext(1)) is a Practice session. Native-first would start a real Boss Match
     // (own mission load, real AI) and drop the Practice flag, so a mission row takes the Training here route instead: boss summoned
     // where the player stands, Idle stance, retry in place. Boss Matches picks send SetPracticeNext(0) and keep native-first.
+    // human #121995: the pick still goes to the boss's arena: the legacy arena route (in-place swap / cross-world switch, TrainAttachArena keeps
+    // Practice). Only when that route refuses does the boss come to the player (Training here). Never a native Boss Match.
+    g_practice_arena_mission = 0;
     if (g_practice_next && !g_arena_only_next && NativeFirst(FindRow(mission))) {
-        int ok = Nioh3Training_Summon(mission); if (!ok) g_practice_next = 0;
-        Log("FIGHTNOW mission 0x%X: Training pick: training here (in-place summon, Practice), no native Boss Match -> %d", mission, ok);
+        g_practice_arena_mission = mission;
+        int ok = FightNowEntry(mission);
+        Log("FIGHTNOW mission 0x%X: Training pick: practice in the boss arena (arena swap / world switch, no native Boss Match) -> %d", mission, ok);
+        if (ok) return ok;
+        g_practice_arena_mission = 0;
+        ok = Nioh3Training_Summon(mission); if (!ok) g_practice_next = 0;
+        Log("FIGHTNOW mission 0x%X: Training pick: arena route refused, training here (in-place summon, Practice) -> %d", mission, ok);
         return ok;
     }
     return FightNowEntry(mission);
