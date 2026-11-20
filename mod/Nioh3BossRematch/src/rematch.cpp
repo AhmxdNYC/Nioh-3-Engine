@@ -5050,6 +5050,11 @@ void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss
         g_uiPages = m.pages; g_sel = m.sel; g_uiBoss = m.uiBoss; g_bossSlot = m.bossSlot;
         g_listStop = m.listStop; g_trainStop = m.trainStop;
     }
+    // human #122092: the menu shortcut during Training opens Practice; with a live Training boss it lands inside Active bosses (Back = the Practice page).
+    if (which == 2 && !resume && g_uiPages.page == uPracticeHub && PracticeToolsAvailable() && SpawnedCount() > 0) {
+        g_uiPages.Enter(uTools, 0); g_sel = 0;
+        Log("Rematch: menu opened on Active bosses (%d boss%s live, #122092)", SpawnedCount(), SpawnedCount() == 1 ? "" : "es");
+    }
 }
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
