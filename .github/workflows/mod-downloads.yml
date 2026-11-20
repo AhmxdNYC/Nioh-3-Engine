@@ -1,14 +1,21 @@
 name: mod-downloads-badge
-# Counts real mod downloads (installer + full/combined zip packages) across all
-# releases and publishes a shields.io endpoint JSON on the 'badges' branch.
+# Publishes shields.io endpoint JSONs on the 'badges' branch: real mod downloads
+# (installer + full/combined zips), player reports solved, crashes solved.
+# Test/junk reports (crash-test label, 'test'/'ignore' titles, not_planned) are excluded.
 on:
   schedule:
     - cron: '17 */3 * * *'
   release:
     types: [published]
+  issues:
+    types: [opened, closed, reopened, labeled]
   workflow_dispatch:
 permissions:
   contents: write
+  issues: read
+concurrency:
+  group: badges
+  cancel-in-progress: false
 jobs:
   count:
     runs-on: ubuntu-latest
@@ -24,12 +31,35 @@ jobs:
           echo "mod downloads: $total"
           mkdir out
           printf '{"schemaVersion":1,"label":"mod downloads","message":"%s","color":"brightgreen"}\n' "$total" > out/mod-downloads.json
+      - name: Count solved reports and crashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/issues?state=all&per_page=100" --paginate --slurp > issues.json
+          cat > count.py <<'PY'
+          import json, re, sys
+          iss = [i for page in json.load(open(sys.argv[1])) for i in page if "pull_request" not in i]
+          junk = re.compile(r"\b(test|ignore)\b|^Mod report: \d+$", re.I)
+          def real(i, labs):
+              names = {l["name"] for l in i["labels"]}
+              return bool(names & labs) and "crash-test" not in names and not junk.search(i["title"]) \
+                  and i.get("state_reason") not in ("not_planned", "duplicate")
+          def badge(fn, label, items):
+              done = sum(1 for i in items if i["state"] == "closed")
+              tot = len(items); pct = done / tot if tot else 1
+              color = "brightgreen" if pct >= .8 else "green" if pct >= .6 else "yellow"
+              json.dump({"schemaVersion": 1, "label": label, "message": f"{done}/{tot}", "color": color}, open(fn, "w"))
+              print(label, done, tot)
+          badge("out/reports-solved.json", "player reports solved", [i for i in iss if real(i, {"mod-report", "bug"}) and "crash-report" not in {l["name"] for l in i["labels"]}])
+          badge("out/crashes-solved.json", "crashes solved", [i for i in iss if real(i, {"crash-report"})])
+          PY
+          python3 count.py issues.json
       - name: Publish to badges branch
         run: |
           cd out
           git init -q -b badges
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mod-downloads.json
-          git commit -qm "mod downloads badge"
+          git add *.json
+          git commit -qm "badges"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" badges
