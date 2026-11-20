@@ -489,3 +489,10 @@ Occluder chain B616A4/3D7CC8 is NOT work: it is the shared condvar wait (SleepCo
 used by ~13 idle threads (8x EffectUpdate, Mission, Input, Sound, CustomOccluderRayCast, Scheduler0). "0.97 core incl" = sleep time.
 Occluder thread own CPU 0.13-0.18 core (busy 15-19 %), self work 1989F0 ~3.5-4.3 % + 168580 ~2.3 % of its samples; standing ~ moving.
 Tool: tools/testmatrix/cpuprof_occsplit.py; runner pc_cpuprof_j1_124223.ps1. Captures captures/cpuprof-124223/20261120-065459.
+
+## PP page-pool throttle A/B 2026-11-20 (#124312, performance-pc/0)
+Main PC, EF f31df983, FG off, XeSS 75, REN_FPS 120, MaxFps 120, W6=1, J1=0. PP_Period 1 is not a legal value (clamps to 4), so arm A = PP 0 (stock every-frame sweep), arm B = PP 1 + PP_Period 4. 30 s windows, cpuprof + PresentMon.
+| arm | S1 fps/1%low/cores | S2 | M1 | [App]Game core% S1/S2/M1 |
+| PP 0 | 97.8 / 49.9 / 6.70 | 99.0 / 66.7 / 6.58 | 93.2 / 42.1 / 7.26 | 75.5 / 75.3 / 81.3 |
+| PP 1 (P4) | 98.9 / 63.3 / 6.75 | 98.2 / 57.8 / 6.80 | 92.7 / 40.1 / 7.05 | 74.3 / 75.4 / 82.9 |
+Verdict: no measurable change (fps within 1, cores within run noise, main thread same). Keep shipped default; no further PP work. Captures captures/cpuprof-124312/20261120-072518, harness tools/testmatrix/pc_cpuprof_pp_124312.ps1.
