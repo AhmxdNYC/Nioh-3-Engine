@@ -1165,3 +1165,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-20 00:02 | regression-pc/0 | Training gate tests #122016 | offline proven (selftest PASS; source PASS 390d12fe, FAIL 427ca129); live unproven | next: pc/1 runs training_gate_live.ps1 when game free, regression scores capture | cd692d44, RESULT #122048
 
 2026-11-20 12:38 am EST | reports-pc/0 | GH #140 fixed offline (stale HW-watch trap swallowed + YawWatch default 0) | proven offline only | next: pc live RESULT #122141 + regression #122142, then ship with #133/#138 | reports/140 592ad902, BR ddc82515
+2026-11-20 12:39 am EST | reports-pc/0 | GH #140 duplicate fix resolved: ship pc/2 f295ffb1, mine 592ad902 retired | live = human session, no scripted run | next: close #140 at release
