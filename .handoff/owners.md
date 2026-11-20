@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-20 4:57 am EST: pc/0 continue. No pc2/ally BLOCKED. #122380 default = no 4-core test (NOTE #123508). Do not publish. Do not task PC2. reports-pc and ops capped until 5:20 am EST. No Nioh from this slot.
 - CURRENT 2026-11-20 4:44 am EST: pc/0. ops and reports-pc are capped until 5:20 am EST (#123363, #123357). Hourly patrol done: C: 13.6 GB free, lock 381 free, no task sent (NOTE #123425). Do not re-run it before 5:20. GH #142 save ask stays posted (comment 7036144352). Do not publish. Do not task PC2. No Nioh from this slot.
 - CURRENT 2026-11-20 4:41 am EST: pc/0. reports-pc hit the 5-hour limit (#123357) until 5:20 am EST. GH #142 save ask is posted (comment 7036144352). Do not post it again. Do not task reports-pc before 5:20. Do not publish. Do not task PC2. No Nioh from this slot.
 2026-11-18 5:50 am EST | gx-pc/0 owns the unshipped #116211 branch gx-pc/fb-919294. No game on this seat (pid stays with the human session). pc decides publish. 102 has no code owner until it is fixed.

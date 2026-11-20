@@ -43,3 +43,4 @@
 - [x] Try the 3-fix test build | reply 'install' (TO-USER #121899): pc/0 closes your game, installs D:/nioh3-re/live-fixes-121854 (TR 8f67a19d, BR 0235202f, EF f31df983) and relaunches | main PC
 - [x] Despawn fix install | reply 'install': pc/0 swaps TR 501507a0 (D:/nioh3-re/live-fixes-121923, + BR 0235202f EF f31df983 unchanged) and relaunches | main PC
 - [ ] Soul Core crouch cancel | press stick (crouch) within 0.25 s of the seal press; check transformation cancels and core count stays | Main PC
+- [x] 4-core load spin (player GH 141/142) | no reply to #122380 by 4:55 am EST (asked 2:16 am). Default: do not test. Performance stays paused. Do not rebuild 0x117D6C. | pc
