@@ -993,7 +993,7 @@ const ItemDef kItems[kCount] = {
     {"Frame wait parks instead of spinning", "(FWP)", "The render thread sleeps on a timer while it waits for the frame, instead of spinning a core. Experimental.", "Picture unchanged. Applies at the next launch. Lowers CPU use where the frame wait spins; fps gain unproven."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
-    {"World shading", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
+    {"World shading", "(VRS)", "Whole-frame 2x2 shading with the glitter guard: see-through effects and overlays stay full detail. More fps, slightly softer picture.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
@@ -2343,7 +2343,7 @@ void Change(int id, int dir) {
         extraperf::ApplyPreset(g_selectedEpPreset);
     } else if (id == kVrs) {
         g_vrsPresetOn = !g_bootVrs;
-        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; }
+        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 1; g_vrsVals.wide = 6; }  // #121288 tested 2x2 + glitter guard
         else g_vrsVals.mode = 0;
         VrsValuesChanged();
     } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.

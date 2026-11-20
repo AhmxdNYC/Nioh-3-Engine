@@ -355,7 +355,7 @@ int main() {
         Change(kVrsRowFirst + vrsmenu::kRowWide, 1); CHECK(g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.wide == 6);
         Change(kVrsRowFirst + vrsmenu::kRowReset, 0);
         CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && g_vrsVals.wide == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0 && gpuopt::g_vrsLiveStub.wide == 0);
-        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 3 && gpuopt::g_vrsLiveStub.mode == 3);  // the old ON row is the same value
+        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 1 && g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.mode == 1 && gpuopt::g_vrsLiveStub.wide == 6);  // #121288 ON = 2x2 + glitter guard
         Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
         Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);
         g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; g_vrsVals.layouts = 5; g_pages.page = savedPage; Change(kVrsPageRow, 0); CHECK(g_vrsAdvanced);  // saved Custom values open with their rows showing

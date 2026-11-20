@@ -109,14 +109,9 @@ template<class Write> void SaveValues(const Values& raw, Write write) {
     write(L"Perf", L"VrsCeiling", digit[v.mode]);
 }
 template<class Write> void Save(bool on, Write write) {
-    // Write the enable key after the preset parameters.
-    if (on) {
-        write(L"Perf", L"VrsLayouts", L"7");
-        write(L"Perf", L"VrsRate", L"0");
-        write(L"Perf", L"VrsKeepCharacters", L"1");
-        write(L"Perf", L"VrsSkipSkinned", L"1");
-        write(L"Perf", L"VrsGBufferMotion1x1", L"0");
-    }
-    write(L"Perf", L"VrsCeiling", on ? L"3" : L"0");
+    // #121288: the On switch is the tested whole-frame 2x2 with the glitter guard (VrsCeiling 1 + VrsWideExclude 6:
+    // see-through and depth-off draws stay 1x1). Mask before the enable key. Off only clears the enable key.
+    if (on) write(L"Perf", L"VrsWideExclude", L"6");
+    write(L"Perf", L"VrsCeiling", on ? L"1" : L"0");
 }
 }

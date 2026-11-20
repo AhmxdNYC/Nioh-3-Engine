@@ -14,9 +14,8 @@ int main() {
         assert(std::wstring(section)==L"Perf"); ini[key]=value;
     };
     vrsmenu::Save(true,write);
-    assert(ini.size()==6);
-    assert(ini[L"VrsCeiling"]==L"3" && ini[L"VrsLayouts"]==L"7" && ini[L"VrsRate"]==L"0");
-    assert(ini[L"VrsKeepCharacters"]==L"1" && ini[L"VrsSkipSkinned"]==L"1" && ini[L"VrsGBufferMotion1x1"]==L"0");
+    assert(ini.size()==2);  // #121288 On = whole-frame 2x2 + glitter guard mask 6
+    assert(ini[L"VrsCeiling"]==L"1" && ini[L"VrsWideExclude"]==L"6");
     vrsmenu::Save(false,write);
     assert(ini[L"VrsCeiling"]==L"0");
     ini.clear(); vrsmenu::Save(false,write);
@@ -130,5 +129,5 @@ int main() {
         assert(std::string(LevelName(kLevelCustom)) == "Custom" && std::string(LevelName(kLevelHigh)) == "High");
     }
     assert(std::string(ModeName(0)) == "Off" && std::string(ModeName(3)) == "Selective" && std::string(RateName(2)) == "2x1" && std::string(LayoutsName(7)) == "All" && std::string(LayoutsName(0)) == "None");
-    puts("VRS menu: capability failures, Tier1/2, exact six-key ON preset, ON->OFF and fresh OFF, value range, stepping, persist, row effect PASS");
+    puts("VRS menu: capability failures, Tier1/2, exact two-key ON preset (2x2 + glitter guard), ON->OFF and fresh OFF, value range, stepping, persist, row effect PASS");
 }

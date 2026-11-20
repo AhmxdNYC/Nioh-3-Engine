@@ -24,7 +24,7 @@ int main() {
     for (bool vrs : {true, false}) {
         vrsmenu::Save(vrs, write);
         assert(ini[L"ExtraPerf.XRES"] == L"3" && ini[L"ExtraPerf.XHALF"] == L"2");
-        assert(ini[L"Perf.VrsCeiling"] == (vrs ? L"3" : L"0"));
+        assert(ini[L"Perf.VrsCeiling"] == (vrs ? L"1" : L"0"));  // #121288
     }
     puts("Extra performance menu: existing defaults, explicit preset switches, VRS isolation PASS");
 }
