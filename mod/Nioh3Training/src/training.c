@@ -1846,7 +1846,17 @@ static void TrainStop(const char* why) {
     g_sum_nodeath = 0;
     g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
+}// human #121968 (live 23:19: Hanzo killed in a Training-here session, the menu stayed on Active bosses and 'Train here' / 'Train in a boss
+// arena' stayed hidden): an in-place Training session (no arena, no native Boss Match) whose won boss body is gone has nothing left to run,
+// so it ends like Despawn all (#121923). Fight again = the Training page pick / Repeat last. Arena sessions keep their Return gate.
+static int AnySlotAlive(void);
+static int TrainWonEndsSession(int active, int arena, int won, int bodyGone, int spawnPending, int slotAlive, int nativeSlots) {
+    return active && !arena && won && bodyGone && !spawnPending && !slotAlive && !nativeSlots;
 }
+static void TrainWonBodyGone(void) {
+    if (TrainWonEndsSession(g_tr.active, g_tr.arena, g_tr.tWin != 0, g_tr.bodyGone, g_sp.active, AnySlotAlive(), NativeSlotsActive())) TrainStop("boss defeated, body removed");
+}
+
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
 // warp back into the arena and respawn the boss there (no open-world summon). NoDeath + round reset as for 'train'.
 static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp, float face) {
@@ -1935,9 +1945,9 @@ static void TrainTick(void) {
     // mission scripts (Character::FadeOut f30); native delete 6 s later frees the slot (immediately if the fade could not start). BodyFade = 0: the body stays.
     if (g_tr.tWin && g_cfg_tr_win <= 0 && !g_tr.bodyGone && !g_tr.tFade && g_cfg_body_fade && now - g_tr.tWin >= (DWORD)g_cfg_body_delay && g_nsp > 0 && g_sp_actor[g_nsp - 1]) {
         Log("TRAIN round %d: fading out the dead boss body %d ms after the kill", g_tr.round, g_cfg_body_delay);
-        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = now; else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); }
+        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = now; else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); TrainWonBodyGone(); }
     }
-    if (g_tr.tFade && !g_tr.bodyGone && now - g_tr.tFade >= FadeDeleteMs()) { g_tr.bodyGone = 1; if (g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: deleting the faded boss body", g_tr.round); Despawn(g_nsp - 1); } }
+    if (g_tr.tFade && !g_tr.bodyGone && now - g_tr.tFade >= FadeDeleteMs()) { g_tr.bodyGone = 1; if (g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: deleting the faded boss body", g_tr.round); Despawn(g_nsp - 1); } TrainWonBodyGone(); }
 }
 // C API (bridge 4942) for Boss Rematch: Nioh3Training_Summon(missionId or charId) starts a no-load session (1 = started), _Retry() resets the round, _StopTraining() ends it.
 __declspec(dllexport) int Nioh3Training_Summon(uint32_t id) {
