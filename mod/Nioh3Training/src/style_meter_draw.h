@@ -413,6 +413,25 @@ static void SmGlint(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, 
         *d = a << 24 | (r > a ? a : r) << 16 | (g > a ? a : g) << 8 | (b > a ? a : b);
     }
 }
+// #127343 katana draw-cut: one hairline arc (a slice of a big circle, like a blade's swing) through (px0, py0), rising left -> right.
+// s = 0..1 head travel; the tail trails behind and the whole cut fades by 'fade'. Thin, bright, a faint cold edge.
+static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit) {
+    if (fade <= 0.f || s <= 0.f) return;
+    const float R = lh * 3.2f, tx = 0.93f, ty = -0.37f;           // tangent at the letter centre (rising right)
+    const float ccx = px0 - ty * R, ccy = py0 + tx * R;           // centre below the cut: the arc bows upward like a swing
+    const float phiP = atan2f(py0 - ccy, px0 - ccx), span = (lw * 2.6f) / R;
+    const float p0 = phiP - span * 0.5f, head = p0 + span * (s > 1.f ? 1.f : s), tail = head - span * 0.55f;
+    const float wmax = 1.6f * unit + 0.6f, edge = wmax + 1.5f * unit;
+    const int x0 = (int)(px0 - lw * 1.5f), x1 = (int)(px0 + lw * 1.5f), y0 = (int)(py0 - lh * 1.0f), y1 = (int)(py0 + lh * 1.0f);
+    for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
+        const float dx = xx - ccx, dy = yy - ccy, d = fabsf(sqrtf(dx * dx + dy * dy) - R); if (d >= edge) continue;
+        const float phi = atan2f(dy, dx); if (phi > head || phi < tail || phi < p0) continue;
+        const float q = (phi - tail) / (head - tail);              // 0 tail .. 1 head: blade gets thicker toward the head
+        const float wd = wmax * (0.25f + 0.75f * q);
+        if (d >= wd) { if (d < wd + 1.5f * unit) SmPxOver(&px[yy * w + xx], 190, 215, 255, (unsigned)((1.f - (d - wd) / (1.5f * unit)) * 0.3f * q * fade * 255.f)); continue; }
+        SmPxOver(&px[yy * w + xx], 255, 255, 255, (unsigned)((1.f - 0.4f * d / wd) * (0.35f + 0.65f * q) * fade * 255.f));
+    }
+}
 typedef struct { HDC mem; uint32_t* px; int w, h; float mid, rowBottom, kl, unit; } SmLetterCtx;
 static void SmLetterCentre(const SmLetterCtx* x, int r, float* cx, float* cy) {
     const int* L = sm_atlas_letter[r]; *cx = x->mid + g_sm_letter_dx[r] * x->kl; *cy = x->rowBottom - L[3] * x->kl / 2.f;
@@ -427,7 +446,7 @@ static void SmLetterAt(const SmLetterCtx* x, int r, float dx, float dy, float s,
 static inline float SmClamp01(float v) { return v < 0.f ? 0.f : v > 1.f ? 1.f : v; }
 // dt = ms since the shown rank stepped up from prev to r. Returns 0 when no transition is running (caller draws the letter at rest).
 // #127338 impact time per rank (ms into its motion): a short crisp pause there, then a glint runs across the new letter
-static const float sm_up_hit_t[SM_RANKS] = {150, 150, 130, 280, 160, 210, 350};
+static const float sm_up_hit_t[SM_RANKS] = {150, 150, 320, 280, 160, 210, 350};
 static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
     if (dt0 < 0.f || dt0 >= SM_UP_MS || prev < 0 || prev >= SM_RANKS || prev == r || r < 1 || r >= SM_RANKS) return 0;
     uint32_t* px = x->px; const int w = x->w, h = x->h; const float u = x->unit; int rc[4] = {0, 0, 0, 0}, ro[4];
@@ -444,15 +463,17 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         if (e >= 0.f) { SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFFFFFFu, 0.75f * (1.f - e / 180.f));
             SmSparks(px, w, h, (float)rc[0] + 4.f * u, cy, e, 36, 0xC1u, u, 0); }
         break; }
-    case 2: {  // B: clean cut - a slash cuts the old letter in two, the halves slide apart, the new letter fades in behind
-        const float cut = 130.f;
-        SmLetterAt(x, prev, 0, 0, 1, 1, ro); GdiFlush();
+    case 2: {  // #127343 B: katana draw-cut - one fast curved blade arc through the old letter, a beat of stillness with the cut line
+               //      glowing on it, then the halves slip apart along the cut and fall away; the B settles in behind with the glint
+        const float swing = 80.f, still = 260.f;
+        SmLetterAt(x, prev, 0, 0, 1, dt < still ? 1.f : 0.f, ro); GdiFlush();
         float pcx, pcy; SmLetterCentre(x, prev, &pcx, &pcy);
-        if (dt >= cut) SmSplitRect(px, w, h, ro[0], ro[1], ro[2], ro[3], pcx, pcy, 0.30f, (dt - cut) * 0.32f * u, 1.f - (dt - cut) / 380.f);
-        const float na = SmClamp01((dt - 100.f) / 240.f);
-        SmLetterAt(x, r, 0, 0, 0.92f + 0.08f * na, na, rc); GdiFlush();
-        if (dt < cut + 60.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / (cut + 60.f), u, 0.30f);
-        if (dt >= cut) SmSparks(px, w, h, pcx, pcy, dt - cut, 14, 0xB2u, u, 0);
+        if (dt >= still) { SmLetterAt(x, prev, 0, 0, 1, 1, ro); GdiFlush();
+            const float e = dt - still; SmSplitRect(px, w, h, ro[0], ro[1], ro[2], ro[3], pcx, pcy, 0.185f, e * e * 0.0025f * u + e * 0.12f * u, 1.f - e / 200.f); }
+        const float na = SmClamp01((dt - still - 50.f) / 120.f);
+        SmLetterAt(x, r, 0, 0, 1, na, rc); GdiFlush();
+        SmArcCut(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / swing, dt < swing ? 1.f : dt < still ? 0.55f : 0.55f * (1.f - (dt - still) / 120.f), u);
+        if (dt >= swing && dt < swing + 140.f) SmSparks(px, w, h, pcx + ro[2] * 0.6f, pcy - ro[3] * 0.22f, dt - swing, 8, 0xB2u, u, 0);
         break; }
     case 3: {  // A: ink brush - the new letter is painted in left to right with wet red ink and splatter; the old one sinks away
         const float paint = 280.f;
