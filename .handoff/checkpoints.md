@@ -1262,3 +1262,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 2:41 am EST | pc/1 #126859 style meter bonuses built+installed | proven offline (style_meter_test 87) + boot log line; unproven in combat | next: owner pc/2 merges 43c28170 into pc2/style-meter-126502 after a fight log shows STYLE EVENT startup/counter/ninjutsu/style lines | pc1/style-bonus-126859 43c28170
 
 - 2026-11-21 3:20 am EST | pc/1 | #126913 soul core style bonus +40 + style switch once per soul core use (mid form) | offline 94/94, live load only (log soul core 40), no soul core used in a fight yet | next: read STYLE EVENT "soul core x" lines after the human plays | pc1/style-bonus-126859 be2cca2d, TR c5898b97 installed Main PC, backup D:/nioh3-re/style126913-bak
+
+- 2026-11-21 4:12 am EST | pc/1 | #127003 MoveLog: STYLE MOVE line per player move (hit/miss, act, startup, style, pad at start, soul/nin flags) | offline 100/100, live load only | next: after human plays, map stance/weapon/guardian/martial art from pad+act in STYLE MOVE lines | pc1/style-bonus-126859 ab7b5c3d, TR 243d616c on Main PC, backup D:/nioh3-re/style127003-bak
