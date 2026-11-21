@@ -1275,3 +1275,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 5:52 am EST | pc/1 #127214 GS/MA marker research | GS proven statically (Spirit Force gauge), not live; MA open | next: live gauge log at act 17027, MA skill->action RE | e13ed4ae
 2026-11-21 5:45 am EST | GS bonus b01511d6 | offline 153/153, unproven live | next: after the human's session install 8cedddda (or pc/2's rebased look build), Yorimoto test act 17027 vs plain attack, video; MA marker RE | pc1/style-bonus-126859
 2026-11-21 6:05 am EST | MA+GS bonus + look on 2be6f89a | offline 179/179, unproven live | next: after the human's session install + Yorimoto live check + clip | pc1/style-bonus-126859
+2026-11-21 7:05 am EST | boss refill delay f8cf33d9 | offline PASS, unproven live | next: regression RESULT, merge with style branch, install after session, live test | pc0/bv-delay-127382
