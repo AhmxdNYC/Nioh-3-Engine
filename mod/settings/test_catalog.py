@@ -22,9 +22,9 @@ def content(ref, path):
 def section(source, start, end):
     return source.split(start, 1)[1].split(end, 1)[0]
 
-# #97604: baseline = last public release (v1.8.32 = installer-pc/rc-1832-126689 09310fb0, RC bb4a83c3 GH #152; was v1.8.31 = installer-pc/rc-1831-126561 3cbe0f35, RC ea076751; was v1.8.30 ca444f88 = installer-pc/rc-1830-126419, RC 14abf0c0; was v1.8.29 4fa17c98 = installer-pc/rc-1829-126247 4fa17c98, RC 845382a4; was v1.8.28 9aac6ce7 = installer-pc/rc-1828-126154, RC b447510c; was v1.8.27 37ba8a0a = installer-pc/rc-1827-125580, RC 56a68936; was v1.8.26 030b9b61 = installer-pc/rc-1826-125285, RC 58fae5d4; was v1.8.25 c600620c = installer-pc/rc-1825-121820 427ca129, RC 5859c227; was v1.8.24 852642c3, v1.8.23 daa61c1d, v1.8.22 = main 3e6e730f = installer-pc/rc-1822on dd381ed2, regression #110443; was v1.8.21 29d49561, was v1.8.17 47505850, was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
+# #97604: baseline = last public release (v1.8.33 = installer-pc/rc-1833-126836 23c07ffc, RC 105c1ee1 GH #153; was v1.8.32 = installer-pc/rc-1832-126689 09310fb0, RC bb4a83c3 GH #152; was v1.8.31 = installer-pc/rc-1831-126561 3cbe0f35, RC ea076751; was v1.8.30 ca444f88 = installer-pc/rc-1830-126419, RC 14abf0c0; was v1.8.29 4fa17c98 = installer-pc/rc-1829-126247 4fa17c98, RC 845382a4; was v1.8.28 9aac6ce7 = installer-pc/rc-1828-126154, RC b447510c; was v1.8.27 37ba8a0a = installer-pc/rc-1827-125580, RC 56a68936; was v1.8.26 030b9b61 = installer-pc/rc-1826-125285, RC 58fae5d4; was v1.8.25 c600620c = installer-pc/rc-1825-121820 427ca129, RC 5859c227; was v1.8.24 852642c3, v1.8.23 daa61c1d, v1.8.22 = main 3e6e730f = installer-pc/rc-1822on dd381ed2, regression #110443; was v1.8.21 29d49561, was v1.8.17 47505850, was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
 # every default flip and version bump since; bump RELEASE when a new release ships.
-RELEASE = '09310fb0'
+RELEASE = '23c07ffc'
 # v1.8.22 loading fix ON by default (PC2 #109923, Ally #110220; LoadFixDefaultV migration in EF dllmain)
 INTENDED_FLIPS = {}  # RC 0->2 flip shipped in v1.8.22 (now baseline)
 
