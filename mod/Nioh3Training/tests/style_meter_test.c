@@ -201,8 +201,20 @@ static void Style(void) {
     SmOnHit(&s, &c, 400, 2, 2);
     CHECK(near(SmOnStyle(&s, &c, 500), c.style) && s.styles == 4);
 }
+// #126913 a switch inside a soul core form: once per scored soul core use, even with no hit since the last switch; never out of a fight.
+static void StyleSoul(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmOnSkill(&s, &c, 0, 1) == 0.f && SmOnStyle(&s, &c, 100) == 0.f);  // soul core out of combat: no switch bonus either
+    SmOnHit(&s, &c, 1000, 1, 1);
+    CHECK(near(SmOnStyle(&s, &c, 1100), c.style));                            // by the hit
+    CHECK(near(SmOnSkill(&s, &c, 1200, 1), c.soul) && s.soulsScored == 1);
+    CHECK(near(SmOnStyle(&s, &c, 1300), c.style));                            // mid soul core, no new hit
+    CHECK(SmOnStyle(&s, &c, 1400) == 0.f);                                    // spam inside the same form
+    CHECK(near(SmOnSkill(&s, &c, 1500, 1), c.soul));
+    CHECK(SmOnStyle(&s, &c, 1500 + c.combatMs + 1) == 0.f);                   // too long after the use
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

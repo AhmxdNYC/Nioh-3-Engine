@@ -327,7 +327,10 @@ static __attribute__((noinline)) uint64_t PstSoulFindGlob(void) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("SOULCORE g:Inventory signature not found, infinite soul cores off"); return 0;
 }
-static __attribute__((noinline)) void PstPlayerSoul(void) {
+// #126913 style meter soul core bonus: the same detection counts uses into g_soul_uses (SmFeed takes them). fix 0 = read only (style meter
+// on, PlayerInfiniteSoulCore off): nothing is written back, a use is still counted once.
+static volatile LONG g_soul_uses;
+static __attribute__((noinline)) void PstPlayerSoul(int fix) {
     if (!g_soul_scan) { g_soul_scan = 1; g_soul_glob = PstSoulFindGlob(); }
     uint64_t a = 0, inv = 0, me = PlayerChar(), ai = 0, ctrl = 0;
     if (!g_soul_glob || !Rd64(g_soul_glob, &a) || !a || !Rd64(a, &inv) || !inv) return;
@@ -358,14 +361,18 @@ static __attribute__((noinline)) void PstPlayerSoul(void) {
             const uint8_t* r = arr + (size_t)i * 0xE8; const uint16_t id = *(const uint16_t*)r;
             if (!id || id != *(const uint16_t*)(r + 2)) { g_soul_have[i] = 0; continue; }
             volatile uint32_t* cnt = (volatile uint32_t*)(r + 4); const uint32_t c = *cnt;
-            for (int k = 0; k < g_soul_nmin; ++k)
+            for (int k = 0; k < g_soul_nmin && fix; ++k)
                 if (g_soul_min_id[k] == id && c < g_soul_min_n[k]) { *cnt = g_soul_min_n[k]; PstLog("PRACTICE soul core floor: item 0x%X slot %d count %u -> %u (SoulCoreMin)", id, i, c, g_soul_min_n[k]); }
             int known = 0;  // human #58313: in ninja style the throw act 0x28FD lasts one frame (-> 0x82A) and the poll misses it; an item
             for (int k = 0; k < g_soul_nknown; ++k) if (g_soul_known[k] == id) { known = 1; break; }  // already put back once is a soul core
             if ((seal || known) && g_soul_have[i] && g_soul_prev[i] == c + 1 && c + 1 <= 99) {
                 if (!known && g_soul_nknown < 32) g_soul_known[g_soul_nknown++] = id;
+                InterlockedIncrement(&g_soul_uses);
+                if (!fix) { g_soul_prev[i] = c; g_soul_drop[i] = 0; continue; }
                 *cnt = g_soul_prev[i]; PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (%s, put back)", id, i, c, g_soul_prev[i], seal ? "used in the seal throw" : "known soul core"); continue; }
             if (seal && g_soul_have[i] && g_soul_drop[i] && now - g_soul_drop[i] < 1500 && g_soul_dropc[i] == c && c + 1 <= 99) {
+                InterlockedIncrement(&g_soul_uses);
+                if (!fix) { g_soul_drop[i] = 0; if (g_soul_nknown < 32 && !known) g_soul_known[g_soul_nknown++] = id; g_soul_prev[i] = c; continue; }
                 *cnt = c + 1; g_soul_drop[i] = 0; if (g_soul_nknown < 32 && !known) g_soul_known[g_soul_nknown++] = id;
                 PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (used just before the form start, put back)", id, i, c, c + 1);
                 g_soul_prev[i] = c + 1; continue; }
@@ -602,7 +609,7 @@ static void PstTick(void) {
         if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
         g_pst_env_sess = sess;
     }
-    if (g_pst.v[PS_PLAYER_INF_SOUL]) PstPlayerSoul();  // pc #57367: everywhere, not only in Practice (soul-core testing on any save)
+    if (g_pst.v[PS_PLAYER_INF_SOUL] || g_cfg_sm) PstPlayerSoul(g_pst.v[PS_PLAYER_INF_SOUL] != 0);  // pc #57367: everywhere (+ #126913 style meter, read only)
     else memset(g_soul_have, 0, sizeof g_soul_have);
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");

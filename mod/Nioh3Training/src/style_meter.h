@@ -77,6 +77,8 @@ typedef struct {
     uint32_t hitsAtStyle;   // s->hits at the last scored style switch (one switch bonus per landed hit)
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
     uint32_t counters, nins, souls, styles;
+    uint32_t soulsScored, soulsAtStyle;  // #126913 soul core uses that scored / soulsScored at the last scored style switch
+    double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
@@ -105,7 +107,7 @@ static inline void SmCfgClamp(SmCfg* c) {
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = -1e18; s->lastDamaged = -1;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = -1e18; s->lastDamaged = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -157,13 +159,19 @@ static inline float SmOnSkill(SmState* s, const SmCfg* c, double t, int kind) {
     if (!SmInCombat(s, c, t)) return 0.f;
     const float p = kind ? c->soul : c->nin;
     if (p <= 0.f) return 0.f;
+    if (kind) { s->soulsScored++; s->lastSoul = t; }
     SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return p;
 }
 // #126843 Samurai <-> Ninja style switch: scores in combat, once per landed hit since the last scored switch.
+// #126913 mid soul core: a switch within combatMs of a scored soul core use also scores, once per such use (the form itself may land no
+// hit before the switch, and BR's FormStyleSwitch replays a press made inside the form at its end).
 static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
     s->styles++;
-    if (!SmInCombat(s, c, t) || s->hits == s->hitsAtStyle || c->style <= 0.f) return 0.f;
-    s->hitsAtStyle = s->hits;
+    if (c->style <= 0.f) return 0.f;
+    const int byHit = SmInCombat(s, c, t) && s->hits != s->hitsAtStyle;
+    const int bySoul = s->soulsScored != s->soulsAtStyle && t - s->lastSoul <= (double)c->combatMs;
+    if (!byHit && !bySoul) return 0.f;
+    s->hitsAtStyle = s->hits; s->soulsAtStyle = s->soulsScored;
     SmAdd(s, c, c->style); s->lastEvent = s->lastScore = t; return c->style;
 }
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }

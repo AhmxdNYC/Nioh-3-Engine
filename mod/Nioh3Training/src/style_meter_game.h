@@ -50,7 +50,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.counter = (float)(int)GetPrivateProfileIntA("StyleMeter", "CounterPts", SM_COUNTER_PTS, ini);       // #126843
     c.style = (float)(int)GetPrivateProfileIntA("StyleMeter", "StyleSwitchPts", SM_STYLE_PTS, ini);
     c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
-    c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 (no use signal yet)
+    c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     {   // RankPtsPct: scales every rank's size (100 = defaults; 50 = the pre-#126755 easy meter)
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
         if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
@@ -61,8 +61,8 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f (#126821 #126843 #126854)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f (#126821 #126843 #126854 #126913)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f..%.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[SM_RANKS - 1]);
@@ -214,6 +214,7 @@ static void SmFeed(double gdt) {
     if (run != ctrRun) { ctrRun = run; ctr = 0; }
     if (pl && ifr && g_sm_enemy) ctr = 1;
     const int nin = pl ? SmNinjutsuUsed(g_fp[FP_PL].a) : 0;
+    const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
     const int fight = g_pst_live != 0;
     AcquireSRWLockExclusive(&g_sm_lock);
@@ -224,6 +225,8 @@ static void SmFeed(double gdt) {
     for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr);
     const int ctrHit = g_sm.counters != c0;
     for (int i = 0; i < nin; ++i) pn = (pn < 0 ? 0 : pn) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 0);
+    float pc = -1.f;
+    for (LONG i = 0; i < soul && i < 8; ++i) pc = (pc < 0 ? 0 : pc) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 1);
     if (sty) ps = SmOnStyle(&g_sm, &g_smc, g_sm_clock);
     if (ki) pk = SmOnKi(&g_sm, &g_smc, g_sm_clock);
     if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
@@ -234,12 +237,13 @@ static void SmFeed(double gdt) {
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
     ReleaseSRWLockExclusive(&g_sm_lock);
-    if (hits > 0 || ki || dodge || taken > 0 || nin || sty) {
+    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0) {
         static int evl;
         if (evl++ < 4000) {
-            char e[160]; int n = 0; e[0] = 0;
+            char e[224]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
+            if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki +%.0f", pk);
             else if (ki) n += snprintf(e + n, sizeof e - n, " ki +0 (no hit in %d ms)", g_smc.kiHitMs);
