@@ -3931,7 +3931,11 @@ void AutoMovesSync(uint32_t chr) {
     const auto f = (Fn)TrainingExport("Nioh3Training_AutoMoves");
     if (!f) return;
     static AmMove buf[AM_MAXMOVES];
-    const int n = f(chr, buf, AM_MAXMOVES, (int)sizeof(AmMove));
+    int n = f(chr, buf, AM_MAXMOVES, (int)sizeof(AmMove));
+    if (n < 0) {  // human #126342: an older Training serves the 124-byte record (no proj): read that, unpack in place from the end, proj 0
+        n = f(chr, buf, AM_MAXMOVES, AM_ABI_124);  // fits: AM_MAXMOVES x 124 < sizeof buf
+        for (int i = n - 1; i >= 0; --i) { AmMove m; memcpy(&m, (const uint8_t*)buf + (size_t)i * AM_ABI_124, AM_ABI_124); m.proj = 0; buf[i] = m; }
+    }
     if (n > 0) { const int add = N3CatMerge(chr, buf, n, SlotBossName(chr)); Log("Rematch: AUTOMOVES chr %u: Boss moves page from game data (%d moves, %d new rows)", chr, n, add); }
     else if (n < 0) Log("Rematch: AUTOMOVES chr %u: Nioh3Training.asi move data layout differs (update both mods)", chr);
 }
@@ -3980,6 +3984,9 @@ void RepeatWhat(const N3Move& m, char* b, size_t n) {
 void MoveTypeTag(const N3Move& m, char* b, size_t n) {
     const int c = N3MoveCat(&m);
     if (c == kMcGrab) { snprintf(b, n, "Grab"); return; }
+    // human #126342: 'Projectile' (shockwave, thrown object, spawned blast) instead of Attack / Unblockable / Wind-up / Link; the row stays one
+    // line (58 columns), so an unblockable one keeps 'Unblockable<n>' in its left id and says 'unblockable' in the footer.
+    if (N3MoveProj(&m) && c != kMcTwitch && c != kMcMovement && c != kMcKiBreak && c != kMcUnsorted) { snprintf(b, n, "Projectile"); return; }
     if (c == kMcGreat) { snprintf(b, n, "Unblockable"); return; }  // its hit count is in the footer (the row stays one line)
     if (m.kind == 'S') { snprintf(b, n, "Wind-up"); return; }
     if (m.kind == 'L') { snprintf(b, n, "Link"); return; }
@@ -6015,7 +6022,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const auto& m = kN3Moves[item - kItMoveBase];
             char tag[32];
             N3MoveHitTag(&m, tag, sizeof tag);
-            snprintf(footer, nf, "0x%04X  %.60s%s%s. A: repeat | Left: block | Right: allow.", m.id, MoveName(m), tag[0] ? ", " : "", tag);
+            snprintf(footer, nf, "0x%04X  %.60s%s%s.%s A: repeat | Left: block | Right: allow.", m.id, MoveName(m), tag[0] ? ", " : "", tag,
+                     N3MoveProj(&m) ? " Projectile. " N3_PROJ_HELP : "");  // human #126342
         } else if (item == kItMoves || g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves grouped by hit count and type. A toggles repeat; Left blocks a move; Right allows it. Hit labels describe available data, not guaranteed damage taken.");
         } else if (item <= kItSettingBase) {

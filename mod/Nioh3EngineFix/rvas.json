@@ -1481,6 +1481,15 @@
    ]
   },
   {
+   "rva": "0x18CBDAC",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 48 08 48 89 50 10 4C 89 40 18 4C 89 48 20 48 83 EC 48 BA 01 00 00 00",
+   "offset": 0,
+   "used_in": [
+    "assertguard.cpp"
+   ]
+  },
+  {
    "rva": "0x198357C",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 85 C0 0F 8E ?? ?? ?? ?? 48 8B 57 60 4C 8B 4F",

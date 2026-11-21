@@ -148,6 +148,7 @@ struct Cfg {
     int traceRecords = 0;
     int traceDelaySec = 30;
     int installDelaySec = 20;
+    int allowProxyLists = 0;   // GH #152: 1 = also patch a command-list vtable owned by a proxy DLL (ReShade dxgi.dll ...)
     wchar_t deferThreads[256] = L"SynergisticDispatcher";
 };
 Cfg g_cfg;
@@ -183,6 +184,7 @@ void LOG(const char* fmt, ...) {
 }
 
 #include "vrs_ceiling.inl"
+#include "listowner.h"
 
 std::string ModuleOf(const void* p) {
     HMODULE m = nullptr;
@@ -834,6 +836,11 @@ bool DoInstall() {
         LOG("could not create a dummy DIRECT command list (vtable %p, %d slots)", (void*)vts[0], slots[0]);
         return false;
     }
+    if (!g_cfg.allowProxyLists && (!listowner::InD3D12Runtime(vts[0]) || (vts[1] && !listowner::InD3D12Runtime(vts[1])))) {
+        LOG("command lists are wrapped by %s (not the D3D12 runtime) - hooks skipped for safety (GH #152; [GpuOpt] "
+            "AllowProxyLists = 1 overrides)", ModuleOf(vts[0]).c_str());
+        return false;
+    }
     ApplyFlushMask();
     g_vt[0] = vts[0];
     g_vtSlots[0] = slots[0];
@@ -945,6 +952,7 @@ void Start(const StartInfo& info) {
     g_cfg.traceRecords = IniInt(L"TraceRecords", 0, 0, 4000000);
     g_cfg.traceDelaySec = IniInt(L"TraceDelaySec", 30, 0, 3600);
     g_cfg.installDelaySec = IniInt(L"InstallDelaySec", 20, 0, 600);
+    g_cfg.allowProxyLists = IniInt(L"AllowProxyLists", 0, 0, 1);
     GetPrivateProfileStringW(L"GpuOpt", L"DeferThreads", L"SynergisticDispatcher", g_cfg.deferThreads,
                              (DWORD)(sizeof g_cfg.deferThreads / sizeof(wchar_t)), g_iniPath.c_str());
     g_gpuProf = info.gpuProf;

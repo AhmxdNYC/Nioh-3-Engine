@@ -1,11 +1,12 @@
 // human #123773: boss hit-count coverage survey over data/extract/lfm/archive_01 (arg 1 = file list). 2026-11-20: 373 files, 6251/8251 attacks counted; gap 844 spawn, 346 untimed, 116 both, 694 no own rows.
 // 2026-11-20 (pc2/hits-gap-126228): damaging-untimed rule -> 6873/8251; gap 285 spawn, 245 untimed, 88 both, 760 no own timed rows.
 // human #126246: known-0 (AmMove.nohit) counted apart. Unnamed untimed rows dead (#123773): 7033 counted, 772 known 0, 446 unknown (294 spawn, 73 untimed, 79 both).
+// human #126342: + attacks with >= 1 definite damaging spawn (AmMove.proj, AmObjDmg): 346 attacks in 80 files (all unknown; 213 also own windows).
 #include <stdio.h>
 #include <stdlib.h>
 #include "../../mod/Nioh3Training/src/auto_moves.h"
 int main(int argc, char** argv) {
-    static AmTable t; long Z = 0, A = 0, K = 0, S = 0, U = 0, N = 0, SU = 0, files = 0;
+    static AmTable t; long Z = 0, A = 0, K = 0, S = 0, U = 0, N = 0, SU = 0, files = 0, P = 0, PK = 0, PU = 0, PF = 0, PM = 0;
     char nm[1024]; FILE* lst = fopen(argv[1], "r");
     while (fgets(nm, sizeof nm, lst)) {
         nm[strcspn(nm, "\r\n")] = 0;
@@ -15,9 +16,10 @@ int main(int argc, char** argv) {
         int na = AmParse(d, (uint32_t)L, &t);
         if (na <= 0) { free(d); continue; }
         files++;
-        long a = 0, k = 0;
+        long a = 0, k = 0, p = 0;
         for (int r = 0; r < na; r++) {
             AmMove* m = &t.m[r]; if (!m->attack) continue; A++; a++;
+            if (m->proj) { P++; p++; if (m->hits) PK++; else PU++; if (m->nwin) PM++; }  // human #126342: definite damaging spawn
             if (m->hits) { K++; k++; }
             else if (m->nohit) Z++;
             else if (m->spawns && m->untimed) SU++;
@@ -25,8 +27,10 @@ int main(int argc, char** argv) {
             else if (m->untimed) U++;
             else N++;
         }
-        if (argc > 2) printf("%s\t%ld\t%ld\n", nm, a, k);
+        PF += p > 0;
+        if (argc > 2) printf("%s\t%ld\t%ld\t%ld\n", nm, a, k, p);
         free(d);
     }
     printf("files %ld attacks %ld counted %ld known-0 %ld | unknown: spawn-only %ld untimed-only %ld both %ld other %ld\n", files, A, K, Z, S, U, SU, N);
+    printf("projectile (>= 1 definite damaging spawn, AmObjDmg): %ld attacks in %ld files (%ld counted, %ld unknown; %ld also own timed hit windows)\n", P, PF, PK, PU, PM);
 }

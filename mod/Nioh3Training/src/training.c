@@ -6435,12 +6435,13 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
     const int old = (int)offsetof(AmMove, anim_hash);
     static int told;
     if (!told) { told = 1; Log("AUTOMOVES export: caller %d bytes, current record %d, installed Boss Rematch prefix %d", abi, full, old); }
-    if (abi != full && abi != old) return -1;
+    // human #126342: AmMove grew 124 -> 128 (proj); a 124-byte caller (Boss Rematch before proj) gets the 124-byte prefix (all but proj).
+    if (abi != full && abi != AM_ABI_124 && abi != old) return -1;
     const AmTable* t = AmFor(chr); if (!t || !out || cap <= 0) return 0;
     const int n = t->n < cap ? t->n : cap;
     if (abi == full) { memcpy(out, t->m, sizeof(AmMove) * (size_t)n); return n; }
     uint8_t* d = (uint8_t*)out;
-    for (int i = 0; i < n; ++i) memcpy(d + (size_t)i * (size_t)old, &t->m[i], (size_t)old);
+    for (int i = 0; i < n; ++i) memcpy(d + (size_t)i * (size_t)abi, &t->m[i], (size_t)abi);
     return n;
 }
 #include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
