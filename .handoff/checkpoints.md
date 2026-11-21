@@ -1290,3 +1290,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 8:23 am EST | regression-pc #127569 | gate on 0abe6a04 FAIL: BR Style row defaults stale (6 rows), steps miss 500/150 | proven offline | next: re-gate the BR-fixed commit from pc | no code commits
 - 2026-11-21 8:25 am EST | pc/0 | done: BR Style rows = new defaults eaacf59d | proven offline cross-check 20/20, not live | next: regression #127576 -> installer ship | file mod/Nioh3BossRematch/src/practice_stats_menu.h
 - 2026-11-21 8:28 am EST | regression-pc #127576 | re-gate eaacf59d PASS, ship source named | proven offline (not live for BR fc4eea88) | next: none for regression | no code commits
+- 2026-11-21 8:26 am EST | pc/0 | done: regression PASS #127579 | proven offline | next: installer-pc #127581 ship v1.8.34 -> TO-USER Done | branch pc0/smdef-127568 eaacf59d
