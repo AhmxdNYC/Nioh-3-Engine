@@ -1712,3 +1712,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-21 4:40 pm EST | regression-pc | v1.8.37 candidate 6833fbb6 (Report attaches Player log) offline PASS (RESULT re #128269): EF 57/75, 0 new failures; report body unchanged with no log; 64 KB tail = whole lines; catalog + audit PASS. Next: installer-pc ships after any live check.
 - 2026-11-21 9:10 PM EST | pc/0 | regression PASS #128290 on 6833fbb6. installer-pc TASKed to ship v1.8.37 AFTER pc/1 live Report PASS (#128265). Do not re-task. Next: Done TO-USER when public.
 - 2026-11-21 4:13 pm EST | pc/1 | EF 6b3a120b Report attach live PASS #128306 (re #128265); do not rerun. Next: regression + ship by lead.
+- 2026-11-21 4:18 pm EST | installer-pc | v1.8.37 RC 2ef18b3d (EF 0c05109e) built + offline PASS (RESULT #128326), staged D:/nioh3-re/rc-1837-128290. Waiting on pc/1 live Report PASS #128265, then publish. Do not rebuild.
