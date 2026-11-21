@@ -1294,3 +1294,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 8:28 am EST | pc/0 session end | task: ship style meter + boss refill as v1.8.34 | done: defaults=human tuning, BR rows fixed, regression PASS #127579 (pc0/smdef-127568 eaacf59d, TR aec0f067, BR fc4eea88) | half: installer-pc ship TASK #127581 running | next: on its RESULT send ONE TO-USER Done (no --reply-to) with release proof; do not resend #127581
 2026-11-21 8:48 am EST | pc/1 v1.8.34 RC live check #127592 | proven live 3/3 PASS (logs D:/nioh3-re/live-127592/084125) | next: installer-pc ships v1.8.34 | no code change
 2026-11-21 9:02 am EST | pc/0 v1.8.34 shipped + Done #127640 | proven (live 3/3 #127592, publish #127639) | next: open.md next item | main 063cb967
+- 2026-11-21 9:20 am EST | pc/0 | Main PC on public v1.8.34 (hash-checked) | proven by sha | next: none open for Dev; wait for human ask | files D:/nioh3-re/pre1834-mainpc-bak
