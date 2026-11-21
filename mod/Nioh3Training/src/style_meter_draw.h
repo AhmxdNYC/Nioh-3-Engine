@@ -262,13 +262,20 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             for (int i = st->npops - 1; i >= 0; --i) {
                 float in = 1.f; const float a = SmPopAlpha(&st->pops[i], st->now, st->lifeMs, &in);
                 if (a <= 0.f) continue;
-                char t[48]; const SmPop* pp = &st->pops[i];  // #127171 value first, then the bonus if it has one
-                if (pp->bonus > 0.5f) snprintf(t, sizeof t, "%s +%.0f +%.0f", pp->label, pp->pts, pp->bonus); else snprintf(t, sizeof t, "%s +%.0f", pp->label, pp->pts);
-                memset(tpx, 0, (size_t)TW * TH * 4);
-                RECT r = {0, 0, TW, TH}; DrawTextA(tdc, t, -1, &r, DT_CENTER | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+                char t[48], tb2[24]; const SmPop* pp = &st->pops[i];  // #127171 value first, then the bonus if it has one
+                snprintf(t, sizeof t, "%s +%.0f", pp->label, pp->pts); tb2[0] = 0;
+                if (pp->bonus > 0.5f) snprintf(tb2, sizeof tb2, " +%.0f", pp->bonus);
+                SIZE s1 = {0, 0}, s2 = {0, 0}; GetTextExtentPoint32A(tdc, t, (int)strlen(t), &s1);
+                if (tb2[0]) GetTextExtentPoint32A(tdc, tb2, (int)strlen(tb2), &s2);
+                const int x0 = (TW - (int)(s1.cx + s2.cx)) / 2;  // whole line stays centred
                 const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;
-                SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, a * 0.75f);   // shadow
-                SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, 0xFFD27A, a);                   // warm gold
+                for (int part = 0; part < 2; ++part) {  // #127179 bonus in its own colour
+                    const char* str = part ? tb2 : t; if (!str[0]) continue;
+                    memset(tpx, 0, (size_t)TW * TH * 4);
+                    RECT r = {x0 + (part ? (int)s1.cx : 0), 0, TW, TH}; DrawTextA(tdc, str, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, a * 0.75f);   // shadow
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0x5CE1FFu : 0xFFD27Au, a);  // value warm gold, bonus bright cyan
+                }
                 ++line;
             }
             SelectObject(tdc, of); SelectObject(tdc, ob);
