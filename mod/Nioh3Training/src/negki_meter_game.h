@@ -84,7 +84,7 @@ static void NkmPaint(HDC dc, int w, int h) {
     }
 }
 static BOOL CALLBACK NkmFind(HWND h, LPARAM lp) { (void)lp;
-    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_nkm_wnd || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_nkm_wnd || h == g_fm_wnd || h == g_fd_wnd || h == g_sm_wnd || GetWindow(h, GW_OWNER)) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
     g_nkm_game = h; return FALSE;
 }

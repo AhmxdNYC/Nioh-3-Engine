@@ -4238,6 +4238,7 @@ void NoFinToggle(int dir) {
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
+static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 // One sentence for the list footer, the Fight now footer, and the post-cover toast. The catalogue lesson column
 // is the script scan (IsDeathGroupEnemy reached, BossBattleMode never called). The list draws before that script runs.
@@ -5534,7 +5535,7 @@ const char* ItemGroup(int item) {
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
+    if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
 #if BR_SOULCORE
         item == kItScForms || IsScCoreItem(item) ? "Soul cores" :
 #endif  // BR_SOULCORE

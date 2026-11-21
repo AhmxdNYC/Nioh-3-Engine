@@ -36,3 +36,22 @@ D:/nioh3-re/text_en.tsv, Training log of TR 243d616c. No game run, no edit to pc
   its action id (or the transition-key condition that gates MA keys: hold-MA key K1 has cond 0x5A3 via vtable +0x138
   = 0xF6878, notes/hold-re-120730.md). Until then the only universal runtime cue is the input: Samurai MA = RB held
   + face button at move start (STYLE MOVE pad column), weaker than a data field.
+
+## Martial art marker found: action-row skill word (#127295, pc/0 Opus 5.5, 2026-11-21 ~6 am EST, static + Training log only)
+- The game's own test: hit flag `Collision::Damage::Hit::IsAttackAttackSkill` (0x23C7B18, `[hit+0x13C] & 0x40`) is filled from
+  state-test 0x2E9948 **cond 0x2F** (notes/yoritomo-hit-source-22305.md). Resolved with tools/n3condcase.py: case at 0x2EA15B reads
+  `dword [R+0xDC]` of the current action's 336-byte file row `R = [[ctrl+0xE8]+0x20]`: true when bit 31 is clear and the low u16 is
+  not 0xBA71 (else 0x2EA17A returns 0). So +0xDC is a per-action skill word (FFFFFFFF = no skill).
+- Extracted Samurai weapon files (archive_01, all files with 25xxx ids): 2453 rows carry the word; 1838 of them are motion 5000-5999,
+  and 1838 of the 1958 motion-5xxx rows carry it (94%). Basic chains never do: 25000-25013, 25036 (X light), 25040 (Y heavy) are
+  FFFFFFFF in every file. GS skill 17027 (word 0x4DA8, file 18/F31C...) and ninjutsu 34052 (0x714C) carry it too, ninjutsu 34000 not.
+- Rule (mod/Nioh3Training/src/style_meter.h SmSkillRow / SmMaStep / SmMaPay, glue SmSkillWord): a move whose row has the word (and
+  `[P] == act`) and that is not a guardian spirit move (Spirit Force drop) or a ninjutsu move (gauge spend) is a Martial Art:
+  MartialArtPts (unset = NinjutsuPts, 20) once per move on its first scored points, pop-up `Martial Art <move pts> +20`. No act ids,
+  no input. STYLE MOVE logs `| skill 0x<word>[ martial art]` or `| skill -`; STYLE EVENT logs `skill row` / `martial art +X`.
+- Log of 04:19-04:33 (TR 243d616c) cannot say which file is the equipped weapon, so per-move proof is still live: words differ per
+  weapon file (25514 = 0xC9CA in 70/C3, 0x9BD7 in F8, none in 55/79/97/B4). The RB-held moves 25005/25067/25129 (no attack) have no
+  word in any file; 25243/25298/25301/25513/25514/25376/25283 carry it in most files.
+- Doubts: (1) "AttackSkill" may also cover learned non-MA skill moves (word 0xCEC4 sits on 25298/25301/25358/25376 across files,
+  motion 2xxx-4xxx); (2) a GS skill with Spirit Force unreadable would score as MA; (3) the word is not tied to the equipped-MA list
+  (HasSkill 0x555EB8) - it is static per action. Live check: one round of MA + normal chains, read the STYLE MOVE skill column.

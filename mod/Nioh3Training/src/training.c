@@ -3314,6 +3314,7 @@ static int g_cfg_fade_areawait = 500;  // pc 05:29: 1500 left the boss live 2.2 
 static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
 static struct { int pend, phase, inside, areaSkip, cross; uint32_t mission; DWORD tPend, tSwap, tStable, tWant, tBase; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
 static HWND g_fd_wnd, g_fd_game;
+static HWND g_sm_wnd; static int g_cfg_sm;  // #126502 style meter overlay window / [StyleMeter] StyleMeter (style_meter_game.h)
 static DWORD g_fd_tPl;
 static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
@@ -3477,7 +3478,7 @@ static void EntryCoverTick(void) {
 }
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
 static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
-    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd || h == g_sm_wnd) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
     g_fd_game = h; return FALSE;
 }
@@ -5752,6 +5753,8 @@ static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t 
     return r;
 }
 static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hit);  // #35391 frame_meter_game.h (IFrameProbe)
+static void SmHpEvent(uint64_t hp, int raw, uint64_t hit);  // #126502 style_meter_game.h: count player hits landed / taken (read only)
+static int BvHpDmgFloor(uint64_t hp, int dmg);  // #127382 boss_vitals_game.h: delayed infinite boss health never lets the boss die
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
     const int rawDmg = dmg;
@@ -5780,6 +5783,7 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
             }
         }
     }
+    __try { dmg = BvHpDmgFloor(hp, dmg); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: before NOFIN, so the floor keeps it out of the HP-0 path
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
         __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
@@ -5799,6 +5803,7 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
         break;
     }
     FmIfHpLog(hp, rawDmg, scaledDmg, dmg, hit);
+    SmHpEvent(hp, rawDmg, hit);
     return ((uint64_t (*)(uint64_t, int, uint8_t, uint8_t))(B + Grva(0x787268)))(hp, dmg, keep, p4);
 }
 static __attribute__((noinline)) void NfHpRow(uint64_t w, uint64_t row, uint64_t snap, float ratio, float x5) {  // 1D220B5: boss HP row widget 235F92C(w, row, HP snapshot copy, ...)
@@ -6412,6 +6417,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
+#include "style_meter_game.h"  // #126502 style meter ([StyleMeter] StyleMeter, default 0): rank D..SSS from the same pump, any fight
 #include "metadata_actors_game.h"
 #include "autobind_game.h"  // pc2 #23565: automatic boss action-file binding ([Debug] AutoBind, default 1, log only)
 #include "auto_moves_game.h"  // pc2 #23907: runtime boss move list from the loaded action file ([Debug] AutoMoves, default 1)
@@ -6631,6 +6637,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_am = GetPrivateProfileIntA("Debug", "AutoMoves", 1, ini);  // pc2 #23907
         g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0, KiWindow 0)");  // user #22356
         FmLoadIni(ini);  // Practice frame meter
+        SmLoadIni(ini);  // #126502 style meter
         NkmLoadIni(ini);  // user #23400 negative Ki meter
         FzLoadIni(ini);  // user #22589 Practice freeze keys
         { HANDLE t = CreateThread(0, 0, FzKeyThread, 0, 0, 0); if (t) CloseHandle(t); }
@@ -6757,6 +6764,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
         if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
         g_cfg_menupause = GetPrivateProfileIntA("Training", "MenuPause", 1, ini);  // user #13274
+        g_cfg_bv_delay = GetPrivateProfileIntA("Training", "BossRefillDelayMs", 2000, ini); if (g_cfg_bv_delay < 0) g_cfg_bv_delay = 0; if (g_cfg_bv_delay > 60000) g_cfg_bv_delay = 60000;
+        Log("BOSSVITALS BossRefillDelayMs %d (#127382: infinite boss health / Ki refill %s)", g_cfg_bv_delay, g_cfg_bv_delay ? "after the hits stop for that long" : "every tick (old rule)");
         { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); }
         if (!g_cfg_menupause) Log("MENU PAUSE off ([Training] MenuPause 0); boss-presence sampling remains available to EngineFix");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};

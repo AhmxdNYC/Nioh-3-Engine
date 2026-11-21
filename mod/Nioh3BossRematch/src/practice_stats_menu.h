@@ -13,7 +13,10 @@ constexpr int kItPstFreeze = kItPstBase + 0x81;  // user #22589: 'Freeze fight' 
 constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' action row
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
-bool IsPstItem(int item) { return (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
+// human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 20;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
+bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
+bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
 constexpr int kPstRowSet[] = {PS_FRAME_METER, PS_PLAYER_METER, PS_FRAME_PROW, PS_FRAME_IFR};
 constexpr int kPstKeySet[] = {PS_FRAME_LEGEND, PS_KEY_STARTUP, PS_KEY_ACTIVE, PS_KEY_RECOVERY, PS_KEY_UNBLOCK, PS_KEY_GRAB, PS_KEY_OTHER, PS_KEY_TIMING, PS_KEY_KI, PS_KEY_IFR};
@@ -36,7 +39,67 @@ int PstSet(int what, int value) {
     const auto f = (Fn)TrainingExport("Nioh3Training_PracticeStatSet");
     return f ? f(what, value, 1) : -1;
 }
+int StyGet(int what) { using F = int (*)(int); const auto f = (F)TrainingExport("Nioh3Training_StyleGet"); return f ? f(what) : -1; }
+int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)TrainingExport("Nioh3Training_StyleSet"); return f ? f(what, v) : -1; }
+// human #127379 one row per Nioh3Training [StyleMeter] key (#127568: defs = TR SM_* defaults) (same order as Nioh3Training's sm_menu_keys). kind: 0 on/off, 1 %, 2 ms, 3 points
+struct StyRow { const char* label; int def, kind; int steps[12]; const char* foot; };
+const StyRow kSty[kStyN] = {
+    {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit drops a rank. Saved."},
+    {"Style rank size:", 100, 1, {25, 50, 75, 100, 125, 150, 200, 250, 300, 400, -1}, "Points each rank needs. 100% = default; higher = harder to rank up, lower = easier. Changes apply at once. Saved."},
+    {"Style drain speed:", 100, 1, {0, 25, 50, 75, 100, 125, 150, 200, 300, 500, -1}, "How fast the meter drains after you stop scoring. 100% = default; 0% = it never drains. Changes apply at once. Saved."},
+    {"Style drain delay:", 500, 2, {500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, -1}, "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved."},
+    {"Perfect Ki bonus:", 15, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, 100, -1}, "Extra style points when your Ki pulse is perfect (the teal check), on top of the Ki pulse points. Saved."},
+    {"Style pop-ups:", 1, 0, {}, "The '<Bonus> +X' lines under the meter. OFF hides them; scoring is unchanged. Saved."},
+    {"Style effects:", 1, 0, {}, "Rank-up effects, shake, glow and smooth bar fill. OFF = a still meter. Saved."},
+    {"Style meter size:", 100, 1, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the whole style meter on screen. Saved."},
+    {"Style pop-up time:", 1200, 2, {600, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, -1}, "How long each pop-up stays before it fades. Saved."},
+    {"Style hit points:", 20, 3, {0, 2, 5, 8, 10, 12, 15, 20, 30, 50, -1}, "Points for each landed hit (before the repeat penalty). Saved."},
+    {"Style dodge points:", 45, 3, {0, 10, 15, 20, 30, 40, 45, 50, 75, 100, -1}, "Points for a clean dodge through an attack (i-frames). Saved."},
+    {"Style Ki pulse points:", 30, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, -1}, "Points for a Ki pulse within a few seconds of a landed hit. Saved."},
+    {"Style counter points:", 30, 3, {0, 10, 15, 20, 30, 40, 50, 75, 100, -1}, "Points for hitting out of a dodge through an attack (invincible counter). Saved."},
+    {"Style ninjutsu points:", 20, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, -1}, "Points for each ninjutsu thrown in a fight. Saved."},
+    {"Style soul core points:", 40, 3, {0, 10, 20, 30, 40, 50, 60, 80, 100, -1}, "Points for using a soul core in a fight. Saved."},
+    {"Style switch points:", 15, 3, {0, 5, 10, 15, 20, 30, 40, 50, -1}, "Points for switching Samurai / Ninja in a fight (once per landed hit). Saved."},
+    {"Style weapon swap points:", 25, 3, {0, 10, 15, 20, 25, 30, 40, 50, 75, -1}, "Points for a weapon swap attack that lands. Saved."},
+    {"Style slow move bonus:", 100, 1, {0, 25, 50, 75, 100, 150, 200, 300, -1}, "Extra points for slow, committed moves (late first hit). 100% = double points for the slowest. Saved."},
+    {"Style repeat penalty:", 80, 1, {10, 25, 40, 50, 60, 70, 80, 90, 100, -1}, "Points kept each time you repeat the same move (100% = no penalty, lower = vary your moves more). Saved."},
+    {"Style drain ramp:", 150, 1, {0, 5, 10, 20, 30, 50, 75, 100, 150, 200, -1}, "Extra drain per idle second after the delay (0% = steady drain). Saved."},
+};
+const char* StyLabel(int what) { return kSty[what].label; }
+int StyDefault(int what) { return kSty[what].def; }
+void StyValueText(int what, int v, char* b, size_t n) {
+    const int k = kSty[what].kind;
+    if (v < 0) snprintf(b, n, "?");
+    else if (k == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
+    else if (k == 2) snprintf(b, n, "%d.%d s", v / 1000, (v % 1000) / 100);
+    else if (k == 3) snprintf(b, n, "+%d", v);
+    else snprintf(b, n, "%d %%", v);
+}
+int StyStep(int what, int v, int dir) {
+    if (kSty[what].kind == 0) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
+    const int* st = kSty[what].steps; int cnt = 0; while (cnt < 12 && st[cnt] >= 0) ++cnt;
+    if (dir > 0) { for (int i = 0; i < cnt; ++i) if (st[i] > v) return st[i]; return st[cnt - 1]; }
+    if (dir < 0) { for (int i = cnt - 1; i >= 0; --i) if (st[i] < v) return st[i]; return st[0]; }
+    return v;
+}
+bool StyChange(int item, int dir) {
+    if (!IsStyItem(item)) return false;
+    const int what = item - kItStyBase, cur = StyGet(what);
+    if (cur < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with the style meter settings."); return true; }
+    const int want = StyStep(what, cur, dir);
+    if (what && want == cur) return true;
+    const int v = StySet(what, want);
+    char t[24]; StyValueText(what, v, t, sizeof t);
+    Log("Rematch: menu %s -> %d (#126804)", StyLabel(what), v);
+    if (what == 0) snprintf(g_msg, sizeof g_msg, v ? "Style meter ON: rank D to SSS for landed hits, Ki pulses after a hit and clean dodges, shown in any fight. Saved." : "Style meter OFF. Saved.");
+    else snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved. Tell us what feels right with Report a problem.", StyLabel(what), t);
+    return true;
+}
 template <class Add> void PstAddPlayerRows(Add&& add) {
+    if (TrainingExport("Nioh3Training_StyleSet")) {  // human #126804; #127379 rows 5+ only when Training knows those keys
+        using K = int (*)(); const auto f = (K)TrainingExport("Nioh3Training_StyleKeys"); const int n = f ? f() : 5;
+        for (int i = 0; i < kStyN && i < n; ++i) add(kItStyBase + i);
+    }
     if (!PstAvailable()) return;
     add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
@@ -91,6 +154,7 @@ void PstValueText(int what, int v, char* buf, size_t n) {
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool PstChange(int item, int dir) {
     if (!IsPstItem(item)) return false;
+    if (StyChange(item, dir)) return true;  // human #126804
     if (item == kItPstAllRows || item == kItPstAllKeys) {  // human #38180: set every setting of the group
         const bool rows = item == kItPstAllRows;
         const int* set = rows ? kPstRowSet : kPstKeySet; const int n = rows ? (int)(sizeof kPstRowSet / sizeof *kPstRowSet) : (int)(sizeof kPstKeySet / sizeof *kPstKeySet);
@@ -146,6 +210,12 @@ bool PstChange(int item, int dir) {
 }
 bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsPstItem(item)) return false;
+    if (IsStyItem(item)) {  // human #126804
+        const int what = item - kItStyBase, v = StyGet(what); char t[24]; StyValueText(what, v, t, sizeof t);
+        snprintf(buf, n, "%s %-26s %s   %s", mk, StyLabel(what), t, kSty[what].kind ? "Left / Right" : "A / Left / Right");
+        *color = sel ? cWhite : v < 0 ? cDim : what == 0 ? (v ? cGreen : cGray) : v != StyDefault(what) ? cYellow : cGray;
+        return true;
+    }
     if (item == kItPstAllRows || item == kItPstAllKeys) {
         const bool rows = item == kItPstAllRows;
         const int st = rows ? PstMasterState(kPstRowSet, (int)(sizeof kPstRowSet / sizeof *kPstRowSet)) : PstMasterState(kPstKeySet, (int)(sizeof kPstKeySet / sizeof *kPstKeySet));
@@ -171,6 +241,10 @@ bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
 }
 const char* PstFooter(int item) {
     if (!IsPstItem(item)) return nullptr;
+    if (IsStyItem(item)) {  // human #126804
+        const int what = item - kItStyBase;
+        return kSty[what].foot;
+    }
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         static char f[400]; char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
         if (item == kItPstFreeze) snprintf(f, sizeof f, "Training / spawned Boss Matches: pause the fight. %s toggles pause; %s advances one game frame (hold to repeat). Released on loading or session end. Not saved.", kf, ks);
