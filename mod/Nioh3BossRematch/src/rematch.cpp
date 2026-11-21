@@ -5528,7 +5528,7 @@ const char* ItemGroup(int item) {
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
+    if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
 #if BR_SOULCORE
         item == kItScForms || IsScCoreItem(item) ? "Soul cores" :
 #endif  // BR_SOULCORE

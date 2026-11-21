@@ -22,32 +22,89 @@ static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
 static HWND g_sm_game;
-static void SmLoadIni(const char* ini) {
+static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
-    SmCfgDefaults(&g_smc);
-    g_smc.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
-    g_smc.dodge = (float)(int)GetPrivateProfileIntA("StyleMeter", "DodgePts", SM_DODGE_PTS, ini);
-    g_smc.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
-    g_smc.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
-    g_smc.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
-    g_smc.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
-    g_smc.kiHitMs = (int)GetPrivateProfileIntA("StyleMeter", "KiHitMs", SM_KI_HIT_MS, ini);
-    g_smc.decayDelayMs = (int)GetPrivateProfileIntA("StyleMeter", "DecayDelayMs", SM_DECAY_DELAY_MS, ini);
-    g_smc.decayPerS = (float)(int)GetPrivateProfileIntA("StyleMeter", "DecayPerSec", SM_DECAY_PER_S, ini);
-    g_smc.decayRankPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRankPct", SM_DECAY_RANK_PCT, ini);
-    g_smc.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
-    g_smc.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
+    SmCfg c; SmCfgDefaults(&c);
+    c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
+    c.dodge = (float)(int)GetPrivateProfileIntA("StyleMeter", "DodgePts", SM_DODGE_PTS, ini);
+    c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
+    c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
+    c.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
+    c.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
+    c.kiHitMs = (int)GetPrivateProfileIntA("StyleMeter", "KiHitMs", SM_KI_HIT_MS, ini);
+    c.decayDelayMs = (int)GetPrivateProfileIntA("StyleMeter", "DecayDelayMs", SM_DECAY_DELAY_MS, ini);
+    c.decayPerS = (float)(int)GetPrivateProfileIntA("StyleMeter", "DecayPerSec", SM_DECAY_PER_S, ini);
+    {   // human #126804 menu 'Drain speed': % of DecayPerSec (100 = as set)
+        const int dp = (int)GetPrivateProfileIntA("StyleMeter", "DrainPct", 100, ini);
+        if (dp >= 0 && dp != 100) c.decayPerS = c.decayPerS * (float)dp / 100.f;
+    }
+    c.decayRankPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRankPct", SM_DECAY_RANK_PCT, ini);
+    c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
+    c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
     {   // RankPtsPct: scales every rank's size (100 = defaults; 50 = the pre-#126755 easy meter)
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
-        if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) g_smc.rankPts[i] = g_smc.rankPts[i] * (float)rp / 100.f;
+        if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
     }
-    SmCfgClamp(&g_smc); SmReset(&g_sm);
+    SmCfgClamp(&c);
+    AcquireSRWLockExclusive(&g_sm_lock);
+    g_smc = c;
+    if (reset) SmReset(&g_sm);
+    else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
+    ReleaseSRWLockExclusive(&g_sm_lock);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f..%.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[SM_RANKS - 1]);
+}
+// human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
+// [StyleMeter] or a menu change applies without a restart.
+static char g_sm_ini[MAX_PATH]; static FILETIME g_sm_ini_t;
+static int SmIniTime(FILETIME* t) {
+    WIN32_FILE_ATTRIBUTE_DATA d;
+    if (!g_sm_ini[0] || !GetFileAttributesExA(g_sm_ini, GetFileExInfoStandard, &d)) return 0;
+    *t = d.ftLastWriteTime; return 1;
+}
+static void SmLoadIni(const char* ini) {
+    snprintf(g_sm_ini, sizeof g_sm_ini, "%s", ini);
+    SmIniTime(&g_sm_ini_t);
+    SmReadIni(ini, 1);
+}
+static void SmIniPoll(void) {
+    static DWORD last; const DWORD now = GetTickCount();
+    if (now - last < 500) return;
+    last = now;
+    FILETIME t;
+    if (!SmIniTime(&t) || CompareFileTime(&t, &g_sm_ini_t) == 0) return;
+    g_sm_ini_t = t;
+    Log("STYLE METER: Nioh3Training.ini changed, re-reading [StyleMeter] (#126804)");
+    SmReadIni(g_sm_ini, 0);
+}
+// Menu (Boss Rematch Player page, #126804): 0 StyleMeter on/off, 1 RankPtsPct, 2 DrainPct, 3 DecayDelayMs. Get: -1 = unknown what.
+// Set: writes [StyleMeter] and applies at once (value < 0 on 'what 0' = toggle). Returns the stored value.
+static const char* SmKey(int what) { return what == 0 ? "StyleMeter" : what == 1 ? "RankPtsPct" : what == 2 ? "DrainPct" : what == 3 ? "DecayDelayMs" : 0; }
+static int SmKeyDefault(int what) { return what == 0 ? 0 : what == 3 ? SM_DECAY_DELAY_MS : 100; }
+static int SmKeyClamp(int what, int v) {
+    const int lo = what == 0 ? 0 : what == 1 ? 25 : what == 2 ? 0 : 0, hi = what == 0 ? 1 : what == 1 ? 400 : what == 2 ? 500 : 15000;
+    return v < lo ? lo : v > hi ? hi : v;
+}
+N3T_API int Nioh3Training_StyleGet(int what) {
+    const char* k = SmKey(what);
+    if (!k || !g_sm_ini[0]) return -1;
+    return SmKeyClamp(what, (int)GetPrivateProfileIntA("StyleMeter", k, SmKeyDefault(what), g_sm_ini));
+}
+N3T_API int Nioh3Training_StyleSet(int what, int value) {
+    const char* k = SmKey(what);
+    if (!k || !g_sm_ini[0]) return -1;
+    if (what == 0 && value < 0) value = !g_cfg_sm;
+    value = SmKeyClamp(what, value);
+    char b[16]; snprintf(b, sizeof b, "%d", value);
+    WritePrivateProfileStringA("StyleMeter", k, b, g_sm_ini);
+    SmIniTime(&g_sm_ini_t);
+    SmReadIni(g_sm_ini, 0);
+    Log("STYLE METER: menu %s = %d (#126804)", k, value);
+    return value;
 }
 // NfHpDamage (hit apply, game thread): raw = the hit's HP damage before any mod scaling / Infinite-health cut.
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {

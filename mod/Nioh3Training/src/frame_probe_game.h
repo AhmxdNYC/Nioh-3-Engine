@@ -47,7 +47,7 @@ static __attribute__((noinline)) double FpGameStep(double wallDt) {
 static int FpLock(void) { for (int i = 0; i < 200000; ++i) { if (InterlockedCompareExchange(&g_fp_lock, 1, 0) == 0) return 1; YieldProcessor(); } return 0; }
 static void FpUnlock(void) { InterlockedExchange(&g_fp_lock, 0); }
 static void FmFeed(double gdt);  // frame_meter_game.h (Practice frame meter), called at the end of FpTick under the lock
-static void SmCapture(void); static void SmFeed(double gdt);  // style_meter_game.h (#126502 style meter), around FmFeed under the lock
+static void SmCapture(void); static void SmFeed(double gdt); static void SmIniPoll(void);  // style_meter_game.h (#126502 style meter), around FmFeed under the lock
 static void FpLog(const char* fmt, ...) {
     if (!g_cfg_fp || g_fp_lines > 30000) return;  // log only with [Debug] FrameProbe 1 (the frame meter alone installs the hook silently)
     if (!FpRateOk(&g_fp_rate, FpNow(), 40.0)) { g_fp_drop++; return; }
@@ -155,6 +155,7 @@ static void FpPlayerTick(double now, double gdt) {
 }
 // Pump (game thread, every frame): action changes of every Training boss, and the end of open hit windows.
 static void FpTick(void) {
+    SmIniPoll();  // #126804 style meter settings live
     if (!g_fp_hooked && ((g_pst.v[PS_FRAME_METER] && g_pst_live) || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW] || g_cfg_sm)) FpInstall();  // #36186 the player row also runs with no boss; #126502 style meter in any fight
     if (g_fp_hooked != 1) return;
     g_fp_frame++;

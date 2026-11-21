@@ -13,7 +13,10 @@ constexpr int kItPstFreeze = kItPstBase + 0x81;  // user #22589: 'Freeze fight' 
 constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' action row
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
-bool IsPstItem(int item) { return (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
+// human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 4;
+bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
+bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
 constexpr int kPstRowSet[] = {PS_FRAME_METER, PS_PLAYER_METER, PS_FRAME_PROW, PS_FRAME_IFR};
 constexpr int kPstKeySet[] = {PS_FRAME_LEGEND, PS_KEY_STARTUP, PS_KEY_ACTIVE, PS_KEY_RECOVERY, PS_KEY_UNBLOCK, PS_KEY_GRAB, PS_KEY_OTHER, PS_KEY_TIMING, PS_KEY_KI, PS_KEY_IFR};
@@ -36,7 +39,43 @@ int PstSet(int what, int value) {
     const auto f = (Fn)TrainingExport("Nioh3Training_PracticeStatSet");
     return f ? f(what, value, 1) : -1;
 }
+int StyGet(int what) { using F = int (*)(int); const auto f = (F)TrainingExport("Nioh3Training_StyleGet"); return f ? f(what) : -1; }
+int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)TrainingExport("Nioh3Training_StyleSet"); return f ? f(what, v) : -1; }
+const char* StyLabel(int what) { return what == 0 ? "Style meter:" : what == 1 ? "Style rank size:" : what == 2 ? "Style drain speed:" : "Style drain delay:"; }
+int StyDefault(int what) { return what == 0 ? 0 : what == 3 ? 4000 : 100; }
+void StyValueText(int what, int v, char* b, size_t n) {
+    if (v < 0) snprintf(b, n, "?");
+    else if (what == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
+    else if (what == 3) snprintf(b, n, "%d.%d s", v / 1000, (v % 1000) / 100);
+    else snprintf(b, n, "%d %%", v);
+}
+int StyStep(int what, int v, int dir) {
+    if (what == 0) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
+    static const int size[] = {25, 50, 75, 100, 125, 150, 200, 250, 300, 400};
+    static const int drain[] = {0, 25, 50, 75, 100, 125, 150, 200, 300, 500};
+    static const int delay[] = {1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000};
+    const int* st = what == 1 ? size : what == 2 ? drain : delay; const int cnt = 10;
+    if (dir > 0) { for (int i = 0; i < cnt; ++i) if (st[i] > v) return st[i]; return st[cnt - 1]; }
+    if (dir < 0) { for (int i = cnt - 1; i >= 0; --i) if (st[i] < v) return st[i]; return st[0]; }
+    return v;
+}
+bool StyChange(int item, int dir) {
+    if (!IsStyItem(item)) return false;
+    const int what = item - kItStyBase, cur = StyGet(what);
+    if (cur < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with the style meter settings."); return true; }
+    const int want = StyStep(what, cur, dir);
+    if (what && want == cur) return true;
+    const int v = StySet(what, want);
+    char t[24]; StyValueText(what, v, t, sizeof t);
+    Log("Rematch: menu %s -> %d (#126804)", StyLabel(what), v);
+    if (what == 0) snprintf(g_msg, sizeof g_msg, v ? "Style meter ON: rank D to SSS for landed hits, Ki pulses after a hit and clean dodges, shown in any fight. Saved." : "Style meter OFF. Saved.");
+    else if (what == 1) snprintf(g_msg, sizeof g_msg, "Style rank size %s: points each rank needs (100 %% = default; higher = harder to rank up). Applies now. Saved.", t);
+    else if (what == 2) snprintf(g_msg, sizeof g_msg, "Style drain speed %s: how fast the meter drains when you stop scoring (0 %% = never drains). Applies now. Saved.", t);
+    else snprintf(g_msg, sizeof g_msg, "Style drain delay %s: wait after your last scoring hit before draining starts. Applies now. Saved.", t);
+    return true;
+}
 template <class Add> void PstAddPlayerRows(Add&& add) {
+    if (TrainingExport("Nioh3Training_StyleSet")) for (int i = 0; i < kStyN; ++i) add(kItStyBase + i);  // human #126804
     if (!PstAvailable()) return;
     add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
@@ -91,6 +130,7 @@ void PstValueText(int what, int v, char* buf, size_t n) {
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool PstChange(int item, int dir) {
     if (!IsPstItem(item)) return false;
+    if (StyChange(item, dir)) return true;  // human #126804
     if (item == kItPstAllRows || item == kItPstAllKeys) {  // human #38180: set every setting of the group
         const bool rows = item == kItPstAllRows;
         const int* set = rows ? kPstRowSet : kPstKeySet; const int n = rows ? (int)(sizeof kPstRowSet / sizeof *kPstRowSet) : (int)(sizeof kPstKeySet / sizeof *kPstKeySet);
@@ -146,6 +186,12 @@ bool PstChange(int item, int dir) {
 }
 bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsPstItem(item)) return false;
+    if (IsStyItem(item)) {  // human #126804
+        const int what = item - kItStyBase, v = StyGet(what); char t[24]; StyValueText(what, v, t, sizeof t);
+        snprintf(buf, n, "%s %-22s %s   %s", mk, StyLabel(what), t, what ? "Left / Right" : "A / Left / Right");
+        *color = sel ? cWhite : v < 0 ? cDim : what == 0 ? (v ? cGreen : cGray) : v != StyDefault(what) ? cYellow : cGray;
+        return true;
+    }
     if (item == kItPstAllRows || item == kItPstAllKeys) {
         const bool rows = item == kItPstAllRows;
         const int st = rows ? PstMasterState(kPstRowSet, (int)(sizeof kPstRowSet / sizeof *kPstRowSet)) : PstMasterState(kPstKeySet, (int)(sizeof kPstKeySet / sizeof *kPstKeySet));
@@ -171,6 +217,13 @@ bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
 }
 const char* PstFooter(int item) {
     if (!IsPstItem(item)) return nullptr;
+    if (IsStyItem(item)) {  // human #126804
+        const int what = item - kItStyBase;
+        return what == 0 ? "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit drops a rank. Saved."
+             : what == 1 ? "Points each rank needs. 100% = default; higher = harder to rank up, lower = easier. Changes apply at once. Saved."
+             : what == 2 ? "How fast the meter drains after you stop scoring. 100% = default; 0% = it never drains. Changes apply at once. Saved."
+             : "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved.";
+    }
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         static char f[400]; char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
         if (item == kItPstFreeze) snprintf(f, sizeof f, "Training / spawned Boss Matches: pause the fight. %s toggles pause; %s advances one game frame (hold to repeat). Released on loading or session end. Not saved.", kf, ks);
