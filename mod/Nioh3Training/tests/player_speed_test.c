@@ -45,6 +45,11 @@ int main(void) {
     for (int i = 0; i < 10 && !ev; ++i) { t += 1.0f; ev = PlSpdFrame(&s, 0xF, t, 1.0f, 1, F, &e); }
     assert(ev == 1 && e.stepRate < 0.7);
     assert(near(PlSpdRateOf(&s, 0xF), 1.0, 0.5) && PlSpdRateOf(&s, 0x99) < 0);
+    // frozen pose (load fade-in: anim stuck for 2 s) -> no SPD event
+    t = 0; PlSpdFrame(&s, 0x7D0, t, 1.0f, 1, F, &e); ev = 0;
+    for (int i = 0; i < 120; ++i) { if (i % 40 == 0) t += 0.1f; ev += PlSpdFrame(&s, 0x7D0, t, 1.6f, 1, F, &e); }
+    for (int i = 0; i < 10; ++i) { t += 1.0f; ev += PlSpdFrame(&s, 0x7D0, t, 1.0f, 1, F, &e); }
+    assert(ev == 0);
     printf("player_speed_test PASS\n");
     return 0;
 }

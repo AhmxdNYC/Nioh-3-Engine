@@ -12,6 +12,7 @@
 #define PLSPD_WIN 6          // frames in the rolling rate window
 #define PLSPD_SLOW 0.80      // rate below this starts a slow stretch
 #define PLSPD_BACK 0.90      // rate above this ends it
+#define PLSPD_FROZEN 0.15   // stretches slower than this are a frozen pose (load fade, pause), not slow motion
 #define PLSPD_MIN_MS 300.0   // shorter stretches (hit-stop ~70-150 ms + the 6-frame window) are not reported
 typedef struct {
     uint32_t act; int have; float lastAnim;
@@ -24,7 +25,8 @@ typedef struct { uint32_t act; double ms, rate, minRate, stepRate; float t0, t1;
 
 static void PlSpdReset(PlSpd* s) { const uint32_t pa = s->prevAct; const double pr = s->prevRate; PlSpd z = {0}; *s = z; s->prevAct = pa; s->prevRate = pr; }
 static int PlSpdEnd(PlSpd* s, PlSpdEvt* e) {
-    const int ok = s->slow && s->sWall >= PLSPD_MIN_MS;
+    int ok = s->slow && s->sWall >= PLSPD_MIN_MS;
+    if (ok && s->sAnim * (1000.0 / 60.0) / s->sWall < PLSPD_FROZEN) ok = 0;  // live 11-21: load fade-in idle pose = 0.02x
     if (ok) { e->act = s->act; e->ms = s->sWall; e->rate = s->sAnim * (1000.0 / 60.0) / s->sWall; e->minRate = s->sMin;
               e->stepRate = s->sStep * (1000.0 / 60.0) / s->sWall; e->t0 = s->sT0; e->t1 = s->sT1; }
     s->slow = 0;
