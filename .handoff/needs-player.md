@@ -44,3 +44,4 @@
 - [x] Despawn fix install | reply 'install': pc/0 swaps TR 501507a0 (D:/nioh3-re/live-fixes-121923, + BR 0235202f EF f31df983 unchanged) and relaunches | main PC
 - [ ] Soul Core crouch cancel | press stick (crouch) within 0.25 s of the seal press; check transformation cancels and core count stays | Main PC
 - [x] 4-core load spin (player GH 141/142) | no reply to #122380 by 4:55 am EST (asked 2:16 am). Default: do not test. Performance stays paused. Do not rebuild 0x117D6C. | pc
+- [ ] Hit counts '0 hits' label | reply yes/no: show ~760 never-hitting boss moves (feints) as '0 hits' in the menu (DECISION #126239); default yes after 11:25 pm EST | any
