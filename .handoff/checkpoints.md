@@ -1318,3 +1318,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 4:45 pm EST | installer-pc #128370 Main PC on v1.8.37 via real updater | proven (sha after) | next: fix stable.json news at next release | RESULT #128374
 2026-11-21 5:00 pm EST | installer-pc #128376 stable.json news fix live | proven (site hash + updater output) | next: make build step write news from changelog | uo f69fc79f
 2026-11-21 5:15 pm EST | installer-pc #128383 stable.json news gate | proven offline (9/9 tests + real-data case) | next: next RC build.sh adds --notes | 412aa511
+- 2026-11-21 5:23 pm EST | pc/1 | GH #157 A/B (#128406): move not in save (Main PC has katana/axe + tonfa/talons; 0x61D7-D9 = motion 5AB52298). Talons heavy 0x61D8 ratio 1.00. RESULT #128440. New tools/testmatrix/clkpoll.py = external act/step poller for stock arms. Lock free, restored.
