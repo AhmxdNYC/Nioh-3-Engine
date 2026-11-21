@@ -5,6 +5,13 @@
 #undef NDEBUG
 #include <assert.h>
 #include "../src/style_meter.h"
+// The mechanics cases below were written against the first tuning; pin it so they keep testing the rules, not the numbers.
+static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
+static void PinnedDefaults(SmCfg* c) {
+    static const float old[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
+    SmCfgDefaults(c); c->decayPerS = 12.f; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
+}
+#define SmCfgDefaults PinnedDefaults
 static int g_checks;
 #define CHECK(x) do { assert(x); ++g_checks; } while (0)
 static int near(float a, float b) { return a - b < 0.01f && b - a < 0.01f; }
@@ -148,8 +155,16 @@ static void Clamp(void) {
     SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 1, 1);
     CHECK(!s.active && s.hits == 1);
 }
+// human #126755: shipped tuning is twice as hard as the first one.
+static void Tuning(void) {
+    SmCfg c; RealDefaults(&c);
+    CHECK(near(c.rankPts[0], 80.f) && near(c.rankPts[SM_RANKS - 1], 400.f) && near(c.decayPerS, 18.f));
+    SmState s; SmReset(&s);
+    for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
+    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.5f));  // 4 different moves = half of D now
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

@@ -23,7 +23,7 @@
 #define SM_REPEAT_FLOOR_PCT 10
 #define SM_MULTI_PCT 50
 #define SM_DECAY_DELAY_MS 2500
-#define SM_DECAY_PER_S 12
+#define SM_DECAY_PER_S 18   // human #126755 'way too easy': was 12
 #define SM_DECAY_RANK_PCT 35
 #define SM_COMBAT_MS 8000
 #define SM_KI_HIT_MS 3000        // human #126744: whiffs must not raise the meter (Ki pulse only counts in a combo that landed)
@@ -33,7 +33,8 @@
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
 static const char* const sm_rank_word[SM_RANKS] = {"Dull", "Cunning", "Bold", "Ardent", "Asura", "Sword Saint", "Heavenly"};
-static const float sm_rank_pts_default[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
+// human #126755 'way too easy' (live 1:52 am: SS in ~40 hits): doubled from {40, 60, 80, 100, 130, 160, 200}
+static const float sm_rank_pts_default[SM_RANKS] = {80.f, 120.f, 160.f, 200.f, 260.f, 320.f, 400.f};
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
