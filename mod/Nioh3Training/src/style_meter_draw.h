@@ -359,6 +359,27 @@ static void SmSplitRect(uint32_t* px, int w, int h, int x0, int y0, int rw, int 
     }
     free(tmp);
 }
+// #127348 vertical split along a near-vertical cut through (cx, cy) (x = cx + (y - cy) * k): the left half slides left, the right half
+// right, both fall (dy) and fade. Used by the A overhead cut.
+static void SmSplitV(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, float cx, float cy, float k, float dx, float dy, float fade) {
+    if (rw <= 0 || rh <= 0) return;
+    if (fade > 1.f) fade = 1.f;
+    if (fade <= 0.f) fade = 0.f;
+    uint32_t* tmp = (uint32_t*)malloc((size_t)rw * rh * 4); if (!tmp) return;
+    for (int yy = 0; yy < rh; ++yy) for (int xx = 0; xx < rw; ++xx) {
+        const int X = x0 + xx, Y = y0 + yy; uint32_t v = 0;
+        if (X >= 0 && Y >= 0 && X < w && Y < h) { v = px[Y * w + X]; px[Y * w + X] = 0; }
+        tmp[yy * rw + xx] = v;
+    }
+    if (fade > 0.f) for (int yy = 0; yy < rh; ++yy) for (int xx = 0; xx < rw; ++xx) {
+        const uint32_t v = tmp[yy * rw + xx]; const unsigned a = v >> 24; if (!a) continue;
+        const float side = (x0 + xx) > cx + (y0 + yy - cy) * k ? 1.f : -1.f;
+        const int X = (int)(x0 + xx + side * dx), Y = (int)(y0 + yy + dy * (side > 0 ? 1.f : 0.8f));
+        if (X < 0 || Y < 0 || X >= w || Y >= h) continue;
+        SmPxOver(&px[Y * w + X], (unsigned)(((v >> 16) & 0xFF) * 255 / a), (unsigned)(((v >> 8) & 0xFF) * 255 / a), (unsigned)((v & 0xFF) * 255 / a), (unsigned)(a * fade));
+    }
+    free(tmp);
+}
 // shatter: the letter breaks into small tiles flung out from its centre, falling and fading (t = ms)
 static void SmShatterRect(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, float t, float unit) {
     if (rw <= 0 || rh <= 0) return;
@@ -455,7 +476,7 @@ static void SmLetterAt(const SmLetterCtx* x, int r, float dx, float dy, float s,
 static inline float SmClamp01(float v) { return v < 0.f ? 0.f : v > 1.f ? 1.f : v; }
 // dt = ms since the shown rank stepped up from prev to r. Returns 0 when no transition is running (caller draws the letter at rest).
 // #127338 impact time per rank (ms into its motion): a short crisp pause there, then a glint runs across the new letter
-static const float sm_up_hit_t[SM_RANKS] = {150, 150, 320, 280, 160, 210, 350};
+static const float sm_up_hit_t[SM_RANKS] = {150, 150, 320, 300, 160, 210, 350};
 static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
     if (dt0 < 0.f || dt0 >= SM_UP_MS || prev < 0 || prev >= SM_RANKS || prev == r || r < 1 || r >= SM_RANKS) return 0;
     uint32_t* px = x->px; const int w = x->w, h = x->h; const float u = x->unit; int rc[4] = {0, 0, 0, 0}, ro[4];
@@ -484,14 +505,20 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         SmArcCut(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / swing, dt < swing ? 1.f : dt < still ? 0.55f : 0.55f * (1.f - (dt - still) / 120.f), u);
         if (dt >= swing && dt < swing + 140.f) SmSparks(px, w, h, pcx + ro[2] * 0.6f, pcy - ro[3] * 0.22f, dt - swing, 8, 0xB2u, u, 0);
         break; }
-    case 3: {  // A: ink brush - the new letter is painted in left to right with wet red ink and splatter; the old one sinks away
-        const float paint = 280.f;
-        SmLetterAt(x, r, 0, 0, 1, 1, rc); GdiFlush();
-        const float front = rc[0] + (rc[2] * 1.15f + 14.f * u) * SmClamp01(dt / paint);
-        if (dt < paint) SmBrushRect(px, w, h, rc[0], rc[1], rc[2], rc[3], front, u);
-        else SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0x961218u, 0.55f * (1.f - (dt - paint) / 200.f));
-        SmSplatter(px, w, h, rc[0], rc[1], rc[2], rc[3], front, dt, u);
-        SmLetterAt(x, prev, 0, dt * 0.12f * u, 1, 1.f - dt / 150.f, 0);
+    case 3: {  // #127348 A: overhead katana cut - one fast curved blade falls top -> bottom through the B, a beat of stillness with
+               //      the hairline glowing, then the halves fall apart left and right; the A drops in from just above and lands
+        const float swing = 70.f, still = 220.f, ang = 1.32f;  // tangent pointing down, a little right
+        float pcx, pcy; SmLetterCentre(x, prev, &pcx, &pcy);
+        SmLetterAt(x, prev, 0, 0, 1, 1, ro); GdiFlush();
+        if (dt >= still) { const float e = dt - still;
+            SmSplitV(px, w, h, ro[0], ro[1], ro[2], ro[3], pcx, pcy, -0.26f, e * 0.5f * u + e * e * 0.003f * u, e * e * 0.0025f * u, 1.f - e / 110.f); }
+        const float la = SmClamp01((dt - still - 20.f) / 60.f), drop = 1.f - SmClamp01((dt - still - 20.f) / 60.f);
+        if (la > 0.f) { SmLetterAt(x, r, 0, -drop * drop * 0.22f * S, 1, la, rc); GdiFlush(); }
+        // the cut is drawn over the B's box, rotated so the blade arc is tall (lh <-> lw swapped)
+        SmArcCutA(px, w, h, pcx - ro[2] * 0.06f, pcy - ro[3] * 0.22f, (float)ro[3] * 0.46f, (float)ro[2] * 1.15f, dt / swing,
+                  dt < swing ? 1.f : dt < still ? 0.6f : 0.6f * (1.f - (dt - still) / 110.f), u, ang);
+        if (dt >= swing && dt < swing + 150.f) SmSparks(px, w, h, pcx + ro[2] * 0.1f, pcy + ro[3] * 0.36f, dt - swing, 7, 0xA3u, u, 0);
+        if (la > 0.f && dt - still - 80.f >= 0.f) SmSparks(px, w, h, cx, cy + S * 0.4f, dt - still - 80.f, 10, 0xA4u, u, 0);
         break; }
     case 4: {  // S: ki burst - the old letter is drawn into a shrinking ring of ki, then the S bursts out blue-white with a shockwave
         const float gather = 160.f, e = dt - gather;
