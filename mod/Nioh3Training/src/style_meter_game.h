@@ -12,6 +12,7 @@
 // Drawing: own click-through topmost layered window (same approach as the frame meter: GDI into a 32-bit DIB, UpdateLayeredWindow), right side.
 // Sprites: style/rank_atlas.png (approved set #126376) embedded with .incbin, decoded once with WIC (ole32 loaded at run time; no new link deps).
 #include "style_meter.h"
+#include "style_meter_fx.h"  // #127085 pop-ups + motion
 #include "style_atlas_gen.h"
 #define COBJMACROS
 #include <wincodec.h>
@@ -23,13 +24,26 @@ static int g_cfg_sm_actlog, g_cfg_sm_movelog;
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
+// #127085 pop-ups + motion, game thread -> draw thread. [StyleMeter] PopUps 1 / Motion 1 (default on), PopUpMs, ShakePts.
+static int g_cfg_sm_pops = 1, g_cfg_sm_motion = 1, g_cfg_sm_popms = SM_POP_LIFE_MS, g_cfg_sm_shakepts = SM_SHAKE_PTS;
+static SRWLOCK g_smfx_lock = SRWLOCK_INIT; static SmPopQ g_smfx_q; static double g_smfx_shakeT = -1e18;
+static double SmWallMs(void) { static LARGE_INTEGER f; LARGE_INTEGER c; if (!f.QuadPart) QueryPerformanceFrequency(&f); QueryPerformanceCounter(&c); return (double)c.QuadPart * 1000.0 / (double)f.QuadPart; }
+// one '<label> +pts' pop-up (any thread). Later bonuses (Perfect Ki, Martial Art, Stance Swap, Guardian Spirit) call this with their own label.
+static void SmFxPop(const char* label, float pts) {
+    if (!g_cfg_sm_pops || pts <= 0.f) return;
+    AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush(&g_smfx_q, label, pts, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
+}
 static HWND g_sm_game;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
-    g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);  // #127003: on with the style meter (SmFeed only runs when StyleMeter=1)
+    g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);
+    g_cfg_sm_pops = (int)GetPrivateProfileIntA("StyleMeter", "PopUps", 1, ini) ? 1 : 0;  // #127085
+    g_cfg_sm_motion = (int)GetPrivateProfileIntA("StyleMeter", "Motion", 1, ini) ? 1 : 0;
+    g_cfg_sm_popms = (int)GetPrivateProfileIntA("StyleMeter", "PopUpMs", SM_POP_LIFE_MS, ini); if (g_cfg_sm_popms < 300 || g_cfg_sm_popms > 5000) g_cfg_sm_popms = SM_POP_LIFE_MS;
+    g_cfg_sm_shakepts = (int)GetPrivateProfileIntA("StyleMeter", "ShakePts", SM_SHAKE_PTS, ini); if (g_cfg_sm_shakepts < 1) g_cfg_sm_shakepts = SM_SHAKE_PTS;  // #127003: on with the style meter (SmFeed only runs when StyleMeter=1)
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
     SmCfg c; SmCfgDefaults(&c);
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
@@ -366,6 +380,17 @@ static void SmFeed(double gdt) {
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
     ReleaseSRWLockExclusive(&g_sm_lock);
+    {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
+        float big = 0.f;
+        if (ctrHit && g_smc.counter > 0.f) { SmFxPop("Counter", g_smc.counter); big += g_smc.counter; }
+        if (pk > 0.f) { SmFxPop("Ki Pulse", pk); big += pk; }
+        if (pd > 0.f) { SmFxPop("Clean Dodge", pd); big += pd; }
+        if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
+        if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
+        if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
+        if (psw > 0.f) { SmFxPop("Weapon Swap", psw); big += psw; }
+        if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
+    }
     if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv) {
         static int evl;
         if (evl++ < 4000) {
@@ -393,78 +418,14 @@ static void SmFeed(double gdt) {
     for (int s = 0; s <= N3T_SLOTS; ++s) g_fp[s].pulse = g_fp[s].pulseUb = g_fp[s].pulseGrab = 0;
 }
 // ---- drawing (own thread) ----
-static const GUID SM_CLSID_WICImagingFactory = {0xcacaf262, 0x9370, 0x4615, {0xa1, 0x3b, 0x9f, 0x55, 0x39, 0xda, 0x4c, 0x0a}};
-static const GUID SM_IID_IWICImagingFactory = {0xec5ec8a9, 0xc395, 0x4314, {0x9c, 0x77, 0x54, 0xd7, 0xa9, 0x35, 0xff, 0x70}};
-static const GUID SM_GUID_PBGRA = {0x6fddc324, 0x4e03, 0x4bfe, {0xb1, 0x85, 0x3d, 0x77, 0x76, 0x8d, 0xc9, 0x10}};
-static HDC g_sm_atlas_dc; static HBITMAP g_sm_atlas_bmp;
-// Decode the embedded atlas into a premultiplied BGRA top-down DIB (the AlphaBlend source). Returns 1 on success.
-static int SmAtlasLoad(void) {
-    typedef HRESULT (WINAPI *CoInitFn)(LPVOID, DWORD);
-    typedef HRESULT (WINAPI *CoCreateFn)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
-    HMODULE ole = LoadLibraryW(L"ole32.dll");
-    CoInitFn coInit = ole ? (CoInitFn)(void*)GetProcAddress(ole, "CoInitializeEx") : 0;
-    CoCreateFn coCreate = ole ? (CoCreateFn)(void*)GetProcAddress(ole, "CoCreateInstance") : 0;
-    if (!coInit || !coCreate) { Log("STYLE METER: ole32 not available, no sprites"); return 0; }
-    coInit(0, COINIT_MULTITHREADED);
-    IWICImagingFactory* f = 0; IWICStream* st = 0; IWICBitmapDecoder* dec = 0; IWICBitmapFrameDecode* fr = 0; IWICFormatConverter* cv = 0;
-    UINT w = 0, h = 0; int ok = 0; HRESULT hr;
-    const DWORD size = (DWORD)(g_sm_png_end - g_sm_png);
-    hr = coCreate(&SM_CLSID_WICImagingFactory, 0, CLSCTX_INPROC_SERVER, &SM_IID_IWICImagingFactory, (LPVOID*)&f);
-    if (SUCCEEDED(hr)) hr = IWICImagingFactory_CreateStream(f, &st);
-    if (SUCCEEDED(hr)) hr = IWICStream_InitializeFromMemory(st, (BYTE*)g_sm_png, size);
-    if (SUCCEEDED(hr)) hr = IWICImagingFactory_CreateDecoderFromStream(f, (IStream*)st, 0, WICDecodeMetadataCacheOnDemand, &dec);
-    if (SUCCEEDED(hr)) hr = IWICBitmapDecoder_GetFrame(dec, 0, &fr);
-    if (SUCCEEDED(hr)) hr = IWICImagingFactory_CreateFormatConverter(f, &cv);
-    if (SUCCEEDED(hr)) hr = IWICFormatConverter_Initialize(cv, (IWICBitmapSource*)fr, &SM_GUID_PBGRA, WICBitmapDitherTypeNone, 0, 0.0, WICBitmapPaletteTypeCustom);
-    if (SUCCEEDED(hr)) hr = IWICFormatConverter_GetSize(cv, &w, &h);
-    if (SUCCEEDED(hr) && w == SM_ATLAS_W && h == SM_ATLAS_H) {
-        BITMAPINFO bi; memset(&bi, 0, sizeof bi);
-        bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = (LONG)w; bi.bmiHeader.biHeight = -(LONG)h;
-        bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
-        void* px = 0; HDC scr = GetDC(0);
-        g_sm_atlas_bmp = CreateDIBSection(scr, &bi, DIB_RGB_COLORS, &px, 0, 0);
-        g_sm_atlas_dc = CreateCompatibleDC(scr); ReleaseDC(0, scr);
-        if (g_sm_atlas_bmp && px && g_sm_atlas_dc) {
-            hr = IWICFormatConverter_CopyPixels(cv, 0, w * 4, w * 4 * h, (BYTE*)px);
-            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); ok = 1; }
-        }
-    } else if (SUCCEEDED(hr)) hr = E_FAIL;
-    if (cv) IWICFormatConverter_Release(cv);
-    if (fr) IWICBitmapFrameDecode_Release(fr);
-    if (dec) IWICBitmapDecoder_Release(dec);
-    if (st) IWICStream_Release(st);
-    if (f) IWICImagingFactory_Release(f);
-    if (!ok) { if (g_sm_atlas_dc) DeleteDC(g_sm_atlas_dc); if (g_sm_atlas_bmp) DeleteObject(g_sm_atlas_bmp); g_sm_atlas_dc = 0; g_sm_atlas_bmp = 0; }
-    Log("STYLE METER: sprite atlas %s (%lu bytes embedded, %ux%u, hr %08lX)", ok ? "decoded" : "NOT decoded, text fallback", size, w, h, (unsigned long)hr);
-    return ok;
-}
+#include "style_meter_draw.h"
 static BOOL CALLBACK SmFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_sm_wnd || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
     g_sm_game = h; return FALSE;
 }
-// Layout in window pixels for client height H (1080 = the sprite design size x SM_LETTER_H_1080P / tallest letter).
-typedef struct { float k; int w, h, pad; } SmGeo;
-static SmGeo SmGeom(int H) {
-    SmGeo g; int lw = 0, lh = 0, ww = 0, wh = 0;
-    for (int i = 0; i < SM_RANKS; ++i) { if (sm_atlas_letter[i][2] > lw) lw = sm_atlas_letter[i][2]; if (sm_atlas_letter[i][3] > lh) lh = sm_atlas_letter[i][3];
-        if (sm_atlas_word[i][2] > ww) ww = sm_atlas_word[i][2]; if (sm_atlas_word[i][3] > wh) wh = sm_atlas_word[i][3]; }
-    g.k = (float)H / 1080.f * (float)g_cfg_sm_scale / 100.f * (float)SM_LETTER_H_1080P / (float)lh;
-    g.pad = (int)(8 * g.k) + 2;
-    const int gw = sm_atlas_gauge_bg[2] > ww ? sm_atlas_gauge_bg[2] : ww;
-    g.w = (int)((lw > gw ? lw : gw) * g.k) + 2 * g.pad;
-    g.h = (int)((lh + wh + sm_atlas_gauge_bg[3]) * g.k) + 4 * g.pad;
-    return g;
-}
-static void SmBlit(HDC dst, int x, int y, const int* r, int srcW, float k) {
-    const int dw = (int)(srcW * k + 0.5f), dh = (int)(r[3] * k + 0.5f);
-    if (dw <= 0 || dh <= 0 || srcW <= 0) return;
-    BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-    AlphaBlend(dst, x, y, dw, dh, g_sm_atlas_dc, r[0], r[1], srcW, r[3], bf);
-}
-// Right-aligned: letter, word under it, thin gauge under the word.
-static void SmRender(HWND wnd, const SmGeo* g, int rank, int gaugeMilli) {
-    const int w = g->w, h = g->h;
+static void SmRender(HWND wnd, const SmCanvas* c, const SmDrawSt* st) {
+    const int w = c->w, h = c->h;
     HDC scr = GetDC(0), mem = CreateCompatibleDC(scr);
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
     bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
@@ -473,26 +434,7 @@ static void SmRender(HWND wnd, const SmGeo* g, int rank, int gaugeMilli) {
     HBITMAP bmp = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, (void**)&px, 0, 0);
     if (bmp && px) {
         HGDIOBJ ob = SelectObject(mem, bmp);
-        memset(px, 0, (size_t)w * h * 4);
-        if (rank < 0) rank = 0; if (rank >= SM_RANKS) rank = SM_RANKS - 1;
-        const int* L = sm_atlas_letter[rank]; const int* W = sm_atlas_word[rank];
-        const int right = w - g->pad; int y = g->pad;
-        if (g_sm_atlas_dc) {
-            SmBlit(mem, right - (int)(L[2] * g->k + 0.5f), y, L, L[2], g->k); y += (int)(L[3] * g->k) + g->pad;
-            SmBlit(mem, right - (int)(W[2] * g->k + 0.5f), y, W, W[2], g->k); y += (int)(W[3] * g->k) + g->pad;
-            const int gx = right - (int)(sm_atlas_gauge_bg[2] * g->k + 0.5f);
-            SmBlit(mem, gx, y, sm_atlas_gauge_bg, sm_atlas_gauge_bg[2], g->k);
-            const int fw = (int)((float)sm_atlas_gauge_fill[2] * (float)gaugeMilli / 1000.f + 0.5f);
-            if (fw > 0) SmBlit(mem, gx, y, sm_atlas_gauge_fill, fw, g->k);
-        } else {  // no sprites (WIC failed): plain text, so the meter still shows something
-            HFONT fn = CreateFontW(-(int)(200 * g->k), 0, 0, 0, FW_BOLD, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
-            HGDIOBJ of = SelectObject(mem, fn); SetBkMode(mem, TRANSPARENT); SetTextColor(mem, RGB(230, 60, 40));
-            RECT tr = {0, y, right, h}; DrawTextA(mem, sm_rank_name[rank], -1, &tr, DT_RIGHT | DT_TOP | DT_SINGLELINE);
-            SelectObject(mem, of); DeleteObject(fn); GdiFlush();
-            for (int i = 0; i < w * h; ++i) if (px[i] & 0xFFFFFF) px[i] |= 0xFF000000u;  // GDI text leaves alpha 0: opaque where drawn
-            const int gy = h - g->pad - (int)(6 * g->k) - 1, gw = (int)(440 * g->k), gx = right - gw, fw = gw * gaugeMilli / 1000;
-            for (int yy = gy; yy < gy + (int)(5 * g->k) + 1 && yy < h; ++yy) for (int xx = gx; xx < right; ++xx) if (xx >= 0 && yy >= 0) px[yy * w + xx] = xx < gx + fw ? 0xF5CDB98Bu : 0x50505050u;
-        }
+        SmCompose(mem, px, c, st);
         GdiFlush();
         POINT src = {0, 0}; SIZE sz = {w, h};
         BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
@@ -515,9 +457,11 @@ static DWORD WINAPI SmThread(LPVOID p) {
     g_sm_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
     if (!g_sm_wnd) { Log("STYLE METER: overlay window failed (%lu), meter not drawn", GetLastError()); return 0; }
     Log("STYLE METER: overlay window ready");
-    int shown = 0, lastRank = -1, lastGauge = -1; RECT last = {0};
+    int shown = 0, lastRank = -1, lastGauge = -1, seenRank = -1; RECT last = {0};
+    float eased = 0.f; double lastT = SmWallMs(), rankUpT = -1e18;
     for (;;) {
         Sleep(33);
+        const double now = SmWallMs(), dtw = now - lastT; lastT = now;
         MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_sm_game || !IsWindow(g_sm_game)) { g_sm_game = 0; EnumWindows(SmFind, 0); }
         const int gameOk = g_sm_game && !IsIconic(g_sm_game);
@@ -527,21 +471,39 @@ static DWORD WINAPI SmThread(LPVOID p) {
         if (!want) { if (shown) { ShowWindow(g_sm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_sm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_sm_game, &o);
         if (cr.right <= 0 || cr.bottom <= 0) continue;
-        const SmGeo g = SmGeom(cr.bottom);
+        const SmCanvas cv = SmCanvasGeom(cr.bottom, g_cfg_sm_pops); const SmGeo g = cv.g;
         // default anchor from rank_atlas.json: right edge at 1690/1920 of the width, letter centre at 380/1080 of the height
         const int rx = g_cfg_sm_x >= 0 ? cr.right * g_cfg_sm_x / 1000 : cr.right * 1690 / 1920;
         const int cy = g_cfg_sm_y >= 0 ? cr.bottom * g_cfg_sm_y / 1000 : cr.bottom * 380 / 1080;
         const int left = o.x + rx - g.w, top = o.y + cy - (int)(SM_LETTER_H_1080P * (float)cr.bottom / 1080.f * (float)g_cfg_sm_scale / 100.f) / 2 - g.pad;
-        RECT want_r = {left, top, left + g.w, top + g.h};
+        RECT want_r = {left - cv.mx, top - cv.my, left - cv.mx + cv.w, top - cv.my + cv.h};  // same meter position, margin around it
         const int rank = (int)g_sm_rank, gauge = (int)g_sm_gauge;
-        const int gpx = (int)(sm_atlas_gauge_fill[2] * g.k) * gauge / 1000;  // redraw only when the gauge moves a pixel
+        // #127085 motion: rank-up bounce (seen here), shake (big bonus, game thread), glow at S+, eased fill
+        if (seenRank >= 0 && rank > seenRank) rankUpT = now;
+        seenRank = rank;
+        SmDrawSt st; memset(&st, 0, sizeof st);
+        st.rank = rank; st.now = now; st.lifeMs = g_cfg_sm_popms; st.scale = 1.f;
+        double shakeT;
+        AcquireSRWLockShared(&g_smfx_lock); shakeT = g_smfx_shakeT; ReleaseSRWLockShared(&g_smfx_lock);
+        if (g_cfg_sm_pops) {
+            AcquireSRWLockExclusive(&g_smfx_lock); SmPopPrune(&g_smfx_q, now, g_cfg_sm_popms);
+            st.npops = g_smfx_q.n; memcpy(st.pops, g_smfx_q.p, sizeof st.pops); ReleaseSRWLockExclusive(&g_smfx_lock);
+        }
+        if (g_cfg_sm_motion) {
+            eased = SmEase(eased, (float)gauge, dtw);
+            st.scale = SmBounce(now - rankUpT); SmShake(now - shakeT, &st.dx, &st.dy); st.glow = SmGlow(rank, now);
+        } else eased = (float)gauge;
+        st.gauge = eased;
+        const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge;
+        const int gpx = (int)(sm_atlas_gauge_fill[2] * g.k) * gauge / 1000;  // redraw only when the gauge moves a pixel (or something animates)
         if (!shown || memcmp(&want_r, &last, sizeof last)) {
-            SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, g.w, g.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, cv.w, cv.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want_r; shown = 1; lastRank = -1;
         }
-        if (rank != lastRank || gpx != lastGauge) {
-            lastRank = rank; lastGauge = gpx;
-            __try { SmRender(g_sm_wnd, &g, rank, gauge); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        static int wasAnim;
+        if (rank != lastRank || gpx != lastGauge || anim || wasAnim) {
+            lastRank = rank; lastGauge = gpx; wasAnim = anim;
+            __try { SmRender(g_sm_wnd, &cv, &st); } __except (EXCEPTION_EXECUTE_HANDLER) { }
         }
     }
 }

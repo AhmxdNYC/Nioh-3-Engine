@@ -6,6 +6,7 @@
 #undef NDEBUG
 #include <assert.h>
 #include "../src/style_meter.h"
+#include "../src/style_meter_fx.h"
 // The mechanics cases below were written against the first tuning; pin it so they keep testing the rules, not the numbers.
 static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
 static void PinnedDefaults(SmCfg* c) {
@@ -248,8 +249,38 @@ static void Swap(void) {
     SmOnSwap(&s, 5000);
     CHECK(near(SmSwapHit(&s, &c, 5100, 4900), c.swap) && s.swaps == 2);  // move began just before the slot flipped
 }
+// #127085 pop-ups: stack newest last, merge the same bonus, cap, fade to 0 at the end of life.
+static void Pops(void) {
+    SmPopQ q; memset(&q, 0, sizeof q); float in;
+    SmPopPush(&q, "Ninjutsu", 20, 0, SM_POP_LIFE_MS);
+    SmPopPush(&q, "Ki Pulse", 30, 100, SM_POP_LIFE_MS);
+    CHECK(q.n == 2 && !strcmp(q.p[1].label, "Ki Pulse"));
+    SmPopPush(&q, "Ninjutsu", 20, 200, SM_POP_LIFE_MS);                    // merged, moved to the top
+    CHECK(q.n == 2 && !strcmp(q.p[1].label, "Ninjutsu") && near(q.p[1].pts, 40));
+    SmPopPush(&q, "Ninjutsu", 20, 200 + SM_POP_MERGE_MS + 1, SM_POP_LIFE_MS);  // too late to merge: own line
+    CHECK(q.n == 3);
+    for (int i = 0; i < 10; ++i) SmPopPush(&q, i & 1 ? "A" : "B", 1, 1000 + i * 1000.0 / 10, SM_POP_LIFE_MS);
+    CHECK(q.n <= SM_POPS);
+    SmPop p; memset(&p, 0, sizeof p); p.t0 = p.tLast = 0;
+    CHECK(SmPopAlpha(&p, 0, 1200, &in) == 1.f && in == 0.f);
+    CHECK(SmPopAlpha(&p, SM_POP_IN_MS, 1200, &in) == 1.f && in == 1.f);
+    CHECK(SmPopAlpha(&p, 400, 1200, 0) == 1.f);                              // hold 40%
+    const float a1 = SmPopAlpha(&p, 800, 1200, 0), a2 = SmPopAlpha(&p, 1100, 1200, 0);
+    CHECK(a1 < 1.f && a2 < a1 && a2 > 0.f && SmPopAlpha(&p, 1200, 1200, 0) == 0.f);
+    SmPopPrune(&q, 1e9, SM_POP_LIFE_MS); CHECK(q.n == 0);
+}
+// #127085 motion: bounce peaks then returns to 1, shake decays to 0, glow only at S+, eased gauge converges and snaps on a wrap.
+static void Motion(void) {
+    CHECK(SmBounce(-1) == 1.f && SmBounce(SM_BOUNCE_MS) == 1.f && SmBounce(SM_BOUNCE_MS * 0.3) > 1.08f && SmBounce(SM_BOUNCE_MS * 0.3) < 1.2f);
+    float dx, dy; SmShake(SM_SHAKE_MS, &dx, &dy); CHECK(dx == 0 && dy == 0);
+    SmShake(30, &dx, &dy); CHECK(fabsf(dx) <= 7.f && fabsf(dy) <= 7.f && (dx != 0 || dy != 0));
+    CHECK(SmGlow(3, 123) == 0.f && SmGlow(4, 0) > 0.f && SmGlow(6, 0) >= SmGlow(4, 0) && SmGlow(6, 1e6) <= 0.85f);
+    float g = 0; for (int i = 0; i < 60; ++i) g = SmEase(g, 800, 16.7);
+    CHECK(g == 800.f);
+    CHECK(SmEase(10, 400, 16.7) > 10.f && SmEase(10, 400, 16.7) < 400.f && SmEase(900, 100, 16.7) == 100.f && SmEase(5, 5, 0) == 5.f);
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Ramp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); Ramp();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }
