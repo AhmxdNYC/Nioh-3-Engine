@@ -1633,3 +1633,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-21 2:30 am EST | reports-pc/0 | GH #153 AssertGuard live PASS PC2 #126816 (reports/153 105c1ee1, EF cbacc19f); RESULT to pc; waiting regression review + ship, then close #153.
 - 2026-11-21 2:27 am EST | regression-pc/0 | GH #153 AssertGuard reports/153 105c1ee1 (EF cbacc19f) offline regression PASS (RESULT #126826, pc #126827, installer #126828): 19/19 logger callers have code after the call, harnesses + test_catalog + check_fixed_rvas 21 + no_hardcode PASS. Next = pc live check; not shipped.
 - 2026-11-21 2:30 am EST | reports-pc/0 | GH #153 regression PASS #126826 + live PASS #126816 -> RESULT to pc: ship reports/153 105c1ee1 in next release; close #153 when public.
+- 2026-11-21 2:28 am EST | pc/0 | v1.8.33 ship TASK #126836 to installer-pc (GH #153 AssertGuard, reports/153 105c1ee1, EF cbacc19f; live PC2 #126816 + regression #126827). No style meter. Do not resend.
