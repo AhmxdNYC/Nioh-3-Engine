@@ -13,7 +13,9 @@ static float g_sm_letter_dx[SM_RANKS];
 #ifndef SM_INK_MASS_W
 #define SM_INK_MASS_W 1.0f
 #endif
-static uint32_t g_sm_rank_rgb[SM_RANKS];  // #127175 mean colour of each letter's solid ink (bar fill colour), 0 = unknown
+// #127175 bar fill colour per rank (D grey .. SSS red). #127238 letters are now cream like the words, so the colours that used to be
+// read from the old letter sprites are kept here instead.
+static const uint32_t g_sm_rank_rgb[SM_RANKS] = {0xD8DEE6u, 0xD7DDE5u, 0xE6AD50u, 0xE58037u, 0xE64430u, 0xE64431u, 0xE63C2Au};
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
         const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
@@ -27,13 +29,6 @@ static void SmLetterInk(const uint8_t* px, UINT w) {
         }
         const float boxC = (float)(lo + hi) / 2.f, massC = sw > 0 ? (float)(sx / sw) : boxC;
         g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (boxC * (1.f - SM_INK_MASS_W) + massC * SM_INK_MASS_W);
-        double r = 0, gg = 0, b = 0, n = 0;
-        for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
-            const uint8_t* q = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
-            if (q[3] > 230) { const double v = (double)(q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2])) / 255.0, wt = v * v * v;
-                b += q[0] * wt; gg += q[1] * wt; r += q[2] * wt; n += wt; }  // #127233 bright-weighted: demon iron letters are dark iron with glowing rank-colour cracks
-        }
-        g_sm_rank_rgb[i] = n > 0 ? (uint32_t)(r / n) << 16 | (uint32_t)(gg / n) << 8 | (uint32_t)(b / n) : 0;
     }
 }
 // #127168 the letter sprites have a soft glow painted around them (human: no glow). Pixels of a letter below SM_HALO_CUT alpha are the
