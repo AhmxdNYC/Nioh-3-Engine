@@ -19,6 +19,7 @@ __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
+static int g_cfg_sm_actlog;  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
 static HWND g_sm_game;
@@ -26,6 +27,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
+    g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
     SmCfg c; SmCfgDefaults(&c);
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
@@ -215,6 +217,11 @@ static void SmFeed(double gdt) {
     }
     const uint32_t act = pl ? g_fp[FP_PL].run.act : SM_ACT_NONE;
     const uint64_t run = pl ? ((uint64_t)g_fp[FP_PL].run.f0 << 32 | act) : 0;
+    if (g_cfg_sm_actlog && pl) {  // #126980: one line per action change, capped so a long session cannot flood the log
+        static uint32_t lastAct = SM_ACT_NONE; static int n;
+        if (act != lastAct && n < 5000) { ++n; Log("STYLE ACT: t %.0f act %u (was %u) enemy %d", g_sm_clock, act, lastAct, g_sm_enemy); }
+        lastAct = act;
+    }
     // #126821 startup of the current run = its first hit window (frame probe, player row); #126843 counter = i-frames inside an enemy
     // hit window during this same run. Both are per run, read from the frame meter's own signals (no move ids).
     const float startupF = pl && g_fp[FP_PL].run.hits > 0 && g_fp[FP_PL].run.hit[0] >= 0 ? (float)FpFrames60(g_fp[FP_PL].run.hit[0]) : -1.f;
