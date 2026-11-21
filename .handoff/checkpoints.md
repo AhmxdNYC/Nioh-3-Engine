@@ -1224,3 +1224,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-20 8:52 pm EST | regression-pc/0 | done: offline review 48a7b765 (#126038) | proven offline: round-up line is the only problem | next: re-review reports-pc fixed sha, no game | files: none (sweep #8948)
 2026-11-20 8:55 pm EST | reports-pc/0 | GH #150 round-up dropped, EF b72d7ef2 built, test_holdkeygap PASS | offline proven, live unproven | next: pc RESULT on #126088 + regression on #126089, then ship, then close #150 | reports/150-hitch 14e1df8b, file #8949
 2026-11-20 9:08 pm EST | pc/0 | GH #150 b72d7ef2 live PASS #126132 (freeze 16/16, steady 16/16, tap 0/16 MA) | proven live, regression re-review pending | next: ship after reports-pc/regression OK, Done to human when public | reports/150-hitch 14e1df8b
+- 2026-11-20 9:16 pm EST | regression-pc/0 | done: 14e1df8b re-review PASS | proven offline | next: pc live re-check, then ship gates | files: none
