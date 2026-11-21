@@ -88,13 +88,14 @@ static inline SmUpFx SmRankUp(double dt) {
 // #127304 each rank gets its own rank-up, building up as you climb (index = the rank reached, 1 = C .. 6 = SSS):
 //   slashes (1 = one cut, 2 = cross-cut, 3 = cross + level cut), parry sparks (count), ki shockwave ring, rising embers, shake strength
 typedef struct { int slashes, sparks, ring, embers; float shake; } SmUpStyle;
+// #127364 only SSS shakes the meter (no effect shared between ranks)
 static const SmUpStyle sm_up_style[7] = {
     {1, 0, 0, 0, 0.6f},    // D (never reached by a rank-up)
-    {1, 22, 0, 0, 0.7f},   // C   parry sparks
-    {1, 30, 0, 0, 0.8f},   // B   one clean cut + sparks
-    {2, 30, 0, 0, 0.9f},   // A   cross-cut
-    {1, 26, 1, 0, 1.0f},   // S   ki shockwave ring
-    {2, 40, 1, 0, 1.15f},  // SS  cross-cut + ring + more sparks
+    {1, 22, 0, 0, 0.f},    // C   parry sparks
+    {1, 30, 0, 0, 0.f},    // B   one clean cut + sparks
+    {2, 30, 0, 0, 0.f},    // A   cross-cut
+    {1, 26, 1, 0, 0.f},    // S   ki shockwave ring
+    {2, 40, 1, 0, 0.f},    // SS  cross-cut + ring + more sparks
     {3, 54, 1, 26, 1.4f},  // SSS everything + rising embers
 };
 static inline unsigned SmHash(unsigned x) { x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16; return x; }
