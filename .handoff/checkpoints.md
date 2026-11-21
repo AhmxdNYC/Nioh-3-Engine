@@ -1272,3 +1272,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 5:25 am EST | style branch = 2b72a99a (look fixes merged) | offline 136/136, not live | next: MA+GS bonus (#127213), GS/MA rule (#127214), install after the human's session | pc1/style-bonus-126859
 
 - 2026-11-21 5:05 am EST | pc/1 | session end: #127085+#127065+#127075 DONE (pc1/style-bonus-126859 6ebed94b, TR db8a79f0 + BR 416907e8 on Main PC, Done TO-USER #127154, video sent). Half-done: none. Next: after the human fights, grep Nioh3Training.log for "weapon slot getter", "ki perfect", "swap attack", single ninjutsu; stance/martial art/guardian spirit bonuses still need detection. Backup D:/nioh3-re/style127085-bak. Not shipped.
+- 2026-11-21 5:52 am EST | pc/1 #127214 GS/MA marker research | GS proven statically (Spirit Force gauge), not live; MA open | next: live gauge log at act 17027, MA skill->action RE | e13ed4ae
