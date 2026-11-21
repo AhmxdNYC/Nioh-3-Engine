@@ -153,6 +153,35 @@ static int AmObjMayHit(const uint8_t* d, const AmTable* t, const uint16_t (*own)
     return hit;
 }
 
+// human #126342: does a spawned object DEFINITELY hit? Same tree walk as AmObjMayHit (object own slot +0x12 / +0x15, type-33 components, type-3
+// and +0x100 child objects) but only a RESOLVED damaging hitbox row (power / element > 0) counts; anything unresolved counts as no proof. So a
+// tag built on it never marks a move whose objects only "may" hit. memo: per object, 0 = not seen, 1 = busy, 2 = no proof, 3 = damaging.
+static int AmSlotDmg(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint16_t act, uint32_t slot) {
+    const int r = AmFind(t, act); const uint32_t nhb = t->len[2] / AM_HB;
+    if (r < 0 || slot >= (uint32_t)nown[r] || own[r][slot] >= nhb) return 0;
+    const uint32_t b = t->off[2] + (uint32_t)own[r][slot] * AM_HB;
+    return AmU16(d, b + 0x10) || AmU16(d, b + 0x12);
+}
+static int AmObjDmg(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint32_t ev, uint8_t* memo) {
+    const uint32_t o0 = t->off[0], n7 = AmU16(d, o0 + 30), n8 = AmU16(d, o0 + 34);
+    if (AmU16(d, o0 + 32) != 336 || n7 * 336u != t->len[7] || (t->len[8] && (AmU16(d, o0 + 36) != 80 || n8 * 80u != t->len[8]))) return 0;
+    if (ev < 20000 || ev == 0xFFFF || ev - 20000 >= n7) return 0;
+    const uint32_t N = ev - 20000, b = t->off[7] + N * 336;
+    if (memo[N]) return memo[N] == 3;
+    memo[N] = 1;
+    int hit = d[b + 0x15] != 0xFF && AmSlotDmg(d, t, own, nown, AmU16(d, b + 0x12), d[b + 0x15]);
+    for (int k = 0; k < 6 && !hit; ++k) {
+        const uint16_t c = AmU16(d, b + 0x110 + 2 * k);
+        if (c == 0xFFFF || c >= n8) continue;
+        const uint32_t e = t->off[8] + c * 80u; const uint16_t ty = AmU16(d, e + 0x4C);
+        if (ty == 33) hit = AmSlotDmg(d, t, own, nown, AmU16(d, e), AmU16(d, e + 4));
+        else if (ty == 3) hit = AmObjDmg(d, t, own, nown, AmU16(d, e + 4), memo);
+    }
+    for (int k = 0; k < 4 && !hit; ++k) { const uint16_t c = AmU16(d, b + 0x100 + 2 * k); if (c && c != 0xFFFF) hit = AmObjDmg(d, t, own, nown, c, memo); }
+    memo[N] = hit ? 3 : 2;
+    return hit;
+}
+
 // human #44217: grabs. Hitbox row u16 +0x14 is the hit type: 12 on normal melee swings (4 / 5 / 7 / 16 / 17 elemental ...), 0xFFFF on grab rows.
 // A THROW is an action whose every frame-timed row (+0x08 != 0xFFFF) has type 0xFFFF and at least one deals damage (+0x10 / +0x12 > 0):
 // the damage ticks on the caught player (Yoritomo 0x18D1: frames 0 / 47 / 119, power 15 / 30 / 45). A CATCH is the same with power 0 (the
@@ -254,17 +283,22 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
             }
         }
     }
-    static uint8_t memo[65536]; memset(memo, 0, sizeof memo);
+    static uint8_t memo[65536], memo2[65536]; memset(memo, 0, sizeof memo); memset(memo2, 0, sizeof memo2);
     for (int r = 0; r < na; ++r) {
-        const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW; AmMove* m = &t->m[r]; int nonamb = 0;
+        const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW; AmMove* m = &t->m[r]; int nonamb = 0, dmg = 0;
         for (int k = 0; k < 16; ++k) {
             const uint16_t ev = AmU16(d, o + 0x40 + 6 * k), fr = AmU16(d, o + 0x42 + 6 * k), ln = AmU16(d, o + 0x44 + 6 * k);
             if (ev < 20000 || ev == 0xFFFF || (ev == 0xFFFF && fr == 0 && ln == 0xFFFF)) continue;
             int amb = 0;
             if (fr == 0) { int c = 0; for (int q = 0; q < na; ++q) for (int z = 0; z < nsp[q]; ++z) c += sp[q][z] == ev; amb = c * 10 >= na * 8; }
             if (!amb && AmObjMayHit(d, t, (const uint16_t (*)[AM_MAXROWS])own, nown, ev, memo)) ++nonamb;
+            if (!amb && AmObjDmg(d, t, (const uint16_t (*)[AM_MAXROWS])own, nown, ev, memo2)) ++dmg;
         }
         m->spawns = (uint8_t)(nonamb > 255 ? 255 : nonamb);
+        // human #126342: the move throws / spawns something that hits (projectile, shockwave, blast): >= 1 non-ambient spawn whose object tree has
+        // a resolved damaging hitbox (AmObjDmg). Menu tag "Projectile"; a melee swing can have it too.
+        // Offline (tools/hits/coverage_survey.c, 373 archive_01 files): 346 of 8251 attacks in 80 files, all hit-count unknown, 213 with own windows too.
+        m->proj = dmg > 0;
         m->hits = AmRuntimeHits(m);
         m->attack = m->block || m->nwin || m->great;
         m->fact = m->block || m->nrows || m->great;

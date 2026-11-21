@@ -104,6 +104,16 @@ static inline const char* N3MoveHitTag(const N3Move* m, char* b, size_t n) {
     return b;
 }
 
+// human #126342: a move that hits through an object the boss spawns (projectile, shockwave, blast): N3MoveFact.proj (auto_moves.h AmObjDmg, a
+// resolved damaging hitbox in the spawned object tree; "may hit" spawns are not tagged). A TAG, not a group: the move stays in its hit group (a
+// melee swing can throw something too), so no group, group number or label id ("Grab3", "Unblockable8", "Atk?2") changes (human #44241).
+#define N3_PROJ_HELP "Hits with an object the boss spawns (projectile, shockwave, blast), from game data."
+static inline int N3MoveProj(const N3Move* m) {
+    if (N3MoveCat(m) < 0 || N3MoveProtected(m->id)) return 0;
+    const N3MoveFact* f = N3MoveFactsBoss(m->chr) ? N3MoveFactFind(m->chr, m->id) : nullptr;
+    return f && f->proj;
+}
+
 // human #44241: players name a boss move by type + number ("1Hit3", "2Hit4", "Grab3", "Unblockable8"). N = the 1-based rank of the move's id
 // among the boss's moves of the same group, sorted by id, so it is the same on every machine. "" for moves outside the attack groups.
 static inline const char* N3MoveLabelId(const N3Move* m, char* b, size_t n) {

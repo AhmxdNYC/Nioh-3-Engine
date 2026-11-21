@@ -58,7 +58,7 @@ int main(int argc,char** argv) {
     moves->m[1].id=0xeeee;moves->m[1].hits=7; // stale estimate must not survive an unmatched join (no hitbox windows: unknown)
     // human #121846: an action the archive does not cover keeps the hit windows of its own hitbox rows; a spawned / untimed row keeps it unknown
     moves->m[2].id=0xeeef;moves->m[2].nwin=2;moves->m[2].nrows=3;moves->m[2].fact=1;moves->m[2].attack=1;moves->m[2].kind='A';
-    moves->m[3].id=0xeef0;moves->m[3].nwin=2;moves->m[3].nrows=3;moves->m[3].untimed=1;moves->m[3].fact=1;moves->m[3].attack=1;moves->m[3].kind='A';
+    moves->m[3].id=0xeef0;moves->m[3].nwin=2;moves->m[3].nrows=3;moves->m[3].untimed=1;moves->m[3].proj=1;moves->m[3].fact=1;moves->m[3].attack=1;moves->m[3].kind='A';
     // human #126246: a known 0-hit attack keeps nohit; an archive count (chain hits) clears it
     moves->m[4].id=0xeef1;moves->m[4].nrows=0;moves->m[4].block=1;moves->m[4].nohit=1;moves->m[4].fact=1;moves->m[4].attack=1;moves->m[4].kind='A';
     moves->m[5].id=0x4e6e;moves->m[5].motion=1050;moves->m[5].anim_hash=0xe999d024;moves->m[5].nohit=1;moves->m[5].fact=1;moves->m[5].attack=1;moves->m[5].kind='A';
@@ -71,8 +71,8 @@ int main(int argc,char** argv) {
     assert(!N3CatFactFind(999999,0x4e4e)); // a known 0-hit catch is no hit fact (the menu does not list it under '1 hit')
     const N3ActionRecord* record=N3CatRecordFind(999999,0x4e4e);assert(record&&record->known&&record->zero&&!record->hits&&!strcmp(record->damage,""));
     assert(!N3CatRecordFind(999999,0xeeee));
-    {const N3MoveFact* hf=N3CatFactFind(999999,0xeeef);assert(hf&&hf->hits==2);} // the menu groups it under '2 hits'
-    {const N3MoveFact* uf=N3CatFactFind(999999,0xeef0);assert(uf&&!uf->hits&&!uf->nohit);}   // 'hits unknown'
+    {const N3MoveFact* hf=N3CatFactFind(999999,0xeeef);assert(hf&&hf->hits==2&&!hf->proj);} // the menu groups it under '2 hits'
+    {const N3MoveFact* uf=N3CatFactFind(999999,0xeef0);assert(uf&&!uf->hits&&!uf->nohit&&uf->proj);}  // human #126342: proj reaches the fact   // 'hits unknown'
     {const N3MoveFact* zf=N3CatFactFind(999999,0xeef1);assert(zf&&!zf->hits&&zf->nohit);}    // human #126246: '0 hits'
     {const N3MoveFact* cf=N3CatFactFind(999999,0x4e6e);assert(cf&&cf->hits==2&&!cf->nohit);}
     assert(!N3CatRecordFind(999999,0xeeef)); // runtime hits carry no archive damage record
