@@ -120,14 +120,24 @@ static void SmIniPoll(void) {
     Log("STYLE METER: Nioh3Training.ini changed, re-reading [StyleMeter] (#126804)");
     SmReadIni(g_sm_ini, 0);
 }
-// Menu (Boss Rematch Player page, #126804): 0 StyleMeter on/off, 1 RankPtsPct, 2 DrainPct, 3 DecayDelayMs, 4 KiPerfectPts (#127075). Get: -1 = unknown what.
-// Set: writes [StyleMeter] and applies at once (value < 0 on 'what 0' = toggle). Returns the stored value.
-static const char* SmKey(int what) { return what == 0 ? "StyleMeter" : what == 1 ? "RankPtsPct" : what == 2 ? "DrainPct" : what == 3 ? "DecayDelayMs" : what == 4 ? "KiPerfectPts" : 0; }
-static int SmKeyDefault(int what) { return what == 0 ? 0 : what == 3 ? SM_DECAY_DELAY_MS : what == 4 ? SM_KI_PERFECT_PTS : 100; }
-static int SmKeyClamp(int what, int v) {
-    const int lo = what == 0 ? 0 : what == 1 ? 25 : what == 2 ? 0 : 0, hi = what == 0 ? 1 : what == 1 ? 400 : what == 2 ? 500 : what == 4 ? 200 : 15000;
-    return v < lo ? lo : v > hi ? hi : v;
-}
+// Menu (Boss Rematch Player page, #126804; human #127379 full control for player testing): 'what' indexes sm_menu_keys.
+// Get: -1 = unknown what. Set: writes [StyleMeter] and applies at once (value < 0 on an on/off key = toggle). Returns the stored value.
+// Keep the order: Boss Rematch's menu rows use these indices (0..4 are the original #126804 / #127075 rows).
+typedef struct { const char* key; int def, lo, hi; } SmMenuKey;
+static const SmMenuKey sm_menu_keys[] = {
+    {"StyleMeter", 0, 0, 1}, {"RankPtsPct", 100, 25, 400}, {"DrainPct", 100, 0, 500}, {"DecayDelayMs", SM_DECAY_DELAY_MS, 0, 15000},
+    {"KiPerfectPts", SM_KI_PERFECT_PTS, 0, 200},
+    {"PopUps", 1, 0, 1}, {"Motion", 1, 0, 1}, {"StyleMeterScale", 100, 25, 400}, {"PopUpMs", SM_POP_LIFE_MS, 300, 5000},
+    {"HitPts", SM_HIT_PTS, 0, 200}, {"DodgePts", SM_DODGE_PTS, 0, 200}, {"KiPts", SM_KI_PTS, 0, 200}, {"CounterPts", SM_COUNTER_PTS, 0, 200},
+    {"NinjutsuPts", SM_NIN_PTS, 0, 200}, {"SoulCorePts", SM_SOUL_PTS, 0, 200}, {"StyleSwitchPts", SM_STYLE_PTS, 0, 200},
+    {"WeaponSwapPts", SM_SWAP_PTS, 0, 200}, {"StartupBonusPct", SM_STARTUP_PCT, 0, 500}, {"RepeatPct", SM_REPEAT_PCT, 0, 100},
+    {"DecayRampPct", SM_DECAY_RAMP_PCT, 0, 200},
+};
+#define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
+static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
+static int SmKeyDefault(int what) { return sm_menu_keys[what].def; }
+static int SmKeyClamp(int what, int v) { const SmMenuKey* k = &sm_menu_keys[what]; return v < k->lo ? k->lo : v > k->hi ? k->hi : v; }
+N3T_API int Nioh3Training_StyleKeys(void) { return SM_MENU_KEYS; }  // #127379 how many 'what' rows this build knows
 N3T_API int Nioh3Training_StyleGet(int what) {
     const char* k = SmKey(what);
     if (!k || !g_sm_ini[0]) return -1;
@@ -136,7 +146,7 @@ N3T_API int Nioh3Training_StyleGet(int what) {
 N3T_API int Nioh3Training_StyleSet(int what, int value) {
     const char* k = SmKey(what);
     if (!k || !g_sm_ini[0]) return -1;
-    if (what == 0 && value < 0) value = !g_cfg_sm;
+    if (value < 0 && sm_menu_keys[what].hi == 1) value = !GetPrivateProfileIntA("StyleMeter", k, SmKeyDefault(what), g_sm_ini);  // on/off toggle
     value = SmKeyClamp(what, value);
     char b[16]; snprintf(b, sizeof b, "%d", value);
     WritePrivateProfileStringA("StyleMeter", k, b, g_sm_ini);
