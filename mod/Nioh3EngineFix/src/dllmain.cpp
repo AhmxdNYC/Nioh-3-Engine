@@ -154,7 +154,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.36"
+#define MOD_VERSION "1.8.37"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

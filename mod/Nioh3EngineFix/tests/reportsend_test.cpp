@@ -46,6 +46,38 @@ int main() {
     LoadInstallId(identityIni);
     CHECK(!strcmp(g_id, shared));
     DeleteFileW(identityIni);
+    // human #128257: the Player log rides in the snapshot, before the settings sections, whole lines only
+    {
+        const std::string snap = "head\r\n-- last log lines --\r\n  x\r\n\r\n-- mod settings (Nioh3EngineFix.ini), comments removed --\r\n  A=1\r\n";
+        std::string r = AttachPlayerLog(snap, "", false, "t");
+        CHECK(r == snap);
+        r = AttachPlayerLog(snap, "12:00:00.000  +0  CLK  ratio 0.80\n", false, "2026-11-21 23:45:00");
+        CHECK(r.find("-- player log (Nioh3PlayerLog.txt, 34 bytes") != std::string::npos);
+        CHECK(r.find("CLK  ratio 0.80") < r.find("-- mod settings ("));
+        CHECK(r.find("head") == 0 && r.find("A=1") != std::string::npos);
+        r = AttachPlayerLog(snap, "tial line\nPAD down Y\n", true, "t");
+        CHECK(r.find("tial") == std::string::npos && r.find("newest 11 bytes") != std::string::npos && r.find("PAD down Y") != std::string::npos);
+        r = AttachPlayerLog("no settings", "ACT 0x1\n", false, "t");
+        CHECK(r.find("no settings") == 0 && r.find("ACT 0x1") > r.find("-- player log"));
+        // file path: a 100 KB log keeps only the newest 64 KB, whole lines
+        wchar_t dir[MAX_PATH];
+        GetTempPathW(MAX_PATH, dir);
+        std::wstring d = std::wstring(dir) + L"n3plog128257\\";
+        CreateDirectoryW(d.c_str(), nullptr);
+        std::string plog;
+        for (int i = 0; plog.size() < 100 * 1024; ++i) plog += "12:00:00.000  +" + std::to_string(i) + "  CLK  ratio 1.00\n";
+        CHECK(WriteAll((d + L"Nioh3PlayerLog.txt").c_str(), plog, false));
+        r = WithPlayerLog(snap, d);
+        const size_t at = r.find("-- player log (Nioh3PlayerLog.txt, newest ");
+        CHECK(at != std::string::npos && r.find("+0  CLK") == std::string::npos && r.find(plog.substr(plog.size() - 40)) != std::string::npos);
+        const size_t lb = r.find("--\r\n", at) + 4;
+        CHECK(r.compare(lb, 13, "12:00:00.000 ") == 0);  // starts on a whole line
+        CHECK(r.find("-- mod settings (") - lb <= kPlayerLogCap + 2);
+        DeleteFileW((d + L"Nioh3PlayerLog.txt").c_str());
+        CHECK(WithPlayerLog(snap, d) == snap);  // Player log never on: unchanged
+        RemoveDirectoryW(d.c_str());
+        printf("player log attach checks passed (#128257)\n");
+    }
     printf("unit checks passed (shared ini install id verified)\n");
 
     // Optional live POST (local server.py-style api/report). Writes Nioh3Reports\ beside this exe.
