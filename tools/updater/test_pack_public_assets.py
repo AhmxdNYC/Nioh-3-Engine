@@ -110,6 +110,12 @@ class PackPublicAssetsTests(unittest.TestCase):
         pack.check_news("1.8.37: reports include the Player log when Player log is on.", "1.8.37", OLD_NEWS)
         pack.check_news("1.8.37: first release news.", "1.8.37", None)
 
+    def test_gate_fails_news_longer_than_updater_limit(self):
+        # v1.8.38 #128555: 3 long bullets gave 380-char news; updater.validate() rejects > 240
+        with self.assertRaisesRegex(ValueError, "240"):
+            pack.check_news("1.8.38: " + "x" * 240, "1.8.38", OLD_NEWS)
+        pack.check_news("1.8.38: " + "x" * 231 + ".", "1.8.38", OLD_NEWS)
+
     def test_notes_without_bullets_are_refused(self):
         with self.assertRaisesRegex(ValueError, "bullet"):
             pack.news_from_notes("# v1.8.37\n\nJust prose.\n", "1.8.37")

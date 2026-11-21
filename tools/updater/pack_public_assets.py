@@ -65,6 +65,9 @@ def manifest_with_name_lists(stable_bytes: bytes, version: str, extra_blobs: dic
     return (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
 
 
+NEWS_MAX = 240  # updater.validate() limit
+
+
 def news_from_notes(notes_md: str, version: str) -> str:
     """'<version>: bullet one; bullet two' from the first top-level '- ' bullet block of the changelog."""
     bullets, started = [], False
@@ -90,6 +93,8 @@ def check_news(news, version: str, previous_news) -> None:
     m = re.match(r"\s*(\d+\.\d+\.\d+)\s*:\s*(.*)", news, re.S)
     if not m or m.group(1) != version:
         raise ValueError(f"stable.json news is for {m.group(1) if m else 'no version'}, not {version}: {news[:60]!r}")
+    if len(news) > NEWS_MAX or "\r" in news or "\n" in news:
+        raise ValueError(f"stable.json news is {len(news)} chars; the updater rejects news over {NEWS_MAX} chars or with line breaks (shorten the bullets)")
     body = m.group(2).strip()
     if not body:
         raise ValueError("stable.json news has no text after the version")
