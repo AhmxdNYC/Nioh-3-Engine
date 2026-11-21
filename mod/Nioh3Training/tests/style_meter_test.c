@@ -295,6 +295,11 @@ static void Motion(void) {
     CHECK(um.ns > 1.f && um.ns < u0.ns && um.oa > 0.f && um.oa < 1.f && um.ody < 0.f);
     CHECK(ui.oa == 0.f && ui.flash > 0.9f && ui.slash >= 0.f && ui.ns <= 1.f && ui.na == 1.f);
     CHECK(ue.ns == 1.f && ue.flash == 0.f && ue.slash < 0.f && ue.shx == 0.f && un.ns == 1.f && un.oa == 0.f);
+    // #127304 per-rank rank-ups build up: SSS has the most of everything, C has sparks, S has the ring, A the cross-cut
+    CHECK(ui.imp >= 0.f && u0.imp < 0.f && ue.imp < 0.f);
+    CHECK(sm_up_style[1].sparks > 0 && sm_up_style[3].slashes == 2 && sm_up_style[4].ring && sm_up_style[6].embers > 0 && sm_up_style[6].slashes == 3);
+    for (int r = 2; r < 7; ++r) CHECK(sm_up_style[r].shake >= sm_up_style[r - 1].shake);
+    CHECK(SmRand01(1, 2, 3) == SmRand01(1, 2, 3) && SmRand01(1, 2, 3) >= 0.f && SmRand01(1, 2, 3) <= 1.f);
 }
 // #127065 mode switch from an idle meter scores (one per combatMs with no hit), spam still does not.
 static void StyleIdle(void) {

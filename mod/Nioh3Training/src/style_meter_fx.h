@@ -64,11 +64,11 @@ static inline float SmBounce(double dt) {
 //   impact            white flash on the new letter (and bar), a sword-slash streak across it, the meter shakes
 //   impact..+140      small settle squash, then rest.
 #define SM_UP_IMPACT 190
-#define SM_UP_MS 560
+#define SM_UP_MS 820   // #127304 room for sparks / ring / embers after the impact
 #define SM_UP_BIG 1.75f
-typedef struct { float ns, na, os, oa, ody, flash, slash, shx, shy; } SmUpFx;  // new scale/alpha, old scale/alpha/rise (1080p px), flash 0..1, slash progress (<0 none), impact shake
+typedef struct { float ns, na, os, oa, ody, flash, slash, shx, shy, imp; } SmUpFx;  // imp = ms since impact (<0 before)  // new scale/alpha, old scale/alpha/rise (1080p px), flash 0..1, slash progress (<0 none), impact shake
 static inline SmUpFx SmRankUp(double dt) {
-    SmUpFx f = {1.f, 1.f, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f};
+    SmUpFx f = {1.f, 1.f, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f, -1.f};
     if (dt < 0 || dt >= SM_UP_MS) return f;
     if (dt < SM_UP_IMPACT) {
         const double u = dt / SM_UP_IMPACT;
@@ -77,12 +77,27 @@ static inline SmUpFx SmRankUp(double dt) {
         return f;
     }
     const double e = dt - SM_UP_IMPACT;
+    f.imp = (float)e;
     if (e < 140) f.ns = (float)(1.0 - 0.07 * sin(e / 140.0 * 3.14159265358979) * (1.0 - e / 140.0));
     if (e < 240) f.flash = (float)(1.0 - e / 240.0);
     if (e < 200) f.slash = (float)(e / 200.0);
     if (e < 220) { const double a = 11.0 * (1.0 - e / 220.0); f.shx = (float)(a * sin(e * 0.21)); f.shy = (float)(a * 0.7 * cos(e * 0.27)); }
     return f;
 }
+// #127304 each rank gets its own rank-up, building up as you climb (index = the rank reached, 1 = C .. 6 = SSS):
+//   slashes (1 = one cut, 2 = cross-cut, 3 = cross + level cut), parry sparks (count), ki shockwave ring, rising embers, shake strength
+typedef struct { int slashes, sparks, ring, embers; float shake; } SmUpStyle;
+static const SmUpStyle sm_up_style[7] = {
+    {1, 0, 0, 0, 0.6f},    // D (never reached by a rank-up)
+    {1, 22, 0, 0, 0.7f},   // C   parry sparks
+    {1, 30, 0, 0, 0.8f},   // B   one clean cut + sparks
+    {2, 30, 0, 0, 0.9f},   // A   cross-cut
+    {1, 26, 1, 0, 1.0f},   // S   ki shockwave ring
+    {2, 40, 1, 0, 1.15f},  // SS  cross-cut + ring + more sparks
+    {3, 54, 1, 26, 1.4f},  // SSS everything + rising embers
+};
+static inline unsigned SmHash(unsigned x) { x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16; return x; }
+static inline float SmRand01(unsigned seed, unsigned i, unsigned k) { return (float)(SmHash(seed * 9781u + i * 6271u + k * 131u + 17u) & 0xFFFFFF) / 16777215.f; }
 // Shake after a big gain: pixel offset at 1080p (caller scales), decays to 0 over SM_SHAKE_MS.
 static inline void SmShake(double dt, float* dx, float* dy) {
     *dx = *dy = 0.f;
