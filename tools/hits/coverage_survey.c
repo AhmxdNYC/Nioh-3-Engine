@@ -1,9 +1,11 @@
 // human #123773: boss hit-count coverage survey over data/extract/lfm/archive_01 (arg 1 = file list). 2026-11-20: 373 files, 6251/8251 attacks counted; gap 844 spawn, 346 untimed, 116 both, 694 no own rows.
+// 2026-11-20 (pc2/hits-gap-126228): damaging-untimed rule -> 6873/8251; gap 285 spawn, 245 untimed, 88 both, 760 no own timed rows.
+// human #126246: known-0 (AmMove.nohit) counted apart. Unnamed untimed rows dead (#123773): 7033 counted, 772 known 0, 446 unknown (294 spawn, 73 untimed, 79 both).
 #include <stdio.h>
 #include <stdlib.h>
 #include "../../mod/Nioh3Training/src/auto_moves.h"
 int main(int argc, char** argv) {
-    static AmTable t; long A = 0, K = 0, S = 0, U = 0, N = 0, SU = 0, files = 0;
+    static AmTable t; long Z = 0, A = 0, K = 0, S = 0, U = 0, N = 0, SU = 0, files = 0;
     char nm[1024]; FILE* lst = fopen(argv[1], "r");
     while (fgets(nm, sizeof nm, lst)) {
         nm[strcspn(nm, "\r\n")] = 0;
@@ -17,6 +19,7 @@ int main(int argc, char** argv) {
         for (int r = 0; r < na; r++) {
             AmMove* m = &t.m[r]; if (!m->attack) continue; A++; a++;
             if (m->hits) { K++; k++; }
+            else if (m->nohit) Z++;
             else if (m->spawns && m->untimed) SU++;
             else if (m->spawns) S++;
             else if (m->untimed) U++;
@@ -25,5 +28,5 @@ int main(int argc, char** argv) {
         if (argc > 2) printf("%s\t%ld\t%ld\n", nm, a, k);
         free(d);
     }
-    printf("files %ld attacks %ld counted %ld | unknown: spawn-only %ld untimed-only %ld both %ld no-timed-rows %ld\n", files, A, K, S, U, SU, N);
+    printf("files %ld attacks %ld counted %ld known-0 %ld | unknown: spawn-only %ld untimed-only %ld both %ld other %ld\n", files, A, K, Z, S, U, SU, N);
 }
