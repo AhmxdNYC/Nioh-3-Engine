@@ -66,6 +66,8 @@ int main(void) {
             printf(" ["); for (int q = 0; q < k; ++q) printf("%s%X", q ? ">" : "", g_t.m[ids[q]].id); printf("%s]", lp ? " loop" : "");
         }
         printf("\n");
+        // human #126342: a Projectile tag (definite damaging spawn) is a subset of the "may hit" spawns, so never on a counted / known-0 move
+        { int np = 0; printf("  projectile:"); for (int i = 0; i < na; ++i) if (g_t.m[i].proj) { ++np; printf(" %X", g_t.m[i].id); assert(g_t.m[i].spawns && !g_t.m[i].hits && !g_t.m[i].nohit); } printf(" (%d)\n", np); }
         // the generated headers came from these files with the same rules: ids, facts, great and hits must agree exactly
         assert(c.ids_hand_only == 0 && c.ids_rt_only == 0 && c.fact_hand_only == 0 && c.fact_rt_only == 0);
         assert(c.great_bad == 0 && c.hits_bad == 0);
