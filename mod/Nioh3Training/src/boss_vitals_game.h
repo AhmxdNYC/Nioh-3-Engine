@@ -13,6 +13,10 @@ static BvCfg g_bv[BV_SLOTS]; static volatile LONG g_bv_inited;
 static volatile LONG g_bv_req[BV_SLOTS]; static DWORD g_bv_kiWait[BV_SLOTS];
 static struct { volatile int live; volatile uint32_t chr; volatile uint64_t hc, hm; volatile float kc, km; } g_bv_live[BV_SLOTS];
 static volatile LONG g_bv_logs; static DWORD g_bv_t;
+// human #127382 [Summon] BossRefillDelayMs (default 2000): infinite health / Ki refill only after no HP / Ki drop for this long (0 = instant, the old way).
+// [Summon] BossKiFloorPct (default 10): while the Ki refill waits, Ki below this % is refilled at once (no Ki break with infinite Ki; 0 = no floor).
+static int g_cfg_bv_delay = 2000, g_cfg_bv_kifloor = 10;
+static DWORD g_bv_drop[BV_SLOTS]; static uint64_t g_bv_prevH[BV_SLOTS]; static float g_bv_prevK[BV_SLOTS]; static uint32_t g_bv_prevChr[BV_SLOTS];
 static void BvInit(void) { if (InterlockedCompareExchange(&g_bv_inited, 1, 0) == 0) for (int s = 0; s < BV_SLOTS; ++s) BvDefaults(&g_bv[s]); }
 static void BvLog(const char* fmt, ...) { if (InterlockedIncrement(&g_bv_logs) > 300) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint64_t BvActor(int s) {
@@ -61,13 +65,17 @@ static __attribute__((noinline)) void BvSlotTick(int s, DWORD now) {
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
     const int64_t off = nf >= 0 ? g_nf_off[nf] : 0;
     const uint64_t shown = off > 0 ? (hc > (uint64_t)off ? hc - (uint64_t)off : 0) : hc;  // HP the bar shows (NOFIN hidden reserve, #9319)
+    if (g_bv_prevChr[s] != g_slot_chr[s]) { g_bv_prevChr[s] = g_slot_chr[s]; g_bv_drop[s] = 0; g_bv_prevH[s] = shown; g_bv_prevK[s] = kc; }
+    if (shown < g_bv_prevH[s] || kc < g_bv_prevK[s] - 0.01f) g_bv_drop[s] = now ? now : 1;  // a hit (or the boss's own Ki use): the refill waits
+    g_bv_prevH[s] = shown; g_bv_prevK[s] = kc;
+    const int due = BvRefillDue(g_bv_drop[s], now, g_cfg_bv_delay);
     g_bv_live[s].hc = shown; g_bv_live[s].hm = hm; g_bv_live[s].kc = kc; g_bv_live[s].km = km; g_bv_live[s].chr = g_slot_chr[s]; g_bv_live[s].live = 1;
     if (dead || !hm) { if (InterlockedExchange(&g_bv_req[s], 0)) BvLog("BOSSVITALS Boss %c %p: boss is dead, request dropped (no revive)", 'A' + s, (void*)a); return; }
     LONG req = InterlockedExchange(&g_bv_req[s], 0);
     uint64_t ht = 0; float kt = 0;
     if ((req & BV_REQ_HP) && !window) BvWriteHp(s, a, st, BvHpTarget(hm, c->hpPct), hm, "Set boss HP %");
     else if (req & BV_REQ_HP) BvLog("BOSSVITALS Boss %c %p: HP set skipped (KiBreakNoFinisher HP-0 window owns the HP)", 'A' + s, (void*)a);
-    else if (BvHpHold(c, dead, window, shown, hm, &ht)) BvWriteHp(s, a, st, ht, hm, "infinite health");
+    else if (due && BvHpHold(c, dead, window, shown, hm, &ht)) { BvWriteHp(s, a, st, ht, hm, "infinite health"); g_bv_prevH[s] = ht; }
     if (req & BV_REQ_KI) {
         if (!broken && !window) { BvWriteKi(s, a, st, BvKiTarget(km, c->kiPct), km, "Set boss Ki %"); g_bv_kiWait[s] = 0; }
         else {  // Ki broken: the break plays out; the set waits (BV_KI_WAIT_MS) and is then dropped
@@ -75,7 +83,7 @@ static __attribute__((noinline)) void BvSlotTick(int s, DWORD now) {
             if (now - g_bv_kiWait[s] < BV_KI_WAIT_MS) InterlockedOr(&g_bv_req[s], BV_REQ_KI);
             else { g_bv_kiWait[s] = 0; BvLog("BOSSVITALS Boss %c %p: Ki set dropped (still Ki broken after %d ms)", 'A' + s, (void*)a, BV_KI_WAIT_MS); }
         }
-    } else if (BvKiHold(c, dead, window, broken, kc, km, &kt)) BvWriteKi(s, a, st, kt, km, "infinite Ki");
+    } else if ((due || BvKiFloorHit(kc, km, g_cfg_bv_kifloor)) && BvKiHold(c, dead, window, broken, kc, km, &kt)) { BvWriteKi(s, a, st, kt, km, due ? "infinite Ki" : "infinite Ki floor"); g_bv_prevK[s] = kt; }
 }
 static void BvTick(void) {
     BvInit();
@@ -83,7 +91,21 @@ static void BvTick(void) {
     if (now - g_bv_t < 50) return;  // 20 Hz: a hit shows on the bar for at most ~50 ms with infinite health / Ki
     g_bv_t = now;
     if (GameState() && GameState()[2]) return;  // loading
+    if (g_cfg_bv_delay > 0 && !g_hpdmg_hooked) for (int s = 0; s < N3T_SLOTS; ++s) if (g_bv[s].infHp && BvActor(s)) { HpDmgHookInstall("boss infinite health refill delay (#127382)"); break; }
     for (int s = 0; s < N3T_SLOTS; ++s) BvSlotTick(s, now);  // also keeps g_bv_live fresh for the menu rows
+}
+// #127382: NfHpDamage (hit apply, game thread): a hit on an infinite-health Training boss while its refill waits is cut to leave HP 1.
+static int BvHpDamageCut(uint64_t hp, int dmg) {
+    if (dmg <= 0 || !hp || g_cfg_bv_delay <= 0 || !g_bv_inited) return dmg;
+    for (int s = 0; s < N3T_SLOTS; ++s) {
+        const uint64_t a = g_slot_act[s]; uint64_t st = 0;
+        if (!a || !g_bv[s].infHp || !Rd64(a + 0x3A0, &st) || !st || st + 0x38 != hp) continue;
+        int64_t cur = 0; __try { cur = *(volatile int64_t*)(hp + 0x20); } __except (EXCEPTION_EXECUTE_HANDLER) { return dmg; }
+        const int d = BvLethalCut(1, g_cfg_bv_delay, cur, dmg);
+        if (d != dmg) BvLog("BOSSVITALS Boss %c %p: hit of %d at HP %lld cut to %d (infinite health, refill waits)", 'A' + s, (void*)a, dmg, (long long)cur, d);
+        return d;
+    }
+    return dmg;
 }
 // C API for Boss Rematch's per-boss page. slot 0 = Boss A, 1 = Boss B.
 // Get: 1 = a live boss in the slot (hc/hm = HP the bar shows, kc/km = Ki), 0 = empty (cfg still filled), -1 = bad slot. cfg = {infHp, infKi, hpPct, kiPct}.

@@ -51,6 +51,16 @@ static inline int BvKiHold(const BvCfg* c, int dead, int window, int broken, flo
     if (cur >= t - 0.01f) return 0;
     *out = t; return 1;
 }
+// human #127382: infinite health / Ki wait while the player keeps hitting, so the bar shows the damage done, and refill once the hits stop.
+// lastDrop = tick of the last HP or Ki drop seen on this boss (0 = none yet). delayMs 0 = the old instant refill (every 50 ms tick).
+static inline int BvRefillDue(uint32_t lastDrop, uint32_t now, int delayMs) { return delayMs <= 0 || !lastDrop || (uint32_t)(now - lastDrop) >= (uint32_t)delayMs; }
+// While the refill waits a hit must not kill an infinite-health boss: the HP damage is cut so the boss keeps at least HP 1.
+static inline int BvLethalCut(int infHp, int delayMs, int64_t cur, int dmg) {
+    if (!infHp || delayMs <= 0 || dmg <= 0 || cur <= 0) return dmg;
+    return cur - (int64_t)dmg >= 1 ? dmg : (int)(cur > 1 ? cur - 1 : 0);
+}
+// While the Ki refill waits, Ki below floorPct of max is refilled at once so infinite Ki still means no Ki break (0 = no floor).
+static inline int BvKiFloorHit(float cur, float max, int floorPct) { return floorPct > 0 && max > 0 && cur < max * (float)floorPct / 100.0f; }
 // Ki ceiling loss (Ki object +0x88): KiSetCur and the native regen stop at max - loss. 1 = clear it before writing v (v above that ceiling,
 // loss sane). Without it a refill to 100 % reads back max - loss ('WRITE DID NOT STICK', #22592).
 static inline int BvKiCeilClear(float v, float max, float loss) { return loss > 0.0f && loss <= max && v > max - loss + 0.25f; }
