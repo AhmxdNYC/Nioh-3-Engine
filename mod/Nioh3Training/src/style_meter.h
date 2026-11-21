@@ -31,6 +31,7 @@
 #define SM_DECAY_DELAY_MS 4000  // human #126785: was 2500
 #define SM_DECAY_PER_S 12   // human #126785: harder to lose rank (2.5x ranks drain at the old 12/s)
 #define SM_DECAY_RANK_PCT 35
+#define SM_DECAY_RAMP_PCT 0     // human #126972: +N % drain per idle second after the delay (fast fade after a combo ends); 0 = flat
 #define SM_COMBAT_MS 8000
 #define SM_KI_HIT_MS 3000        // human #126744: whiffs must not raise the meter (Ki pulse only counts in a combo that landed)
 #define SM_DAMAGE_GRACE_MS 1500  // live #126502: one multi-hit enemy combo = one rank drop
@@ -52,7 +53,7 @@ static const float sm_rank_pts_default[SM_RANKS] = {100.f, 150.f, 200.f, 250.f, 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
     int repeatPct, repeatFloorPct, multiPct;
-    int decayDelayMs; float decayPerS; int decayRankPct;
+    int decayDelayMs; float decayPerS; int decayRankPct; int decayRampPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
@@ -84,7 +85,7 @@ typedef struct {
 static inline void SmCfgDefaults(SmCfg* c) {
     c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
-    c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT;
+    c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
@@ -96,7 +97,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->repeatPct < 0) c->repeatPct = 0; if (c->repeatPct > 100) c->repeatPct = 100;
     if (c->repeatFloorPct < 0) c->repeatFloorPct = 0; if (c->repeatFloorPct > 100) c->repeatFloorPct = 100;
     if (c->multiPct < 0) c->multiPct = 0; if (c->multiPct > 100) c->multiPct = 100;
-    if (c->decayDelayMs < 0) c->decayDelayMs = 0; if (c->decayPerS < 0) c->decayPerS = 0; if (c->decayRankPct < 0) c->decayRankPct = 0;
+    if (c->decayDelayMs < 0) c->decayDelayMs = 0; if (c->decayPerS < 0) c->decayPerS = 0; if (c->decayRankPct < 0) c->decayRankPct = 0; if (c->decayRampPct < 0) c->decayRampPct = 0;
     if (c->combatMs < 0) c->combatMs = 0;
     if (c->damageGraceMs < 0) c->damageGraceMs = 0;
     if (c->kiHitMs < 0) c->kiHitMs = 0;
@@ -194,8 +195,10 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     if (!s->active || dt <= 0) return;
     double idle = t - s->lastScore - (double)c->decayDelayMs;
     if (idle <= 0) return;
+    const double idleAll = idle;  // ms idle past the delay: the ramp grows with it (#126972)
     if (idle > dt) idle = dt;
     float d = c->decayPerS * (1.f + (float)s->rank * (float)c->decayRankPct / 100.f) * (float)(idle / 1000.0);
+    if (c->decayRampPct > 0) d *= 1.f + (float)c->decayRampPct / 100.f * (float)(idleAll / 1000.0);
     s->pts -= d;
     while (s->pts < 0.f) {
         if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }

@@ -42,6 +42,7 @@ static void SmReadIni(const char* ini, int reset) {
         if (dp >= 0 && dp != 100) c.decayPerS = c.decayPerS * (float)dp / 100.f;
     }
     c.decayRankPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRankPct", SM_DECAY_RANK_PCT, ini);
+    c.decayRampPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRampPct", SM_DECAY_RAMP_PCT, ini);  // #126972
     c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
     c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
@@ -70,9 +71,9 @@ static void SmReadIni(const char* ini, int reset) {
     ReleaseSRWLockExclusive(&g_sm_lock);
     Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f (#126821 #126843 #126854 #126913)",
         1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul);
-    Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f..%.0f",
+    Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
-        g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[SM_RANKS - 1]);
+        g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.

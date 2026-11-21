@@ -213,8 +213,18 @@ static void StyleSoul(void) {
     CHECK(near(SmOnSkill(&s, &c, 1500, 1), c.soul));
     CHECK(SmOnStyle(&s, &c, 1500 + c.combatMs + 1) == 0.f);                   // too long after the use
 }
+static void Ramp(void) {  // human #126972: drain speeds up with idle time past the delay; 0 = flat (old behaviour)
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f;
+    SmState a; SmReset(&a); a.active = 1; a.rank = 2; a.pts = 100.f; a.lastScore = 0;
+    SmTick(&a, &c, 2000.0, 1000.0); const float flat = 100.f - a.pts;            // 1 s slice at idle 2 s, no ramp
+    CHECK(near(flat, 10.f));
+    c.decayRampPct = 100; SmState b; SmReset(&b); b.active = 1; b.rank = 2; b.pts = 100.f; b.lastScore = 0;
+    SmTick(&b, &c, 2000.0, 1000.0); CHECK(near(100.f - b.pts, 30.f));              // x(1 + 1.0 * 2 s) = 3x
+    SmState e; SmReset(&e); e.active = 1; e.rank = 2; e.pts = 100.f; e.lastScore = 1900.0;
+    SmTick(&e, &c, 2000.0, 100.0); CHECK(100.f - e.pts < 1.2f);                    // fresh hit: ramp barely started
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); Ramp();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }
