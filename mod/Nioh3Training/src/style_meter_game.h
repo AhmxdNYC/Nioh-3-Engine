@@ -471,7 +471,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
     if (!g_sm_wnd) { Log("STYLE METER: overlay window failed (%lu), meter not drawn", GetLastError()); return 0; }
     Log("STYLE METER: overlay window ready");
     int shown = 0, lastRank = -1, lastGauge = -1, seenRank = -1; RECT last = {0};
-    float eased = 0.f; SmShownBar bar = {-1, 0.f}; double lastT = SmWallMs(), rankUpT = -1e18;
+    float eased = 0.f; SmShownBar bar = {-1, 0.f}; int upFrom = -1; double lastT = SmWallMs(), rankUpT = -1e18;
     for (;;) {
         Sleep(33);
         const double now = SmWallMs(), dtw = now - lastT; lastT = now;
@@ -494,10 +494,10 @@ static DWORD WINAPI SmThread(LPVOID p) {
         // #127085 motion: rank-up bounce (seen here), shake (big bonus, game thread), glow at S+, eased fill
         // #127253 the bar fills to the end before the shown rank steps up (motion on); without motion the real rank shows at once
         int showRank = rank;
-        if (g_cfg_sm_motion) { if (SmBarStep(&bar, rank, (float)gauge, dtw)) rankUpT = now; showRank = bar.rank; eased = bar.g; }
+        if (g_cfg_sm_motion) { const int was = bar.rank; if (SmBarStep(&bar, rank, (float)gauge, dtw)) { rankUpT = now; upFrom = was; } showRank = bar.rank; eased = bar.g; }
         else { if (seenRank >= 0 && rank > seenRank) rankUpT = now; bar.rank = rank; bar.g = (float)gauge; }
         seenRank = rank;
-        SmDrawSt st; memset(&st, 0, sizeof st);
+        SmDrawSt st; memset(&st, 0, sizeof st); st.upMs = -1.0; st.prevRank = -1;  // #127299 no transition unless motion sets it
         st.rank = showRank; st.now = now; st.lifeMs = g_cfg_sm_popms; st.scale = 1.f;
         double shakeT;
         AcquireSRWLockShared(&g_smfx_lock); shakeT = g_smfx_shakeT; ReleaseSRWLockShared(&g_smfx_lock);
@@ -506,10 +506,10 @@ static DWORD WINAPI SmThread(LPVOID p) {
             st.npops = g_smfx_q.n; memcpy(st.pops, g_smfx_q.p, sizeof st.pops); ReleaseSRWLockExclusive(&g_smfx_lock);
         }
         if (g_cfg_sm_motion) {
-            st.scale = SmBounce(now - rankUpT); SmShake(now - shakeT, &st.dx, &st.dy); st.glow = 0.f;  // #127149 glow removed
+            st.scale = 1.f; st.upMs = now - rankUpT; st.prevRank = upFrom; SmShake(now - shakeT, &st.dx, &st.dy); st.glow = 0.f;  // #127149 glow removed
         } else eased = (float)gauge;
         st.gauge = eased;
-        const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank;
+        const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS);
         const int gpx = (int)(sm_atlas_gauge_fill[2] * g.k) * gauge / 1000;  // redraw only when the gauge moves a pixel (or something animates)
         if (!shown || memcmp(&want_r, &last, sizeof last)) {
             SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, cv.w, cv.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);

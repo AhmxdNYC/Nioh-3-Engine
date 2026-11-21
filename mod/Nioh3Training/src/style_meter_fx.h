@@ -59,6 +59,30 @@ static inline float SmBounce(double dt) {
     const double u = dt / SM_BOUNCE_MS;
     return (float)(1.0 + 0.35 * sin(u * 3.14159265358979) * (1.0 - u));
 }
+// #127299 rank-up transition ("needs to be cooler"), dt = ms since the shown rank stepped up:
+//   0..SM_UP_IMPACT   old letter breaks away (grows, rises, fades) while the new one drops in from SM_UP_BIG x (accelerating)
+//   impact            white flash on the new letter (and bar), a sword-slash streak across it, the meter shakes
+//   impact..+140      small settle squash, then rest.
+#define SM_UP_IMPACT 190
+#define SM_UP_MS 560
+#define SM_UP_BIG 1.75f
+typedef struct { float ns, na, os, oa, ody, flash, slash, shx, shy; } SmUpFx;  // new scale/alpha, old scale/alpha/rise (1080p px), flash 0..1, slash progress (<0 none), impact shake
+static inline SmUpFx SmRankUp(double dt) {
+    SmUpFx f = {1.f, 1.f, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f};
+    if (dt < 0 || dt >= SM_UP_MS) return f;
+    if (dt < SM_UP_IMPACT) {
+        const double u = dt / SM_UP_IMPACT;
+        f.ns = (float)(SM_UP_BIG - (SM_UP_BIG - 1.0) * u * u); f.na = (float)(u * 2.5 > 1 ? 1 : u * 2.5);
+        f.os = (float)(1.0 + 0.45 * u); f.oa = (float)(1.0 - u); f.ody = (float)(-18.0 * u);
+        return f;
+    }
+    const double e = dt - SM_UP_IMPACT;
+    if (e < 140) f.ns = (float)(1.0 - 0.07 * sin(e / 140.0 * 3.14159265358979) * (1.0 - e / 140.0));
+    if (e < 240) f.flash = (float)(1.0 - e / 240.0);
+    if (e < 200) f.slash = (float)(e / 200.0);
+    if (e < 220) { const double a = 11.0 * (1.0 - e / 220.0); f.shx = (float)(a * sin(e * 0.21)); f.shy = (float)(a * 0.7 * cos(e * 0.27)); }
+    return f;
+}
 // Shake after a big gain: pixel offset at 1080p (caller scales), decays to 0 over SM_SHAKE_MS.
 static inline void SmShake(double dt, float* dx, float* dy) {
     *dx = *dy = 0.f;

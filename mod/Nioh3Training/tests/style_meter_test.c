@@ -289,6 +289,12 @@ static void Motion(void) {
     CHECK(maxOld == 1000.f && ups == 2 && b.rank == 3 && steps < 40);
     for (int i = 0; i < 60; ++i) SmBarStep(&b, 3, 100.f, 16.7); CHECK(b.g == 100.f);
     SmBarStep(&b, 2, 900.f, 16.7); CHECK(b.rank == 2 && b.g == 900.f);
+    // #127299 rank-up transition: drop-in starts big and faded, old letter fades out, flash + slash only after impact, all rest after SM_UP_MS
+    SmUpFx u0 = SmRankUp(0), um = SmRankUp(SM_UP_IMPACT / 2), ui = SmRankUp(SM_UP_IMPACT + 1), ue = SmRankUp(SM_UP_MS), un = SmRankUp(-1);
+    CHECK(u0.ns > 1.7f && u0.na < 0.01f && u0.oa > 0.99f && u0.slash < 0.f && u0.flash == 0.f);
+    CHECK(um.ns > 1.f && um.ns < u0.ns && um.oa > 0.f && um.oa < 1.f && um.ody < 0.f);
+    CHECK(ui.oa == 0.f && ui.flash > 0.9f && ui.slash >= 0.f && ui.ns <= 1.f && ui.na == 1.f);
+    CHECK(ue.ns == 1.f && ue.flash == 0.f && ue.slash < 0.f && ue.shx == 0.f && un.ns == 1.f && un.oa == 0.f);
 }
 // #127065 mode switch from an idle meter scores (one per combatMs with no hit), spam still does not.
 static void StyleIdle(void) {

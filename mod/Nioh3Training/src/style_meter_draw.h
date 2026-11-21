@@ -150,6 +150,7 @@ typedef struct {
     float glow;            // 0..1 glow pulse (S and up)
     SmPop pops[SM_POPS]; int npops;  // p[0] oldest
     double now; int lifeMs;
+    double upMs; int prevRank;   // #127299 ms since the shown rank stepped up (<0 / large = none), the rank before it
 } SmDrawSt;
 // #127289 pop-up text size as a share of pf (human: in proportion with the shorter bar, #127273 SM_BAR_WK)
 #ifndef SM_POP_K
@@ -164,8 +165,8 @@ static SmCanvas SmCanvasGeom(int H, int pops) {
     c.pf = (int)(letterPx * 0.12f + 0.5f); if (c.pf < 10) c.pf = 10;
     c.pp = (int)(c.pf * SM_POP_K + 0.5f); if (c.pp < 9) c.pp = 9;
     c.popH = pops ? (int)(c.pp * 1.25f) * SM_POPS + c.g.pad : 0;
-    c.mx = (int)(lw * c.g.k * 0.10f) + (int)(10.f * (float)H / 1080.f) + 2;
-    c.my = (int)(lh * c.g.k * 0.10f) + (int)(10.f * (float)H / 1080.f) + 2;
+    c.mx = (int)(lw * c.g.k * 0.22f) + (int)(10.f * (float)H / 1080.f) + 2;
+    c.my = (int)(lh * c.g.k * 0.22f) + (int)(10.f * (float)H / 1080.f) + 2;
     c.w = c.g.w + 2 * c.mx; c.h = c.g.h + c.my + c.popH + c.my / 2;
     return c;
 }
@@ -237,13 +238,43 @@ static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, fl
         }
     }
 }
+// #127299 premultiplied white flash over what is already drawn in a rect (keeps alpha: only lit pixels brighten)
+static void SmFlashRect(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, float f) {
+    if (f <= 0.f) return;
+    if (f > 1.f) f = 1.f;
+    for (int yy = y0 < 0 ? 0 : y0; yy < y0 + rh && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx < x0 + rw && xx < w; ++xx) {
+        uint32_t* d = &px[yy * w + xx]; const unsigned a = *d >> 24; if (!a) continue;
+        unsigned r = (*d >> 16) & 0xFF, g = (*d >> 8) & 0xFF, b = *d & 0xFF;
+        r += (unsigned)((a - (r > a ? a : r)) * f); g += (unsigned)((a - (g > a ? a : g)) * f); b += (unsigned)((a - (b > a ? a : b)) * f);
+        *d = a << 24 | (r > a ? a : r) << 16 | (g > a ? a : g) << 8 | (b > a ? a : b);
+    }
+}
+// #127299 sword-slash streak across the letter: a thin bright cut sweeping lower-left -> upper-right, tapered tail, fades at the end
+static void SmSlash(uint32_t* px, int w, int h, float cx, float cy, float lw, float lh, float s, float unit) {
+    const float ax = cx - lw * 0.75f, ay = cy + lh * 0.30f, bx = cx + lw * 0.75f, by = cy - lh * 0.30f;
+    const float dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy, len = sqrtf(len2);
+    if (len2 <= 1.f) return;
+    const float head = s * 1.25f, tail = head - 0.45f, wmax = 3.2f * unit + 0.8f, fade = s < 0.7f ? 1.f : (1.f - s) / 0.3f;
+    const int x0 = (int)(ax - wmax - 2), x1 = (int)(bx + wmax + 2), y0 = (int)(by - wmax - 2), y1 = (int)(ay + wmax + 2);
+    for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
+        const float p = ((xx - ax) * dx + (yy - ay) * dy) / len2;
+        if (p < tail || p > head || p < 0.f || p > 1.f) continue;
+        const float d = fabsf((xx - ax) * dy - (yy - ay) * dx) / len;
+        const float wd = wmax * (p - tail) / (head - tail);
+        if (d >= wd) continue;
+        const float a = (1.f - d / wd) * fade;
+        if (a <= 0.f) continue;
+        SmPxOver(&px[yy * w + xx], 255, 250, 236, (unsigned)(a * 255.f));
+    }
+}
 // Draws into mem / px (w x h, cleared here). Sprites when the atlas decoded, else the plain text fallback (no motion on the fallback letter).
 static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* st) {
     const int w = c->w, h = c->h; const SmGeo* g = &c->g;
     memset(px, 0, (size_t)w * h * 4);
     int rank = st->rank; if (rank < 0) rank = 0; if (rank >= SM_RANKS) rank = SM_RANKS - 1;
     const float unit = (float)c->pf / 36.f;  // 1080p pixel -> canvas pixel (pf is 36 at 1080p, scale 100)
-    const int sx = (int)(st->dx * unit), sy = (int)(st->dy * unit);
+    const SmUpFx up = SmRankUp(st->upMs);
+    const int sx = (int)((st->dx + up.shx) * unit), sy = (int)((st->dy + up.shy) * unit);
     const int right = c->mx + g->w - g->pad + sx; int y = c->my + g->pad + sy;
     int gaugeBottom = y, barX = 0, barY = 0, barW = 0, barH = 0;
     // #127144 one centre line for letter, word, gauge and pop-ups: the middle of the box (as wide as the widest letter / word / gauge, SmGeom)
@@ -254,8 +285,20 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         // #127152 fixed rows: letter row = tallest letter, word row = tallest word; each letter sits on the row's bottom line
         const float kl = g->k * SM_LK, rowL = mlh * kl, cx = mid + g_sm_letter_dx[rank] * kl * st->scale, cy = y + rowL - L[3] * kl / 2.f;
         // #127149 no glow halo behind the letter (human did not like it)
-        const float ks = kl * st->scale;
-        SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
+        // #127299 rank-up: old letter breaks away, new one slams in, white flash + slash streak at impact
+        if (up.oa > 0.f && st->prevRank >= 0 && st->prevRank < SM_RANKS && st->prevRank != rank) {
+            const int* P = sm_atlas_letter[st->prevRank]; const float ko = kl * up.os;
+            const float pcx = mid + g_sm_letter_dx[st->prevRank] * kl, pcy = y + rowL - P[3] * kl / 2.f + up.ody * unit;
+            SmBlitA(mem, (int)(pcx - P[2] * ko / 2.f + 0.5f), (int)(pcy - P[3] * ko / 2.f + 0.5f), P, P[2], ko, (int)(255 * up.oa));
+        }
+        const float ks = kl * st->scale * up.ns;
+        const int lx0 = (int)(cx - L[2] * ks / 2.f + 0.5f), ly0 = (int)(cy - L[3] * ks / 2.f + 0.5f);
+        SmBlitA(mem, lx0, ly0, L, L[2], ks, (int)(255 * up.na));
+        if (up.flash > 0.f || up.slash >= 0.f) {
+            GdiFlush();
+            if (up.flash > 0.f) SmFlashRect(px, w, h, lx0, ly0, (int)(L[2] * ks) + 1, (int)(L[3] * ks) + 1, up.flash * 0.8f);  // 0.8: outline stays visible
+            if (up.slash >= 0.f) SmSlash(px, w, h, cx, cy, L[2] * ks, L[3] * ks, up.slash, unit);
+        }
         if (SM_SHOW_WORD) {
             y += (int)rowL + g->pad;
             SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y + (int)((mwh - W[3]) * g->k / 2.f), W, W[2], g->k, 255); y += (int)(mwh * g->k) + g->pad;
@@ -278,6 +321,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
     }
     GdiFlush();
     if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now);
+    if (barW > 0 && up.flash > 0.f) SmFlashRect(px, w, h, barX, barY, barW, barH, up.flash * 0.7f);
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
         const int TW = w, TH = (int)(c->pp * 1.25f);
         BITMAPINFO bi; memset(&bi, 0, sizeof bi);
