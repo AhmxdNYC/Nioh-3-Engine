@@ -51,6 +51,13 @@ static void SmReadIni(const char* ini, int reset) {
     c.style = (float)(int)GetPrivateProfileIntA("StyleMeter", "StyleSwitchPts", SM_STYLE_PTS, ini);
     c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
+    {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
+        char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
+        float v[SM_RANKS]; int n = 0; const char* p = buf;
+        while (*p && n < SM_RANKS) { char* e; const double d = strtod(p, &e); if (e == p || d < 1.0 || d > 100000.0) break; v[n++] = (float)d; p = e; while (*p == ',' || *p == ' ') ++p; }
+        if (n == SM_RANKS && !*p) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = v[i];
+        else if (buf[0]) Log("STYLE METER: RankPts '%s' ignored (needs %d numbers 1..100000)", buf, SM_RANKS);
+    }
     {   // RankPtsPct: scales every rank's size (100 = defaults; 50 = the pre-#126755 easy meter)
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
         if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
