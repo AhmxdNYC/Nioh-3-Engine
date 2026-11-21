@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pack_public_assets as pack
 
+NOTES = "# vX\n\n- New thing one.\n- New thing two\n\nOff by default.\n"
+OLD_NEWS = "1.8.25: crash fixes (GitHub #133); lower CPU use while waiting on frames."
+
 
 class PackPublicAssetsTests(unittest.TestCase):
     def test_zip_and_manifest_contain_the_five_name_lists(self):
@@ -33,7 +36,7 @@ class PackPublicAssetsTests(unittest.TestCase):
                 "Nioh3BossRematch.asi": src / "Nioh3BossRematch.asi",
                 "Nioh3CamKiProbe.asi": src / "Nioh3CamKiProbe.asi",
             }, src / "Nioh3Updater.exe", src / "stable.json", {name: src / name for name in pack.TSVS},
-               {name: src / name for name in pack.INIS})
+               {name: src / name for name in pack.INIS}, notes=NOTES)
             with zipfile.ZipFile(result["zip"]) as archive:
                 self.assertEqual(archive.namelist(), [
                     *pack.ASIS, *pack.INIS, *pack.TSVS, "Nioh3Updater.exe"])
@@ -81,8 +84,39 @@ class PackPublicAssetsTests(unittest.TestCase):
                     "Nioh3CamKiProbe.asi": src / "Nioh3CamKiProbe.asi",
                 }, src / "Nioh3Updater.exe", src / "stable.json",
                    {name: src / name for name in pack.TSVS},
-                   {name: src / name for name in pack.INIS})
+                   {name: src / name for name in pack.INIS}, notes=NOTES)
             self.assertIn("SoulCoreForms", str(caught.exception))
+
+    def test_news_is_written_from_this_release_notes(self):
+        base = json.dumps({"schema": 1, "version": "1.8.36", "news": OLD_NEWS, "files": []}).encode()
+        out = json.loads(pack.apply_news(base, "1.8.37", NOTES, OLD_NEWS))
+        self.assertEqual(out["news"], "1.8.37: New thing one; New thing two.")
+        self.assertEqual(out["version"], "1.8.36")  # apply_news touches only news
+
+    def test_gate_fails_old_news_carried_forward(self):
+        # the 1.8.26..1.8.37 bug: base news copied unchanged
+        with self.assertRaisesRegex(ValueError, "not 1.8.37"):
+            pack.check_news(OLD_NEWS, "1.8.37", OLD_NEWS)
+        # same text relabelled with the new version still fails
+        with self.assertRaisesRegex(ValueError, "repeats"):
+            pack.check_news("1.8.37: crash fixes (GitHub #133); lower CPU use while waiting on frames.",
+                            "1.8.37", OLD_NEWS)
+        with self.assertRaisesRegex(ValueError, "empty"):
+            pack.check_news("", "1.8.37", OLD_NEWS)
+        with self.assertRaisesRegex(ValueError, "no text"):
+            pack.check_news("1.8.37: ", "1.8.37", OLD_NEWS)
+
+    def test_gate_passes_correct_news(self):
+        pack.check_news("1.8.37: reports include the Player log when Player log is on.", "1.8.37", OLD_NEWS)
+        pack.check_news("1.8.37: first release news.", "1.8.37", None)
+
+    def test_notes_without_bullets_are_refused(self):
+        with self.assertRaisesRegex(ValueError, "bullet"):
+            pack.news_from_notes("# v1.8.37\n\nJust prose.\n", "1.8.37")
+
+    def test_pack_refuses_without_notes(self):
+        with self.assertRaisesRegex(ValueError, "notes"):
+            pack.apply_news(b"{}", "1.8.37", "", None)
 
     def test_rejects_a_bad_version(self):
         with self.assertRaises(ValueError):

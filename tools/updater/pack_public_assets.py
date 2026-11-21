@@ -11,6 +11,9 @@ folder must not replace Nioh3EngineFix.ini, Nioh3Training.ini, or Nioh3BossRemat
 A fresh install still ships those from the full-install zip.
 
 A package that is missing one of the four ASIs or Nioh3CamKiProbe.ini is refused.
+stable.json "news" (what the updater prints) is written from this release's bullet
+changelog (--notes). The package is refused if news does not start with the new
+version or repeats the previous release's news (1.8.26-1.8.37 shipped 1.8.25 news, #128383).
 Nothing here calls gh or vercel.
 """
 from __future__ import annotations
@@ -62,7 +65,50 @@ def manifest_with_name_lists(stable_bytes: bytes, version: str, extra_blobs: dic
     return (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
 
 
-def pack(version: str, out: Path, asis: dict, updater: Path, stable: Path, tsvs: dict, inis: dict) -> dict:
+def news_from_notes(notes_md: str, version: str) -> str:
+    """'<version>: bullet one; bullet two' from the first top-level '- ' bullet block of the changelog."""
+    bullets, started = [], False
+    for line in notes_md.splitlines():
+        if line.startswith(("- ", "* ")):
+            started = True
+            text = re.sub(r"[`*_]", "", line[2:]).strip().rstrip(".")
+            if text:
+                bullets.append(text)
+        elif started and line.startswith((" ", "\t")) and line.strip() and bullets:
+            bullets[-1] += " " + re.sub(r"[`*_]", "", line.strip()).rstrip(".")
+        elif started and line.strip():
+            break
+    if not bullets:
+        raise ValueError("release notes have no '- ' bullet changelog; stable.json news needs one")
+    return f"{version}: " + "; ".join(bullets) + "."
+
+
+def check_news(news, version: str, previous_news) -> None:
+    """Gate: news belongs to this version and is not the previous release's text."""
+    if not isinstance(news, str) or not news.strip():
+        raise ValueError("stable.json news is empty")
+    m = re.match(r"\s*(\d+\.\d+\.\d+)\s*:\s*(.*)", news, re.S)
+    if not m or m.group(1) != version:
+        raise ValueError(f"stable.json news is for {m.group(1) if m else 'no version'}, not {version}: {news[:60]!r}")
+    body = m.group(2).strip()
+    if not body:
+        raise ValueError("stable.json news has no text after the version")
+    if isinstance(previous_news, str) and previous_news.strip():
+        pm = re.match(r"\s*\d+\.\d+\.\d+\s*:\s*(.*)", previous_news, re.S)
+        prev_body = (pm.group(1) if pm else previous_news).strip()
+        if news.strip() == previous_news.strip() or body.casefold() == prev_body.casefold():
+            raise ValueError("stable.json news repeats the previous release's news")
+
+
+def apply_news(stable_bytes: bytes, version: str, notes_md: str, previous_news) -> bytes:
+    manifest = json.loads(stable_bytes.decode("utf-8"))
+    manifest["news"] = news_from_notes(notes_md, version)
+    check_news(manifest["news"], version, previous_news)
+    return (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
+
+
+def pack(version: str, out: Path, asis: dict, updater: Path, stable: Path, tsvs: dict, inis: dict,
+         notes: str = None) -> dict:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("version must be major.minor.patch")
     missing = [name for name in ASIS if name not in asis]
@@ -91,7 +137,11 @@ def pack(version: str, out: Path, asis: dict, updater: Path, stable: Path, tsvs:
     if not exe:
         raise ValueError("updater is empty")
     blobs[UPDATER] = exe
-    stable_bytes = manifest_with_name_lists(Path(stable).read_bytes(), version, blobs)
+    base_bytes = Path(stable).read_bytes()
+    stable_bytes = manifest_with_name_lists(base_bytes, version, blobs)
+    if notes is None:
+        raise ValueError("release notes (--notes) are required to write stable.json news")
+    stable_bytes = apply_news(stable_bytes, version, notes, json.loads(base_bytes.decode("utf-8")).get("news"))
     here = str(Path(__file__).resolve().parent)
     if here not in sys.path:
         sys.path.insert(0, here)
@@ -143,6 +193,8 @@ def main(argv=None) -> int:
     parser.add_argument("--records", required=True, type=Path)
     parser.add_argument("--arenas", required=True, type=Path)
     parser.add_argument("--bgm", required=True, type=Path)
+    parser.add_argument("--notes", required=True, type=Path,
+                        help="this release's notes (markdown); its '- ' bullets become stable.json news")
     args = parser.parse_args(argv)
     result = pack(args.version, args.out, {
         "Nioh3EngineFix.asi": args.engine,
@@ -157,10 +209,11 @@ def main(argv=None) -> int:
         "Nioh3Training_bgm.tsv": args.bgm,
     }, {
         "Nioh3CamKiProbe.ini": args.camera_ini,
-    })
+    }, notes=args.notes.read_text(encoding="utf-8"))
     print(f"PACKED {result['out']}")
     print("zip", result["zip"].name, result["sums"][result["zip"].name])
     print("updater", result["sums"][UPDATER])
+    print("news", json.loads((result["out"] / "stable.json").read_text(encoding="utf-8"))["news"])
     print("gh assets:", " ".join(result["assets"]))
     print("NOT PUBLISHED")
     return 0
