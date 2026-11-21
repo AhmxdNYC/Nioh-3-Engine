@@ -22,9 +22,14 @@ static const uint32_t g_sm_rank_rgb[SM_RANKS] = {0xD8DEE6u, 0xD7DDE5u, 0xE6AD50u
 #define SM_BAR_RANK_RGB 0
 #endif
 #define SM_LETTER_RGB 0xECE8DEu
+static int g_sm_letter_ink[SM_RANKS][4];  // #127353 solid-ink box (sprite px: x0 y0 x1 y1), used to keep katana cuts on the letter
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
         const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
+        int* B = g_sm_letter_ink[i]; B[0] = L[2]; B[1] = L[3]; B[2] = -1; B[3] = -1;
+        for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x)
+            if (px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3] > 200) { if (x < B[0]) B[0] = x; if (y < B[1]) B[1] = y; if (x > B[2]) B[2] = x; if (y > B[3]) B[3] = y; }
+        if (B[2] < 0) { B[0] = 0; B[1] = 0; B[2] = L[2] - 1; B[3] = L[3] - 1; }
         for (int x = 0; x < L[2]; ++x) for (int y = 0; y < L[3]; ++y)
             if (px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3] > 200) { if (lo < 0) lo = x; hi = x; break; }
         // #127187 optical centre: the ink's weight centre (alpha-weighted mean x of the solid ink); SM_INK_MASS_W blends back toward the box centre.
@@ -437,21 +442,33 @@ static void SmGlint(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, 
 // #127343 katana draw-cut: one hairline arc (a slice of a big circle, like a blade's swing) through (px0, py0), rising left -> right.
 // s = 0..1 head travel; the tail trails behind and the whole cut fades by 'fade'. Thin, bright, a faint cold edge.
 // #127346 ang = tangent angle at the letter centre (negative = rising right); the arc always bows upward like a swing
-static void SmArcCutA(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit, float ang) {
-    if (fade <= 0.f || s <= 0.f) return;
+// #127353 cuts are clipped to the cut letter's box (+ a small margin) and fade out toward its edges, so they never run out of the UI
+static int g_sm_cut_clip[4], g_sm_cut_clip_on;
+static void SmCutClip(const int* rc, int rank, float m) {
+    if (!rc || rank < 0 || rank >= SM_RANKS) { g_sm_cut_clip_on = 0; return; }
+    const int* L = sm_atlas_letter[rank]; const int* B = g_sm_letter_ink[rank]; const float k = L[2] > 0 ? (float)(rc[2] - 2) / L[2] : 1.f;
+    const float x0 = rc[0] + B[0] * k, y0 = rc[1] + B[1] * k, x1 = rc[0] + (B[2] + 1) * k, y1 = rc[1] + (B[3] + 1) * k, mx = (x1 - x0) * m, my = (y1 - y0) * m;
+    g_sm_cut_clip[0] = (int)(x0 - mx); g_sm_cut_clip[1] = (int)(y0 - my); g_sm_cut_clip[2] = (int)(x1 + mx); g_sm_cut_clip[3] = (int)(y1 + my); g_sm_cut_clip_on = 1;
+}
+static void SmArcCutA(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fadeIn, float unit, float ang) {
+    if (fadeIn <= 0.f || s <= 0.f) return;
     const float R = lh * 3.2f, tx = cosf(ang), ty = sinf(ang);
     const float ccx = px0 - ty * R, ccy = py0 + tx * R;           // centre below the cut: the arc bows upward like a swing
-    const float phiP = atan2f(py0 - ccy, px0 - ccx), span = (lw * 2.6f) / R;
+    const float phiP = atan2f(py0 - ccy, px0 - ccx), span = (lw * 1.5f) / R;  // #127353 short: the cut stays on the letter
     const float p0 = phiP - span * 0.5f, head = p0 + span * (s > 1.f ? 1.f : s), tail = head - span * 0.55f;
     const float wmax = 1.6f * unit + 0.6f, edge = wmax + 1.5f * unit;
-    const int x0 = (int)(px0 - lw * 1.5f), x1 = (int)(px0 + lw * 1.5f), y0 = (int)(py0 - lh * 1.0f), y1 = (int)(py0 + lh * 1.0f);
-    for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
+    const int x0 = (int)(px0 - lw * 0.8f), x1 = (int)(px0 + lw * 0.8f), y0 = (int)(py0 - lh * 0.6f), y1 = (int)(py0 + lh * 0.6f);  // #127353 never far outside the letter
+    int cx0 = x0, cx1 = x1, cy0 = y0, cy1 = y1; const float ef = 10.f * unit + 1.f;
+    if (g_sm_cut_clip_on) { cx0 = g_sm_cut_clip[0]; cy0 = g_sm_cut_clip[1]; cx1 = g_sm_cut_clip[2]; cy1 = g_sm_cut_clip[3]; }
+    for (int yy = cy0 < 0 ? 0 : cy0; yy <= cy1 && yy < h; ++yy) for (int xx = cx0 < 0 ? 0 : cx0; xx <= cx1 && xx < w; ++xx) {
         const float dx = xx - ccx, dy = yy - ccy, d = fabsf(sqrtf(dx * dx + dy * dy) - R); if (d >= edge) continue;
+        float eb = (float)(xx - cx0); if (cx1 - xx < eb) eb = (float)(cx1 - xx); if (yy - cy0 < eb) eb = (float)(yy - cy0); if (cy1 - yy < eb) eb = (float)(cy1 - yy);
+        const float fade = fadeIn * (eb < ef ? eb / ef : 1.f);  // taper to nothing at the clip edge
         const float phi = atan2f(dy, dx); if (phi > head || phi < tail || phi < p0) continue;
         const float q = (phi - tail) / (head - tail);              // 0 tail .. 1 head: blade gets thicker toward the head
-        const float wd = wmax * (0.25f + 0.75f * q);
+        const float wd = wmax * (0.25f + 0.75f * q) * (0.45f + 0.55f * fade);  // lingering cut thins instead of turning grey
         if (d >= wd) { if (d < wd + 1.5f * unit) SmPxOver(&px[yy * w + xx], 190, 215, 255, (unsigned)((1.f - (d - wd) / (1.5f * unit)) * 0.3f * q * fade * 255.f)); continue; }
-        SmPxOver(&px[yy * w + xx], 255, 255, 255, (unsigned)((1.f - 0.4f * d / wd) * (0.35f + 0.65f * q) * fade * 255.f));
+        SmPxOver(&px[yy * w + xx], 255, 255, 255, (unsigned)((1.f - 0.3f * d / wd) * (0.7f + 0.3f * q) * sqrtf(fade) * 255.f));  // #127353 bright white, not grey
     }
 }
 static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit) {
@@ -460,7 +477,7 @@ static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw,
 // one katana swing: travel 0..1, then the cut lingers and fades (s 1..1.6)
 static void SmSwing(uint32_t* px, int w, int h, float cx, float cy, float lw, float lh, float s, float unit, float ang) {
     if (s <= 0.f || s >= 1.6f) return;
-    SmArcCutA(px, w, h, cx, cy, lw, lh, s, s < 1.f ? 1.f : 0.7f * (1.f - (s - 1.f) / 0.6f), unit, ang);
+    SmArcCutA(px, w, h, cx, cy, lw, lh, s, s < 1.f ? 1.f : 0.9f * (1.f - (s - 1.f) / 0.6f), unit, ang);
 }
 typedef struct { HDC mem; uint32_t* px; int w, h; float mid, rowBottom, kl, unit; } SmLetterCtx;
 static void SmLetterCentre(const SmLetterCtx* x, int r, float* cx, float* cy) {
@@ -502,7 +519,9 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
             const float e = dt - still; SmSplitRect(px, w, h, ro[0], ro[1], ro[2], ro[3], pcx, pcy, 0.185f, e * e * 0.0025f * u + e * 0.12f * u, 1.f - e / 200.f); }
         const float na = SmClamp01((dt - still - 50.f) / 120.f);
         SmLetterAt(x, r, 0, 0, 1, na, rc); GdiFlush();
-        SmArcCut(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / swing, dt < swing ? 1.f : dt < still ? 0.55f : 0.55f * (1.f - (dt - still) / 120.f), u);
+        SmCutClip(ro, prev, 0.1f);
+        SmArcCut(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / swing, dt < swing ? 1.f : dt < still ? 0.9f : 0.9f * (1.f - (dt - still) / 120.f), u);
+        SmCutClip(0, 0, 0);
         if (dt >= swing && dt < swing + 140.f) SmSparks(px, w, h, pcx + ro[2] * 0.6f, pcy - ro[3] * 0.22f, dt - swing, 8, 0xB2u, u, 0);
         break; }
     case 3: {  // #127348 A: overhead katana cut - one fast curved blade falls top -> bottom through the B, a beat of stillness with
@@ -514,9 +533,11 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
             SmSplitV(px, w, h, ro[0], ro[1], ro[2], ro[3], pcx, pcy, -0.26f, e * 0.5f * u + e * e * 0.003f * u, e * e * 0.0025f * u, 1.f - e / 110.f); }
         const float la = SmClamp01((dt - still - 20.f) / 60.f), drop = 1.f - SmClamp01((dt - still - 20.f) / 60.f);
         if (la > 0.f) { SmLetterAt(x, r, 0, -drop * drop * 0.22f * S, 1, la, rc); GdiFlush(); }
+        SmCutClip(ro, prev, 0.1f);
         // the cut is drawn over the B's box, rotated so the blade arc is tall (lh <-> lw swapped)
-        SmArcCutA(px, w, h, pcx - ro[2] * 0.06f, pcy - ro[3] * 0.22f, (float)ro[3] * 0.46f, (float)ro[2] * 1.15f, dt / swing,
-                  dt < swing ? 1.f : dt < still ? 0.6f : 0.6f * (1.f - (dt - still) / 110.f), u, ang);
+        SmArcCutA(px, w, h, pcx - ro[2] * 0.06f, pcy - ro[3] * 0.22f, (float)ro[3] * 0.8f, (float)ro[2] * 1.15f, dt / swing,
+                  dt < swing ? 1.f : dt < still ? 0.9f : 0.9f * (1.f - (dt - still) / 110.f), u, ang);
+        SmCutClip(0, 0, 0);
         if (dt >= swing && dt < swing + 150.f) SmSparks(px, w, h, pcx + ro[2] * 0.1f, pcy + ro[3] * 0.36f, dt - swing, 7, 0xA3u, u, 0);
         if (la > 0.f && dt - still - 80.f >= 0.f) SmSparks(px, w, h, cx, cy + S * 0.4f, dt - still - 80.f, 10, 0xA4u, u, 0);
         break; }
@@ -535,8 +556,10 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         const float in = 210.f, e = dt - in;
         if (dt < in) { const int on = dt < 100.f || ((int)(dt / 28.f) & 1); SmLetterAt(x, prev, 0, 0, 1, on ? 1.f : 0.35f, ro); GdiFlush();
             float pcx, pcy; SmLetterCentre(x, prev, &pcx, &pcy);
+            SmCutClip(ro, prev, 0.1f);
             SmSwing(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / 80.f, u, -0.38f);  // #127346 two crossing katana swings
             SmSwing(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], (dt - 90.f) / 80.f, u, 0.38f);
+            SmCutClip(0, 0, 0);
             break; }
         const int on = e < 40.f || (e >= 70.f && e < 130.f) || e >= 150.f;
         SmLetterAt(x, r, 0, 0, 1, on ? 1.f : 0.f, rc); GdiFlush();
@@ -552,7 +575,9 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFF4A1Eu, 0.9f * SmClamp01(1.f - (e - 120.f) / 480.f));
         if (e >= 200.f) { const float f = e - 200.f; static const float tl[3] = {-0.38f, 0.38f, -0.05f};  // #127346 three katana swings
             SmRing(px, w, h, cx, cy, f, S * 0.8f, u);
-            for (int k = 0; k < 3; ++k) SmSwing(px, w, h, cx, cy, (float)rc[2], (float)rc[3], (f - 70.f * k) / 80.f, u, tl[k]); }
+            SmCutClip(rc, r, 0.1f);
+            for (int k = 0; k < 3; ++k) SmSwing(px, w, h, cx, cy, (float)rc[2], (float)rc[3], (f - 70.f * k) / 80.f, u, tl[k]);
+            SmCutClip(0, 0, 0); }
         SmSparks(px, w, h, cx, cy + S * 0.35f, e, 30, 0xE3BE25u, u, 1);
         if (e >= 200.f) SmSparks(px, w, h, cx, cy, e - 200.f, 40, 0x66u, u, 0);
         break; }
