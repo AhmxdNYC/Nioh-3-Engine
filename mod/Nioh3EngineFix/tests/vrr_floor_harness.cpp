@@ -5,6 +5,9 @@
 extern "C" {
 uint32_t CallFps(void* g, uint32_t tier);
 uint32_t CallHold(void* entry);
+uint32_t CallFpsOvr(void* g, uint32_t tier, uint32_t g620);
+extern uint32_t vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames;
+extern uint64_t vrr_clampLostNs;
 extern uint32_t vrr_hold60;
 extern uint64_t vrr_minNs[3], vrr_maxNs[3], vrr_pNear, vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;
 extern uint32_t vrr_enable, vrr_tier, vrr_capCur, vrr_arm[3], vrr_cap[3], vrr_fpsOut, vrr_floorOn, vrr_floorEnters;
@@ -21,6 +24,11 @@ static void Frame(double fps, uint32_t tier = 120) {
     now += (uint64_t)(1e9 / fps);
     memcpy(G + 0x7D8, &now, 8);
     CallFps(G, tier);
+}
+static void FrameOvr(double fps, uint32_t tier, uint32_t g620) {
+    now += (uint64_t)(1e9 / fps);
+    memcpy(G + 0x7D8, &now, 8);
+    CallFpsOvr(G, tier, g620);
 }
 static uint32_t G614() { uint32_t v; memcpy(&v, G + 0x614, 4); return v; }
 static void Setup(int floorFps) {
@@ -109,6 +117,32 @@ int main() {
         double sum = 0;
         for (int i = 0; i < 1120; ++i) { Frame(112); sum += vrr_hold60; }
         CHECK(sum >= 599 && sum <= 601, "60 Hz hold ticks over 10 s at 112 fps = %.0f", sum);
+    }
+    // 7. GH #155: the game's time effect sets G[620] = tier/2 (60 in the 120 tier). Off: stock (fixed 1/120 s steps = slow
+    //    motion at 67 fps), counted. TimeEffectArm: real-time dt kept. Events (30) and the 60 tier's override stay stock.
+    {
+        Setup(0);
+        vrr_teArm = 0; vrr_ovrFrames = 0; vrr_teFrames = 0; vrr_ovrVal = 0;
+        for (int i = 0; i < 10; ++i) FrameOvr(67, 120, 60);
+        CHECK(G614() == 120 && vrr_fpsOut == 0 && vrr_ovrFrames == 10 && vrr_ovrVal == 60 && vrr_teFrames == 0,
+              "time effect, arm off: stock g614=%u out=%u ovr=%u val=%u te=%u", G614(), vrr_fpsOut, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames);
+        vrr_teArm = 1;
+        for (int i = 0; i < 10; ++i) FrameOvr(67, 120, 60);
+        CHECK(G614() == 67 && vrr_fpsOut == 67 && vrr_ovrFrames == 20 && vrr_teFrames == 10 && vrr_capCur == 120,
+              "time effect, arm on: real-time g614=%u out=%u ovr=%u te=%u cap=%u", G614(), vrr_fpsOut, vrr_ovrFrames, vrr_teFrames, vrr_capCur);
+        FrameOvr(67, 120, 30);
+        CHECK(G614() == 120 && vrr_fpsOut == 0 && vrr_teFrames == 10 && vrr_ovrVal == 30, "event (30) in the 120 tier stays stock (g614=%u)", G614());
+        for (int i = 0; i < 5; ++i) FrameOvr(50, 60, 30);
+        CHECK(G614() == 60 && vrr_fpsOut == 0 && vrr_teFrames == 10, "60 tier override stays stock with arm on (g614=%u)", G614());
+        for (int i = 0; i < 5; ++i) Frame(67);
+        CHECK(G614() == 67 && vrr_teFrames == 10 && vrr_ovrFrames == 26, "no override: armed as before (g614=%u ovr=%u)", G614(), vrr_ovrFrames);
+        vrr_teArm = 0;
+        // clamp counter: a 30 fps frame in the 120 tier is clamped to 48 fps (33.3 - 20.8 ms lost)
+        vrr_clampFrames = 0; vrr_clampLostNs = 0;
+        Frame(67);
+        Frame(30);
+        CHECK(vrr_clampFrames == 1 && vrr_clampLostNs > 12400000ull && vrr_clampLostNs < 12600000ull && G614() == 48,
+              "clamp count %u lost %llu ns g614=%u", vrr_clampFrames, (unsigned long long)vrr_clampLostNs, G614());
     }
     printf(fails ? "vrr floor harness FAILED (%d)\n" : "vrr floor harness ALL PASSED\n", fails);
     return fails ? 1 : 0;
