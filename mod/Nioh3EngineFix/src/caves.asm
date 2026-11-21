@@ -123,6 +123,7 @@ lIdx:
     lea     rdx, vrr_arm
     cmp     dword ptr [rdx+r9*4], 0
     je      lStock
+    xor     edx, edx                            ; edx = 1 on TimeEffectArm frames (the floor skips them)
     cmp     eax, r8d                            ; event / time-effect override (G[620] != tier) -> stock
     je      lOvrOk
     inc     dword ptr [vrr_ovrFrames]
@@ -134,6 +135,7 @@ lIdx:
     cmp     dword ptr [vrr_teArm], 0
     je      lStock
     inc     dword ptr [vrr_teFrames]
+    mov     edx, 1
 lOvrOk:
     test    rcx, rcx
     je      lStock
@@ -141,6 +143,8 @@ lOvrOk:
     sub     rax, rcx
     cmp     r9d, 2
     jne     fNo
+    test    edx, edx                            ; regression #127782: the floor's 60 tier would turn the effect's
+    jne     fNo                                 ; half-rate step (tier/G[620] = 2) into 1; keep the 120 tier
     cmp     qword ptr [vrr_floorNs], 0
     je      fNo
     mov     rdx, rax                            ; accounting interval, capped at the 120 tier's longest

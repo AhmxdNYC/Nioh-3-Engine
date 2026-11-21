@@ -144,6 +144,20 @@ int main() {
         CHECK(vrr_clampFrames == 1 && vrr_clampLostNs > 12400000ull && vrr_clampLostNs < 12600000ull && G614() == 48,
               "clamp count %u lost %llu ns g614=%u", vrr_clampFrames, (unsigned long long)vrr_clampLostNs, G614());
     }
+    // 8. regression #127782: Tier120Floor engaged + TimeEffectArm: effect frames keep the 120 tier (P9 120/60 = 2 half-rate
+    //    step), real-time dt, and the floor state is untouched; the next normal frame is back in floor mode (60 tier).
+    {
+        Setup(90);
+        for (int i = 0; i < 160; ++i) Frame(68);
+        CHECK(vrr_floorOn == 1 && vrr_tier == 60, "floor engaged before the effect (on=%u tier=%u)", vrr_floorOn, vrr_tier);
+        vrr_teArm = 1; vrr_teFrames = 0;
+        for (int i = 0; i < 10; ++i) FrameOvr(67, 120, 60);
+        CHECK(vrr_tier == 120 && vrr_fpsOut == 67 && G614() == 67 && vrr_capCur == 120 && vrr_floorOn == 1 && vrr_teFrames == 10,
+              "floor + effect: tier=%u out=%u g614=%u cap=%u on=%u te=%u", vrr_tier, vrr_fpsOut, G614(), vrr_capCur, vrr_floorOn, vrr_teFrames);
+        Frame(60);
+        CHECK(vrr_tier == 60 && vrr_floorOn == 1 && G614() == 60, "after the effect: floor mode again (tier=%u g614=%u)", vrr_tier, G614());
+        vrr_teArm = 0;
+    }
     printf(fails ? "vrr floor harness FAILED (%d)\n" : "vrr floor harness ALL PASSED\n", fails);
     return fails ? 1 : 0;
 }
