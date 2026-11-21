@@ -41,29 +41,29 @@ int PstSet(int what, int value) {
 }
 int StyGet(int what) { using F = int (*)(int); const auto f = (F)TrainingExport("Nioh3Training_StyleGet"); return f ? f(what) : -1; }
 int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)TrainingExport("Nioh3Training_StyleSet"); return f ? f(what, v) : -1; }
-// human #127379 one row per Nioh3Training [StyleMeter] key (same order as Nioh3Training's sm_menu_keys). kind: 0 on/off, 1 %, 2 ms, 3 points
+// human #127379 one row per Nioh3Training [StyleMeter] key (#127568: defs = TR SM_* defaults) (same order as Nioh3Training's sm_menu_keys). kind: 0 on/off, 1 %, 2 ms, 3 points
 struct StyRow { const char* label; int def, kind; int steps[12]; const char* foot; };
 const StyRow kSty[kStyN] = {
     {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit drops a rank. Saved."},
     {"Style rank size:", 100, 1, {25, 50, 75, 100, 125, 150, 200, 250, 300, 400, -1}, "Points each rank needs. 100% = default; higher = harder to rank up, lower = easier. Changes apply at once. Saved."},
     {"Style drain speed:", 100, 1, {0, 25, 50, 75, 100, 125, 150, 200, 300, 500, -1}, "How fast the meter drains after you stop scoring. 100% = default; 0% = it never drains. Changes apply at once. Saved."},
-    {"Style drain delay:", 4000, 2, {1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, -1}, "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved."},
+    {"Style drain delay:", 500, 2, {500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, -1}, "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved."},
     {"Perfect Ki bonus:", 15, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, 100, -1}, "Extra style points when your Ki pulse is perfect (the teal check), on top of the Ki pulse points. Saved."},
     {"Style pop-ups:", 1, 0, {}, "The '<Bonus> +X' lines under the meter. OFF hides them; scoring is unchanged. Saved."},
     {"Style effects:", 1, 0, {}, "Rank-up effects, shake, glow and smooth bar fill. OFF = a still meter. Saved."},
     {"Style meter size:", 100, 1, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the whole style meter on screen. Saved."},
     {"Style pop-up time:", 1200, 2, {600, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, -1}, "How long each pop-up stays before it fades. Saved."},
-    {"Style hit points:", 10, 3, {0, 2, 5, 8, 10, 12, 15, 20, 30, 50, -1}, "Points for each landed hit (before the repeat penalty). Saved."},
-    {"Style dodge points:", 30, 3, {0, 10, 15, 20, 30, 40, 50, 75, 100, -1}, "Points for a clean dodge through an attack (i-frames). Saved."},
-    {"Style Ki pulse points:", 20, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, -1}, "Points for a Ki pulse within a few seconds of a landed hit. Saved."},
+    {"Style hit points:", 20, 3, {0, 2, 5, 8, 10, 12, 15, 20, 30, 50, -1}, "Points for each landed hit (before the repeat penalty). Saved."},
+    {"Style dodge points:", 45, 3, {0, 10, 15, 20, 30, 40, 45, 50, 75, 100, -1}, "Points for a clean dodge through an attack (i-frames). Saved."},
+    {"Style Ki pulse points:", 30, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, -1}, "Points for a Ki pulse within a few seconds of a landed hit. Saved."},
     {"Style counter points:", 30, 3, {0, 10, 15, 20, 30, 40, 50, 75, 100, -1}, "Points for hitting out of a dodge through an attack (invincible counter). Saved."},
     {"Style ninjutsu points:", 20, 3, {0, 5, 10, 15, 20, 30, 40, 50, 75, -1}, "Points for each ninjutsu thrown in a fight. Saved."},
     {"Style soul core points:", 40, 3, {0, 10, 20, 30, 40, 50, 60, 80, 100, -1}, "Points for using a soul core in a fight. Saved."},
     {"Style switch points:", 15, 3, {0, 5, 10, 15, 20, 30, 40, 50, -1}, "Points for switching Samurai / Ninja in a fight (once per landed hit). Saved."},
     {"Style weapon swap points:", 25, 3, {0, 10, 15, 20, 25, 30, 40, 50, 75, -1}, "Points for a weapon swap attack that lands. Saved."},
     {"Style slow move bonus:", 100, 1, {0, 25, 50, 75, 100, 150, 200, 300, -1}, "Extra points for slow, committed moves (late first hit). 100% = double points for the slowest. Saved."},
-    {"Style repeat penalty:", 60, 1, {10, 25, 40, 50, 60, 70, 80, 90, 100, -1}, "Points kept each time you repeat the same move (100% = no penalty, lower = vary your moves more). Saved."},
-    {"Style drain ramp:", 0, 1, {0, 5, 10, 20, 30, 50, 75, 100, -1}, "Extra drain per idle second after the delay (0% = steady drain). Saved."},
+    {"Style repeat penalty:", 80, 1, {10, 25, 40, 50, 60, 70, 80, 90, 100, -1}, "Points kept each time you repeat the same move (100% = no penalty, lower = vary your moves more). Saved."},
+    {"Style drain ramp:", 150, 1, {0, 5, 10, 20, 30, 50, 75, 100, 150, 200, -1}, "Extra drain per idle second after the delay (0% = steady drain). Saved."},
 };
 const char* StyLabel(int what) { return kSty[what].label; }
 int StyDefault(int what) { return kSty[what].def; }
