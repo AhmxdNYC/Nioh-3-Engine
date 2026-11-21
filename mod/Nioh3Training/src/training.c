@@ -6587,7 +6587,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { StanceTimerTick(); SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); for (int k = 0; k < N3T_SLOTS; ++k) g_sph[k].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
-    __try { PlTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_plog = 0; Log("PLAYERLOG tick exception %08lX - off", GetExceptionCode()); }  // human #122228
+    __try { PlTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_plog = 0; g_cfg_pclk = 0; Log("PLAYERLOG tick exception %08lX - off", GetExceptionCode()); }  // human #122228
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     __try { DrillTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DRILL tick exception %08lX", GetExceptionCode()); g_dr_off = 1; DrStop("exception"); }
     __try { AggroTick(); ResetPosTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO tick exception %08lX", GetExceptionCode()); g_ag_off = 1; for (int i = 0; i < MV_CHASE_MAX; ++i) g_mv_chase[i] = 0; }  // user #13787
@@ -6694,6 +6694,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
                 g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
                 g_cfg_plog = GetPrivateProfileIntA("Record", "PlayerLog", 0, ini); Log("PLAYERLOG (#122228): [Record] PlayerLog %d", g_cfg_plog);
+                g_cfg_pclk = GetPrivateProfileIntA("Record", "PlayerClock", 0, ini); Log("PLAYERLOG (#127933): [Record] PlayerClock %d", g_cfg_pclk);
                 g_rec_max = GetPrivateProfileIntA("Record", "MaxMinutes", 20, ini); Log("RECORD (#9291): Enable %d, Script %s, OutRoot %s, MaxMinutes %d", g_cfg_rec, g_rec_script, g_rec_out, g_rec_max); }
             g_cfg_rh_ls = GetPrivateProfileIntA("Return", "LoadScreen", 1, ini); Log("RETURN loading screen (#8902): [Return] LoadScreen %d, EngineFix export %s", g_cfg_rh_ls, p_osdLoad ? "found" : "missing (black only)");
             if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }

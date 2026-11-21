@@ -49,6 +49,7 @@
 #include "hitchlog.h"
 #include "perfsnap.h"
 #include "osd.h"
+#include "crashreport.h"
 #include "dxgidiag.h"
 #include "psoswap.h"
 #include "tilestats.h"
@@ -68,7 +69,9 @@ extern "C" {
 extern float vrr_scale;
 extern uint32_t vrr_fpsOut;
 extern uint32_t vrr_tier;
-extern uint32_t vrr_floorOn, vrr_floorEnters;  // Tier120Floor (GitHub #98), written by the VRR cave
+extern uint32_t vrr_floorOn, vrr_floorEnters;
+extern uint32_t vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_teArm;  // GH #155, written by caveFps
+extern uint64_t vrr_clampLostNs;  // Tier120Floor (GitHub #98), written by the VRR cave
 void GovTraceTick();  // dllmain.cpp, [VRR] GovTrace (GitHub #98)
 extern uint32_t vrr_capCur;
 }
@@ -459,6 +462,31 @@ void UpdateStats(int64_t now) {
                  enters, g_st.realFps, g_st.tickFps, vrr_tier, vrr_capCur);
             lastOn = on;
             lastEnters = enters;
+        }
+    }
+    {   // GH #155: frames the VRR fix left stock because the game overrode the tier (event / time effect), and frames whose
+        // interval was clamped to the tier's longest. Stock frames below the fps setting run the game in slow motion.
+        static uint32_t lastOvr = 0, lastTe = 0, lastClamp = 0;
+        static uint64_t lastLost = 0;
+        static int64_t lastLine = 0;
+        const uint32_t ovr = *(volatile uint32_t*)&vrr_ovrFrames, te = *(volatile uint32_t*)&vrr_teFrames,
+                       cl = *(volatile uint32_t*)&vrr_clampFrames, val = *(volatile uint32_t*)&vrr_ovrVal;
+        const uint64_t lost = *(volatile uint64_t*)&vrr_clampLostNs;
+        if ((ovr != lastOvr || cl != lastClamp) && (lastLine == 0 || Secs(now - lastLine) >= 1.0)) {
+            lastLine = now;
+            const uint32_t dOvr = ovr - lastOvr, dTe = te - lastTe, dCl = cl - lastClamp;
+            const double lostMs = (double)(lost - lastLost) / 1e6;
+            if (dOvr) OLOG("VRR override: %u frames with the game tier override (G620 %u, tier %u)%s, rendered %.1f fps, speed %.2fx", dOvr, val,
+                           vrr_tier, dTe ? (dTe == dOvr ? " - kept real-time (TimeEffectArm)" : " - partly kept real-time (TimeEffectArm)")
+                                         : " - ran stock (slow motion below the fps setting)",
+                           g_st.realFps, g_st.speed);
+            if (dCl && lostMs >= 50.0) OLOG("VRR clamp: %u long frames clamped to the tier's minimum fps, %.0f ms of game time lost", dCl, lostMs);
+            lastOvr = ovr;
+            lastTe = te;
+            lastClamp = cl;
+            lastLost = lost;
+            crashreport::SetStateF("vrr overrides", "override %u (G620 %u, kept %u, arm %u) clamp %u lost %.0f ms", ovr, val, te, vrr_teArm, cl,
+                      (double)lost / 1e6);
         }
     }
     g_st.winStart = now;

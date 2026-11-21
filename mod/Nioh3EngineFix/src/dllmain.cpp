@@ -56,6 +56,7 @@
 #include "resinfoguard.h"
 #include "assertguard.h"
 #include "holdkeygap.h"
+#include "inputlog.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -153,7 +154,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.34"
+#define MOD_VERSION "1.8.35"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -268,6 +269,7 @@ extern uint64_t w6_wakeAll, w6_wakes;
 // 1.6.0: TG tick governor (caveLim), WG wake gate (WS2/WS3/WSs), DS, CP, SPF
 extern uint32_t tg_cap;
 extern uint32_t vrr_fpsOut;
+extern uint32_t vrr_teArm;  // GH #155: stay armed through the 120 tier's time effect (G[620] == 60)
 extern uint32_t vrr_dtShift;  // DtSmooth (GitHub #98): EMA shift for the VRR frame interval, 0 = off
 extern uint32_t wg_installed;
 void caveDs();
@@ -508,6 +510,7 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int timeEffectArm = 0;  // GH #155: 1 = VRR stays armed (real-time dt) while the game's time effect halves G[620] in the 120 tier
     int dtSmooth = 0;  // GitHub #98 (pc/1 #113171): VRR game dt = EMA of the frame interval, weight 1/2^N (0 = off, 1..6)
     int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
     int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
@@ -646,6 +649,7 @@ Config LoadConfig() {
     c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
     c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
     c.dtSmooth = std::clamp(I(L"VRR", L"DtSmooth", c.dtSmooth), 0, 6);
+    c.timeEffectArm = I(L"VRR", L"TimeEffectArm", c.timeEffectArm) ? 1 : 0;
     c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
     {
         wchar_t w[128] = {};
@@ -1590,6 +1594,9 @@ void ConfigureVrr(const Config& c) {
         Log("VRR tier %3d: armed=%u clamp %d..%d fps, limiter cap %d", tiers[i], vrr_arm[i], minF, maxF, maxF);
     }
     vrr_dtShift = (uint32_t)c.dtSmooth;
+    vrr_teArm = (uint32_t)c.timeEffectArm;
+    Log("VRR TimeEffectArm=%d: %s (GH #155)", c.timeEffectArm,
+        c.timeEffectArm ? "the 120 tier stays real-time while the game's time effect runs" : "the 120 tier runs stock (fixed 1/120 s steps) while the game's time effect runs");
     if (c.dtSmooth) Log("VRR DtSmooth=%d: game dt = EMA of the frame interval (weight 1/%d, GitHub #98)", c.dtSmooth, 1 << c.dtSmooth);
     vrr_floorNs = c.t120Floor ? 1000000000ull / (uint64_t)c.t120Floor : 0;
     vrr_floorHoldNs = (uint64_t)c.t120FloorHoldMs * 1000000ull;
@@ -3645,6 +3652,8 @@ DWORD WINAPI Worker(LPVOID) {
             hki.iniPath = iniPath.c_str();
             hki.base = reinterpret_cast<uintptr_t>(g_base);
             hki.knownBuild = known;
+            hki.setState = &crashreport::SetState;  // GH #154 last held presses in the report
+            hki.lastRelease = &inputlog::LastRelease;  // GH #154 player presses vs AI
             holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
