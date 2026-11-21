@@ -26,6 +26,7 @@
 #define SM_DECAY_PER_S 12
 #define SM_DECAY_RANK_PCT 35
 #define SM_COMBAT_MS 8000
+#define SM_DAMAGE_GRACE_MS 1500  // live #126502: one multi-hit enemy combo = one rank drop
 #define SM_ACT_NONE 0xFFFFFFFFu
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -37,6 +38,7 @@ typedef struct {
     float hit, dodge, ki;                 // base points per event
     int repeatPct, repeatFloorPct, multiPct;
     int decayDelayMs; float decayPerS; int decayRankPct;
+    int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -52,6 +54,7 @@ typedef struct {
     uint32_t hist[SM_HIST]; int histN, histPos;
     uint32_t useAct; uint64_t useRun; float useFactor; int useOn;
     SmDodge dodge;
+    double lastDamaged;     // game ms of the last rank drop (damage grace), <0 = none
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
 } SmState;
 
@@ -59,7 +62,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT;
-    c->combatMs = SM_COMBAT_MS;
+    c->combatMs = SM_COMBAT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
@@ -70,11 +73,12 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->multiPct < 0) c->multiPct = 0; if (c->multiPct > 100) c->multiPct = 100;
     if (c->decayDelayMs < 0) c->decayDelayMs = 0; if (c->decayPerS < 0) c->decayPerS = 0; if (c->decayRankPct < 0) c->decayRankPct = 0;
     if (c->combatMs < 0) c->combatMs = 0;
+    if (c->damageGraceMs < 0) c->damageGraceMs = 0;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = -1e18;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = -1e18; s->lastDamaged = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -111,11 +115,13 @@ static inline float SmOnHit(SmState* s, const SmCfg* c, double t, uint32_t act, 
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }
 static inline float SmOnKi(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->ki); s->kis++; s->lastEvent = s->lastScore = t; return c->ki; }
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
-    (void)c;
-    if (s->rank > 0) s->rank--;
-    s->pts = 0.f; s->active = s->rank > 0; s->damaged++; s->lastEvent = t;
-    s->useOn = 0; s->useAct = SM_ACT_NONE;
+    s->damaged++; s->lastEvent = t;
     if (s->dodge.inWin) s->dodge.hit = 1;
+    if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) { s->pts = 0.f; return; }  // same combo: no second drop
+    s->lastDamaged = t;
+    if (s->rank > 0) s->rank--;
+    s->pts = 0.f; s->active = s->rank > 0;
+    s->useOn = 0; s->useAct = SM_ACT_NONE;
 }
 // Per tick: idle decay. t = game ms now, dt = game ms since the last tick.
 static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {

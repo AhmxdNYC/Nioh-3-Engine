@@ -60,10 +60,14 @@ static void Damage(void) {
     CHECK(s.rank == 2 && near(s.pts, 30.f));
     SmOnDamaged(&s, &c, 1);
     CHECK(s.rank == 1 && near(s.pts, 0.f) && s.active && s.damaged == 1);
-    SmOnDamaged(&s, &c, 2);
+    SmOnDamaged(&s, &c, 2);  // live #126502: same combo (within the grace) = no second drop
+    CHECK(s.rank == 1 && s.damaged == 2);
+    SmOnDamaged(&s, &c, 1 + c.damageGraceMs);
     CHECK(s.rank == 0 && !s.active && SmGauge(&s, &c) == 0.f);
-    SmOnDamaged(&s, &c, 3);
+    SmOnDamaged(&s, &c, 2 + 2.0 * c.damageGraceMs);
     CHECK(s.rank == 0 && !s.active);
+    // grace 0 = every hit drops
+    { SmCfg z = c; z.damageGraceMs = 0; SmState q; SmReset(&q); SmOnKi(&q, &z, 0); SmOnDamaged(&q, &z, 1); SmOnDamaged(&q, &z, 1); CHECK(q.rank == 0); }
     // damage also resets the variety "use", so the next hit of the same run is a new use (factor from history, not multi-hit)
     SmState v; SmReset(&v); SmOnHit(&v, &c, 0, 5, 1); SmOnDamaged(&v, &c, 1);
     CHECK(near(SmOnHit(&v, &c, 2, 5, 1), 6.f));
