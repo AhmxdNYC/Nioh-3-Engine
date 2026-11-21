@@ -2,7 +2,7 @@
 OPTION CASEMAP:NONE
 EXTERN caveFps:PROC
 EXTERN caveHold:PROC
-PUBLIC CallFps, CallHold
+PUBLIC CallFps, CallFpsOvr, CallHold
 .code
 ; uint32_t CallFps(void* g, uint32_t tier) -> returns 0
 CallFps PROC FRAME
@@ -20,6 +20,22 @@ CallFps PROC FRAME
     pop     rdi
     ret
 CallFps ENDP
+; uint32_t CallFpsOvr(void* g, uint32_t tier, uint32_t g620) -> returns 0 (GH #155: the game's tier override in eax)
+CallFpsOvr PROC FRAME
+    push    rdi
+    .pushreg rdi
+    sub     rsp, 20h
+    .allocstack 20h
+    .endprolog
+    mov     rdi, rcx
+    mov     eax, r8d
+    mov     r8d, edx
+    call    caveFps
+    xor     eax, eax
+    add     rsp, 20h
+    pop     rdi
+    ret
+CallFpsOvr ENDP
 ; uint32_t CallHold(void* entry) -> ecx after caveHold (rbx = entry, the P10 contract); rax must survive
 CallHold PROC FRAME
     push    rbx

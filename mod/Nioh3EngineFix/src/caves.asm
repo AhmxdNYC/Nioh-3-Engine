@@ -31,6 +31,7 @@ PUBLIC tg_cap
 PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
 PUBLIC caveHold, vrr_hold60
 PUBLIC vrr_dtShift
+PUBLIC vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_clampLostNs
 
 .data
 ALIGN 16
@@ -51,6 +52,15 @@ vrr_accH         REAL8 0.0
 vrr_hold60       dd 1
 ; DtSmooth (GitHub #98, pc/1 #113171): EMA of the clamped frame interval; 0 = raw interval (stock VRR)
 vrr_ema          dq 0
+; GH #155: frames the armed tier fell back to stock because the game overrode G[620] (event / time effect), frames
+; armed anyway under TimeEffectArm (120 tier, G[620] == 60 = the time effect's tier/2), frames whose interval was
+; clamped to the tier's longest (and the time lost to that clamp). The game thread writes; the OSD reads.
+vrr_clampLostNs  dq 0
+vrr_teArm        dd 0           ; 1 = stay armed through the 120 tier's time effect (G[620] == 60)
+vrr_ovrFrames    dd 0
+vrr_ovrVal       dd 0           ; last overriding G[620]
+vrr_teFrames     dd 0
+vrr_clampFrames  dd 0
 vrr_dtShift      dd 0
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
@@ -113,14 +123,28 @@ lIdx:
     lea     rdx, vrr_arm
     cmp     dword ptr [rdx+r9*4], 0
     je      lStock
+    xor     edx, edx                            ; edx = 1 on TimeEffectArm frames (the floor skips them)
     cmp     eax, r8d                            ; event / time-effect override (G[620] != tier) -> stock
+    je      lOvrOk
+    inc     dword ptr [vrr_ovrFrames]
+    mov     dword ptr [vrr_ovrVal], eax
+    cmp     r9d, 2                              ; GH #155 TimeEffectArm: only the 120 tier's time effect (60);
+    jne     lStock                              ; events set 30 and stay stock
+    cmp     eax, 60
     jne     lStock
+    cmp     dword ptr [vrr_teArm], 0
+    je      lStock
+    inc     dword ptr [vrr_teFrames]
+    mov     edx, 1
+lOvrOk:
     test    rcx, rcx
     je      lStock
     mov     rax, qword ptr [rdi+7D8h]
     sub     rax, rcx
     cmp     r9d, 2
     jne     fNo
+    test    edx, edx                            ; regression #127782: the floor's 60 tier would turn the effect's
+    jne     fNo                                 ; half-rate step (tier/G[620] = 2) into 1; keep the 120 tier
     cmp     qword ptr [vrr_floorNs], 0
     je      fNo
     mov     rdx, rax                            ; accounting interval, capped at the 120 tier's longest
@@ -166,6 +190,9 @@ a1:
     lea     rdx, vrr_maxNs
     cmp     rax, qword ptr [rdx+r9*8]
     jle     a2
+    inc     dword ptr [vrr_clampFrames]
+    sub     rax, qword ptr [rdx+r9*8]
+    add     qword ptr [vrr_clampLostNs], rax
     mov     rax, qword ptr [rdx+r9*8]
 a2:
     mov     ecx, dword ptr [vrr_dtShift]        ; DtSmooth: game dt = EMA(interval), weight 1/2^shift (#98:
