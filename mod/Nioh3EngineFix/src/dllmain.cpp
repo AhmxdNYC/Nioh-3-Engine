@@ -54,6 +54,7 @@
 #include "aichainguard.h"
 #include "motionguard.h"
 #include "resinfoguard.h"
+#include "assertguard.h"
 #include "holdkeygap.h"
 #include "crashreport.h"
 #include "reportsend.h"
@@ -3627,6 +3628,15 @@ DWORD WINAPI Worker(LPVOID) {
             rii.base = reinterpret_cast<uintptr_t>(g_base);
             rii.knownBuild = known;
             resinfoguard::Start(rii);
+        }
+        {  // AssertGuard (assertguard.cpp, [General] AssertGuard = 1): a game assert logs its message and continues past the
+           // game's leftover debug break instead of closing (GitHub #153; the call sites' own recovery code runs)
+            assertguard::StartInfo agi;
+            agi.log = &Log;
+            agi.iniPath = iniPath.c_str();
+            agi.base = reinterpret_cast<uintptr_t>(g_base);
+            agi.knownBuild = known;
+            assertguard::Start(agi);
         }
         {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
            // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)

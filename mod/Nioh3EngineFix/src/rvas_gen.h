@@ -179,6 +179,7 @@ constexpr Def kDefs[] = {
     {0xE266A4, kCode, "48 8B 5C 24 30 48 83 C4 20 5F C3 CC 48 89 5C 24 10 48 89 6C 24 18 56 48 83 EC 40 48", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0xE2686F, kCode, "0F 28 74 24 30 48 8B 7C 24 50 48 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0xE6DA30, kCode, "48 89 5C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 F0 FB", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
+    {0x18CBDAC, kCode, "48 8B C4 48 89 48 08 48 89 50 10 4C 89 40 18 4C 89 48 20 48 83 EC 48 BA 01 00 00 00", 0, 0x0, 0, 0, 0, ""},  // assertguard.cpp
     {0x198357C, kCode, "E8 ?? ?? ?? ?? 85 C0 0F 8E ?? ?? ?? ?? 48 8B 57 60 4C 8B 4F", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
     {0x19A9246, kCode, "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB C3 48 8D 0D ?? ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x1A25524, kCode, "E8 ?? ?? ?? ?? 48 89 45 B8 48 8B D8", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp

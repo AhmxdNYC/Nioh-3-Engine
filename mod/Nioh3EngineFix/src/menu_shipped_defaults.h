@@ -13,6 +13,7 @@ inline constexpr Entry kEntries[] = {
     {"General", "AiChainGuard", "1"},
     {"General", "MotionGuard", "1"},
     {"General", "ResInfoGuard", "1"},
+    {"General", "AssertGuard", "1"},
     {"General", "HoldKeyGap", "0"},
     {"General", "ReBarNotice", "1"},
     {"Overlay", "FpsCounter", "1"},
