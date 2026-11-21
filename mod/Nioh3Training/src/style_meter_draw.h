@@ -284,7 +284,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
                     memset(tpx, 0, (size_t)TW * TH * 4);
                     RECT r = {x0 + (part ? (int)s1.cx : 0), 0, TW, TH}; DrawTextA(tdc, str, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
                     SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, a * 0.75f);   // shadow
-                    SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0x5CE1FFu : 0xFFD27Au, a);  // value warm gold, bonus bright cyan
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0xE6EAF0u : 0xFFD27Au, a);  // value warm gold, bonus white-silver (#127191)
                 }
                 ++line;
             }
