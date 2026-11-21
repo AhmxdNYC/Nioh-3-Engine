@@ -9,7 +9,7 @@
 static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
 static void PinnedDefaults(SmCfg* c) {
     static const float old[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
-    SmCfgDefaults(c); c->decayPerS = 12.f; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
+    SmCfgDefaults(c); c->decayPerS = 12.f; c->decayDelayMs = 2500; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -155,13 +155,13 @@ static void Clamp(void) {
     SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 1, 1);
     CHECK(!s.active && s.hits == 1);
 }
-// human #126755: shipped tuning is 4x as hard (#126766) as the first one.
+// human #126755: shipped tuning is 2.5x the first (#126785) as the first one.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 160.f) && near(c.rankPts[SM_RANKS - 1], 800.f) && near(c.decayPerS, 18.f));
+    CHECK(near(c.rankPts[0], 100.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 12.f) && c.decayDelayMs == 4000);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.25f));  // 4 different moves = a quarter of D now
+    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.4f));  // 4 different moves = 40 % of D now
 }
 int main(void) {
     Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning();
