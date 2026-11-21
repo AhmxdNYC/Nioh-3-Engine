@@ -6694,7 +6694,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
                 g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
                 g_cfg_plog = GetPrivateProfileIntA("Record", "PlayerLog", 0, ini); Log("PLAYERLOG (#122228): [Record] PlayerLog %d", g_cfg_plog);
-                g_cfg_pclk = GetPrivateProfileIntA("Record", "PlayerClock", 0, ini); Log("PLAYERLOG (#127933): [Record] PlayerClock %d", g_cfg_pclk);
+                g_cfg_pclk = GetPrivateProfileIntA("Record", "PlayerClock", 0, ini); Log("PLAYERLOG (#127933): [Record] PlayerClock %d", g_cfg_pclk); snprintf(g_pl_ini, sizeof g_pl_ini, "%s", ini);  // #128100 menu row
                 g_rec_max = GetPrivateProfileIntA("Record", "MaxMinutes", 20, ini); Log("RECORD (#9291): Enable %d, Script %s, OutRoot %s, MaxMinutes %d", g_cfg_rec, g_rec_script, g_rec_out, g_rec_max); }
             g_cfg_rh_ls = GetPrivateProfileIntA("Return", "LoadScreen", 1, ini); Log("RETURN loading screen (#8902): [Return] LoadScreen %d, EngineFix export %s", g_cfg_rh_ls, p_osdLoad ? "found" : "missing (black only)");
             if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }

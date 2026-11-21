@@ -47,7 +47,8 @@ constexpr int kVrsPageRow = kReverseModsRow + 1;
 constexpr int kVrsRowFirst = kVrsPageRow + 1;  // vrsmenu::Row order
 constexpr int kPlayerRow = kVrsRowFirst + vrsmenu::kRowN; // #83530 append-only hosted Player tab
 constexpr int kResetPageRow = kPlayerRow + 1;
-constexpr int kMenuRowCap = kResetPageRow + 1;
+constexpr int kPlayerLogRow = kResetPageRow + 1;  // human #128100: Settings > Game 'Player log' (Training [Record] PlayerLog + PlayerClock)
+constexpr int kMenuRowCap = kPlayerLogRow + 1;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
