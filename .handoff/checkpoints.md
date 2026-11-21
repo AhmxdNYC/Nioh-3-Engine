@@ -1296,3 +1296,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 9:02 am EST | pc/0 v1.8.34 shipped + Done #127640 | proven (live 3/3 #127592, publish #127639) | next: open.md next item | main 063cb967
 - 2026-11-21 9:20 am EST | pc/0 | Main PC on public v1.8.34 (hash-checked) | proven by sha | next: none open for Dev; wait for human ask | files D:/nioh3-re/pre1834-mainpc-bak
 2026-11-21 11:35 am EST | regression-pc: GH #155 f74a6acb review PASS (harnesses green, audit FAIL only from a stale baseline, outside the diff) | proven offline | next: reports-pc fixes the floor+arm interaction, then a live check of the effect length | reports/155 f74a6acb
+2026-11-21 11:28 am EST | GH #155 floor/time-effect fix 2aff9b8d EF 4149f50d | offline proven, live unproven | wait pc/1 RESULT #127769 + regression #127805 | reports/155
