@@ -8,14 +8,18 @@
 //   hh:mm:ss.mmm  +ms  CLK  wall 1000 ms  game 998 ms  ratio 1.00  eng 1000 ms 1.00  fps 61  worst 18.2 ms  [nostep N] [stalls N]
 //   game = the player's step [ctrl+0x40] (1/60 s units) summed once per engine update (counter G+0x610 moved), eng = the
 //   engine clock (ticks x time scale / fps-for-dt). ratio < 0.9 with fps under the cap = the game runs in slow motion.
+//   #128463: PlayerClock also adds the move's own speed (player_speed.h): ACT lines end "anim 0.61x" for the move that just
+//   ended, and one SPD line per slow stretch >= 300 ms: SPD  slow 0x61D8 980 ms  anim 0.61x (min 0.55x)  step 1.00x  t 4.2 -> 14.1
 // Read only: XInputGetState (its own reader, nothing masked or injected), the player's action id and step, the engine
 // update counter. Game thread, every pump tick.
 // 0 = off (default) for both keys: nothing is read or written.
 #ifndef N3_PLAYER_LOG_H
 #define N3_PLAYER_LOG_H
 #include "player_clock.h"
+#include "player_speed.h"  // #128463 move speed (anim time [ctrl+0x60]) in ACT + SPD lines
 static int g_cfg_plog, g_cfg_pclk;
 static PlClk g_pl_clk;
+static PlSpd g_pl_spd;
 static FILE* g_pl_f;
 static DWORD g_pl_t0, g_pl_flush, g_pl_act_t, g_pl_down_t[20];
 static uint32_t g_pl_act = 0xFFFFFFFFu;
@@ -74,6 +78,8 @@ static void PlAct(DWORD now) {
     const uint32_t a = ActIdOf(ctrl);
     if (a == 0xFFFFFFFFu || a == g_pl_act) return;
     if (g_pl_act == 0xFFFFFFFFu) PlLine(now, "ACT", "0x%X (first read)", a);
+    else if (g_cfg_pclk && PlSpdRateOf(&g_pl_spd, g_pl_act) >= 0)  // #128463 move speed of the move that ended
+        PlLine(now, "ACT", "0x%X -> 0x%X (prev ran %lu ms, anim %.2fx)", g_pl_act, a, now - g_pl_act_t, PlSpdRateOf(&g_pl_spd, g_pl_act));
     else PlLine(now, "ACT", "0x%X -> 0x%X (prev ran %lu ms)", g_pl_act, a, now - g_pl_act_t);
     g_pl_act = a; g_pl_act_t = now;
 }
@@ -91,11 +97,26 @@ static void PlClock(DWORD now) {
         if (fps > 0 && fps <= 1000 && ts >= 0.0f && ts < 16.0f) eng = 1000.0 * (double)ts / (double)fps;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     uint64_t me = PlayerChar(), ai = 0, ctrl = 0;
+    float anim = -1.0f; int animOk = 0;
     if (me && Rd64(me + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl) {
-        __try { step = *(volatile float*)(ctrl + 0x40); } __except (EXCEPTION_EXECUTE_HANDLER) { step = -1.0f; }
+        __try { step = *(volatile float*)(ctrl + 0x40); anim = *(volatile float*)(ctrl + 0x60); animOk = 1; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { step = -1.0f; animOk = 0; }
     }
     PlClkLine l;
-    if (!PlClkSample(&g_pl_clk, (double)q.QuadPart * s_qpf, cnt, step, eng, &l) || !g_cfg_pclk) return;
+    const uint32_t cnt0 = g_pl_clk.cnt, st0 = g_pl_clk.stalls; const int ok0 = g_pl_clk.ok;
+    const double wall0 = g_pl_clk.lastWall;
+    const int win = PlClkSample(&g_pl_clk, (double)q.QuadPart * s_qpf, cnt, step, eng, &l);
+    // #128463 move speed: once per counted engine frame (counter moved, not a re-seed), the player's anim time [ctrl+0x60]
+    if (g_cfg_pclk && ok0 && g_pl_clk.cnt != cnt0) {
+        const uint32_t k = g_pl_clk.cnt - cnt0;
+        const uint32_t a = animOk ? ActIdOf(ctrl) : 0xFFFFFFFFu;
+        PlSpdEvt e;
+        if (!animOk || a == 0xFFFFFFFFu || k > PLCLK_MAX_STEP || g_pl_clk.stalls != st0) { const PlSpd z = {0}; g_pl_spd = z; }
+        else if (PlSpdFrame(&g_pl_spd, a, anim, step, k, g_pl_clk.lastWall - wall0, &e))
+            PlLine(now, "SPD", "slow 0x%X %.0f ms  anim %.2fx (min %.2fx)  step %.2fx  t %.1f -> %.1f", e.act, e.ms, e.rate, e.minRate,
+                   e.stepRate, e.t0, e.t1);
+    }
+    if (!win || !g_cfg_pclk) return;
     char x[48] = "";
     if (l.nostep && l.stalls) snprintf(x, sizeof x, "  nostep %u  stalls %u", l.nostep, l.stalls);
     else if (l.nostep) snprintf(x, sizeof x, "  nostep %u", l.nostep);
