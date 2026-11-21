@@ -49,6 +49,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
     c.dodge = (float)(int)GetPrivateProfileIntA("StyleMeter", "DodgePts", SM_DODGE_PTS, ini);
     c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
+    c.kiPerfect = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPerfectPts", SM_KI_PERFECT_PTS, ini);  // #127075
     c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
     c.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
     c.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
@@ -118,12 +119,12 @@ static void SmIniPoll(void) {
     Log("STYLE METER: Nioh3Training.ini changed, re-reading [StyleMeter] (#126804)");
     SmReadIni(g_sm_ini, 0);
 }
-// Menu (Boss Rematch Player page, #126804): 0 StyleMeter on/off, 1 RankPtsPct, 2 DrainPct, 3 DecayDelayMs. Get: -1 = unknown what.
+// Menu (Boss Rematch Player page, #126804): 0 StyleMeter on/off, 1 RankPtsPct, 2 DrainPct, 3 DecayDelayMs, 4 KiPerfectPts (#127075). Get: -1 = unknown what.
 // Set: writes [StyleMeter] and applies at once (value < 0 on 'what 0' = toggle). Returns the stored value.
-static const char* SmKey(int what) { return what == 0 ? "StyleMeter" : what == 1 ? "RankPtsPct" : what == 2 ? "DrainPct" : what == 3 ? "DecayDelayMs" : 0; }
-static int SmKeyDefault(int what) { return what == 0 ? 0 : what == 3 ? SM_DECAY_DELAY_MS : 100; }
+static const char* SmKey(int what) { return what == 0 ? "StyleMeter" : what == 1 ? "RankPtsPct" : what == 2 ? "DrainPct" : what == 3 ? "DecayDelayMs" : what == 4 ? "KiPerfectPts" : 0; }
+static int SmKeyDefault(int what) { return what == 0 ? 0 : what == 3 ? SM_DECAY_DELAY_MS : what == 4 ? SM_KI_PERFECT_PTS : 100; }
 static int SmKeyClamp(int what, int v) {
-    const int lo = what == 0 ? 0 : what == 1 ? 25 : what == 2 ? 0 : 0, hi = what == 0 ? 1 : what == 1 ? 400 : what == 2 ? 500 : 15000;
+    const int lo = what == 0 ? 0 : what == 1 ? 25 : what == 2 ? 0 : 0, hi = what == 0 ? 1 : what == 1 ? 400 : what == 2 ? 500 : what == 4 ? 200 : 15000;
     return v < lo ? lo : v > hi ? hi : v;
 }
 N3T_API int Nioh3Training_StyleGet(int what) {
@@ -302,13 +303,20 @@ static void SmFeed(double gdt) {
         uint64_t c = 0; const uint64_t a = pl ? g_fp[FP_PL].a : 0;
         if (a && SmHpRead(a, &c)) { if (a == prevPa && c < prevP) taken++; prevPa = a; prevP = c; } else prevPa = 0;
     }
-    int ifr = 0, ki = 0;
+    int ifr = 0, ki = 0, kiPerf = 0;
     if (pl) {
-        if (g_fm_pl_stamp == g_fp_frame) { ifr = g_fm_pl_ifr; ki = g_fm_pl_ki; }  // the frame meter's player row already read them this tick
+        if (g_fm_pl_stamp == g_fp_frame) { ifr = g_fm_pl_ifr; ki = g_fm_pl_ki; kiPerf = g_fm_pl_kiperf; }  // the frame meter's player row already read them this tick
         else {
             static FmiState fs; float a = 0, b = 0, c = 0;
             ifr = (FmPlayerIfrBits(&fs) & FMF_NODMG) != 0;
             g_fm_ki_quiet = 1; ki = FmPlayerKiLanded(g_fp[FP_PL].a, &a, &b, &c); g_fm_ki_quiet = 0;
+            // #127075 same perfect check as the player row (frame_meter_game.h): RB press edge inside the perfect window, this or last sample
+            static int wasRB, prevPerfWin;
+            const int open = FmPlayerKiOpen(g_fp[FP_PL].a), rb = FmPadRB(), r1Edge = rb && !wasRB;
+            wasRB = rb;
+            kiPerf = FmKiPressPerfect(open, r1Edge, c) || (r1Edge && prevPerfWin);
+            prevPerfWin = open && FmKiPerfect(c);
+            if (kiPerf) ki = 1;
         }
     }
     const uint32_t act = pl ? g_fp[FP_PL].run.act : SM_ACT_NONE;
@@ -324,7 +332,11 @@ static void SmFeed(double gdt) {
     static uint64_t ctrRun; static int ctr;
     if (run != ctrRun) { ctrRun = run; ctr = 0; }
     if (pl && ifr && g_sm_enemy) ctr = 1;
-    const int nin = pl ? SmNinjutsuUsed(g_fp[FP_PL].a) : 0;
+    // #127065 one per throw (the gauge can drop twice ~10 ms apart) / #127075 only in Ninja mode (chr +0xA95C, same byte as the switch)
+    static double ninT = -1e18;
+    int sstyle = -1;
+    if (pl) { uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; } sstyle = v <= 1 ? v : -1; }
+    const int nin = pl ? SmNinGate(&ninT, g_sm_clock, SmNinjutsuUsed(g_fp[FP_PL].a), sstyle) : 0;
     const int wslot = pl ? SmWeaponSlot() : -1;  // #127057
     int swapEv = 0;
     {   static int prevSlot = -1; static uint64_t pa;
@@ -371,7 +383,7 @@ static void SmFeed(double gdt) {
     float pc = -1.f;
     for (LONG i = 0; i < soul && i < 8; ++i) pc = (pc < 0 ? 0 : pc) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 1);
     if (sty) ps = SmOnStyle(&g_sm, &g_smc, g_sm_clock);
-    if (ki) pk = SmOnKi(&g_sm, &g_smc, g_sm_clock);
+    if (ki) pk = SmOnKiEx(&g_sm, &g_smc, g_sm_clock, kiPerf);
     if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
@@ -383,7 +395,7 @@ static void SmFeed(double gdt) {
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
         if (ctrHit && g_smc.counter > 0.f) { SmFxPop("Counter", g_smc.counter); big += g_smc.counter; }
-        if (pk > 0.f) { SmFxPop("Ki Pulse", pk); big += pk; }
+        if (pk > 0.f) { SmFxPop(kiPerf && g_smc.kiPerfect > 0.f ? "Perfect Ki" : "Ki Pulse", pk); big += pk; }
         if (pd > 0.f) { SmFxPop("Clean Dodge", pd); big += pd; }
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
@@ -401,7 +413,7 @@ static void SmFeed(double gdt) {
             if (psw > 0.f) n += snprintf(e + n, sizeof e - n, " swap attack +%.0f", psw);
             if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
-            if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki +%.0f", pk);
+            if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki%s +%.0f", kiPerf ? " perfect" : "", pk);
             else if (ki) n += snprintf(e + n, sizeof e - n, " ki +0 (no hit in %d ms)", g_smc.kiHitMs);
             if (dodge) n += snprintf(e + n, sizeof e - n, " dodge +%.0f", pd);
             if (taken > 0) n += snprintf(e + n, sizeof e - n, " damaged x%ld", (long)taken);

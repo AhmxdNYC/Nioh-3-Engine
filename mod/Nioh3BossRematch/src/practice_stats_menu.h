@@ -14,7 +14,7 @@ constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' 
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
 // human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
-constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 4;
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 5;  // #127075: 4 = Perfect Ki bonus (KiPerfectPts)
 bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
 bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
@@ -41,12 +41,13 @@ int PstSet(int what, int value) {
 }
 int StyGet(int what) { using F = int (*)(int); const auto f = (F)TrainingExport("Nioh3Training_StyleGet"); return f ? f(what) : -1; }
 int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)TrainingExport("Nioh3Training_StyleSet"); return f ? f(what, v) : -1; }
-const char* StyLabel(int what) { return what == 0 ? "Style meter:" : what == 1 ? "Style rank size:" : what == 2 ? "Style drain speed:" : "Style drain delay:"; }
-int StyDefault(int what) { return what == 0 ? 0 : what == 3 ? 4000 : 100; }
+const char* StyLabel(int what) { return what == 0 ? "Style meter:" : what == 1 ? "Style rank size:" : what == 2 ? "Style drain speed:" : what == 3 ? "Style drain delay:" : "Perfect Ki bonus:"; }
+int StyDefault(int what) { return what == 0 ? 0 : what == 3 ? 4000 : what == 4 ? 15 : 100; }
 void StyValueText(int what, int v, char* b, size_t n) {
     if (v < 0) snprintf(b, n, "?");
     else if (what == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
     else if (what == 3) snprintf(b, n, "%d.%d s", v / 1000, (v % 1000) / 100);
+    else if (what == 4) snprintf(b, n, "+%d", v);
     else snprintf(b, n, "%d %%", v);
 }
 int StyStep(int what, int v, int dir) {
@@ -54,7 +55,8 @@ int StyStep(int what, int v, int dir) {
     static const int size[] = {25, 50, 75, 100, 125, 150, 200, 250, 300, 400};
     static const int drain[] = {0, 25, 50, 75, 100, 125, 150, 200, 300, 500};
     static const int delay[] = {1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000};
-    const int* st = what == 1 ? size : what == 2 ? drain : delay; const int cnt = 10;
+    static const int kiperf[] = {0, 5, 10, 15, 20, 30, 40, 50, 75, 100};  // #127075
+    const int* st = what == 1 ? size : what == 2 ? drain : what == 4 ? kiperf : delay; const int cnt = 10;
     if (dir > 0) { for (int i = 0; i < cnt; ++i) if (st[i] > v) return st[i]; return st[cnt - 1]; }
     if (dir < 0) { for (int i = cnt - 1; i >= 0; --i) if (st[i] < v) return st[i]; return st[0]; }
     return v;
@@ -71,7 +73,8 @@ bool StyChange(int item, int dir) {
     if (what == 0) snprintf(g_msg, sizeof g_msg, v ? "Style meter ON: rank D to SSS for landed hits, Ki pulses after a hit and clean dodges, shown in any fight. Saved." : "Style meter OFF. Saved.");
     else if (what == 1) snprintf(g_msg, sizeof g_msg, "Style rank size %s: points each rank needs (100 %% = default; higher = harder to rank up). Applies now. Saved.", t);
     else if (what == 2) snprintf(g_msg, sizeof g_msg, "Style drain speed %s: how fast the meter drains when you stop scoring (0 %% = never drains). Applies now. Saved.", t);
-    else snprintf(g_msg, sizeof g_msg, "Style drain delay %s: wait after your last scoring hit before draining starts. Applies now. Saved.", t);
+    else if (what == 3) snprintf(g_msg, sizeof g_msg, "Style drain delay %s: wait after your last scoring hit before draining starts. Applies now. Saved.", t);
+    else snprintf(g_msg, sizeof g_msg, "Perfect Ki bonus %s: extra style points when your Ki pulse is perfect (the teal check), on top of the normal Ki pulse points. Applies now. Saved.", t);
     return true;
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {

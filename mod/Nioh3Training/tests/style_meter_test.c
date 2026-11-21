@@ -196,7 +196,7 @@ static void Skills(void) {
 // #126843 style switch: in combat, one bonus per landed hit between switches.
 static void Style(void) {
     SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
-    CHECK(SmOnStyle(&s, &c, 0) == 0.f && !s.active);  // out of combat
+    CHECK(near(SmOnStyle(&s, &c, 0), c.style) && s.active);  // #127065: from an idle meter too
     SmOnHit(&s, &c, 100, 1, 1);
     CHECK(near(SmOnStyle(&s, &c, 200), c.style));
     CHECK(SmOnStyle(&s, &c, 300) == 0.f);              // switch spam: nothing until the next hit
@@ -206,14 +206,14 @@ static void Style(void) {
 // #126913 a switch inside a soul core form: once per scored soul core use, even with no hit since the last switch; never out of a fight.
 static void StyleSoul(void) {
     SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
-    CHECK(SmOnSkill(&s, &c, 0, 1) == 0.f && SmOnStyle(&s, &c, 100) == 0.f);  // soul core out of combat: no switch bonus either
+    CHECK(SmOnSkill(&s, &c, 0, 1) == 0.f && near(SmOnStyle(&s, &c, 100), c.style));  // soul core out of combat: 0; the switch counts as idle (#127065)
     SmOnHit(&s, &c, 1000, 1, 1);
     CHECK(near(SmOnStyle(&s, &c, 1100), c.style));                            // by the hit
     CHECK(near(SmOnSkill(&s, &c, 1200, 1), c.soul) && s.soulsScored == 1);
     CHECK(near(SmOnStyle(&s, &c, 1300), c.style));                            // mid soul core, no new hit
     CHECK(SmOnStyle(&s, &c, 1400) == 0.f);                                    // spam inside the same form
     CHECK(near(SmOnSkill(&s, &c, 1500, 1), c.soul));
-    CHECK(SmOnStyle(&s, &c, 1500 + c.combatMs + 1) == 0.f);                   // too long after the use
+    CHECK(near(SmOnStyle(&s, &c, 1600), c.style) && SmOnStyle(&s, &c, 1700) == 0.f);  // the 2nd use pays one more, then spam stops
 }
 static void Ramp(void) {  // human #126972: drain speeds up with idle time past the delay; 0 = flat (old behaviour)
     SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f;
@@ -279,8 +279,34 @@ static void Motion(void) {
     CHECK(g == 800.f);
     CHECK(SmEase(10, 400, 16.7) > 10.f && SmEase(10, 400, 16.7) < 400.f && SmEase(900, 100, 16.7) == 100.f && SmEase(5, 5, 0) == 5.f);
 }
+// #127065 mode switch from an idle meter scores (one per combatMs with no hit), spam still does not.
+static void StyleIdle(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(near(SmOnStyle(&s, &c, 0), c.style) && s.active);                 // idle / empty meter: counts
+    CHECK(SmOnStyle(&s, &c, 100) == 0.f);                                   // spam: nothing
+    CHECK(near(SmOnStyle(&s, &c, 101 + c.combatMs), c.style));              // much later: a fresh one
+}
+// #127065 one ninjutsu per throw, #127075 only in Ninja mode.
+static void NinGate(void) {
+    double last = -1e18;
+    CHECK(SmNinGate(&last, 1000, 1, 1) == 1);
+    CHECK(SmNinGate(&last, 1010, 1, 1) == 0);                               // second gauge drop of the same throw
+    CHECK(SmNinGate(&last, 1300, 0, 1) == 0);
+    CHECK(SmNinGate(&last, 1010 + SM_NIN_GAP_MS, 1, 1) == 1);               // next throw
+    CHECK(SmNinGate(&last, 9000, 1, 0) == 0);                               // Samurai mode: not a ninjutsu
+    CHECK(SmNinGate(&last, 20000, 2, -1) == 1);                             // mode unknown: counts once
+}
+// #127075 perfect Ki pulse: ki + kiPerfect; no points after a whiff either way.
+static void KiPerfect(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmOnKiEx(&s, &c, 0, 1) == 0.f && s.kiPerfects == 0);              // no hit before it
+    SmOnHit(&s, &c, 1000, 1, 1);
+    CHECK(near(SmOnKiEx(&s, &c, 1100, 1), c.ki + c.kiPerfect) && s.kiPerfects == 1);
+    SmOnHit(&s, &c, 2000, 2, 2);
+    CHECK(near(SmOnKiEx(&s, &c, 2100, 0), c.ki) && s.kiPerfects == 1);
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); Ramp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

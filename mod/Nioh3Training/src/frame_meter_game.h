@@ -1404,7 +1404,7 @@ static void FmArmHooks(void) {
 }
 // Player i-frame bits for this tick (FMF_NODMG | the special-move flags), from the no-damage flags, the hurtbox scan and the #35411 predicates.
 // Keeps per-actor state, so call it at most once per pump tick (FmFeed's player row, else the style meter, style_meter_game.h).
-static uint32_t g_fm_pl_stamp = 0xFFFFFFFFu; static int g_fm_pl_ifr, g_fm_pl_ki;  // #126502: this tick's player i-frame / Ki pulse, for the style meter
+static uint32_t g_fm_pl_stamp = 0xFFFFFFFFu; static int g_fm_pl_ifr, g_fm_pl_ki, g_fm_pl_kiperf;  // #127075 kiperf: this tick's pulse was a perfect press (teal)  // #126502: this tick's player i-frame / Ki pulse, for the style meter
 static int FmPlayerIfrBits(FmiState* fmiS) {
     static uint64_t hbActor, hbActor2; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
     FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
@@ -1482,7 +1482,7 @@ static void FmFeed(double gdt) {
             }
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
-            g_fm_pl_ki = landed != 0;
+            g_fm_pl_ki = landed != 0; g_fm_pl_kiperf = perfect != 0;
             {
                 static uint32_t prevAct;
                 static float prevKt, prevKi;

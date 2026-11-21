@@ -25,6 +25,8 @@
 #define SM_HIT_PTS 10
 #define SM_DODGE_PTS 30
 #define SM_KI_PTS 20
+#define SM_KI_PERFECT_PTS 15  // #127075 extra on a perfect Ki pulse (the frame meter's teal check)
+#define SM_NIN_GAP_MS 500     // #127065 one ninjutsu per throw: gauge drops closer than this are the same throw
 #define SM_REPEAT_PCT 60
 #define SM_REPEAT_FLOOR_PCT 10
 #define SM_MULTI_PCT 50
@@ -57,6 +59,7 @@ typedef struct {
     int repeatPct, repeatFloorPct, multiPct;
     int decayDelayMs; float decayPerS; int decayRankPct; int decayRampPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
+    float kiPerfect;                      // #127075 extra points for a perfect Ki pulse (on top of ki)
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
     int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling
@@ -82,13 +85,15 @@ typedef struct {
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
     uint32_t counters, nins, souls, styles;
     uint32_t soulsScored, soulsAtStyle;  // #126913 soul core uses that scored / soulsScored at the last scored style switch
+    double lastStyleT;      // #127065 game ms of the last scored style switch (a first switch counts even from idle)
+    uint32_t kiPerfects;
     double lastSwap; int swapPaid;   // #127057 game ms of the last weapon slot change / its swap attack already scored
     uint32_t swaps, swapHits;
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
-    c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS;
+    c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS; c->kiPerfect = (float)SM_KI_PERFECT_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
@@ -98,7 +103,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
 static inline void SmCfgClamp(SmCfg* c) {
-    if (c->hit < 0) c->hit = 0; if (c->dodge < 0) c->dodge = 0; if (c->ki < 0) c->ki = 0;
+    if (c->hit < 0) c->hit = 0; if (c->dodge < 0) c->dodge = 0; if (c->ki < 0) c->ki = 0; if (c->kiPerfect < 0) c->kiPerfect = 0;
     if (c->repeatPct < 0) c->repeatPct = 0; if (c->repeatPct > 100) c->repeatPct = 100;
     if (c->repeatFloorPct < 0) c->repeatFloorPct = 0; if (c->repeatFloorPct > 100) c->repeatFloorPct = 100;
     if (c->multiPct < 0) c->multiPct = 0; if (c->multiPct > 100) c->multiPct = 100;
@@ -114,7 +119,7 @@ static inline void SmCfgClamp(SmCfg* c) {
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = -1e18; s->lastDamaged = -1;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = s->lastStyleT = -1e18; s->lastDamaged = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -187,11 +192,29 @@ static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
     if (c->style <= 0.f) return 0.f;
     const int byHit = SmInCombat(s, c, t) && s->hits != s->hitsAtStyle;
     const int bySoul = s->soulsScored != s->soulsAtStyle && t - s->lastSoul <= (double)c->combatMs;
-    if (!byHit && !bySoul) return 0.f;
-    s->hitsAtStyle = s->hits; s->soulsAtStyle = s->soulsScored;
+    // #127065: the mode switch has its own attack, so a switch from an idle / empty meter scores too: one per combatMs with no hit between
+    const int byIdle = t - s->lastStyleT > (double)c->combatMs;
+    if (!byHit && !bySoul && !byIdle) return 0.f;
+    s->hitsAtStyle = s->hits; s->soulsAtStyle = s->soulsScored; s->lastStyleT = t;
     SmAdd(s, c, c->style); s->lastEvent = s->lastScore = t; return c->style;
 }
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }
+// #127065 / #127075 ninjutsu gate: n gauge drops this tick -> 1 if it is a new throw. One per throw (drops within SM_NIN_GAP_MS of the
+// last one are the same throw, e.g. two +20 10 ms apart, act 34000 -> 34052), and only in Ninja mode (style 1; -1 = unknown is allowed).
+static inline int SmNinGate(double* lastT, double t, int n, int style) {
+    if (n <= 0 || style == 0) return 0;
+    const int fresh = t - *lastT >= SM_NIN_GAP_MS;
+    *lastT = t;  // a chain of drops keeps extending the same throw
+    return fresh;
+}
+// #127075 Ki pulse with the perfect flag: perfect adds kiPerfect on top when the pulse scores at all.
+static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) {
+    s->kis++;
+    if (c->kiHitMs > 0 && !(t - s->lastHit <= (double)c->kiHitMs)) return 0.f;
+    float p = c->ki;
+    if (perfect && c->kiPerfect > 0.f) { p += c->kiPerfect; s->kiPerfects++; }
+    SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return p;
+}
 static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
     s->kis++;
     if (c->kiHitMs > 0 && !(t - s->lastHit <= (double)c->kiHitMs)) return 0.f;  // pulse after a whiff: no points, no decay reset
