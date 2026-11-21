@@ -123,9 +123,11 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
     const int sx = (int)(st->dx * unit), sy = (int)(st->dy * unit);
     const int right = c->mx + g->w - g->pad + sx; int y = c->my + g->pad + sy;
     int gaugeBottom = y;
+    // #127144 one centre line for letter, word, gauge and pop-ups: the middle of the box (as wide as the widest letter / word / gauge, SmGeom)
+    const float mid = (float)right - (float)(g->w - 2 * g->pad) / 2.f;
     if (g_sm_atlas_dc) {
         const int* L = sm_atlas_letter[rank]; const int* W = sm_atlas_word[rank];
-        const float lw0 = L[2] * g->k, lh0 = L[3] * g->k, cx = right - lw0 / 2.f, cy = y + lh0 / 2.f;
+        const float lh0 = L[3] * g->k, cx = mid, cy = y + lh0 / 2.f;
         if (st->glow > 0.f) {  // halo: a slightly larger, faint copy of the letter behind it
             const float kg = g->k * st->scale * 1.08f;
             SmBlitA(mem, (int)(cx - L[2] * kg / 2.f), (int)(cy - L[3] * kg / 2.f), L, L[2], kg, (int)(st->glow * 120.f));
@@ -133,8 +135,8 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         const float ks = g->k * st->scale;
         SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
         y += (int)lh0 + g->pad;
-        SmBlitA(mem, right - (int)(W[2] * g->k + 0.5f), y, W, W[2], g->k, 255); y += (int)(W[3] * g->k) + g->pad;
-        const int gx = right - (int)(sm_atlas_gauge_bg[2] * g->k + 0.5f);
+        SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y, W, W[2], g->k, 255); y += (int)(W[3] * g->k) + g->pad;
+        const int gx = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f);
         SmBlitA(mem, gx, y, sm_atlas_gauge_bg, sm_atlas_gauge_bg[2], g->k, 255);
         const int fw = (int)((float)sm_atlas_gauge_fill[2] * st->gauge / 1000.f + 0.5f);
         if (fw > 0) SmBlitA(mem, gx, y, sm_atlas_gauge_fill, fw, g->k, 255);
@@ -167,8 +169,8 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
                 if (a <= 0.f) continue;
                 char t[48]; snprintf(t, sizeof t, "%s +%.0f", st->pops[i].label, st->pops[i].pts);
                 memset(tpx, 0, (size_t)TW * TH * 4);
-                RECT r = {0, 0, TW - c->g.pad, TH}; DrawTextA(tdc, t, -1, &r, DT_RIGHT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
-                const int ox = sx - c->mx + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;
+                RECT r = {0, 0, TW, TH}; DrawTextA(tdc, t, -1, &r, DT_CENTER | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+                const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;
                 SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, a * 0.75f);   // shadow
                 SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, 0xFFD27A, a);                   // warm gold
                 ++line;
