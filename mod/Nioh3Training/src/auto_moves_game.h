@@ -56,15 +56,29 @@ static int AmLoadImg(uint64_t P) {
         uint64_t q = 0;
         if (!hb || !Rd64(hbArr + 8u * (uint64_t)i, &q) || !q || !AmRd(q, hb + (size_t)i * AM_HB, AM_HB)) { Log("AUTOMOVES: descriptor %p: hitbox row %d unreadable", (void*)X, i); free(hb); return -1; }
     }
-    const uint32_t cap = AmImageSize(n, nhb, cnt); uint8_t* img = (uint8_t*)malloc(cap); AmTable* t = (AmTable*)malloc(sizeof(AmTable));
-    const uint32_t size = img && t ? AmBuildImage(img, cap, rows, n, hb, nhb, first, cnt) : 0;
+    // human #123773: spawned objects (sub-table 7, 336-byte rows) and their components (sub-table 8, 80-byte rows), same pointer-array + u16 count
+    // form as the rows: X +0x1A0 / +0x1A8 and +0x1B0 / +0x1B8 (found live on Yamagata 2026-11-20, every byte equals the extracted file). Each array
+    // must be contiguous at the file's record size; anything else leaves the objects out (AmObjMayHit then counts every spawn as "may hit").
+    uint8_t* ob = 0; int n7 = 0, n8 = 0; uint32_t obHash = 0;
+    {
+        uint64_t a7 = 0, a8 = 0; uint16_t c7 = 0, c8 = 0;
+        if (Rd64(X + 0x1A0, &a7) && a7 && AmRd(X + 0x1A8, &c7, 2) && Rd64(X + 0x1B0, &a8) && AmRd(X + 0x1B8, &c8, 2) && (!c8 || a8)) {
+            ob = (uint8_t*)malloc((size_t)c7 * AM_OBJ + (size_t)c8 * AM_OBJC + 1);
+            uint64_t base7 = 0, base8 = 0; int ok = ob != 0;
+            for (int i = 0; ok && i < c7; ++i) { uint64_t q = 0; ok = Rd64(a7 + 8u * (uint64_t)i, &q) && q && (i ? q == base7 + (uint64_t)i * AM_OBJ : (base7 = q, 1)) && AmRd(q, ob + (size_t)i * AM_OBJ, AM_OBJ); }
+            for (int i = 0; ok && i < c8; ++i) { uint64_t q = 0; ok = Rd64(a8 + 8u * (uint64_t)i, &q) && q && (i ? q == base8 + (uint64_t)i * AM_OBJC : (base8 = q, 1)) && AmRd(q, ob + (size_t)c7 * AM_OBJ + (size_t)i * AM_OBJC, AM_OBJC); }
+            if (ok) { n7 = c7; n8 = c8; uint32_t h = 2166136261u; for (size_t i = 0; i < (size_t)c7 * AM_OBJ + (size_t)c8 * AM_OBJC; ++i) h = (h ^ ob[i]) * 16777619u; obHash = h; } else { Log("AUTOMOVES: descriptor %p: spawned objects unreadable (%u objects, %u components): spawns count as hitting", (void*)X, c7, c8); free(ob); ob = 0; }
+        }
+    }
+    const uint32_t cap = AmImageSize(n, nhb, cnt, n7, n8); uint8_t* img = (uint8_t*)malloc(cap); AmTable* t = (AmTable*)malloc(sizeof(AmTable));
+    const uint32_t size = img && t ? AmBuildImage(img, cap, rows, n, hb, nhb, first, cnt, ob, n7, ob ? ob + (size_t)n7 * AM_OBJ : 0, n8) : 0;
     const int na = size ? AmParse(img, size, t) : 0;
-    free(img); free(hb);
+    free(img); free(hb); free(ob);
     if (na != n) { Log("AUTOMOVES: descriptor %p: rebuilt image did not parse (%d of %u actions)", (void*)X, na, n); free(t); return -1; }
     ArApply(&g_action_records, t); // archive records replace the old window estimate before any catalogue/export publication
     uint32_t pid = 0; AmRd(P, &pid, 4);
-    Log("AUTOMOVES: loaded action data %p: %u actions (objects %p stride 0x%llX, first row %p), %d hitbox rows (array %p)%s; current action 0x%X",
-        (void*)X, n, (void*)A, (unsigned long long)stride, (void*)rp[0], nhb, (void*)hbArr, odd ? " [some actions use another hitbox array: hits unknown]" : "", pid);
+    Log("AUTOMOVES: loaded action data %p: %u actions (objects %p stride 0x%llX, first row %p), %d hitbox rows (array %p), %d spawned objects, %d components (fnv %08X)%s; current action 0x%X",
+        (void*)X, n, (void*)A, (unsigned long long)stride, (void*)rp[0], nhb, (void*)hbArr, n7, n8, obHash, odd ? " [some actions use another hitbox array: hits unknown]" : "", pid);
     g_ami[g_ami_n].base = X; g_ami[g_ami_n].n = n; g_ami[g_ami_n].t = t;
     return g_ami_n++;
 }
