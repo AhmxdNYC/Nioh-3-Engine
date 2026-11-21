@@ -163,8 +163,46 @@ static void Tuning(void) {
     for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
     CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.4f));  // 4 different moves = 40 % of D now
 }
+// #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
+static void Startup(void) {
+    SmCfg c; RealDefaults(&c);
+    CHECK(near(SmStartupMult(&c, -1.f), 1.f) && near(SmStartupMult(&c, 5.f), 1.f) && near(SmStartupMult(&c, 15.f), 1.f));
+    CHECK(near(SmStartupMult(&c, 37.5f), 1.5f) && near(SmStartupMult(&c, 60.f), 2.f) && near(SmStartupMult(&c, 200.f), 2.f));
+    SmState s; SmReset(&s);
+    CHECK(near(SmOnHitEx(&s, &c, 0, 5, 1, 60.f, 0), 2.f * c.hit));            // slow startup: double
+    CHECK(near(SmOnHitEx(&s, &c, 10, 5, 1, 60.f, 0), 2.f * c.hit * 0.5f));     // second hit of the same use: multi-hit share of it
+    CHECK(near(SmOnHitEx(&s, &c, 20, 6, 2, 10.f, 0), c.hit));                  // fast jab: plain
+    SmCfg z = c; z.startupPct = 0; CHECK(near(SmStartupMult(&z, 60.f), 1.f));
+    SmCfg b = c; b.startupMaxF = 3; b.startupMinF = 9; SmCfgClamp(&b); CHECK(b.startupMaxF == 10);
+}
+// #126843 counter: flat bonus once per use, on top of the scaled hit.
+static void Counter(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(near(SmOnHitEx(&s, &c, 0, 7, 1, -1.f, 1), c.hit + c.counter) && s.counters == 1);
+    CHECK(near(SmOnHitEx(&s, &c, 5, 7, 1, -1.f, 1), c.hit * 0.5f) && s.counters == 1);  // same use: no second bonus
+}
+// #126850 / #126854 skills: only in combat (a hit within combatMs); outside they do not wake the meter.
+static void Skills(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmOnSkill(&s, &c, 0, 0) == 0.f && SmOnSkill(&s, &c, 0, 1) == 0.f && !s.active && s.nins == 1 && s.souls == 1);
+    SmOnHit(&s, &c, 1000, 1, 1);
+    CHECK(near(SmOnSkill(&s, &c, 1000 + c.combatMs, 0), c.nin));
+    CHECK(near(SmOnSkill(&s, &c, 1000 + c.combatMs, 1), c.soul));
+    CHECK(SmOnSkill(&s, &c, 1001 + c.combatMs, 1) == 0.f);
+    CHECK(near(s.pts, c.hit + c.nin + c.soul));
+}
+// #126843 style switch: in combat, one bonus per landed hit between switches.
+static void Style(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmOnStyle(&s, &c, 0) == 0.f && !s.active);  // out of combat
+    SmOnHit(&s, &c, 100, 1, 1);
+    CHECK(near(SmOnStyle(&s, &c, 200), c.style));
+    CHECK(SmOnStyle(&s, &c, 300) == 0.f);              // switch spam: nothing until the next hit
+    SmOnHit(&s, &c, 400, 2, 2);
+    CHECK(near(SmOnStyle(&s, &c, 500), c.style) && s.styles == 4);
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

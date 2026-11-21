@@ -86,7 +86,7 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     int s = -1, how = 0;
     const uint64_t owner = atk ? FpOwnerChar(atk, (FpRd64)Rd64) : 0;  // projectiles / shots: the owner character (game resolver 325F4C), match kind 4
     for (int i = 0; i < N3T_SLOTS; ++i) if (atk && g_fp[i].a) { const int h = g_fp[i].a == atk ? 1 : g_fp[i].ai == atk ? 2 : g_fp[i].ctrl && a8 == g_fp[i].ctrl ? 3 : owner && owner == g_fp[i].a ? 4 : 0; if (h) { s = i; how = h; } }
-    if (s < 0 && (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fp[FP_PL].a && atk) { const int h = g_fp[FP_PL].a == atk ? 1 : g_fp[FP_PL].ai == atk ? 2 : g_fp[FP_PL].ctrl && a8 == g_fp[FP_PL].ctrl ? 3 : owner && owner == g_fp[FP_PL].a ? 4 : 0; if (h) { s = FP_PL; how = h; } }  // user #22796: the player's own hits
+    if (s < 0 && (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW] || g_cfg_sm) && g_fp[FP_PL].a && atk) { const int h = g_fp[FP_PL].a == atk ? 1 : g_fp[FP_PL].ai == atk ? 2 : g_fp[FP_PL].ctrl && a8 == g_fp[FP_PL].ctrl ? 3 : owner && owner == g_fp[FP_PL].a ? 4 : 0; if (h) { s = FP_PL; how = h; } }  // user #22796: the player's own hits
     if (s < 0) {  // not a Training boss (player, allies, NPCs, projectiles without an owner link); the first 40 are logged for the attacker mapping
         if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 40) Log("FRAMEPROBE diag call from %X atk %p [atk+8] %p owner %p H %p R %p obj %p | boss A a %p ai %p ctrl %p | player %p ai %p", (uint32_t)(ra - B), (void*)atk, (void*)a8, (void*)owner, (void*)H, (void*)R, (void*)obj,
             (void*)g_fp[0].a, (void*)g_fp[0].ai, (void*)g_fp[0].ctrl, (void*)PlayerChar(), (void*)(PlayerChar() ? *(volatile uint64_t*)(PlayerChar() + 0x3B0) : 0));

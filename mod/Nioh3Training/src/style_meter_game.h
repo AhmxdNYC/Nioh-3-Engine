@@ -44,6 +44,13 @@ static void SmReadIni(const char* ini, int reset) {
     c.decayRankPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRankPct", SM_DECAY_RANK_PCT, ini);
     c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
+    c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
+    c.startupMaxF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMaxFrames", SM_STARTUP_MAX_F, ini);
+    c.startupPct = (int)GetPrivateProfileIntA("StyleMeter", "StartupBonusPct", SM_STARTUP_PCT, ini);
+    c.counter = (float)(int)GetPrivateProfileIntA("StyleMeter", "CounterPts", SM_COUNTER_PTS, ini);       // #126843
+    c.style = (float)(int)GetPrivateProfileIntA("StyleMeter", "StyleSwitchPts", SM_STYLE_PTS, ini);
+    c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
+    c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 (no use signal yet)
     {   // RankPtsPct: scales every rank's size (100 = defaults; 50 = the pre-#126755 easy meter)
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
         if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
@@ -54,6 +61,8 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f (#126821 #126843 #126854)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f..%.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[SM_RANKS - 1]);
@@ -137,6 +146,33 @@ static __attribute__((noinline)) int SmHpRead(uint64_t a, uint64_t* cur) {
     __try { *cur = *(volatile uint64_t*)(st + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return 1;
 }
+// #126854 ninjutsu used: one of the player's 3 ninjutsu gauges (status +0x36AC + k*0x30 cur, +0x36B0 max; the Practice infinite-ninjutsu
+// fields) dropped by >= 1 on the same status block. Returns the number of gauges that dropped this tick. Read only.
+static __attribute__((noinline)) int SmNinjutsuUsed(uint64_t actor) {
+    static uint64_t pst; static float prev[3]; static int have;
+    uint64_t st = 0; int n = 0;
+    if (!actor || !Rd64(actor + 0x3A0, &st) || !st) { have = 0; return 0; }
+    float cur[3];
+    __try { for (int k = 0; k < 3; ++k) { const float c = *(volatile float*)(st + 0x36AC + k * 0x30), m = *(volatile float*)(st + 0x36B0 + k * 0x30); cur[k] = (m > 0.f && m < 1e6f && c >= 0.f && c <= m * 1.01f) ? c : -1.f; } }
+    __except (EXCEPTION_EXECUTE_HANDLER) { have = 0; return 0; }
+    if (have && st == pst) for (int k = 0; k < 3; ++k) if (cur[k] >= 0.f && prev[k] >= 0.f && prev[k] - cur[k] >= 1.f) n++;
+    for (int k = 0; k < 3; ++k) prev[k] = cur[k];
+    pst = st; have = 1;
+    return n;
+}
+// #126843 Samurai (0) / Ninja (1) style: chr +0xA95C (the byte Boss Rematch's FbStyleNow reads). A switch counts once the new value held
+// 150 ms of game time (the byte is not the real style for a moment inside soul-core forms). Returns 1 on the tick a switch is confirmed.
+static __attribute__((noinline)) int SmStyleSwitched(uint64_t actor, double t) {
+    static int cur = -1, cand = -1; static double candT; static uint64_t pa;
+    uint8_t v = 0xFF;
+    if (actor) __try { v = *(volatile uint8_t*)(actor + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
+    if (!actor || v > 1 || actor != pa) { pa = actor; cur = v <= 1 ? v : -1; cand = -1; return 0; }
+    if (cur < 0) { cur = v; return 0; }
+    if (v == cur) { cand = -1; return 0; }
+    if (cand != v) { cand = v; candT = t; return 0; }
+    if (t - candT < 150.0) return 0;
+    cur = v; cand = -1; return 1;
+}
 static DWORD WINAPI SmThread(LPVOID p);
 // FpTick, after FmFeed (FpLock held).
 static void SmFeed(double gdt) {
@@ -171,12 +207,24 @@ static void SmFeed(double gdt) {
     }
     const uint32_t act = pl ? g_fp[FP_PL].run.act : SM_ACT_NONE;
     const uint64_t run = pl ? ((uint64_t)g_fp[FP_PL].run.f0 << 32 | act) : 0;
+    // #126821 startup of the current run = its first hit window (frame probe, player row); #126843 counter = i-frames inside an enemy
+    // hit window during this same run. Both are per run, read from the frame meter's own signals (no move ids).
+    const float startupF = pl && g_fp[FP_PL].run.hits > 0 && g_fp[FP_PL].run.hit[0] >= 0 ? (float)FpFrames60(g_fp[FP_PL].run.hit[0]) : -1.f;
+    static uint64_t ctrRun; static int ctr;
+    if (run != ctrRun) { ctrRun = run; ctr = 0; }
+    if (pl && ifr && g_sm_enemy) ctr = 1;
+    const int nin = pl ? SmNinjutsuUsed(g_fp[FP_PL].a) : 0;
+    const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
     const int fight = g_pst_live != 0;
     AcquireSRWLockExclusive(&g_sm_lock);
     const int r0 = g_sm.rank, a0 = g_sm.active;
     const int dodge = SmDodgeStep(&g_sm.dodge, g_sm_enemy, ifr, taken > 0);
-    float ph = 0.f, pk = -1.f, pd = -1.f;  // human #126744: per-event play log (points each event scored)
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHit(&g_sm, &g_smc, g_sm_clock, act, run);
+    float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
+    const uint32_t c0 = g_sm.counters;
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr);
+    const int ctrHit = g_sm.counters != c0;
+    for (int i = 0; i < nin; ++i) pn = (pn < 0 ? 0 : pn) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 0);
+    if (sty) ps = SmOnStyle(&g_sm, &g_smc, g_sm_clock);
     if (ki) pk = SmOnKi(&g_sm, &g_smc, g_sm_clock);
     if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
@@ -186,11 +234,13 @@ static void SmFeed(double gdt) {
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
     ReleaseSRWLockExclusive(&g_sm_lock);
-    if (hits > 0 || ki || dodge || taken > 0) {
+    if (hits > 0 || ki || dodge || taken > 0 || nin || sty) {
         static int evl;
         if (evl++ < 4000) {
             char e[160]; int n = 0; e[0] = 0;
-            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f", (long)hits, ph);
+            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
+            if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki +%.0f", pk);
             else if (ki) n += snprintf(e + n, sizeof e - n, " ki +0 (no hit in %d ms)", g_smc.kiHitMs);
             if (dodge) n += snprintf(e + n, sizeof e - n, " dodge +%.0f", pd);
