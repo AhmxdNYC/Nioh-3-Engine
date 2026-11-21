@@ -487,7 +487,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
         // default anchor from rank_atlas.json: right edge at 1690/1920 of the width, letter centre at 380/1080 of the height
         const int rx = g_cfg_sm_x >= 0 ? cr.right * g_cfg_sm_x / 1000 : cr.right * 1690 / 1920;
         const int cy = g_cfg_sm_y >= 0 ? cr.bottom * g_cfg_sm_y / 1000 : cr.bottom * 380 / 1080;
-        const int left = o.x + rx - g.w, top = o.y + cy - (int)(SM_LETTER_H_1080P * (float)cr.bottom / 1080.f * (float)g_cfg_sm_scale / 100.f) / 2 - g.pad;
+        const int left = o.x + rx - g.w, top = o.y + cy - (int)(SM_LETTER_H_1080P * SM_LK * (float)cr.bottom / 1080.f * (float)g_cfg_sm_scale / 100.f) / 2 - g.pad;
         RECT want_r = {left - cv.mx, top - cv.my, left - cv.mx + cv.w, top - cv.my + cv.h};  // same meter position, margin around it
         const int rank = (int)g_sm_rank, gauge = (int)g_sm_gauge;
         // #127085 motion: rank-up bounce (seen here), shake (big bonus, game thread), glow at S+, eased fill
@@ -503,7 +503,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
         }
         if (g_cfg_sm_motion) {
             eased = SmEase(eased, (float)gauge, dtw);
-            st.scale = SmBounce(now - rankUpT); SmShake(now - shakeT, &st.dx, &st.dy); st.glow = SmGlow(rank, now);
+            st.scale = SmBounce(now - rankUpT); SmShake(now - shakeT, &st.dx, &st.dy); st.glow = 0.f;  // #127149 glow removed
         } else eased = (float)gauge;
         st.gauge = eased;
         const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge;

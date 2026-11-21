@@ -50,6 +50,17 @@ static int SmAtlasLoad(void) {
 }
 // Layout in window pixels for client height H (1080 = the sprite design size x SM_LETTER_H_1080P / tallest letter).
 typedef struct { float k; int w, h, pad; } SmGeo;
+// #127148 the rank letter is drawn at SM_LETTER_PCT % of the word / gauge scale (it was too big); [StyleMeter] scale still scales all.
+#ifndef SM_LETTER_PCT
+#define SM_LETTER_PCT 60
+#endif
+#define SM_LK ((float)SM_LETTER_PCT / 100.f)
+// tallest letter / word in the atlas: the letter and word rows are always this tall, so the word and gauge never move with the rank (#127152)
+static void SmAtlasMax(int* lw, int* lh, int* ww, int* wh) {
+    *lw = *lh = *ww = *wh = 0;
+    for (int i = 0; i < SM_RANKS; ++i) { if (sm_atlas_letter[i][2] > *lw) *lw = sm_atlas_letter[i][2]; if (sm_atlas_letter[i][3] > *lh) *lh = sm_atlas_letter[i][3];
+        if (sm_atlas_word[i][2] > *ww) *ww = sm_atlas_word[i][2]; if (sm_atlas_word[i][3] > *wh) *wh = sm_atlas_word[i][3]; }
+}
 static SmGeo SmGeom(int H) {
     SmGeo g; int lw = 0, lh = 0, ww = 0, wh = 0;
     for (int i = 0; i < SM_RANKS; ++i) { if (sm_atlas_letter[i][2] > lw) lw = sm_atlas_letter[i][2]; if (sm_atlas_letter[i][3] > lh) lh = sm_atlas_letter[i][3];
@@ -57,8 +68,9 @@ static SmGeo SmGeom(int H) {
     g.k = (float)H / 1080.f * (float)g_cfg_sm_scale / 100.f * (float)SM_LETTER_H_1080P / (float)lh;
     g.pad = (int)(8 * g.k) + 2;
     const int gw = sm_atlas_gauge_bg[2] > ww ? sm_atlas_gauge_bg[2] : ww;
-    g.w = (int)((lw > gw ? lw : gw) * g.k) + 2 * g.pad;
-    g.h = (int)((lh + wh + sm_atlas_gauge_bg[3]) * g.k) + 4 * g.pad;
+    const float lwk = lw * SM_LK;
+    g.w = (int)((lwk > gw ? lwk : (float)gw) * g.k) + 2 * g.pad;
+    g.h = (int)((lh * SM_LK + wh + sm_atlas_gauge_bg[3]) * g.k) + 4 * g.pad;
     return g;
 }
 static void SmBlit(HDC dst, int x, int y, const int* r, int srcW, float k) {
@@ -127,15 +139,14 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
     const float mid = (float)right - (float)(g->w - 2 * g->pad) / 2.f;
     if (g_sm_atlas_dc) {
         const int* L = sm_atlas_letter[rank]; const int* W = sm_atlas_word[rank];
-        const float lh0 = L[3] * g->k, cx = mid, cy = y + lh0 / 2.f;
-        if (st->glow > 0.f) {  // halo: a slightly larger, faint copy of the letter behind it
-            const float kg = g->k * st->scale * 1.08f;
-            SmBlitA(mem, (int)(cx - L[2] * kg / 2.f), (int)(cy - L[3] * kg / 2.f), L, L[2], kg, (int)(st->glow * 120.f));
-        }
-        const float ks = g->k * st->scale;
+        int mlw, mlh, mww, mwh; SmAtlasMax(&mlw, &mlh, &mww, &mwh);
+        // #127152 fixed rows: letter row = tallest letter, word row = tallest word; each letter sits on the row's bottom line
+        const float kl = g->k * SM_LK, rowL = mlh * kl, cx = mid, cy = y + rowL - L[3] * kl / 2.f;
+        // #127149 no glow halo behind the letter (human did not like it)
+        const float ks = kl * st->scale;
         SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
-        y += (int)lh0 + g->pad;
-        SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y, W, W[2], g->k, 255); y += (int)(W[3] * g->k) + g->pad;
+        y += (int)rowL + g->pad;
+        SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y + (int)((mwh - W[3]) * g->k / 2.f), W, W[2], g->k, 255); y += (int)(mwh * g->k) + g->pad;
         const int gx = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f);
         SmBlitA(mem, gx, y, sm_atlas_gauge_bg, sm_atlas_gauge_bg[2], g->k, 255);
         const int fw = (int)((float)sm_atlas_gauge_fill[2] * st->gauge / 1000.f + 0.5f);
