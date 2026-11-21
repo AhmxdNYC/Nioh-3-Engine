@@ -42,6 +42,8 @@
 #define SM_NIN_PTS 20
 #define SM_SOUL_PTS 40
 #define SM_STYLE_PTS 15
+#define SM_SWAP_PTS 25      // #127057 weapon swap attack
+#define SM_SWAP_MS 600      // a move that starts within this of a weapon slot change is the swap attack
 #define SM_ACT_NONE 0xFFFFFFFFu
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -59,6 +61,7 @@ typedef struct {
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
     int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
+    float swap; int swapMs;               // #127057 weapon swap attack bonus / window
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -79,6 +82,8 @@ typedef struct {
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
     uint32_t counters, nins, souls, styles;
     uint32_t soulsScored, soulsAtStyle;  // #126913 soul core uses that scored / soulsScored at the last scored style switch
+    double lastSwap; int swapPaid;   // #127057 game ms of the last weapon slot change / its swap attack already scored
+    uint32_t swaps, swapHits;
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
 } SmState;
 
@@ -87,7 +92,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
-    c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS;
+    c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
@@ -104,11 +109,12 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->startupMinF < 0) c->startupMinF = 0; if (c->startupMaxF <= c->startupMinF) c->startupMaxF = c->startupMinF + 1;
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
     if (c->counter < 0) c->counter = 0; if (c->nin < 0) c->nin = 0; if (c->soul < 0) c->soul = 0; if (c->style < 0) c->style = 0;
+    if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = -1e18; s->lastDamaged = -1;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = -1e18; s->lastDamaged = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -162,6 +168,16 @@ static inline float SmOnSkill(SmState* s, const SmCfg* c, double t, int kind) {
     if (p <= 0.f) return 0.f;
     if (kind) { s->soulsScored++; s->lastSoul = t; }
     SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return p;
+}
+// #127057 weapon swap attack: the active weapon slot changed (the game's GetActiveWeaponSlot) ...
+static inline void SmOnSwap(SmState* s, double t) { s->swaps++; s->lastSwap = t; s->swapPaid = 0; }
+// ... and a move that started within swapMs of that change landed a hit: one bonus per slot change (swap spam without hits scores nothing).
+static inline float SmSwapHit(SmState* s, const SmCfg* c, double t, double runStart) {
+    if (s->swapPaid || c->swap <= 0.f) return 0.f;
+    const double d = runStart - s->lastSwap;
+    if (d < -(double)c->swapMs || d > (double)c->swapMs) return 0.f;
+    s->swapPaid = 1; s->swapHits++;
+    SmAdd(s, c, c->swap); s->lastEvent = s->lastScore = t; return c->swap;
 }
 // #126843 Samurai <-> Ninja style switch: scores in combat, once per landed hit since the last scored switch.
 // #126913 mid soul core: a switch within combatMs of a scored soul core use also scores, once per such use (the form itself may land no
@@ -233,6 +249,7 @@ typedef struct {
     uint16_t btn; uint8_t lt, rt; // XInput buttons / triggers held when the move started (stance / weapon swap / guardian are pad combos)
     int soulForm;                 // a soul core form started (BR FormUseTick / seal use) within SM_MOVE_SOUL_MS before the move
     int nin, great, enemy;        // ninjutsu gauge spent during it / GreatAttack collider / an enemy hit window was open at its start
+    int slot, swapped;            // #127057 active weapon slot at its start (-1 unknown) / it was a weapon swap attack (scored)
 } SmMoveRec;
 #define SM_MOVE_SOUL_MS 20000
 static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
@@ -248,9 +265,10 @@ static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
 static inline int SmMoveFmt(char* o, int n, const SmMoveRec* m) {
     char pad[96], su[24]; SmPadStr(pad, sizeof pad, m->btn, m->lt, m->rt);
     if (m->startupF < 0) snprintf(su, sizeof su, "-"); else snprintf(su, sizeof su, "%.0f f", m->startupF);
-    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s",
+    char sl[32]; if (m->slot >= 0) snprintf(sl, sizeof sl, " | slot %d%s", m->slot, m->swapped ? " swap attack" : ""); else sl[0] = 0;
+    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s",
         m->act, m->act, m->ms, m->ms * 0.06, m->landed > 0 ? "HIT" : m->windows > 0 ? "MISS" : "no attack", m->windows, m->landed,
         su, m->style == 0 ? "Samurai" : m->style == 1 ? "Ninja" : "style ?",
-        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "");
+        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl);
 }
 #endif

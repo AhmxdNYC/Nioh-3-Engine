@@ -19,7 +19,8 @@ __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
-static int g_cfg_sm_actlog, g_cfg_sm_movelog;  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
+static int g_cfg_sm_actlog, g_cfg_sm_movelog;
+static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
 static HWND g_sm_game;
@@ -54,6 +55,8 @@ static void SmReadIni(const char* ini, int reset) {
     c.counter = (float)(int)GetPrivateProfileIntA("StyleMeter", "CounterPts", SM_COUNTER_PTS, ini);       // #126843
     c.style = (float)(int)GetPrivateProfileIntA("StyleMeter", "StyleSwitchPts", SM_STYLE_PTS, ini);
     c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
+    c.swap = (float)(int)GetPrivateProfileIntA("StyleMeter", "WeaponSwapPts", SM_SWAP_PTS, ini);          // #127057
+    c.swapMs = (int)GetPrivateProfileIntA("StyleMeter", "WeaponSwapMs", SM_SWAP_MS, ini);
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -72,8 +75,8 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f (#126821 #126843 #126854 #126913)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms (#126821 #126843 #126854 #126913 #127057)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
@@ -180,6 +183,75 @@ static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
     for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;  // XINPUT_STATE: packet, wButtons +4, LT +6, RT +7
         const uint16_t bb = *(uint16_t*)(st + 4); if (bb || st[6] > 64 || st[7] > 64 || !*b) { *b = bb; *lt = st[6]; *rt = st[7]; } if (bb || st[6] > 64 || st[7] > 64) return; }
 }
+// #127057 active weapon slot = the game's own getter behind the script native "Player::GetActiveWeaponSlot" (found by name in the native
+// table, like BR's sites kNative). That native pushes its result on the script VM stack, so it is not callable from here; its body is
+// "fn([G2], [[G1]] + idoff)" and fn is the plain 2-load getter. The wrapper and fn bytes are checked, all addresses decoded from them
+// (no fixed RVA). Resolved once on a worker thread (whole-image string scan off the game thread); any mismatch = off, logged.
+static volatile LONG g_ws_state;  // 0 not started, 1 resolving, 2 ready, 3 failed
+static uint32_t (*g_ws_fn)(uint64_t, uint32_t); static uint64_t g_ws_g1, g_ws_g2; static uint32_t g_ws_idoff;
+static int SmHexNib(char ch) { return ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : 0; }
+static int SmBytesAt(const uint8_t* p, const char* pat) {  // "48 8B ?? .." ; 1 = match
+    for (const char* q = pat; *q;) {
+        if (*q == ' ') { ++q; continue; }
+        if (q[0] != '?' && *p != (uint8_t)(SmHexNib(q[0]) << 4 | SmHexNib(q[1]))) return 0;
+        ++p; q += 2;
+    }
+    return 1;
+}
+static __attribute__((noinline)) const char* SmWsResolve(void) {
+    static const char key[] = "Player::GetActiveWeaponSlot";
+    __try {
+        const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)B; const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(B + dos->e_lfanew);
+        const IMAGE_SECTION_HEADER* sh0 = IMAGE_FIRST_SECTION(nt); const int ns = nt->FileHeader.NumberOfSections;
+        const uint64_t lo = B, hi = B + nt->OptionalHeader.SizeOfImage;
+        uint64_t str = 0, ent = 0; int refs = 0;
+        for (int k = 0; k < ns && !str; ++k) {
+            const IMAGE_SECTION_HEADER* sh = sh0 + k;
+            if ((sh->Characteristics & IMAGE_SCN_MEM_EXECUTE) || !(sh->Characteristics & IMAGE_SCN_MEM_READ) || sh->Misc.VirtualSize < 64) continue;
+            const uint8_t* p = (const uint8_t*)(B + sh->VirtualAddress) + 1; const uint8_t* e = (const uint8_t*)(B + sh->VirtualAddress) + sh->Misc.VirtualSize - sizeof key;
+            for (; p < e; ++p) if (*p == 'P' && p[-1] == 0 && !memcmp(p, key, sizeof key)) { str = (uint64_t)p; break; }
+        }
+        if (!str) return "name string not found";
+        for (int k = 0; k < ns && !ent; ++k) {
+            const IMAGE_SECTION_HEADER* sh = sh0 + k;
+            if ((sh->Characteristics & IMAGE_SCN_MEM_EXECUTE) || !(sh->Characteristics & IMAGE_SCN_MEM_READ) || sh->Misc.VirtualSize < 64) continue;
+            const uint64_t* p = (const uint64_t*)(B + ((sh->VirtualAddress + 7) & ~7u)); const uint64_t* e = (const uint64_t*)(B + sh->VirtualAddress + sh->Misc.VirtualSize - 16);
+            // the name is referenced from more than one table (live 1.0x: a 2nd table points at another function); the native entry is
+            // the one whose function is this binding's wrapper shape
+            for (; p < e; ++p) if (*p == str && p[1] > lo && p[1] < hi) {
+                const uint8_t* w = (const uint8_t*)p[1]; ++refs;
+                if (SmBytesAt(w, "40 53 48 81 EC 70 01 00 00") && SmBytesAt(w + 0x28, "48 8B 05 ?? ?? ?? ?? 48 8B 08 8B 91 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 54 24 20 89 44 24 20")) { ent = (uint64_t)p; break; }
+            }
+        }
+        if (!ent) return refs ? "no reference has the wrapper bytes (game patch)" : "native table entry not found";
+        const uint8_t* w = (const uint8_t*)((const uint64_t*)ent)[1];
+        const uint64_t g1 = (uint64_t)(w + 0x2F) + *(const int32_t*)(w + 0x2B), g2 = (uint64_t)(w + 0x3F) + *(const int32_t*)(w + 0x3B);
+        const uint8_t* fn = w + 0x44 + *(const int32_t*)(w + 0x40);
+        if (g1 <= lo || g1 >= hi || g2 <= lo || g2 >= hi || (uint64_t)fn <= lo || (uint64_t)fn >= hi) return "decoded address outside the image";
+        if (!SmBytesAt(fn, "48 8B 01 85 D2 75 07 8B 80 ?? ?? ?? ?? C3 8B 80 ?? ?? ?? ?? C3")) return "getter bytes differ (game patch)";
+        g_ws_g1 = g1; g_ws_g2 = g2; g_ws_idoff = *(const uint32_t*)(w + 0x34); g_ws_fn = (uint32_t (*)(uint64_t, uint32_t))fn;
+        Log("STYLE METER: weapon slot getter %s -> +%llX (wrapper +%llX, G1 +%llX id +0x%X, G2 +%llX) (#127057)", key, (unsigned long long)((uint64_t)fn - B),
+            (unsigned long long)((uint64_t)w - B), (unsigned long long)(g1 - B), g_ws_idoff, (unsigned long long)(g2 - B));
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return "fault while resolving"; }
+}
+static DWORD WINAPI SmWsThread(LPVOID p) {
+    (void)p; const char* why = SmWsResolve();
+    if (why) Log("STYLE METER: weapon slot getter off: %s (#127057)", why);
+    InterlockedExchange(&g_ws_state, why ? 3 : 2); return 0;
+}
+static __attribute__((noinline)) int SmWeaponSlot(void) {  // -1 = unknown
+    if (g_ws_state == 0 && InterlockedCompareExchange(&g_ws_state, 1, 0) == 0) { HANDLE t = CreateThread(0, 0, SmWsThread, 0, 0, 0); if (t) CloseHandle(t); else InterlockedExchange(&g_ws_state, 3); }
+    if (g_ws_state != 2) return -1;
+    __try {
+        const uint64_t a = *(volatile uint64_t*)g_ws_g1; if (!a) return -1;
+        const uint64_t b = *(volatile uint64_t*)a; if (!b) return -1;
+        const uint32_t id = *(volatile uint32_t*)(b + g_ws_idoff);
+        const uint64_t r = *(volatile uint64_t*)g_ws_g2; if (!r || !*(volatile uint64_t*)r) return -1;
+        const uint32_t s = g_ws_fn(r, id);
+        return s <= 8 ? (int)s : -1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
 // #126843 Samurai (0) / Ninja (1) style: chr +0xA95C (the byte Boss Rematch's FbStyleNow reads). A switch counts once the new value held
 // 150 ms of game time (the byte is not the real style for a moment inside soul-core forms). Returns 1 on the tick a switch is confirmed.
 static __attribute__((noinline)) int SmStyleSwitched(uint64_t actor, double t) {
@@ -239,6 +311,16 @@ static void SmFeed(double gdt) {
     if (run != ctrRun) { ctrRun = run; ctr = 0; }
     if (pl && ifr && g_sm_enemy) ctr = 1;
     const int nin = pl ? SmNinjutsuUsed(g_fp[FP_PL].a) : 0;
+    const int wslot = pl ? SmWeaponSlot() : -1;  // #127057
+    int swapEv = 0;
+    {   static int prevSlot = -1; static uint64_t pa;
+        const uint64_t a = pl ? g_fp[FP_PL].a : 0;
+        if (wslot < 0 || a != pa) prevSlot = -1; else if (prevSlot >= 0 && wslot != prevSlot) swapEv = 1;
+        if (wslot >= 0) prevSlot = wslot;
+        pa = a;
+    }
+    static uint64_t rsRun; static double rsT;  // game ms the current player move started (swap attack window)
+    if (run != rsRun) { rsRun = run; rsT = g_sm_clock; }
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
         static uint64_t mrun; static SmMoveRec mr; static double mt0, soulT = -1e18; static int mon, mlines;
@@ -247,11 +329,11 @@ static void SmFeed(double gdt) {
         if (soul > 0) soulT = g_sm_clock;
         if (mon) { mr.landed += (int)hits; if (nin) mr.nin = 1; }
         if (run != mrun) {
-            if (mon && mlines < 20000) { ++mlines; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
+            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
             mrun = run; mt0 = g_sm_clock; mon = act != SM_ACT_NONE && act != 0;
             memset(&mr, 0, sizeof mr); mr.act = act; mr.startupF = -1.f; mr.enemy = g_sm_enemy;
             uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
-            mr.style = v <= 1 ? v : -1;
+            mr.style = v <= 1 ? v : -1; mr.slot = wslot;
             SmPadNow(&mr.btn, &mr.lt, &mr.rt);
             const unsigned ft = fu ? fu() : 0;
             mr.soulForm = g_sm_clock - soulT <= SM_MOVE_SOUL_MS || (ft && GetTickCount() - ft <= SM_MOVE_SOUL_MS);
@@ -266,7 +348,10 @@ static void SmFeed(double gdt) {
     const int dodge = SmDodgeStep(&g_sm.dodge, g_sm_enemy, ifr, taken > 0);
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters;
+    if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr);
+    const float psw = hits > 0 ? SmSwapHit(&g_sm, &g_smc, g_sm_clock, rsT) : 0.f;
+    if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     for (int i = 0; i < nin; ++i) pn = (pn < 0 ? 0 : pn) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 0);
     float pc = -1.f;
@@ -281,12 +366,14 @@ static void SmFeed(double gdt) {
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
     ReleaseSRWLockExclusive(&g_sm_lock);
-    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0) {
+    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv) {
         static int evl;
         if (evl++ < 4000) {
             char e[224]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
+            if (swapEv) n += snprintf(e + n, sizeof e - n, " weapon slot -> %d", wslot);
+            if (psw > 0.f) n += snprintf(e + n, sizeof e - n, " swap attack +%.0f", psw);
             if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki +%.0f", pk);

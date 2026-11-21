@@ -232,11 +232,24 @@ static void MoveFmt(void) {
     CHECK(strstr(b, "act 0x2A31 (10801)") && strstr(b, "MISS") && strstr(b, "startup 18 f") && strstr(b, "Samurai") && strstr(b, "pad Y+RB+RT"));
     m.landed = 2; m.soulForm = 1; m.style = 1; SmMoveFmt(b, sizeof b, &m);
     CHECK(strstr(b, "HIT") && strstr(b, "Ninja") && strstr(b, "soul core form"));
+    m.slot = -1; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "slot") == 0);
+    m.slot = 1; m.swapped = 1; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| slot 1 swap attack"));
     m.windows = 0; m.landed = 0; m.startupF = -1; m.btn = 0; m.rt = 0; SmMoveFmt(b, sizeof b, &m);
     CHECK(strstr(b, "no attack") && strstr(b, "startup - |") && strstr(b, "pad -"));
 }
+// #127057 weapon swap attack: a hitting move that started within swapMs of a slot change, once per change.
+static void Swap(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmSwapHit(&s, &c, 100, 100) == 0.f);                       // no swap yet
+    SmOnSwap(&s, 1000);
+    CHECK(SmSwapHit(&s, &c, 2000, 1000 + c.swapMs + 1) == 0.f);      // move started too late
+    CHECK(near(SmSwapHit(&s, &c, 1300, 1100), c.swap) && s.swapHits == 1 && s.lastScore == 1300);
+    CHECK(SmSwapHit(&s, &c, 1350, 1100) == 0.f);                     // second hit of the same swap attack
+    SmOnSwap(&s, 5000);
+    CHECK(near(SmSwapHit(&s, &c, 5100, 4900), c.swap) && s.swaps == 2);  // move began just before the slot flipped
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Ramp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Ramp();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }
