@@ -415,9 +415,10 @@ static void SmGlint(uint32_t* px, int w, int h, int x0, int y0, int rw, int rh, 
 }
 // #127343 katana draw-cut: one hairline arc (a slice of a big circle, like a blade's swing) through (px0, py0), rising left -> right.
 // s = 0..1 head travel; the tail trails behind and the whole cut fades by 'fade'. Thin, bright, a faint cold edge.
-static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit) {
+// #127346 ang = tangent angle at the letter centre (negative = rising right); the arc always bows upward like a swing
+static void SmArcCutA(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit, float ang) {
     if (fade <= 0.f || s <= 0.f) return;
-    const float R = lh * 3.2f, tx = 0.93f, ty = -0.37f;           // tangent at the letter centre (rising right)
+    const float R = lh * 3.2f, tx = cosf(ang), ty = sinf(ang);
     const float ccx = px0 - ty * R, ccy = py0 + tx * R;           // centre below the cut: the arc bows upward like a swing
     const float phiP = atan2f(py0 - ccy, px0 - ccx), span = (lw * 2.6f) / R;
     const float p0 = phiP - span * 0.5f, head = p0 + span * (s > 1.f ? 1.f : s), tail = head - span * 0.55f;
@@ -431,6 +432,14 @@ static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw,
         if (d >= wd) { if (d < wd + 1.5f * unit) SmPxOver(&px[yy * w + xx], 190, 215, 255, (unsigned)((1.f - (d - wd) / (1.5f * unit)) * 0.3f * q * fade * 255.f)); continue; }
         SmPxOver(&px[yy * w + xx], 255, 255, 255, (unsigned)((1.f - 0.4f * d / wd) * (0.35f + 0.65f * q) * fade * 255.f));
     }
+}
+static void SmArcCut(uint32_t* px, int w, int h, float px0, float py0, float lw, float lh, float s, float fade, float unit) {
+    SmArcCutA(px, w, h, px0, py0, lw, lh, s, fade, unit, -0.379f);  // rising right (the B draw-cut)
+}
+// one katana swing: travel 0..1, then the cut lingers and fades (s 1..1.6)
+static void SmSwing(uint32_t* px, int w, int h, float cx, float cy, float lw, float lh, float s, float unit, float ang) {
+    if (s <= 0.f || s >= 1.6f) return;
+    SmArcCutA(px, w, h, cx, cy, lw, lh, s, s < 1.f ? 1.f : 0.7f * (1.f - (s - 1.f) / 0.6f), unit, ang);
 }
 typedef struct { HDC mem; uint32_t* px; int w, h; float mid, rowBottom, kl, unit; } SmLetterCtx;
 static void SmLetterCentre(const SmLetterCtx* x, int r, float* cx, float* cy) {
@@ -499,8 +508,8 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         const float in = 210.f, e = dt - in;
         if (dt < in) { const int on = dt < 100.f || ((int)(dt / 28.f) & 1); SmLetterAt(x, prev, 0, 0, 1, on ? 1.f : 0.35f, ro); GdiFlush();
             float pcx, pcy; SmLetterCentre(x, prev, &pcx, &pcy);
-            if (dt < 120.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / 120.f, u, 0.30f);
-            if (dt >= 90.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], (dt - 90.f) / 120.f, u, -0.30f);
+            SmSwing(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / 80.f, u, -0.38f);  // #127346 two crossing katana swings
+            SmSwing(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], (dt - 90.f) / 80.f, u, 0.38f);
             break; }
         const int on = e < 40.f || (e >= 70.f && e < 130.f) || e >= 150.f;
         SmLetterAt(x, r, 0, 0, 1, on ? 1.f : 0.f, rc); GdiFlush();
@@ -514,9 +523,9 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
         const float rise = 1.f - SmClamp01(e / 240.f);
         SmLetterAt(x, r, 0, rise * rise * 0.8f * S, 1, SmClamp01(e / 90.f), rc); GdiFlush();
         SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFF4A1Eu, 0.9f * SmClamp01(1.f - (e - 120.f) / 480.f));
-        if (e >= 200.f) { const float f = e - 200.f; static const float tl[3] = {0.30f, -0.30f, 0.04f};
+        if (e >= 200.f) { const float f = e - 200.f; static const float tl[3] = {-0.38f, 0.38f, -0.05f};  // #127346 three katana swings
             SmRing(px, w, h, cx, cy, f, S * 0.8f, u);
-            for (int k = 0; k < 3; ++k) { const float s = (f - 60.f * k) / 180.f; if (s >= 0.f && s < 1.f) SmSlash(px, w, h, cx, cy, (float)rc[2], (float)rc[3], s, u, tl[k]); } }
+            for (int k = 0; k < 3; ++k) SmSwing(px, w, h, cx, cy, (float)rc[2], (float)rc[3], (f - 70.f * k) / 80.f, u, tl[k]); }
         SmSparks(px, w, h, cx, cy + S * 0.35f, e, 30, 0xE3BE25u, u, 1);
         if (e >= 200.f) SmSparks(px, w, h, cx, cy, e - 200.f, 40, 0x66u, u, 0);
         break; }
