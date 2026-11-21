@@ -12,6 +12,8 @@ static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
 static void PinnedDefaults(SmCfg* c) {
     static const float old[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
     SmCfgDefaults(c); c->decayPerS = 12.f; c->decayDelayMs = 2500; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
+    // #127568: the shipped defaults moved to the human's tuning; the mechanics cases keep the numbers they were written for.
+    c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -157,13 +159,14 @@ static void Clamp(void) {
     SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 1, 1);
     CHECK(!s.active && s.hits == 1);
 }
-// human #126755: shipped tuning is 2.5x the first (#126785) as the first one.
+// human #126755: shipped tuning is 2.5x the first (#126785); #127568: now the human's Main PC tuning.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 100.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 12.f) && c.decayDelayMs == 4000);
+    CHECK(near(c.rankPts[0], 60.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
+    CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.4f));  // 4 different moves = 40 % of D now
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 20.f / 90.f));  // 4 different moves = 80 pts: D (60) full, 20 into C (90)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -172,7 +175,7 @@ static void Startup(void) {
     CHECK(near(SmStartupMult(&c, 37.5f), 1.5f) && near(SmStartupMult(&c, 60.f), 2.f) && near(SmStartupMult(&c, 200.f), 2.f));
     SmState s; SmReset(&s);
     CHECK(near(SmOnHitEx(&s, &c, 0, 5, 1, 60.f, 0), 2.f * c.hit));            // slow startup: double
-    CHECK(near(SmOnHitEx(&s, &c, 10, 5, 1, 60.f, 0), 2.f * c.hit * 0.5f));     // second hit of the same use: multi-hit share of it
+    CHECK(near(SmOnHitEx(&s, &c, 10, 5, 1, 60.f, 0), 2.f * c.hit * c.multiPct / 100.f));     // second hit of the same use: multi-hit share of it
     CHECK(near(SmOnHitEx(&s, &c, 20, 6, 2, 10.f, 0), c.hit));                  // fast jab: plain
     SmCfg z = c; z.startupPct = 0; CHECK(near(SmStartupMult(&z, 60.f), 1.f));
     SmCfg b = c; b.startupMaxF = 3; b.startupMinF = 9; SmCfgClamp(&b); CHECK(b.startupMaxF == 10);
@@ -181,11 +184,11 @@ static void Startup(void) {
 static void Counter(void) {
     SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
     CHECK(near(SmOnHitEx(&s, &c, 0, 7, 1, -1.f, 1), c.hit + c.counter) && s.counters == 1);
-    CHECK(near(SmOnHitEx(&s, &c, 5, 7, 1, -1.f, 1), c.hit * 0.5f) && s.counters == 1);  // same use: no second bonus
+    CHECK(near(SmOnHitEx(&s, &c, 5, 7, 1, -1.f, 1), c.hit * c.multiPct / 100.f) && s.counters == 1);  // same use: no second bonus
 }
 // #126850 / #126854 skills: only in combat (a hit within combatMs); outside they do not wake the meter.
 static void Skills(void) {
-    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    SmCfg c; RealDefaults(&c); c.rankPts[0] = 1000.f; SmState s; SmReset(&s);  // #127568: keep the sum inside rank D
     CHECK(SmOnSkill(&s, &c, 0, 0) == 0.f && SmOnSkill(&s, &c, 0, 1) == 0.f && !s.active && s.nins == 1 && s.souls == 1);
     SmOnHit(&s, &c, 1000, 1, 1);
     CHECK(near(SmOnSkill(&s, &c, 1000 + c.combatMs, 0), c.nin));
@@ -216,7 +219,7 @@ static void StyleSoul(void) {
     CHECK(near(SmOnStyle(&s, &c, 1600), c.style) && SmOnStyle(&s, &c, 1700) == 0.f);  // the 2nd use pays one more, then spam stops
 }
 static void Ramp(void) {  // human #126972: drain speeds up with idle time past the delay; 0 = flat (old behaviour)
-    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f;
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f; c.decayRampPct = 0;
     SmState a; SmReset(&a); a.active = 1; a.rank = 2; a.pts = 100.f; a.lastScore = 0;
     SmTick(&a, &c, 2000.0, 1000.0); const float flat = 100.f - a.pts;            // 1 s slice at idle 2 s, no ramp
     CHECK(near(flat, 10.f));

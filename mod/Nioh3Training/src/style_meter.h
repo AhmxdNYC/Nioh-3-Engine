@@ -22,18 +22,18 @@
 
 #define SM_RANKS 7
 #define SM_HIST 8
-#define SM_HIT_PTS 10
-#define SM_DODGE_PTS 30
-#define SM_KI_PTS 20
+#define SM_HIT_PTS 20  // #127568 human Main PC tuning (was 10)
+#define SM_DODGE_PTS 45  // #127568 (was 30)
+#define SM_KI_PTS 30  // #127568 (was 20)
 #define SM_KI_PERFECT_PTS 15  // #127075 extra on a perfect Ki pulse (the frame meter's teal check)
 #define SM_NIN_GAP_MS 500     // #127065 one ninjutsu per throw: gauge drops closer than this are the same throw
-#define SM_REPEAT_PCT 60
-#define SM_REPEAT_FLOOR_PCT 10
-#define SM_MULTI_PCT 50
-#define SM_DECAY_DELAY_MS 4000  // human #126785: was 2500
-#define SM_DECAY_PER_S 12   // human #126785: harder to lose rank (2.5x ranks drain at the old 12/s)
-#define SM_DECAY_RANK_PCT 35
-#define SM_DECAY_RAMP_PCT 0     // human #126972: +N % drain per idle second after the delay (fast fade after a combo ends); 0 = flat
+#define SM_REPEAT_PCT 80  // #127568 (was 60)
+#define SM_REPEAT_FLOOR_PCT 40  // #127568 (was 10)
+#define SM_MULTI_PCT 100  // #127568 (was 50)
+#define SM_DECAY_DELAY_MS 500   // #127568 human tuning (#126945 1.5 s, then 0.5 s); was 4000,  // human #126785: was 2500
+#define SM_DECAY_PER_S 30   // #127568 (was 12);   // human #126785: harder to lose rank (2.5x ranks drain at the old 12/s)
+#define SM_DECAY_RANK_PCT 50  // #127568 (was 35)
+#define SM_DECAY_RAMP_PCT 150 // #127568 (was 0);     // human #126972: +N % drain per idle second after the delay (fast fade after a combo ends); 0 = flat
 #define SM_COMBAT_MS 8000
 #define SM_KI_HIT_MS 3000        // human #126744: whiffs must not raise the meter (Ki pulse only counts in a combo that landed)
 #define SM_DAMAGE_GRACE_MS 1500  // live #126502: one multi-hit enemy combo = one rank drop
@@ -57,7 +57,7 @@ static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS"
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
 static const char* const sm_rank_word[SM_RANKS] = {"Dull", "Cunning", "Bold", "Ardent", "Asura", "Sword Saint", "Heavenly"};
 // human #126755 too easy (SS in ~40 hits), #126766 4x, #126785 4x too hard (C after 52 hits): 2.5x {40, 60, 80, 100, 130, 160, 200}
-static const float sm_rank_pts_default[SM_RANKS] = {100.f, 150.f, 200.f, 250.f, 325.f, 400.f, 500.f};
+static const float sm_rank_pts_default[SM_RANKS] = {60.f, 90.f, 130.f, 180.f, 250.f, 350.f, 500.f};  // #127568 human tuning (was 100 150 200 250 325 400 500)
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
