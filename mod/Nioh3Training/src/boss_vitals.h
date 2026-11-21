@@ -2,6 +2,7 @@
 // Pure decisions, no game access (tests/boss_vitals_test.c). Game glue (actor lookup, native writes, exports): boss_vitals_game.h.
 // Per slot (session only, every game start = defaults OFF / 100 %):
 //   infHp  'Boss infinite health': HP never stays below the HP level (hpPct of max; 100 % = always full).
+//                                  #127382: refilled only after BossRefillDelayMs without a drop (BvRefillDue below); never dies meanwhile.
 //   infKi  'Boss infinite Ki'    : Ki never stays below the Ki level (kiPct of max). OPTIONAL (default OFF) so Ki breaks still happen;
 //                                  even when ON a boss that is already Ki broken is left alone until the break is over.
 //   hpPct  'Set boss HP %'       : one-shot set to that % of max (also the infinite-health level). 1..100 (0 would kill).
@@ -61,4 +62,34 @@ static inline int BvKiCeilClear(float v, float max, float loss) { return loss > 
 static inline uint64_t BvHpRaw(uint64_t target, uint64_t max, int64_t off, int* keepOff) {
     if (off > 0 && target + (uint64_t)off <= max) { *keepOff = 1; return target + (uint64_t)off; }
     *keepOff = 0; return target;
+}
+// human #127382 '[Training] BossRefillDelayMs' (default 2000): with Infinite boss health / Ki ON the bar goes down as the player hits, so the damage
+// done is visible; once the value has not dropped for the delay it is refilled to the Set HP % / Ki % level at once. 0 = the old instant refill.
+// 'Being hit' = the value read this tick is below the one read last tick (runtime values, no input). HP and Ki each have their own timer.
+// The boss never dies meanwhile: BvHpFloorDmg (HP damage hook) cuts a hit so the HP the bar shows stays >= 1. Ki: BvKiFloorAmt (Ki damage hook)
+// keeps the old break rule: a hit big enough to break the boss AT its Ki level still breaks it (as with the instant refill); smaller hits,
+// however many land before the refill, stop at Ki 0.5 instead of breaking it.
+typedef struct { int valid, hit; uint32_t at; double last; } BvTimer;
+static inline void BvTimerReset(BvTimer* t) { t->valid = 0; t->hit = 0; t->at = 0; t->last = 0; }
+// Feed this tick's value (every tick, ON or OFF). eps: smallest drop that counts as a hit (HP 0.5, Ki 0.01). 1 = the refill may run now.
+static inline int BvRefillDue(BvTimer* t, double cur, uint32_t now, int delayMs, double eps) {
+    if (t->valid && cur < t->last - eps) { t->hit = 1; t->at = now; }
+    t->last = cur; t->valid = 1;
+    if (delayMs <= 0) { t->hit = 0; return 1; }
+    if (t->hit && now - t->at < (uint32_t)delayMs) return 0;
+    t->hit = 0; return 1;
+}
+static inline int BvFloorOn(int inf, int delayMs) { return inf && delayMs > 0; }
+// HP damage cut: cur = real HP, floor = lowest real HP allowed (1 + the NOFIN hidden reserve). Returns the damage to apply.
+static inline int BvHpFloorDmg(int on, uint64_t cur, uint64_t floor, int dmg) {
+    if (!on || dmg <= 0) return dmg;
+    if (cur <= floor) return 0;
+    const uint64_t room = cur - floor;
+    return (uint64_t)dmg > room ? (int)room : dmg;
+}
+// Ki damage cut: level = the infinite-Ki level (BvKiTarget). A hit >= level breaks as before; a smaller one stops at Ki 0.5.
+static inline float BvKiFloorAmt(int on, float cur, float level, float amt) {
+    if (!on || !(amt > 0.0f) || !(cur > 0.0f) || amt >= level) return amt;  // Ki 0 / broken: the break is the game's
+    if (cur - amt >= 0.5f) return amt;
+    return cur > 0.5f ? cur - 0.5f : 0.0f;
 }
