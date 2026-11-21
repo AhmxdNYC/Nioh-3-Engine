@@ -1713,3 +1713,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-21 9:10 PM EST | pc/0 | regression PASS #128290 on 6833fbb6. installer-pc TASKed to ship v1.8.37 AFTER pc/1 live Report PASS (#128265). Do not re-task. Next: Done TO-USER when public.
 - 2026-11-21 4:13 pm EST | pc/1 | EF 6b3a120b Report attach live PASS #128306 (re #128265); do not rerun. Next: regression + ship by lead.
 - 2026-11-21 4:18 pm EST | installer-pc | v1.8.37 RC 2ef18b3d (EF 0c05109e) built + offline PASS (RESULT #128326), staged D:/nioh3-re/rc-1837-128290. Waiting on pc/1 live Report PASS #128265, then publish. Do not rebuild.
+- 2026-11-21 4:27 pm EST | installer-pc | v1.8.37 PUBLIC (live PASS #128328): GitHub Latest 16/16, site 18/18, live update 7/7, EF 0c05109e. Rollback D:/nioh3-re/stable-1836-bak.json. Nothing left for installer.
