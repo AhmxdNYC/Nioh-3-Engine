@@ -281,6 +281,14 @@ static void Motion(void) {
     float g = 0; for (int i = 0; i < 60; ++i) g = SmEase(g, 800, 16.7);
     CHECK(g == 800.f);
     CHECK(SmEase(10, 400, 16.7) > 10.f && SmEase(10, 400, 16.7) < 400.f && SmEase(900, 100, 16.7) == 100.f && SmEase(5, 5, 0) == 5.f);
+    // #127253 rank-up: the shown bar reaches the end on the old rank before the shown rank steps up; two-rank jump steps twice; drop snaps
+    SmShownBar b = {-1, 0.f}; SmBarStep(&b, 1, 600.f, 16.7); CHECK(b.rank == 1 && b.g == 600.f);
+    float maxOld = 0.f; int ups = 0, steps = 0;
+    while (b.rank < 3 && steps < 200) { const int r0 = b.rank; const int up = SmBarStep(&b, 3, 100.f, 16.7); ups += up; ++steps;
+        if (!up && b.rank == 1 && b.g > maxOld) maxOld = b.g; if (up) CHECK(b.rank == r0 + 1); }
+    CHECK(maxOld == 1000.f && ups == 2 && b.rank == 3 && steps < 40);
+    for (int i = 0; i < 60; ++i) SmBarStep(&b, 3, 100.f, 16.7); CHECK(b.g == 100.f);
+    SmBarStep(&b, 2, 900.f, 16.7); CHECK(b.rank == 2 && b.g == 900.f);
 }
 // #127065 mode switch from an idle meter scores (one per combatMs with no hit), spam still does not.
 static void StyleIdle(void) {

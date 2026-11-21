@@ -81,4 +81,27 @@ static inline float SmEase(float cur, float target, double dtMs) {
     const float v = cur + (target - cur) * k;
     return fabsf(target - v) < 1.f ? target : v;
 }
+// #127253 the shown bar on a rank-up: the old rank's bar fills to the end first, then the shown rank steps up and the bar starts from
+// empty (one rank at a time on multi-rank jumps). Rank down / reset snaps. Shown rank drives the letter and the rank-up bounce.
+#ifndef SM_FILL_PER_S
+#define SM_FILL_PER_S 5000.f   // minimum fill speed on the way to the end (gauge units / s; 1000 = full bar), so a rank-up takes <= ~0.2 s
+#endif
+typedef struct { int rank; float g; } SmShownBar;
+// returns 1 when the shown rank stepped up this call
+static inline int SmBarStep(SmShownBar* b, int rank, float gauge, double dtMs) {
+    if (rank < b->rank || b->rank < 0) { b->rank = rank; b->g = gauge; return 0; }
+    if (dtMs <= 0) return 0;
+    if (rank > b->rank) {
+        if (b->g < 1000.f) {  // fill on: at least one frame shows the bar full before the step
+            float v = SmEase(b->g, 1000.f, dtMs); const float minV = b->g + SM_FILL_PER_S * (float)dtMs / 1000.f;
+            if (v < minV) v = minV;
+            b->g = v >= 999.f ? 1000.f : v; return 0;
+        }
+        b->rank += 1; b->g = 0.f;
+        if (b->rank == rank) b->g = SmEase(0.f, gauge, dtMs);
+        return 1;
+    }
+    b->g = SmEase(b->g, gauge, dtMs);
+    return 0;
+}
 #endif
