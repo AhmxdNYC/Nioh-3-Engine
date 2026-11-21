@@ -1303,3 +1303,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 12:25 pm EST | pc/1 #127933 | done: PlayerLog PAD/ACT fps+frame ms, CLK line (PlayerClock default 0) | proven offline (player_clock_test PASS), unproven live | next: regression-pc review, then live CLK check | commit 29de1d88, branch pc1/playerlog-clk-127933
 - 2026-11-21 12:45 pm EST | pc/1 #127947 | fixed missing PAD/ACT suffix | proven offline (test PASS, string in ASI), unproven live | next: regression re-review then live check | 87b8b137 on pc1/playerlog-clk-127933
 - 2026-11-21 12:30 pm EST | pc/1 #127953 | live check of player log CLK | proven live Main PC (both arms) | next: pc/0 release bundle | 87b8b137, logs D:/nioh3-re/kb-120730/*-CLKON*
+- 2026-11-21 12:55 pm EST | regression-pc/0 #127959 release review | PROVEN offline: rc-127959 429409b2 (EF 8920efc1, TR 5fffe2bb local) 159/194 vs main 158/194, same 35 fails, new player_clock_test passes; audit 49=baseline; diff check PASS
+  Next: lead/installer ships from regression-pc/rc-127959 (bump MOD_VERSION + catalog pin). Logs D:/nioh3-wt/rg127959-logs.
