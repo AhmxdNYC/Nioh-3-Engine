@@ -236,6 +236,7 @@ inline constexpr Entry kEntries[] = {
     {"GpuOpt", "TraceRecords", "0"},
     {"GpuOpt", "TraceDelaySec", "30"},
     {"GpuOpt", "InstallDelaySec", "20"},
+    {"GpuOpt", "AllowProxyLists", "0"},
     {"GpuOpt", "CbvMirror", "0"},
     {"GpuOpt", "CbvMirrorMB", "128"},
     {"GpuOpt", "CbvMirrorAllSites", "0"},
