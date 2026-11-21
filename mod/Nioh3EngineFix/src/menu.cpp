@@ -1198,6 +1198,21 @@ void ChangeSky(int id, int dir) {
     char text[32]; SkyValueText(id, value, text, sizeof(text));
     snprintf(g_skyNote, sizeof(g_skyNote), "%s: %s. Saved.", id == kTimeOfDayRow ? "Time of day" : "Weather", text);
 }
+// human #128100: 'Player log' row = Nioh3Training [Record] PlayerLog + PlayerClock together (Nioh3Training_PlayerLogGet / _PlayerLogSet).
+char g_plogNote[200] = "";
+int PlayerLogGet() {
+    const HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    const auto f = m ? reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3Training_PlayerLogGet")) : nullptr;
+    return f ? f() : -1;
+}
+void ChangePlayerLog(int dir) {  // A flips, Right = ON, Left = OFF
+    const HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    const auto f = m ? reinterpret_cast<int (*)(int)>(GetProcAddress(m, "Nioh3Training_PlayerLogSet")) : nullptr;
+    const int v = f ? f(dir > 0 ? 1 : dir < 0 ? 0 : -1) : -1;
+    if (v < 0) snprintf(g_plogNote, sizeof(g_plogNote), "Needs Nioh3Training.asi v1.8.36 or newer, loaded into the game.");
+    else snprintf(g_plogNote, sizeof(g_plogNote), v ? "Player log ON: writing Nioh3PlayerLog.txt in the game folder now. Saved." : "Player log OFF. Saved.");
+    if (g_log) g_log("MENU: Player log -> %d (#128100)", v);
+}
 void ChangePs(int index) {
     ResolveFrameMeter();
     const PsToggle& t = kPsToggles[index];
@@ -1375,6 +1390,7 @@ int PageRowsBody(int* out, bool selectable) {
             if (pg == pSGame)
                 for (int i = 0; i < kConfigN; ++i)
                     if (IsGameFixKey(kConfigSettings[i].section, kConfigSettings[i].key)) add(kSettingRow + i);
+            if (pg == pSGame) add(kPlayerLogRow);  // human #128100
             add(kBackRow);
             return n;
         }
@@ -2280,6 +2296,7 @@ void Change(int id, int dir) {
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
+    if (id == kPlayerLogRow) { ChangePlayerLog(dir); return; }
     if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
     if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
         if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
@@ -2990,6 +3007,7 @@ void RowLabel(int id, char* out, int cap) {
     else if (id == kPracticeRow) snprintf(out, (size_t)cap, "Training");
     else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
     else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
+    else if (id == kPlayerLogRow) snprintf(out, (size_t)cap, "Player log");
     else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
     else snprintf(out, (size_t)cap, "row");
 }
@@ -3771,6 +3789,13 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kPlayerLogRow) {  // human #128100
+            if (id == g_sel) selRow = nb;
+            const int v = PlayerLogGet();
+            put(body, nb, 128, id == g_sel ? "> Player log" : "  Player log", "", v < 0 ? "needs Training" : v == 2 ? "MIXED" : v ? "ON" : "OFF",
+                id == g_sel ? cWhite : cGray, v == 1 ? cGreen : v == 2 ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kTimeOfDayRow || id == kWeatherRow) {
             if (id == g_sel) selRow = nb;
             const int value = PsGet(id == kTimeOfDayRow ? kTimeOfDayWhat : kWeatherWhat);
@@ -3962,6 +3987,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kPlayerLogRow) {  // human #128100
+        snprintf(what, sizeof(what), "%s", g_plogNote[0] ? g_plogNote : "Writes Nioh3PlayerLog.txt in the game folder: your button presses, moves, fps on every line, and a once-a-second game clock line that shows slow motion.");
+        snprintf(effect, sizeof(effect), "A switches; Right = ON, Left = OFF. Starts and stops at once. Off by default. Send the file with a report.");
     } else if (g_sel == kTimeOfDayRow || g_sel == kWeatherRow) {
         snprintf(what, sizeof(what), "%s", g_skyNote[0] ? g_skyNote : g_sel == kTimeOfDayRow
             ? "Set the sky time in 30-minute steps. Stock follows the area's own time."

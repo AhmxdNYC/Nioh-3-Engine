@@ -103,6 +103,25 @@ static void PlClock(DWORD now) {
     PlLine(now, "CLK", "wall %.0f ms  game %.0f ms  ratio %.2f  eng %.0f ms %.2f  fps %d  worst %.1f ms%s",
            l.wall, l.game, l.ratio, l.eng, l.engRatio, l.fps, l.worst, x);
 }
+// human #128100: the mod menu 'Player log' row (EngineFix Settings > Game) turns both [Record] keys on/off together and saves them.
+// Get: 1 = both on, 0 = both off, 2 = mixed (one key set by hand in the ini), -1 = ini path not read yet.
+static char g_pl_ini[MAX_PATH];
+N3T_API int Nioh3Training_PlayerLogGet(void) {
+    if (!g_pl_ini[0]) return -1;
+    return (g_cfg_plog && g_cfg_pclk) ? 1 : (!g_cfg_plog && !g_cfg_pclk) ? 0 : 2;
+}
+// on: 1 = both on, 0 = both off, -1 = flip (mixed counts as off -> both on). Applies at once (PlTick reads the flags every tick).
+N3T_API int Nioh3Training_PlayerLogSet(int on) {
+    if (!g_pl_ini[0]) return -1;
+    if (on < 0) on = Nioh3Training_PlayerLogGet() != 1;
+    on = on ? 1 : 0;
+    WritePrivateProfileStringA("Record", "PlayerLog", on ? "1" : "0", g_pl_ini);
+    WritePrivateProfileStringA("Record", "PlayerClock", on ? "1" : "0", g_pl_ini);
+    g_cfg_plog = on; g_cfg_pclk = on;
+    if (!on && g_pl_f) fflush(g_pl_f);
+    Log("PLAYERLOG (#128100): menu Player log %s - [Record] PlayerLog %d PlayerClock %d saved", on ? "ON" : "OFF", on, on);
+    return on;
+}
 static __attribute__((noinline)) void PlTick(void) {
     if ((!g_cfg_plog && !g_cfg_pclk) || !PlOpen()) return;
     const DWORD now = GetTickCount();
