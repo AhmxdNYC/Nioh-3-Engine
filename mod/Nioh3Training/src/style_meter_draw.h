@@ -10,13 +10,23 @@ static HDC g_sm_atlas_dc; static HBITMAP g_sm_atlas_bmp;
 // #127157 per-letter horizontal shift (atlas px) from the sprite box centre to the centre of its solid ink (alpha > 200), measured
 // from the decoded atlas: SS / SSS have a faint slash trail on one side, so box-centred they looked off-centre over the bar.
 static float g_sm_letter_dx[SM_RANKS];
+#ifndef SM_INK_MASS_W
+#define SM_INK_MASS_W 1.0f
+#endif
 static uint32_t g_sm_rank_rgb[SM_RANKS];  // #127175 mean colour of each letter's solid ink (bar fill colour), 0 = unknown
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
         const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
         for (int x = 0; x < L[2]; ++x) for (int y = 0; y < L[3]; ++y)
             if (px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3] > 200) { if (lo < 0) lo = x; hi = x; break; }
-        g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (float)(lo + hi) / 2.f;
+        // #127187 optical centre: the ink's weight centre (alpha-weighted mean x of the solid ink); SM_INK_MASS_W blends back toward the box centre.
+        // Box-only left A / D looking right of the bar and C left of it (open or slanted shapes carry their weight off-centre).
+        double sw = 0, sx = 0;
+        for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
+            const unsigned al = px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3]; if (al > 200) { sw += al; sx += (double)al * x; }
+        }
+        const float boxC = (float)(lo + hi) / 2.f, massC = sw > 0 ? (float)(sx / sw) : boxC;
+        g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (boxC * (1.f - SM_INK_MASS_W) + massC * SM_INK_MASS_W);
         double r = 0, gg = 0, b = 0, n = 0;
         for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
             const uint8_t* q = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
