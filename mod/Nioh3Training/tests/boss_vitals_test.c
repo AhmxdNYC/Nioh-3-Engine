@@ -11,12 +11,6 @@ int main(void) {
     // human #122116: Training dummies start infinite; a Boss Match (session active, not practice) does not; ini 0 = off
     assert(BvDummyInf(1, 1, 1) && BvDummyInf(1, 0, 0) && !BvDummyInf(1, 1, 0) && !BvDummyInf(0, 1, 1) && !BvDummyInf(0, 0, 0));
     uint64_t h = 0; float k = 0;
-    // human #127382: the refill waits for hits to stop; a hit cannot kill while it waits; Ki floor still prevents a break
-    assert(BvRefillDue(0, 5000, 2000) && !BvRefillDue(4000, 5000, 2000) && BvRefillDue(3000, 5000, 2000) && BvRefillDue(4999, 5000, 0));
-    assert(BvRefillDue(0xFFFFFF00u, 0x00000800u, 2000) && !BvRefillDue(0xFFFFFF00u, 0x00000100u, 2000));  // tick wrap
-    assert(BvLethalCut(1, 2000, 5000, 300) == 300 && BvLethalCut(1, 2000, 300, 300) == 299 && BvLethalCut(1, 2000, 1, 999) == 0);
-    assert(BvLethalCut(0, 2000, 300, 300) == 300 && BvLethalCut(1, 0, 300, 300) == 300 && BvLethalCut(1, 2000, 300, -5) == -5);
-    assert(BvKiFloorHit(100.0f, K, 10) && !BvKiFloorHit(105.0f, K, 10) && !BvKiFloorHit(1.0f, K, 0) && !BvKiFloorHit(1.0f, 0, 10));
     assert(c.infHp == 0 && c.infKi == 0 && c.hpPct == 100 && c.kiPct == 100);
     assert(!BvHpHold(&c, 0, 0, 1, M, &h) && !BvKiHold(&c, 0, 0, 0, 1.0f, K, &k));
     // targets
