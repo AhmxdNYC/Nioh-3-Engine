@@ -30,7 +30,8 @@ static void SmLetterInk(const uint8_t* px, UINT w) {
         double r = 0, gg = 0, b = 0, n = 0;
         for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
             const uint8_t* q = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
-            if (q[3] > 230) { b += q[0]; gg += q[1]; r += q[2]; n += 1; }
+            if (q[3] > 230) { const double v = (double)(q[0] > q[1] ? (q[0] > q[2] ? q[0] : q[2]) : (q[1] > q[2] ? q[1] : q[2])) / 255.0, wt = v * v * v;
+                b += q[0] * wt; gg += q[1] * wt; r += q[2] * wt; n += wt; }  // #127233 bright-weighted: demon iron letters are dark iron with glowing rank-colour cracks
         }
         g_sm_rank_rgb[i] = n > 0 ? (uint32_t)(r / n) << 16 | (uint32_t)(gg / n) << 8 | (uint32_t)(b / n) : 0;
     }
