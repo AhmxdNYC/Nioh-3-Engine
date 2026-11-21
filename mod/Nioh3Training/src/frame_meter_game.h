@@ -64,6 +64,7 @@ static __attribute__((noinline)) int FmKpCtrl(uint64_t actor, uint64_t ctrl, uin
     *same = a == actor;
     return 1;
 }
+static int g_fm_ki_quiet;  // style meter #126502: 1 while it calls FmPlayerKiLanded with no player row (no KI PULSE log lines)
 // KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseStep).
 // v2: window K+0x74, pool K+0x5C, Ki status+0xAC (see FmKiPulseStep2).
 static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktOut, float* kiOut, float* t74Out) {
@@ -92,7 +93,7 @@ static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktO
     landed = FmKiPulseStep2(&w, t74, kt, ki);
     {
         const int grade = FmKiPulseGrade(pt74, t74, pki, ki, 1.f, pt7c);
-        if (grade) {
+        if (grade && !g_fm_ki_quiet) {
             uint64_t ai = 0, ctrl = 0, x1060 = 0; int same = 0, cok = 0;
             if (Rd64((uintptr_t)actor + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl) cok = FmKpCtrl(actor, ctrl, &x1060, &same);
             Log("KI PULSE grade %s: window %.2f -> %.2f, after-time %.2f -> %.2f, stored %.1f -> %.1f, Ki %.1f -> %.1f (+%.1f), pool %.1f, x1060 %016llX bit19 %d (%s)",
@@ -101,7 +102,7 @@ static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktO
         }
     }
     pt7c = t7c; pstored = stored;
-    if (landed) Log("KI PULSE land: window %.1f -> %.1f, pool %.1f -> %.1f, Ki %.1f -> %.1f", pt74, t74, ppool, kt, pki, ki);
+    if (landed && !g_fm_ki_quiet) Log("KI PULSE land: window %.1f -> %.1f, pool %.1f -> %.1f, Ki %.1f -> %.1f", pt74, t74, ppool, kt, pki, ki);
     return landed;
 }
 // #35176 i-frames (notes/iframes.md). Read only. 1 while a flag the game's own hit / damage gates test is set:
@@ -1401,6 +1402,22 @@ static void FmArmHooks(void) {
     FmPickInstall();
     FmR1Install();
 }
+// Player i-frame bits for this tick (FMF_NODMG | the special-move flags), from the no-damage flags, the hurtbox scan and the #35411 predicates.
+// Keeps per-actor state, so call it at most once per pump tick (FmFeed's player row, else the style meter, style_meter_game.h).
+static uint32_t g_fm_pl_stamp = 0xFFFFFFFFu; static int g_fm_pl_ifr, g_fm_pl_ki;  // #126502: this tick's player i-frame / Ki pulse, for the style meter
+static int FmPlayerIfrBits(FmiState* fmiS) {
+    static uint64_t hbActor, hbActor2; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
+    FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
+    if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; hbM18 = 0; }
+    if (hn > hbBase && !h.off) hbBase = hn;
+    if (hn > 0 && (h.m18or & 0x440003Full)) hbM18 = 1;
+    const int hoff = FmHurtOff(&h, hn, hbBase, hbM18);
+    static uint32_t seenOff;  // #35411 predicate bits seen OFF for this actor (FmiStripe)
+    if (g_fp[FP_PL].a != hbActor2) { hbActor2 = g_fp[FP_PL].a; seenOff = 0; }
+    FmiEval(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, hoff, fmiS);
+    const int pred = fmiS->ok && FmiStripe(fmiS->mask, &seenOff);
+    return ((FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred) ? FMF_NODMG : 0) | FmPlayerFlagBits(g_fp[FP_PL].ctrl);
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
@@ -1433,17 +1450,9 @@ static void FmFeed(double gdt) {
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         {
-            static uint64_t hbActor, hbActor2; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
-            FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
-            if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; hbM18 = 0; }
-            if (hn > hbBase && !h.off) hbBase = hn;
-            if (hn > 0 && (h.m18or & 0x440003Full)) hbM18 = 1;
-            const int hoff = FmHurtOff(&h, hn, hbBase, hbM18);
-            static uint32_t seenOff;  // #35411 predicate bits seen OFF for this actor (FmiStripe)
-            if (g_fp[FP_PL].a != hbActor2) { hbActor2 = g_fp[FP_PL].a; seenOff = 0; }
-            FmiEval(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, hoff, &fmiS);
-            const int pred = fmiS.ok && FmiStripe(fmiS.mask, &seenOff);
-            FmMarkNoDmg(&g_fmp, g_fm_clock, ((FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred) ? FMF_NODMG : 0) | FmPlayerFlagBits(g_fp[FP_PL].ctrl));
+            const int bits = FmPlayerIfrBits(&fmiS);
+            FmMarkNoDmg(&g_fmp, g_fm_clock, bits);
+            g_fm_pl_stamp = g_fp_frame; g_fm_pl_ifr = (bits & FMF_NODMG) != 0;
         }
         if (g_cfg_ifp) FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
         if (g_cfg_ifbyte) FmPadLog(g_fm_clock);
@@ -1473,6 +1482,7 @@ static void FmFeed(double gdt) {
             }
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
+            g_fm_pl_ki = landed != 0;
             {
                 static uint32_t prevAct;
                 static float prevKt, prevKi;
@@ -1527,7 +1537,7 @@ static void FmFeed(double gdt) {
 // ---- drawing (own thread; offline-testable) ----
 #include "frame_meter_draw.h"
 static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;
-    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fm_wnd || h == g_fd_wnd || h == g_sm_wnd || GetWindow(h, GW_OWNER)) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
     g_fm_game = h; return FALSE;
 }

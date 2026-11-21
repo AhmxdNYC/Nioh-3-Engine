@@ -47,6 +47,7 @@ static __attribute__((noinline)) double FpGameStep(double wallDt) {
 static int FpLock(void) { for (int i = 0; i < 200000; ++i) { if (InterlockedCompareExchange(&g_fp_lock, 1, 0) == 0) return 1; YieldProcessor(); } return 0; }
 static void FpUnlock(void) { InterlockedExchange(&g_fp_lock, 0); }
 static void FmFeed(double gdt);  // frame_meter_game.h (Practice frame meter), called at the end of FpTick under the lock
+static void SmCapture(void); static void SmFeed(double gdt);  // style_meter_game.h (#126502 style meter), around FmFeed under the lock
 static void FpLog(const char* fmt, ...) {
     if (!g_cfg_fp || g_fp_lines > 30000) return;  // log only with [Debug] FrameProbe 1 (the frame meter alone installs the hook silently)
     if (!FpRateOk(&g_fp_rate, FpNow(), 40.0)) { g_fp_drop++; return; }
@@ -144,7 +145,7 @@ int FmIFrameProbeOn(void);  // frame_meter_game.h. 1 when [Debug] IFrameProbe is
 int FmKiPressOn(void);      // frame_meter_game.h. 1 when [Debug] KiPressProbe is on.
 static void FpPlayerTick(double now, double gdt) {
     const int s = FP_PL; static int bad;
-    const uint64_t a = (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) || FmIFrameProbeOn() || FmKiPressOn() ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
+    const uint64_t a = (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) || FmIFrameProbeOn() || FmKiPressOn() || g_cfg_sm ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;  // #126502 style meter: player action id / i-frames
     if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = g_fp[s].ctrl = 0; return; }
     if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = 0; }
     g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;
@@ -154,7 +155,7 @@ static void FpPlayerTick(double now, double gdt) {
 }
 // Pump (game thread, every frame): action changes of every Training boss, and the end of open hit windows.
 static void FpTick(void) {
-    if (!g_fp_hooked && ((g_pst.v[PS_FRAME_METER] && g_pst_live) || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW])) FpInstall();  // #36186 the player row also runs with no boss
+    if (!g_fp_hooked && ((g_pst.v[PS_FRAME_METER] && g_pst_live) || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW] || g_cfg_sm)) FpInstall();  // #36186 the player row also runs with no boss; #126502 style meter in any fight
     if (g_fp_hooked != 1) return;
     g_fp_frame++;
     if (!FpLock()) return;
@@ -198,6 +199,8 @@ static void FpTick(void) {
             if (g_fp[s].valid && g_fp[s].runW.t0 == g_fpw[w].t0) { const int k = g_fpw[w].idx; if (g_fp[s].run.open[k] > 0) g_fp[s].run.open[k]--; if (g_fp[s].runW.open[k] > 0) g_fp[s].runW.open[k]--; }
             FpLog("FRAMEPROBE hitend chr %u act 0x%X #%d: pool slot %d still held after 5 s (no end seen)", g_fp[s].chr, g_fpw[w].act, g_fpw[w].idx, g_fpw[w].pid); g_fpw[w].used = 0; }
     }
+    SmCapture();  // #126502: enemy hit windows of this tick, before FmFeed clears the pulses
     FmFeed(gdt);
+    SmFeed(gdt);
     FpUnlock();
 }
