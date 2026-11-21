@@ -100,7 +100,11 @@ static int SmAtlasLoad(void) {
 typedef struct { float k; int w, h, pad; } SmGeo;
 // #127175 the bar: SM_BAR_HK x the sprite gauge height, drawn in code (rank colour fill, shaded, quarter ticks, bright tip, moving sheen)
 #ifndef SM_BAR_HK
-#define SM_BAR_HK 2.2f
+#define SM_BAR_HK 1.7f   // #127273 thinner (was 2.2) to match the letter
+#endif
+// #127273 bar length as a share of the sprite gauge width (human: smaller, in proportion to the rank letter)
+#ifndef SM_BAR_WK
+#define SM_BAR_WK 0.72f
 #endif
 // #127148 the rank letter is drawn at SM_LETTER_PCT % of the word / gauge scale (it was too big); [StyleMeter] scale still scales all.
 #ifndef SM_LETTER_PCT
@@ -254,8 +258,8 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             (void)W; (void)mwh;
             y += (int)rowL + g->pad / 3;  // #127242 no word: the letter sits just above the bar
         }
-        barX = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f); barY = y;
-        barW = (int)(sm_atlas_gauge_bg[2] * g->k + 0.5f); barH = (int)(sm_atlas_gauge_bg[3] * g->k * SM_BAR_HK + 0.5f); if (barH < 4) barH = 4;
+        barX = (int)(mid - sm_atlas_gauge_bg[2] * SM_BAR_WK * g->k / 2.f + 0.5f); barY = y;
+        barW = (int)(sm_atlas_gauge_bg[2] * SM_BAR_WK * g->k + 0.5f); barH = (int)(sm_atlas_gauge_bg[3] * g->k * SM_BAR_HK + 0.5f); if (barH < 4) barH = 4;
         gaugeBottom = y + barH + g->pad;
     } else {  // no sprites (WIC failed): plain text, so the meter still shows something
         HFONT fn = CreateFontW(-(int)(200 * g->k), 0, 0, 0, FW_BOLD, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");

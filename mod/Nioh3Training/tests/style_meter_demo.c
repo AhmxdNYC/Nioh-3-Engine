@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         const double t = n * dt;
         int rank = 0; for (int r = 0; r < SM_RANKS; ++r) if (t >= rankT[r]) rank = r;
         const double r0 = rankT[rank], r1 = rank + 1 < SM_RANKS ? rankT[rank + 1] : 7000;
-        float gauge = (float)((t - r0) / (r1 - r0) * 1000.0); if (rank == SM_RANKS - 1) gauge = 900.f; if (gauge > 1000.f) gauge = 1000.f;
+        float gauge = (float)((t - r0) / (r1 - r0) * 1000.0); if (rank == SM_RANKS - 1) gauge = (float)((t - r0) / 1000.0 * 1000.0);  // #127273 SSS fills to the end like the game (cap = full) if (gauge > 1000.f) gauge = 1000.f;
         float big = 0;
         while (ei < sizeof ev / sizeof ev[0] && ev[ei].t <= t) { SmPopPush2(&q, ev[ei].label, ev[ei].pts, ev[ei].bonus, t, SM_POP_LIFE_MS); big += ev[ei].pts + ev[ei].bonus; ++ei; }
         if (big >= SM_SHAKE_PTS) shakeT = t;
