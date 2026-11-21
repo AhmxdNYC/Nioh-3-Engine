@@ -39,21 +39,21 @@ int main(int argc, char** argv) {
     bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
     uint32_t* px = 0; HDC mem = CreateCompatibleDC(0); HBITMAP bmp = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, (void**)&px, 0, 0); SelectObject(mem, bmp);
     uint8_t* fr = (uint8_t*)malloc((size_t)VW * VH * 3);
-    SmPopQ q; memset(&q, 0, sizeof q); size_t ei = 0; int lastRank = 0; double rankUpT = -1e18, shakeT = -1e18; float eased = 0;
+    SmPopQ q; memset(&q, 0, sizeof q); size_t ei = 0; int lastRank = 0; double rankUpT = -1e18, shakeT = -1e18; float eased = 0; SmShownBar shownBar = {-1, 0.f};
     const double dt = 1000.0 / 30.0;
     for (int n = 0; n < 7 * 30; ++n) {
         const double t = n * dt;
         int rank = 0; for (int r = 0; r < SM_RANKS; ++r) if (t >= rankT[r]) rank = r;
         const double r0 = rankT[rank], r1 = rank + 1 < SM_RANKS ? rankT[rank + 1] : 7000;
-        float gauge = (float)((t - r0) / (r1 - r0) * 1000.0); if (rank == SM_RANKS - 1) gauge = 900.f; if (gauge > 1000.f) gauge = 1000.f;
+        float gauge = (float)((t - r0) / (r1 - r0) * 1000.0); if (rank == SM_RANKS - 1) gauge = (float)((t - r0) / 1000.0 * 1000.0);  // #127273 SSS fills to the end like the game (cap = full) if (gauge > 1000.f) gauge = 1000.f;
         float big = 0;
         while (ei < sizeof ev / sizeof ev[0] && ev[ei].t <= t) { SmPopPush2(&q, ev[ei].label, ev[ei].pts, ev[ei].bonus, t, SM_POP_LIFE_MS); big += ev[ei].pts + ev[ei].bonus; ++ei; }
         if (big >= SM_SHAKE_PTS) shakeT = t;
-        if (rank > lastRank) rankUpT = t;
-        lastRank = rank;
+        (void)lastRank;
         SmPopPrune(&q, t, SM_POP_LIFE_MS);
         SmDrawSt st; memset(&st, 0, sizeof st);
-        st.rank = rank; st.now = t; st.lifeMs = SM_POP_LIFE_MS; eased = SmEase(eased, gauge, dt); st.gauge = eased;
+        if (SmBarStep(&shownBar, rank, gauge, dt)) rankUpT = t;  // #127253 same fill-to-the-end step as the game
+        st.rank = shownBar.rank; st.now = t; st.lifeMs = SM_POP_LIFE_MS; eased = shownBar.g; st.gauge = eased;
         st.scale = SmBounce(t - rankUpT); SmShake(t - shakeT, &st.dx, &st.dy); st.glow = SmGlow(rank, t);
         st.npops = q.n; memcpy(st.pops, q.p, sizeof st.pops);
         SmCompose(mem, px, &c, &st); GdiFlush();
