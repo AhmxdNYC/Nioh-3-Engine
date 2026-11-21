@@ -73,5 +73,6 @@ static void ArApply(const ArTable* records,AmTable* moves) {
         m->hits=AmRuntimeHits(m);m->record_known=0;m->zero_power=0;m->damage[0]=0;
         if(found==1){m->record_known=1;m->hits=r->hits;m->zero_power=r->zero;strcpy(m->damage,r->damage);
             if(r->hits){m->fact=1;m->attack=1;if(m->kind!='I')m->kind='A';}}
+        if(m->hits)m->nohit=0;  // human #126246: a counted move (archive chain hits) is never a known 0
     }
 }

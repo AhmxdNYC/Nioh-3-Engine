@@ -21,6 +21,9 @@ typedef struct {
     // human #44217: part of a grab (catch + throw), auto_moves.h AmGrabs. Sits in what was tail padding, so sizeof(AmMove) and the
     // Nioh3Training_AutoMoves ABI are unchanged (an older Training leaves it 0 = no grab).
     uint8_t grab;
+    // human #126246: a known 0-hit attack (auto_moves.h AmParse): no damaging hitbox row (timed or untimed) and no spawn that may hit. In the
+    // last tail-padding byte (offset 123), so sizeof(AmMove) and the ABI are unchanged; an older Training leaves it 0 = shown as today.
+    uint8_t nohit;
 } AmMove;
 #ifdef __cplusplus
 static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");

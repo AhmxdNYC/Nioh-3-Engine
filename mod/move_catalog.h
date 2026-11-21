@@ -122,7 +122,7 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
     }
     for (int i = 0; i < g_n3fa_n; ++i) if (g_n3fa[i].chr == chr) g_n3fa[i].chr = 0;
     for (int k = 0; k < n && g_n3fa_n < N3CAT_FACT_CAP; ++k) if (m[k].fact) {
-        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].hits;  /* archive or runtime hitbox count (ArApply, #121846) */ f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab;
+        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].hits;  /* archive or runtime hitbox count (ArApply, #121846) */ f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab; f.nohit = (uint8_t)(m[k].nohit && !m[k].hits);
         g_n3fa[g_n3fa_n] = f; g_n3fa_n = g_n3fa_n + 1;
     }
     for (int k = 0; k < n; ++k) {

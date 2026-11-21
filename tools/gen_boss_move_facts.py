@@ -131,7 +131,7 @@ def generate():
              '// great = action row +0x04 bit 0x2000 = GreatAttack (unblockable). Sources: notes/yoritomo-hits-and-unblockable.md,',
              '// notes/yoritomo-hit-source-22305.md. Only the bosses listed here are grouped by hits; the others keep the old groups.',
              '#pragma once', '#include <stdint.h>',
-             'typedef struct { uint32_t chr, id; unsigned char hits, great, attack, grab; } N3MoveFact;  // grab: runtime only (auto_moves.h AmGrabs, #44217)',
+             'typedef struct { uint32_t chr, id; unsigned char hits, great, attack, grab, nohit; } N3MoveFact;  // grab: runtime only (auto_moves.h AmGrabs, #44217); nohit: known 0 hits (#126246)',
              'static const N3MoveFact kN3MoveFacts[] = {']
     for chr_id, rel in sorted(BOSSES.items()):
         path = data_file(rel)
@@ -155,12 +155,16 @@ def generate():
             if not (x['attack'] or x['n_rows'] or x['unblockable']):
                 continue
             hits = x['hits'] if isinstance(x['hits'], int) else 0
-            if [sp for sp in x['spawns'].split() if sp not in ambient and obj_may_hit(d, st, owned, rowof, 20000 + int(sp.split('@')[0]), memo)]                     or x['untimed_dmg_rows']:
+            may_spawn = [sp for sp in x['spawns'].split() if sp not in ambient and obj_may_hit(d, st, owned, rowof, 20000 + int(sp.split('@')[0]), memo)]
+            if may_spawn or x['untimed_dmg_rows']:
                 hits = 0  # spawned objects / projectiles add hits that are not in the file: total unknown, not guessed
                 # human #123773: an untimed row with power and element 0 deals no damage whoever fires it (auto_moves.h AmWindows)
             # other bosses rarely set the +0x13C / +0x142 attack block (Hino-enma: most real attacks do not): a timed hit window counts too
             atk = int(bool(x['attack'] or (chr_id != 16102 and (x['hits'] or x['unblockable']))))
-            lines.append('    {%du, %su, %d, %d, %d},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], atk))
+            # human #126246: known 0 hits (auto_moves.h AmParse nohit): an attack (block or GreatAttack) with no damaging own row, timed or
+            # untimed, and no spawn that may hit
+            nohit = int(bool((x['attack'] or x['unblockable']) and not x['windows'] and not x['untimed_dmg_rows'] and not may_spawn and not hits))
+            lines.append('    {%du, %su, %d, %d, %d%s},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], atk, ', 0, 1' if nohit else ''))
     lines += ['};',
               '#define N3_MOVE_FACT_COUNT ((int)(sizeof kN3MoveFacts / sizeof kN3MoveFacts[0]))',
               'static inline const N3MoveFact* N3MoveFactFind(uint32_t chr, uint32_t id) {',

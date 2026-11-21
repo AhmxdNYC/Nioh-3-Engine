@@ -3983,7 +3983,7 @@ void MoveTypeTag(const N3Move& m, char* b, size_t n) {
     if (c == kMcGreat) { snprintf(b, n, "Unblockable"); return; }  // its hit count is in the footer (the row stays one line)
     if (m.kind == 'S') { snprintf(b, n, "Wind-up"); return; }
     if (m.kind == 'L') { snprintf(b, n, "Link"); return; }
-    if (N3MoveHitCat(c) || c == kMcHitUnknown || c == kMcAttack || c == kMcUnnamedAtk) { snprintf(b, n, "Attack"); return; }
+    if (N3MoveHitCat(c) || c == kMcHit0 || c == kMcHitUnknown || c == kMcAttack || c == kMcUnnamedAtk) { snprintf(b, n, "Attack"); return; }
     snprintf(b, n, "%s", m.kind == 'T' ? "Twitch" : m.kind == 'M' ? "Movement" : m.kind == 'I' ? "Idle" : c == kMcKiBreak ? "Ki break" : "Other");
 }
 const char* MoveKindName(char k) {  // user #13786: N3Move.kind from tools/rematch/actlog_moves.py

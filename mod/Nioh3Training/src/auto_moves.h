@@ -244,6 +244,9 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
         m->hits = AmRuntimeHits(m);
         m->attack = m->block || m->nwin || m->great;
         m->fact = m->block || m->nrows || m->great;
+        // human #126246: an attack with no damaging own row (timed: nwin, untimed: untimed) and no spawn that may hit has no source of a hit in
+        // its data: a known 0, not unknown (Yoritomo drill pc #41677: 4E50 4E6A 4EAF 4E5B 4E65 4E81 4EB8 all landed 0). Never set with a count.
+        m->nohit = m->attack && !m->nwin && !m->untimed && !m->spawns && !m->hits;
     }
     // idle: row 0 (initialization), the action most actions end in (the idle stance) and a self-looping non-attack state that 5+ actions end in
     // (an alt idle stance). Data rule (Yoritomo / Nobuharu / Shingen: {0x0, 0x2, 0x3F1} = the IDLE set of tools/gen_boss_sequences.py).
