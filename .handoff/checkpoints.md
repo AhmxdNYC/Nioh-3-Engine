@@ -1260,3 +1260,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 2:42 am EST | installer-pc/0 v1.8.33 shipped (GH #153 AssertGuard) | proven: GitHub 16/16 digests, site 18/18, live update 1.8.32->1.8.33 7/7, sim 7/7, fresh install, EF harnesses 10/11 (updatecheck stale), test_catalog PASS | next: none for installer; reports-pc closes #153 | Temp/rel1833-126836, rc 2b169133, main 7209184c, uo fleet-v2 014a673b
 
 2026-11-21 2:41 am EST | pc/1 #126859 style meter bonuses built+installed | proven offline (style_meter_test 87) + boot log line; unproven in combat | next: owner pc/2 merges 43c28170 into pc2/style-meter-126502 after a fight log shows STYLE EVENT startup/counter/ninjutsu/style lines | pc1/style-bonus-126859 43c28170
+
+- 2026-11-21 3:20 am EST | pc/1 | #126913 soul core style bonus +40 + style switch once per soul core use (mid form) | offline 94/94, live load only (log soul core 40), no soul core used in a fight yet | next: read STYLE EVENT "soul core x" lines after the human plays | pc1/style-bonus-126859 be2cca2d, TR c5898b97 installed Main PC, backup D:/nioh3-re/style126913-bak
