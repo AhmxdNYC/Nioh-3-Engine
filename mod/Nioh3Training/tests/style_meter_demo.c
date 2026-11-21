@@ -18,7 +18,7 @@ static int g_cfg_sm_scale = 100;
 static void Log(const char* fmt, ...) { va_list ap; va_start(ap, fmt); vprintf(fmt, ap); va_end(ap); putchar('\n'); }
 #include "../src/style_meter_draw.h"
 
-typedef struct { double t; const char* label; float pts; } Ev;
+typedef struct { double t; const char* label; float pts, bonus; } Ev;  // #127171 value, then bonus
 int main(int argc, char** argv) {
     const char* out = argc > 1 ? argv[1] : "build/demo";
     CreateDirectoryA(out, 0);
@@ -29,9 +29,9 @@ int main(int argc, char** argv) {
     const int left = rx - c.g.w - c.mx, top = cy - SM_LETTER_H_1080P / 2 - c.g.pad - c.my;
     const int cropX = 1920 - VW - 20, cropY = 0;
     static const Ev ev[] = {
-        {600, "Ki Pulse", 30}, {1000, "Ninjutsu", 20}, {1700, "Weapon Swap", 25}, {1720, "Counter", 30}, {2500, "Soul Core", 40},
+        {600, "Perfect Ki", 30, 15}, {1000, "Ninjutsu", 20}, {1700, "Weapon Swap", 12, 25}, {1720, "Counter", 10, 30}, {2500, "Soul Core", 40},
         {2550, "Style Switch", 15}, {3400, "Clean Dodge", 45}, {3420, "Ki Pulse", 30}, {4300, "Ninjutsu", 20}, {4320, "Ninjutsu", 20},
-        {5000, "Weapon Swap", 25}, {5050, "Counter", 30}, {5070, "Soul Core", 40},
+        {5000, "Weapon Swap", 14, 25}, {5050, "Counter", 9, 30}, {5070, "Soul Core", 40},
     };
     static const double rankT[] = {0, 1300, 2200, 3000, 3800, 4600, 5300};  // D C B A S SS SSS
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
         const double r0 = rankT[rank], r1 = rank + 1 < SM_RANKS ? rankT[rank + 1] : 7000;
         float gauge = (float)((t - r0) / (r1 - r0) * 1000.0); if (rank == SM_RANKS - 1) gauge = 900.f; if (gauge > 1000.f) gauge = 1000.f;
         float big = 0;
-        while (ei < sizeof ev / sizeof ev[0] && ev[ei].t <= t) { SmPopPush(&q, ev[ei].label, ev[ei].pts, t, SM_POP_LIFE_MS); big += ev[ei].pts; ++ei; }
+        while (ei < sizeof ev / sizeof ev[0] && ev[ei].t <= t) { SmPopPush2(&q, ev[ei].label, ev[ei].pts, ev[ei].bonus, t, SM_POP_LIFE_MS); big += ev[ei].pts + ev[ei].bonus; ++ei; }
         if (big >= SM_SHAKE_PTS) shakeT = t;
         if (rank > lastRank) rankUpT = t;
         lastRank = rank;

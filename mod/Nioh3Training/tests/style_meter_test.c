@@ -257,7 +257,9 @@ static void Pops(void) {
     CHECK(q.n == 2 && !strcmp(q.p[1].label, "Ki Pulse"));
     SmPopPush(&q, "Ninjutsu", 20, 200, SM_POP_LIFE_MS);                    // merged, moved to the top
     CHECK(q.n == 2 && !strcmp(q.p[1].label, "Ninjutsu") && near(q.p[1].pts, 40) && q.p[1].count == 2);  // #127166 count shown as xN
-    CHECK(q.p[0].count == 1);
+    CHECK(q.p[0].count == 1 && q.p[0].bonus == 0.f);
+    { SmPopQ q2; memset(&q2, 0, sizeof q2); SmPopPush2(&q2, "Perfect Ki", 30, 15, 0, SM_POP_LIFE_MS); SmPopPush2(&q2, "Perfect Ki", 30, 15, 50, SM_POP_LIFE_MS);
+      CHECK(q2.n == 1 && near(q2.p[0].pts, 60) && near(q2.p[0].bonus, 30)); }  // #127171 value and bonus merge separately
     SmPopPush(&q, "Ninjutsu", 20, 200 + SM_POP_MERGE_MS + 1, SM_POP_LIFE_MS);  // too late to merge: own line
     CHECK(q.n == 3);
     for (int i = 0; i < 10; ++i) SmPopPush(&q, i & 1 ? "A" : "B", 1, 1000 + i * 1000.0 / 10, SM_POP_LIFE_MS);

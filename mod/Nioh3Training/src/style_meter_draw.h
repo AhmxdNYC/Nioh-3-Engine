@@ -18,6 +18,24 @@ static void SmLetterInk(const uint8_t* px, UINT w) {
         g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (float)(lo + hi) / 2.f;
     }
 }
+// #127168 the letter sprites have a soft glow painted around them (human: no glow). Pixels of a letter below SM_HALO_CUT alpha are the
+// halo: fade them out with a steep ramp (cut..cut+48) so the solid letter keeps an anti-aliased edge. Premultiplied, so RGB scales too.
+#ifndef SM_HALO_CUT
+#define SM_HALO_CUT 150
+#endif
+static void SmLetterDehalo(uint8_t* px, UINT w) {
+    for (int i = 0; i < SM_RANKS; ++i) {
+        const int* L = sm_atlas_letter[i];
+        for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
+            uint8_t* p = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
+            const int a = p[3]; if (a >= SM_HALO_CUT + 48) continue;
+            const int na = a <= SM_HALO_CUT ? 0 : (a - SM_HALO_CUT) * 255 / 48;
+            if (na >= a) continue;
+            for (int k = 0; k < 3; ++k) p[k] = a ? (uint8_t)(p[k] * na / a) : 0;
+            p[3] = (uint8_t)na;
+        }
+    }
+}
 // Decode the embedded atlas into a premultiplied BGRA top-down DIB (the AlphaBlend source). Returns 1 on success.
 static int SmAtlasLoad(void) {
     typedef HRESULT (WINAPI *CoInitFn)(LPVOID, DWORD);
@@ -47,7 +65,7 @@ static int SmAtlasLoad(void) {
         g_sm_atlas_dc = CreateCompatibleDC(scr); ReleaseDC(0, scr);
         if (g_sm_atlas_bmp && px && g_sm_atlas_dc) {
             hr = IWICFormatConverter_CopyPixels(cv, 0, w * 4, w * 4 * h, (BYTE*)px);
-            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); SmLetterInk((const uint8_t*)px, w); ok = 1; }
+            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); SmLetterDehalo((uint8_t*)px, w); SmLetterInk((const uint8_t*)px, w); ok = 1; }
         }
     } else if (SUCCEEDED(hr)) hr = E_FAIL;
     if (cv) IWICFormatConverter_Release(cv);
@@ -189,7 +207,8 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             for (int i = st->npops - 1; i >= 0; --i) {
                 float in = 1.f; const float a = SmPopAlpha(&st->pops[i], st->now, st->lifeMs, &in);
                 if (a <= 0.f) continue;
-                char t[48]; snprintf(t, sizeof t, "%s x%d +%.0f", st->pops[i].label, st->pops[i].count > 0 ? st->pops[i].count : 1, st->pops[i].pts);  // #127166 how many, then points
+                char t[48]; const SmPop* pp = &st->pops[i];  // #127171 value first, then the bonus if it has one
+                if (pp->bonus > 0.5f) snprintf(t, sizeof t, "%s +%.0f +%.0f", pp->label, pp->pts, pp->bonus); else snprintf(t, sizeof t, "%s +%.0f", pp->label, pp->pts);
                 memset(tpx, 0, (size_t)TW * TH * 4);
                 RECT r = {0, 0, TW, TH}; DrawTextA(tdc, t, -1, &r, DT_CENTER | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
                 const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;

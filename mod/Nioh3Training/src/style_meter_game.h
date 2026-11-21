@@ -29,10 +29,11 @@ static int g_cfg_sm_pops = 1, g_cfg_sm_motion = 1, g_cfg_sm_popms = SM_POP_LIFE_
 static SRWLOCK g_smfx_lock = SRWLOCK_INIT; static SmPopQ g_smfx_q; static double g_smfx_shakeT = -1e18;
 static double SmWallMs(void) { static LARGE_INTEGER f; LARGE_INTEGER c; if (!f.QuadPart) QueryPerformanceFrequency(&f); QueryPerformanceCounter(&c); return (double)c.QuadPart * 1000.0 / (double)f.QuadPart; }
 // one '<label> +pts' pop-up (any thread). Later bonuses (Perfect Ki, Martial Art, Stance Swap, Guardian Spirit) call this with their own label.
-static void SmFxPop(const char* label, float pts) {
+static void SmFxPop2(const char* label, float pts, float bonus) {
     if (!g_cfg_sm_pops || pts <= 0.f) return;
-    AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush(&g_smfx_q, label, pts, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
+    AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush2(&g_smfx_q, label, pts, bonus, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
 }
+static void SmFxPop(const char* label, float pts) { SmFxPop2(label, pts, 0.f); }
 static HWND g_sm_game;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
@@ -394,13 +395,13 @@ static void SmFeed(double gdt) {
     ReleaseSRWLockExclusive(&g_sm_lock);
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
-        if (ctrHit && g_smc.counter > 0.f) { SmFxPop("Counter", g_smc.counter); big += g_smc.counter; }
-        if (pk > 0.f) { SmFxPop(kiPerf && g_smc.kiPerfect > 0.f ? "Perfect Ki" : "Ki Pulse", pk); big += pk; }
+        if (ctrHit && g_smc.counter > 0.f) { SmFxPop2("Counter", ph - g_smc.counter > 0.f ? ph - g_smc.counter : 0.f, g_smc.counter); big += g_smc.counter; }  // #127171 hit value, then the counter bonus
+        if (pk > 0.f) { const int pf = kiPerf && g_smc.kiPerfect > 0.f && pk > g_smc.kiPerfect; SmFxPop2(pf ? "Perfect Ki" : "Ki Pulse", pf ? pk - g_smc.kiPerfect : pk, pf ? g_smc.kiPerfect : 0.f); big += pk; }
         if (pd > 0.f) { SmFxPop("Clean Dodge", pd); big += pd; }
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
-        if (psw > 0.f) { SmFxPop("Weapon Swap", psw); big += psw; }
+        if (psw > 0.f) { SmFxPop2("Weapon Swap", ph, psw); big += psw; }  // the swap attack's hit value, then the swap bonus
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
     if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv) {

@@ -20,7 +20,8 @@
 #define SM_GLOW_PERIOD_MS 1100
 #define SM_EASE_TAU_MS 90
 
-typedef struct { char label[24]; float pts; int count; double t0, tLast; } SmPop;  // count: times this bonus merged in (#127166)
+// #127171 pts = what the move / event itself is worth, bonus = the extra on top (0 = none); shown 'Label +pts +bonus'. count = merges.
+typedef struct { char label[24]; float pts, bonus; int count; double t0, tLast; } SmPop;
 typedef struct { SmPop p[SM_POPS]; int n; } SmPopQ;  // p[0] = oldest
 
 static inline void SmPopPrune(SmPopQ* q, double t, int lifeMs) {
@@ -28,18 +29,19 @@ static inline void SmPopPrune(SmPopQ* q, double t, int lifeMs) {
     for (int i = 0; i < q->n; ++i) if (t - q->p[i].tLast < (double)lifeMs) q->p[k++] = q->p[i];
     q->n = k;
 }
-static inline void SmPopPush(SmPopQ* q, const char* label, float pts, double t, int lifeMs) {
+static inline void SmPopPush2(SmPopQ* q, const char* label, float pts, float bonus, double t, int lifeMs) {
     SmPopPrune(q, t, lifeMs);
     for (int i = 0; i < q->n; ++i)
         if (!strcmp(q->p[i].label, label) && t - q->p[i].tLast < SM_POP_MERGE_MS) {  // same bonus again: add to it, move it to the top
-            SmPop m = q->p[i]; m.pts += pts; m.count++; m.tLast = t;
+            SmPop m = q->p[i]; m.pts += pts; m.bonus += bonus; m.count++; m.tLast = t;
             for (int j = i; j + 1 < q->n; ++j) q->p[j] = q->p[j + 1];
             q->p[q->n - 1] = m; return;
         }
     if (q->n == SM_POPS) { for (int j = 0; j + 1 < q->n; ++j) q->p[j] = q->p[j + 1]; q->n--; }
     SmPop* p = &q->p[q->n++]; memset(p, 0, sizeof *p);
-    strncpy(p->label, label, sizeof p->label - 1); p->pts = pts; p->count = 1; p->t0 = p->tLast = t;
+    strncpy(p->label, label, sizeof p->label - 1); p->pts = pts; p->bonus = bonus; p->count = 1; p->t0 = p->tLast = t;
 }
+static inline void SmPopPush(SmPopQ* q, const char* label, float pts, double t, int lifeMs) { SmPopPush2(q, label, pts, 0.f, t, lifeMs); }
 // 0..1 opacity of a line last refreshed at tLast; *in = 0..1 pop-in progress (slide / scale).
 static inline float SmPopAlpha(const SmPop* p, double t, int lifeMs, float* in) {
     const double age = t - p->tLast, a0 = t - p->t0;
