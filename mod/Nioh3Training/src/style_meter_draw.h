@@ -10,12 +10,19 @@ static HDC g_sm_atlas_dc; static HBITMAP g_sm_atlas_bmp;
 // #127157 per-letter horizontal shift (atlas px) from the sprite box centre to the centre of its solid ink (alpha > 200), measured
 // from the decoded atlas: SS / SSS have a faint slash trail on one side, so box-centred they looked off-centre over the bar.
 static float g_sm_letter_dx[SM_RANKS];
+static uint32_t g_sm_rank_rgb[SM_RANKS];  // #127175 mean colour of each letter's solid ink (bar fill colour), 0 = unknown
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
         const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
         for (int x = 0; x < L[2]; ++x) for (int y = 0; y < L[3]; ++y)
             if (px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3] > 200) { if (lo < 0) lo = x; hi = x; break; }
         g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (float)(lo + hi) / 2.f;
+        double r = 0, gg = 0, b = 0, n = 0;
+        for (int y = 0; y < L[3]; ++y) for (int x = 0; x < L[2]; ++x) {
+            const uint8_t* q = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
+            if (q[3] > 230) { b += q[0]; gg += q[1]; r += q[2]; n += 1; }
+        }
+        g_sm_rank_rgb[i] = n > 0 ? (uint32_t)(r / n) << 16 | (uint32_t)(gg / n) << 8 | (uint32_t)(b / n) : 0;
     }
 }
 // #127168 the letter sprites have a soft glow painted around them (human: no glow). Pixels of a letter below SM_HALO_CUT alpha are the
@@ -79,6 +86,10 @@ static int SmAtlasLoad(void) {
 }
 // Layout in window pixels for client height H (1080 = the sprite design size x SM_LETTER_H_1080P / tallest letter).
 typedef struct { float k; int w, h, pad; } SmGeo;
+// #127175 the bar: SM_BAR_HK x the sprite gauge height, drawn in code (rank colour fill, shaded, quarter ticks, bright tip, moving sheen)
+#ifndef SM_BAR_HK
+#define SM_BAR_HK 2.2f
+#endif
 // #127148 the rank letter is drawn at SM_LETTER_PCT % of the word / gauge scale (it was too big); [StyleMeter] scale still scales all.
 #ifndef SM_LETTER_PCT
 #define SM_LETTER_PCT 60
@@ -99,7 +110,7 @@ static SmGeo SmGeom(int H) {
     const int gw = sm_atlas_gauge_bg[2] > ww ? sm_atlas_gauge_bg[2] : ww;
     const float lwk = lw * SM_LK;
     g.w = (int)((lwk > gw ? lwk : (float)gw) * g.k) + 2 * g.pad;
-    g.h = (int)((lh * SM_LK + wh + sm_atlas_gauge_bg[3]) * g.k) + 4 * g.pad;
+    g.h = (int)((lh * SM_LK + wh + sm_atlas_gauge_bg[3] * SM_BAR_HK) * g.k) + 4 * g.pad;
     return g;
 }
 static void SmBlit(HDC dst, int x, int y, const int* r, int srcW, float k) {
@@ -155,6 +166,51 @@ static void SmBlitA(HDC dst, int x, int y, const int* r, int srcW, float k, int 
     BLENDFUNCTION bf = {AC_SRC_OVER, 0, (BYTE)(alpha > 255 ? 255 : alpha), AC_SRC_ALPHA};
     AlphaBlend(dst, x, y, dw, dh, g_sm_atlas_dc, r[0], r[1], srcW, r[3], bf);
 }
+// premultiplied 'over' of one pixel
+static inline void SmPxOver(uint32_t* d, unsigned r, unsigned g, unsigned b, unsigned a) {
+    if (!a) return; const uint32_t dv = *d; const unsigned inv = 255 - a;
+    const unsigned rr = r * a / 255 + ((dv >> 16) & 0xFF) * inv / 255, gg = g * a / 255 + ((dv >> 8) & 0xFF) * inv / 255,
+                   bb = b * a / 255 + (dv & 0xFF) * inv / 255, al = a + (dv >> 24) * inv / 255;
+    *d = (al > 255 ? 255u : al) << 24 | (rr > 255 ? 255u : rr) << 16 | (gg > 255 ? 255u : gg) << 8 | (bb > 255 ? 255u : bb);
+}
+static inline unsigned SmMix(unsigned a, unsigned b, float t) { return (unsigned)(a + ((float)b - (float)a) * t + 0.5f); }
+// #127175 the style bar: dark track with a thin rim, fill in the rank's own letter colour (shaded top to bottom), quarter ticks,
+// a bright tip at the fill edge and a soft sheen that sweeps along the fill (period SM_SHEEN_MS). gauge 0..1000, now in ms.
+#ifndef SM_SHEEN_MS
+#define SM_SHEEN_MS 1600.0
+#endif
+static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, float gauge, uint32_t rgb, double now) {
+    unsigned cr = (rgb >> 16) & 0xFF, cg = (rgb >> 8) & 0xFF, cb = rgb & 0xFF;
+    if (!rgb) { cr = 0xF5; cg = 0xCD; cb = 0x8B; }
+    {   // lift dark / grey letters so the fill reads on a dark track
+        const unsigned mx = cr > cg ? (cr > cb ? cr : cb) : (cg > cb ? cg : cb);
+        if (mx > 0 && mx < 220) { cr = cr * 220 / mx; cg = cg * 220 / mx; cb = cb * 220 / mx; }
+    }
+    const float f = gauge < 0.f ? 0.f : gauge > 1000.f ? 1.f : gauge / 1000.f;
+    const int fw = (int)(bw * f + 0.5f), tip = bh / 2 + 2;
+    const float sheenX = (float)(fmod(now, SM_SHEEN_MS) / SM_SHEEN_MS) * (float)(fw + 2 * bh) - (float)bh;
+    for (int y = 0; y < bh; ++y) {
+        const int yy = y0 + y; if (yy < 0 || yy >= H) continue;
+        const float v = bh > 1 ? (float)y / (float)(bh - 1) : 0.f;            // 0 top .. 1 bottom
+        const int rim = y == 0 || y == bh - 1;
+        for (int x = 0; x < bw; ++x) {
+            const int xx = x0 + x; if (xx < 0 || xx >= W) continue;
+            uint32_t* d = &px[yy * W + xx];
+            if (rim || x == 0 || x == bw - 1) { SmPxOver(d, 200, 200, 210, 150); continue; }
+            if (x >= fw) { SmPxOver(d, 18, 18, 24, 190); }
+            else {
+                const float shade = v < 0.4f ? 1.f + (0.4f - v) * 0.9f : 1.f - (v - 0.4f) * 0.55f;   // bright upper band, darker bottom
+                unsigned r = (unsigned)(cr * shade), g = (unsigned)(cg * shade), b = (unsigned)(cb * shade);
+                if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
+                const float ds = (float)x - sheenX; const float sh = ds > -bh && ds < bh ? 1.f - (ds < 0 ? -ds : ds) / (float)bh : 0.f;
+                if (sh > 0.f) { r = SmMix(r, 255, sh * 0.45f); g = SmMix(g, 255, sh * 0.45f); b = SmMix(b, 255, sh * 0.45f); }
+                if (x >= fw - tip) { const float t = (float)(x - (fw - tip)) / (float)tip; r = SmMix(r, 255, t * 0.85f); g = SmMix(g, 255, t * 0.85f); b = SmMix(b, 255, t * 0.85f); }
+                SmPxOver(d, r, g, b, 245);
+            }
+            for (int q = 1; q < 4; ++q) if (x == bw * q / 4) SmPxOver(d, 0, 0, 0, 150);   // quarter ticks
+        }
+    }
+}
 // Draws into mem / px (w x h, cleared here). Sprites when the atlas decoded, else the plain text fallback (no motion on the fallback letter).
 static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* st) {
     const int w = c->w, h = c->h; const SmGeo* g = &c->g;
@@ -163,7 +219,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
     const float unit = (float)c->pf / 36.f;  // 1080p pixel -> canvas pixel (pf is 36 at 1080p, scale 100)
     const int sx = (int)(st->dx * unit), sy = (int)(st->dy * unit);
     const int right = c->mx + g->w - g->pad + sx; int y = c->my + g->pad + sy;
-    int gaugeBottom = y;
+    int gaugeBottom = y, barX = 0, barY = 0, barW = 0, barH = 0;
     // #127144 one centre line for letter, word, gauge and pop-ups: the middle of the box (as wide as the widest letter / word / gauge, SmGeom)
     const float mid = (float)right - (float)(g->w - 2 * g->pad) / 2.f;
     if (g_sm_atlas_dc) {
@@ -176,11 +232,9 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
         y += (int)rowL + g->pad;
         SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y + (int)((mwh - W[3]) * g->k / 2.f), W, W[2], g->k, 255); y += (int)(mwh * g->k) + g->pad;
-        const int gx = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f);
-        SmBlitA(mem, gx, y, sm_atlas_gauge_bg, sm_atlas_gauge_bg[2], g->k, 255);
-        const int fw = (int)((float)sm_atlas_gauge_fill[2] * st->gauge / 1000.f + 0.5f);
-        if (fw > 0) SmBlitA(mem, gx, y, sm_atlas_gauge_fill, fw, g->k, 255);
-        gaugeBottom = y + (int)(sm_atlas_gauge_bg[3] * g->k) + g->pad;
+        barX = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f); barY = y;
+        barW = (int)(sm_atlas_gauge_bg[2] * g->k + 0.5f); barH = (int)(sm_atlas_gauge_bg[3] * g->k * SM_BAR_HK + 0.5f); if (barH < 4) barH = 4;
+        gaugeBottom = y + barH + g->pad;
     } else {  // no sprites (WIC failed): plain text, so the meter still shows something
         HFONT fn = CreateFontW(-(int)(200 * g->k), 0, 0, 0, FW_BOLD, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
         HGDIOBJ of = SelectObject(mem, fn); SetBkMode(mem, TRANSPARENT); SetTextColor(mem, RGB(230, 60, 40));
@@ -192,6 +246,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         gaugeBottom = c->my + g->h;
     }
     GdiFlush();
+    if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, g_sm_rank_rgb[rank], st->now);
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
         const int TW = w, TH = (int)(c->pf * 1.25f);
         BITMAPINFO bi; memset(&bi, 0, sizeof bi);
