@@ -14,6 +14,8 @@ namespace {
 using ScanFn = uint64_t (*)(int64_t* self, int64_t res, float t, uint8_t slot);
 
 void (*g_log)(const char*, ...) = nullptr;
+void (*g_setState)(const char*, const char*) = nullptr;
+bool (*g_lastRelease)(long long*, long long*) = nullptr;
 ScanFn g_orig = nullptr;
 volatile long g_fills = 0;
 volatile long g_calls = 0;
@@ -146,6 +148,7 @@ constexpr uint32_t kHeldRva = 0x901BA4;
 using HeldFn = int (*)(uint64_t inp, int button);
 HeldFn g_heldOrig = nullptr;
 volatile long g_heldUp = 0;
+volatile long g_untracked = 0;  // GH #154: getter calls on an input object the tick never saw
 float g_emaDt = 0.0f;       // seconds per frame, EMA over the player's scan calls
 void* g_heldVt[8];
 volatile long g_nHeldVt = 0;
@@ -158,6 +161,10 @@ struct Tracker {
     int64_t lastTick;
     uint32_t lastCnt[0x40];
     float heldSec[0x40];
+    PressStat press[0x40];  // GH #154 diagnostic: the current press of each button
+    float riseSec[0x40];    // real seconds held at the last tick the count rose (the hold length once it freezes)
+    int still[0x40];        // ticks in a row with the count unchanged (PressStopped)
+    bool closed[0x40];      // this press already has its record (count frozen after key-up)
 };
 constexpr int kTrackers = 32;
 constexpr double kStaleSec = 2.0;  // an input object not ticked for 2 s gives up its slot (GH #147)
@@ -190,6 +197,10 @@ Tracker* NewTr(uint64_t inp, int64_t now, double freq) {
             tr->lastTick = 0;
             memset(tr->lastCnt, 0, sizeof tr->lastCnt);
             memset(tr->heldSec, 0, sizeof tr->heldSec);
+            for (auto& ps : tr->press) ps = PressStat{};
+            memset(tr->riseSec, 0, sizeof tr->riseSec);
+            memset(tr->still, 0, sizeof tr->still);
+            memset(tr->closed, 0, sizeof tr->closed);
             MemoryBarrier();
             tr->inp = inp;
             if (!reused) InterlockedIncrement(&g_nTr);
@@ -209,17 +220,77 @@ Tracker* NewTr(uint64_t inp, int64_t now, double freq) {
     return tr;
 }
 
+// GH #154: one line per held press (>= 100 ms) of a tracked button, and the newest four in the report's mod state, so a
+// report sent minutes after a "heavy attack first" press still shows whether the fix saw it and when it reached 12.
+volatile long g_presses = 0;
+// Called on the game thread only (Tick). held = real seconds at the last counted frame, frames = the frozen count.
+void EndPress(Tracker* tr, int b, float held, uint32_t frames) {
+    PressStat& p = tr->press[b];
+    if (PressWorthLog(held) && p.calls > 0) {
+        long long age = -1, keyMs = -1;
+        const bool rel = g_lastRelease && g_lastRelease(&age, &keyMs);
+        const bool player = IsPlayerPress(rel, age);
+        char line[160];
+        FormatPress(line, sizeof line, b, held, frames, p, player ? keyMs : -1);
+        const long n = InterlockedIncrement(&g_presses);
+        const int slot = (int)(tr - g_tr);  // tracked input object (player and AI characters share the class)
+        // at most 4 lines per second for AI presses (their input objects are tracked too); the player's always log
+        static int64_t s_win = 0;
+        static int s_inWin = 0;
+        LARGE_INTEGER q;
+        QueryPerformanceCounter(&q);
+        static const int64_t s_freq = [] { LARGE_INTEGER f; QueryPerformanceFrequency(&f); return f.QuadPart; }();
+        if (q.QuadPart - s_win > s_freq) { s_win = q.QuadPart; s_inWin = 0; }
+        if (g_log && (player || ++s_inWin <= 4)) g_log("HOLDPRESS #%ld in%d %s %s", n, slot, player ? "player" : "other", line);
+        if (g_setState) {
+            if (player) {  // newest four of the player's presses; AI presses cannot push them out
+                static char keep[4][128];  // newest first
+                for (int i = 3; i > 0; --i) memcpy(keep[i], keep[i - 1], sizeof keep[i]);
+                snprintf(keep[0], sizeof keep[0], "in%d %s", slot, line);
+                static const char* const kKey[4] = {"hold press 1 (newest)", "hold press 2", "hold press 3", "hold press 4"};
+                for (int i = 0; i < 4; ++i) if (keep[i][0]) g_setState(kKey[i], keep[i]);
+            } else {
+                char o[128];
+                snprintf(o, sizeof o, "in%d %s", slot, line);
+                g_setState("hold press other", o);
+            }
+        }
+    }
+    p = PressStat{};
+}
+
 void Tick(uint64_t inp, int64_t now, double freq) {
     Tracker* tr = FindTr(inp);
     if (!tr) tr = NewTr(inp, now, freq);
     if (!tr) return;
     const float d = tr->lastTick ? (float)((double)(now - tr->lastTick) / freq) : 0.0f;
-    if (d > 1.0f) memset(tr->lastCnt, 0, sizeof tr->lastCnt);  // idle over 1 s (pause, freed and reused address): re-seed
+    if (d > 1.0f) {  // idle over 1 s (pause, freed and reused address): re-seed
+        memset(tr->lastCnt, 0, sizeof tr->lastCnt);
+        for (auto& ps : tr->press) ps = PressStat{};
+        memset(tr->still, 0, sizeof tr->still);
+        memset(tr->closed, 0, sizeof tr->closed);
+    }
     tr->lastTick = now;
     const float dt = g_emaDt;
     for (int b = 0; b < 0x40; ++b) {
         const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)b * 4);
-        tr->heldSec[b] = NextHeldSec(tr->heldSec[b], c, tr->lastCnt[b], d, dt);
+        const uint32_t lc = tr->lastCnt[b];
+        if (PressEnded(c, lc)) {  // restart or 0: close the old press if the freeze did not already
+            if (!tr->closed[b]) EndPress(tr, b, tr->riseSec[b], lc);
+            tr->closed[b] = false;
+            tr->still[b] = 0;
+        } else if (c && lc) {
+            if (c > lc) {
+                if (tr->closed[b]) { tr->press[b] = PressStat{}; tr->closed[b] = false; }  // rose again after a freeze
+                NoteStep(tr->press[b], d);
+            }
+            if (PressStopped(c, lc, tr->still[b]) && !tr->closed[b]) {  // count frozen: key is up
+                EndPress(tr, b, tr->riseSec[b], c);
+                tr->closed[b] = true;
+            }
+        }
+        tr->heldSec[b] = NextHeldSec(tr->heldSec[b], c, lc, d, dt);
+        if (c && (c != lc)) tr->riseSec[b] = tr->heldSec[b];
         tr->lastCnt[b] = c;
     }
 }
@@ -228,10 +299,17 @@ int HeldHook(uint64_t inp, int button) {
     const int s = g_heldOrig(inp, button);
     if (button < 0 || button >= 0x40) return s;
     Tracker* tr = FindTr(inp);
-    if (!tr) return s;
+    if (!tr) {
+        const long u = InterlockedIncrement(&g_untracked);
+        if (g_log && (u == 1 || (u & 4095) == 0))
+            g_log("HOLDKEYGAP: held getter on an untracked input %p button %d stock %d (#%ld)", (void*)inp, button, s, u);
+        return s;
+    }
     const uint32_t c = *reinterpret_cast<const uint32_t*>(inp + 0xA4 + (uint64_t)button * 4);
     const uint32_t lc = tr->lastCnt[button];
     const int r = HeldReal(s, tr->heldSec[button], c, lc);
+    // a count below the last tick is a new press not ticked yet: its first calls are not added to the old press
+    if (c && !(lc && c < lc) && !tr->closed[button]) NoteCall(tr->press[button], s, r, lc ? tr->heldSec[button] * (float)c / (float)lc : 0.0f, lc == 0);
     if (r > s) {
         const float dt = tr->heldSec[button] / (float)lc;
         const long n = InterlockedIncrement(&g_heldUp);
@@ -370,6 +448,8 @@ bool Installed() { return g_on; }
 
 void Start(const StartInfo& info) {
     g_log = info.log;
+    g_setState = info.setState;
+    g_lastRelease = info.lastRelease;
     if (!g_log || !info.base || !info.iniPath || g_on) return;
     const int want = (int)GetPrivateProfileIntW(L"General", L"HoldKeyGap", 0, info.iniPath);
     if (want == 0) {

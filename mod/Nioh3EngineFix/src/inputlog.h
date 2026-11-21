@@ -23,6 +23,9 @@ void ObserveMouse(unsigned buttons, int menuOpen);
 void NoteTyped();  // report box: never recorded
 void NoteMenu(const char* what, const char* page, const char* row, const char* oldv, const char* newv);
 int Count();
+// GH #154: the newest real release (kb / mouse / pad up edge, mod menu closed). ageMs = ms since it, heldMs = how long that
+// key was down. Returns false before the first release. Lock-free, any thread.
+bool LastRelease(long long* ageMs, long long* heldMs);
 // Comma-separated JSON objects, oldest of the tail first. No surrounding brackets.
 int WriteTail(char* dst, int cap, int maxN);
 
