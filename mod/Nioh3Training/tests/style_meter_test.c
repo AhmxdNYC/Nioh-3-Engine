@@ -8,6 +8,21 @@
 static int g_checks;
 #define CHECK(x) do { assert(x); ++g_checks; } while (0)
 static int near(float a, float b) { return a - b < 0.01f && b - a < 0.01f; }
+// A Ki pulse with the hit gate off (the older cases use it as a plain points source).
+static float KiFree(SmState* s, const SmCfg* c, double t) { SmCfg z = *c; z.kiHitMs = 0; return SmOnKi(s, &z, t); }
+// human #126744: a Ki pulse after a whiff scores nothing; after a landed hit (within kiHitMs) it scores.
+static void KiGate(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s);
+    CHECK(c.kiHitMs == SM_KI_HIT_MS);
+    CHECK(SmOnKi(&s, &c, 1000) == 0.f && !s.active && s.kis == 1 && SmGauge(&s, &c) == 0.f);  // whiff + pulse: meter stays idle
+    SmOnHit(&s, &c, 2000, 7, 1);
+    CHECK(near(SmOnKi(&s, &c, 2000 + c.kiHitMs), c.ki) && near(s.pts, c.hit + c.ki));       // pulse inside the window
+    CHECK(SmOnKi(&s, &c, 2001 + c.kiHitMs) == 0.f && near(s.pts, c.hit + c.ki));              // just past it: 0
+    // a gated pulse does not refresh the decay delay
+    const double ls = s.lastScore; SmOnKi(&s, &c, 9000); CHECK(s.lastScore == ls);
+    SmCfg z = c; z.kiHitMs = 0; SmState q; SmReset(&q); CHECK(near(SmOnKi(&q, &z, 0), c.ki));  // 0 = no gate
+    SmCfg n = c; n.kiHitMs = -5; SmCfgClamp(&n); CHECK(n.kiHitMs == 0);
+}
 
 static void Defaults(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s);
@@ -24,15 +39,15 @@ static void Promotion(void) {
     CHECK(s.rank == 1 && near(SmGauge(&s, &c), 10.f / 60.f));
     // a big jump crosses several ranks at once
     SmState b; SmReset(&b); SmCfg big = c; big.ki = 40.f + 60.f + 80.f + 5.f;
-    SmOnKi(&b, &big, 0);
+    KiFree(&b, &big, 0);
     CHECK(b.rank == 3 && near(b.pts, 5.f));
 }
 // SSS caps at a full gauge.
 static void Cap(void) {
     SmCfg c; SmCfgDefaults(&c); c.ki = 10000.f; SmState s; SmReset(&s);
-    SmOnKi(&s, &c, 0);
+    KiFree(&s, &c, 0);
     CHECK(s.rank == SM_RANKS - 1 && near(SmGauge(&s, &c), 1.f));
-    SmOnKi(&s, &c, 1);
+    KiFree(&s, &c, 1);
     CHECK(s.rank == SM_RANKS - 1 && near(s.pts, c.rankPts[SM_RANKS - 1]));
 }
 // Same action id again: x0.6 per earlier use, floor 10 %; multi-hit of one use: half of that use's factor.
@@ -56,7 +71,7 @@ static void Variety(void) {
 // Damage: one rank down, gauge empty; at D the meter goes idle.
 static void Damage(void) {
     SmCfg c; SmCfgDefaults(&c); c.ki = 40.f + 60.f + 30.f; SmState s; SmReset(&s);
-    SmOnKi(&s, &c, 0);
+    KiFree(&s, &c, 0);
     CHECK(s.rank == 2 && near(s.pts, 30.f));
     SmOnDamaged(&s, &c, 1);
     CHECK(s.rank == 1 && near(s.pts, 0.f) && s.active && s.damaged == 1);
@@ -67,7 +82,7 @@ static void Damage(void) {
     SmOnDamaged(&s, &c, 2 + 2.0 * c.damageGraceMs);
     CHECK(s.rank == 0 && !s.active);
     // grace 0 = every hit drops
-    { SmCfg z = c; z.damageGraceMs = 0; SmState q; SmReset(&q); SmOnKi(&q, &z, 0); SmOnDamaged(&q, &z, 1); SmOnDamaged(&q, &z, 1); CHECK(q.rank == 0); }
+    { SmCfg z = c; z.damageGraceMs = 0; SmState q; SmReset(&q); KiFree(&q, &z, 0); SmOnDamaged(&q, &z, 1); SmOnDamaged(&q, &z, 1); CHECK(q.rank == 0); }
     // damage also resets the variety "use", so the next hit of the same run is a new use (factor from history, not multi-hit)
     SmState v; SmReset(&v); SmOnHit(&v, &c, 0, 5, 1); SmOnDamaged(&v, &c, 1);
     CHECK(near(SmOnHit(&v, &c, 2, 5, 1), 6.f));
@@ -86,12 +101,12 @@ static void Decay(void) {
     SmTick(&s, &c, 4000.0, 1000.0);
     CHECK(!s.active && s.rank == 0 && near(s.pts, 0.f));
     // rank C drains 12 * 1.35 per second and drops into D from the top
-    SmState r; SmReset(&r); SmCfg k = c; k.ki = 41.f; SmOnKi(&r, &k, 0);
+    SmState r; SmReset(&r); SmCfg k = c; k.ki = 41.f; KiFree(&r, &k, 0);
     CHECK(r.rank == 1 && near(r.pts, 1.f));
     SmTick(&r, &k, 3500.0, 1000.0);  // 1 s past the delay: 16.2 points -> 1 - 16.2 = -15.2 -> D at 40 - 15.2
     CHECK(r.rank == 0 && near(r.pts, 24.8f));
     // a partial tick that straddles the delay only drains the part past it
-    SmState p; SmReset(&p); SmOnKi(&p, &c, 0);
+    SmState p; SmReset(&p); KiFree(&p, &c, 0);
     SmTick(&p, &c, 2600.0, 200.0);
     CHECK(near(p.pts, 20.f - 12.f * 0.1f));
     // dt 0 (pause) never drains
@@ -134,7 +149,7 @@ static void Clamp(void) {
     CHECK(!s.active && s.hits == 1);
 }
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

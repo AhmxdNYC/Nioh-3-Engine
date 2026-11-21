@@ -3,7 +3,7 @@
 // Generic (human rule #87625): no per-boss or per-move table. Events and their base points:
 //   hit     the player's hit took HP off an enemy                  cfg.hit   (x variety factor, below)
 //   dodge   an enemy hit window opened and closed while the player had i-frames in it and took no damage   cfg.dodge
-//   ki      a Ki pulse landed                                       cfg.ki
+//   ki      a Ki pulse landed within cfg.kiHitMs of a landed hit     cfg.ki   (human #126744: a pulse after a whiff scores 0; kiHitMs 0 = no gate)
 //   damaged the player lost HP: one rank down and the gauge empty (rank D with an empty gauge = the meter is idle / hidden)
 // Variety: every new "use" (player action id + action run) is compared with the last SM_HIST uses; each earlier use of the same action id
 // multiplies the points by repeatPct % (floor repeatFloorPct %). Further hits of the same use (multi-hit, several enemies) get multiPct % of that.
@@ -26,6 +26,7 @@
 #define SM_DECAY_PER_S 12
 #define SM_DECAY_RANK_PCT 35
 #define SM_COMBAT_MS 8000
+#define SM_KI_HIT_MS 3000        // human #126744: whiffs must not raise the meter (Ki pulse only counts in a combo that landed)
 #define SM_DAMAGE_GRACE_MS 1500  // live #126502: one multi-hit enemy combo = one rank drop
 #define SM_ACT_NONE 0xFFFFFFFFu
 
@@ -39,6 +40,7 @@ typedef struct {
     int repeatPct, repeatFloorPct, multiPct;
     int decayDelayMs; float decayPerS; int decayRankPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
+    int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -54,6 +56,7 @@ typedef struct {
     uint32_t hist[SM_HIST]; int histN, histPos;
     uint32_t useAct; uint64_t useRun; float useFactor; int useOn;
     SmDodge dodge;
+    double lastHit;         // game ms of the last landed hit (Ki pulse gate)
     double lastDamaged;     // game ms of the last rank drop (damage grace), <0 = none
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
 } SmState;
@@ -62,7 +65,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT;
-    c->combatMs = SM_COMBAT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
+    c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
@@ -74,11 +77,12 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->decayDelayMs < 0) c->decayDelayMs = 0; if (c->decayPerS < 0) c->decayPerS = 0; if (c->decayRankPct < 0) c->decayRankPct = 0;
     if (c->combatMs < 0) c->combatMs = 0;
     if (c->damageGraceMs < 0) c->damageGraceMs = 0;
+    if (c->kiHitMs < 0) c->kiHitMs = 0;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = -1e18; s->lastDamaged = -1;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = -1e18; s->lastDamaged = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -109,11 +113,15 @@ static inline float SmOnHit(SmState* s, const SmCfg* c, double t, uint32_t act, 
         if (act != SM_ACT_NONE && act != 0) { s->hist[s->histPos] = act; s->histPos = (s->histPos + 1) % SM_HIST; if (s->histN < SM_HIST) s->histN++; }
     }
     const float p = c->hit * f;
-    SmAdd(s, c, p); s->hits++; s->lastEvent = t; if (p > 0.f) s->lastScore = t;
+    SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
     return p;
 }
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }
-static inline float SmOnKi(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->ki); s->kis++; s->lastEvent = s->lastScore = t; return c->ki; }
+static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
+    s->kis++;
+    if (c->kiHitMs > 0 && !(t - s->lastHit <= (double)c->kiHitMs)) return 0.f;  // pulse after a whiff: no points, no decay reset
+    SmAdd(s, c, c->ki); s->lastEvent = s->lastScore = t; return c->ki;
+}
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->damaged++; s->lastEvent = t;
     if (s->dodge.inWin) s->dodge.hit = 1;

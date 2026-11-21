@@ -34,15 +34,16 @@ static void SmLoadIni(const char* ini) {
     g_smc.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
     g_smc.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
     g_smc.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
+    g_smc.kiHitMs = (int)GetPrivateProfileIntA("StyleMeter", "KiHitMs", SM_KI_HIT_MS, ini);
     g_smc.decayDelayMs = (int)GetPrivateProfileIntA("StyleMeter", "DecayDelayMs", SM_DECAY_DELAY_MS, ini);
     g_smc.decayPerS = (float)(int)GetPrivateProfileIntA("StyleMeter", "DecayPerSec", SM_DECAY_PER_S, ini);
     g_smc.decayRankPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRankPct", SM_DECAY_RANK_PCT, ini);
     g_smc.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     g_smc.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
     SmCfgClamp(&g_smc); SmReset(&g_sm);
-    Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms",
+    Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
-        g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs);
+        g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs);
 }
 // NfHpDamage (hit apply, game thread): raw = the hit's HP damage before any mod scaling / Infinite-health cut.
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
@@ -113,15 +114,29 @@ static void SmFeed(double gdt) {
     AcquireSRWLockExclusive(&g_sm_lock);
     const int r0 = g_sm.rank, a0 = g_sm.active;
     const int dodge = SmDodgeStep(&g_sm.dodge, g_sm_enemy, ifr, taken > 0);
-    for (LONG i = 0; i < hits && i < 64; ++i) SmOnHit(&g_sm, &g_smc, g_sm_clock, act, run);
-    if (ki) SmOnKi(&g_sm, &g_smc, g_sm_clock);
-    if (dodge) SmOnDodge(&g_sm, &g_smc, g_sm_clock);
+    float ph = 0.f, pk = -1.f, pd = -1.f;  // human #126744: per-event play log (points each event scored)
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHit(&g_sm, &g_smc, g_sm_clock, act, run);
+    if (ki) pk = SmOnKi(&g_sm, &g_smc, g_sm_clock);
+    if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
     const int vis = pl && SmVisible(&g_sm, &g_smc, g_sm_clock, fight);
     const int r1 = g_sm.rank, a1 = g_sm.active; const float gg = SmGauge(&g_sm, &g_smc);
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
+    const float gp = g_sm.pts;
     ReleaseSRWLockExclusive(&g_sm_lock);
+    if (hits > 0 || ki || dodge || taken > 0) {
+        static int evl;
+        if (evl++ < 4000) {
+            char e[160]; int n = 0; e[0] = 0;
+            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f", (long)hits, ph);
+            if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki +%.0f", pk);
+            else if (ki) n += snprintf(e + n, sizeof e - n, " ki +0 (no hit in %d ms)", g_smc.kiHitMs);
+            if (dodge) n += snprintf(e + n, sizeof e - n, " dodge +%.0f", pd);
+            if (taken > 0) n += snprintf(e + n, sizeof e - n, " damaged x%ld", (long)taken);
+            Log("STYLE EVENT: t %.0f act %u%s -> %s%s %.0f/%.0f", g_sm_clock, act, e, sm_rank_name[r1], a1 ? "" : " (idle)", gp, g_smc.rankPts[r1]);
+        }
+    }
     InterlockedExchange(&g_sm_rank, r1); InterlockedExchange(&g_sm_gauge, (LONG)(gg * 1000.f)); InterlockedExchange(&g_sm_vis, vis);
     if (r0 != r1 || a0 != a1) {
         static int lines;
