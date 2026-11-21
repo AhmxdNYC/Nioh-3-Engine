@@ -21,6 +21,7 @@ extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
+static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
@@ -75,6 +76,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.swapMs = (int)GetPrivateProfileIntA("StyleMeter", "WeaponSwapMs", SM_SWAP_MS, ini);
     c.gs = (float)(int)GetPrivateProfileIntA("StyleMeter", "GuardianSpiritPts", SM_GS_PTS, ini);         // #127213
     c.gsMs = (int)GetPrivateProfileIntA("StyleMeter", "GuardianSpiritMs", SM_GS_MS, ini);
+    c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -93,8 +95,8 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms) (#126821 #126843 #126854 #126913 #127057 #127213)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word) (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
@@ -207,6 +209,19 @@ static __attribute__((noinline)) float SmSpiritForce(uint64_t actor, float* mx) 
     const int same = st == pst; pst = st;
     if (!same || !(m > 0.f && m < 1e6f && c >= 0.f && c <= m * 1.01f)) return -1.f;
     *mx = m; return c;
+}
+// #127295 martial art marker: the player's current action object P = [ctrl+0xE8] (id = dword [P], the act the frame probe logs), its file row
+// R = [P+0x20], skill word = dword [R+0xDC] (what the game's AttackSkill test cond 0x2F reads; SmSkillRow). Only when [P] == act, so a row
+// of the next action is never charged to this move. Returns 1 skill row, 0 not, -1 unreadable; *w = the word. Read only.
+static __attribute__((noinline)) int SmSkillWord(uint64_t ctrl, uint32_t act, uint32_t* w) {
+    *w = 0xFFFFFFFFu; uint64_t p = 0, r = 0;
+    if (!ctrl || act == SM_ACT_NONE || !Rd64(ctrl + 0xE8, &p) || p < 0x10000) return -1;
+    __try {
+        if (*(volatile uint32_t*)p != act) return -1;
+        r = *(volatile uint64_t*)(p + 0x20); if (r < 0x10000) return -1;
+        *w = *(volatile uint32_t*)(r + 0xDC);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { *w = 0xFFFFFFFFu; return -1; }
+    return SmSkillRow(*w);
 }
 // #127003 move logger pad snapshot: raw XInput (xinput1_4 directly, not the game's IAT slot), the first connected pad with input, else pad 0.
 static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
@@ -373,6 +388,13 @@ static void SmFeed(double gdt) {
     const int gsMark = pl ? SmGsStep(&gsm, g_sm_clock, run, sfCur, g_smc.gsMs) : 0;
     if (!pl) SmGsReset(&gsm);
     if (run != gsPtsRun) { gsPtsRun = run; gsPts = 0.f; }
+    // #127295 martial art: the move's action row carries the game's skill word (SmSkillWord) and it is not a guardian spirit / ninjutsu move
+    static SmMaMove mam; static uint64_t ninRun; static int ninMove;
+    if (run != ninRun) { ninRun = run; ninMove = 0; }
+    if (nin) ninMove = 1;
+    uint32_t skw = 0xFFFFFFFFu; const int skill = pl ? SmSkillWord(g_fp[FP_PL].ctrl, act, &skw) : -1;
+    const int maMark = pl ? SmMaStep(&mam, run, skill, gsm.gs || ninMove) : 0;
+    if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
         static uint64_t mrun; static SmMoveRec mr; static double mt0, soulT = -1e18; static int mon, mlines;
@@ -381,7 +403,7 @@ static void SmFeed(double gdt) {
         if (soul > 0) soulT = g_sm_clock;
         if (mon) { mr.landed += (int)hits; if (nin) mr.nin = 1; }
         if (run != mrun) {
-            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
+            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; if (g_sm_maRun == mrun) mr.ma = 1; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
             mrun = run; mt0 = g_sm_clock; mon = act != SM_ACT_NONE && act != 0;
             memset(&mr, 0, sizeof mr); mr.act = act; mr.startupF = -1.f; mr.enemy = g_sm_enemy;
             uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
@@ -394,7 +416,8 @@ static void SmFeed(double gdt) {
         if (mon) { if (g_fp[FP_PL].run.hits > mr.windows) mr.windows = g_fp[FP_PL].run.hits; if (g_fp[FP_PL].run.great) mr.great = 1;
                    if (startupF >= 0.f && mr.startupF < 0.f) mr.startupF = startupF;
                    if (sfCur >= 0.f) { if (mr.sfMin < 0.f || sfCur < mr.sfMin) mr.sfMin = sfCur; if (sfMax > mr.sfMax) mr.sfMax = sfMax; }
-                   if (gsMark) mr.gs = 1; }
+                   if (gsMark) mr.gs = 1;
+                   if (skill >= 0 && !mr.skillRd) { mr.skillRd = 1; mr.skill = skw; } }
     }
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
     const int fight = g_pst_live != 0;
@@ -411,6 +434,9 @@ static void SmFeed(double gdt) {
     if (gsMark) g_sm.gsUses++;
     gsPts += ph;
     const float pgs = SmGsPay(&g_sm, &g_smc, &gsm, g_sm_clock, gsPts);  // #127213 value = the move's own points so far
+    if (maMark) g_sm.maUses++;
+    const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
+    if (pma > 0.f) g_sm_maRun = run;
     for (int i = 0; i < nin; ++i) pn = (pn < 0 ? 0 : pn) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 0);
     float pc = -1.f;
     for (LONG i = 0; i < soul && i < 8; ++i) pc = (pc < 0 ? 0 : pc) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 1);
@@ -434,18 +460,21 @@ static void SmFeed(double gdt) {
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
         if (psw > 0.f) { SmFxPop2("Weapon Swap", ph, psw); big += psw; }  // the swap attack's hit value, then the swap bonus
         if (pgs > 0.f) { SmFxPop2("Guardian Spirit", gsPts, pgs); big += pgs; }  // #127213 the skill's own points, then the bonus
+        if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
-    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f) {
+    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
         static int evl;
         if (evl++ < 4000) {
-            char e[320]; int n = 0; e[0] = 0;
+            char e[400]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
             if (swapEv) n += snprintf(e + n, sizeof e - n, " weapon slot -> %d", wslot);
             if (psw > 0.f) n += snprintf(e + n, sizeof e - n, " swap attack +%.0f", psw);
             if (gsMark) n += snprintf(e + n, sizeof e - n, " spirit force %.1f->%.1f/%.1f", gsm.base, sfCur, sfMax);
             if (pgs > 0.f) n += snprintf(e + n, sizeof e - n, " guardian spirit +%.0f", pgs);
+            if (maMark) n += snprintf(e + n, sizeof e - n, " skill row 0x%X%s", skw, mam.other ? " (guardian spirit / ninjutsu move)" : "");
+            if (pma > 0.f) n += snprintf(e + n, sizeof e - n, " martial art +%.0f", pma);
             if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki%s +%.0f", kiPerf ? " perfect" : "", pk);

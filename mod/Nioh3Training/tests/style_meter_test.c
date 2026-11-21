@@ -241,6 +241,10 @@ static void MoveFmt(void) {
     m.sf0 = 80; m.sfMin = 55; m.sfMax = 100; m.gs = 1; SmMoveFmt(b, sizeof b, &m);
     CHECK(strstr(b, "| spirit 80.0->55.0/100.0 guardian spirit"));
     m.gs = 0; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| spirit 80.0->55.0/100.0") && !strstr(b, "guardian"));
+    CHECK(strstr(b, "skill") == 0);                                            // #127295 row word unread: no column
+    m.skillRd = 1; m.skill = 0xFFFFFFFFu; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| skill -"));
+    m.skill = 0xCEC4; m.ma = 1; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| skill 0xCEC4 martial art"));
+    m.ma = 0; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| skill 0xCEC4") && !strstr(b, "martial"));
 }
 // #127213 guardian spirit skill: Spirit Force gauge drop (>= 1 below the tick before the move) near the move start, once per move.
 // Feeds n ticks of 16 ms on move `run` with gauge `cur`; pays like the game glue (the move's own points so far > 0).
@@ -284,6 +288,35 @@ static void GuardianSpirit(void) {
     // ini 0 = off; clamp
     { SmCfg z = c; z.gs = 0; SmGsMove h; SmGsReset(&h); SmState q; SmReset(&q); h.gs = 1; CHECK(SmGsPay(&q, &z, &h, 0, 10) == 0.f); }
     { SmCfg z = c; z.gs = -5; z.gsMs = 99999; SmCfgClamp(&z); CHECK(z.gs == 0.f && z.gsMs == 5000); }
+}
+// #127295 martial art: the action row skill word (dword R+0xDC, the game's AttackSkill test), one bonus per move = the ninjutsu bonus.
+static void MartialArt(void) {
+    SmCfg c; RealDefaults(&c);
+    CHECK(near(c.ma, c.nin) && c.ma == (float)SM_NIN_PTS && SM_MA_PTS == SM_NIN_PTS);
+    // the game's rule: bit 31 clear and low word != 0xBA71 (row words from the extracted player files)
+    CHECK(SmSkillRow(0x0000CEC4u) && SmSkillRow(0x00004DA8u) && !SmSkillRow(0xFFFFFFFFu) && !SmSkillRow(0x80001234u) && !SmSkillRow(0x0000BA71u));
+    // ini: unset (-1) follows NinjutsuPts; a set value wins; changing NinjutsuPts changes the default
+    CHECK(near(SmMaPtsResolve(-1, c.nin), c.nin));
+    { SmCfg z; RealDefaults(&z); z.nin = 33; z.ma = SmMaPtsResolve(-1, z.nin); SmCfgClamp(&z); CHECK(near(z.ma, 33)); }
+    { SmCfg z; RealDefaults(&z); z.nin = 33; z.ma = SmMaPtsResolve(12, z.nin); CHECK(near(z.ma, 12)); }
+    { SmCfg z; RealDefaults(&z); z.nin = 0; z.ma = SmMaPtsResolve(-1, z.nin); SmMaMove m; SmMaReset(&m); SmState q; SmReset(&q);
+      SmMaStep(&m, 1, 1, 0); CHECK(SmMaPay(&q, &z, &m, 0, 10) == 0.f); }                       // NinjutsuPts 0 -> martial art off too
+    SmState s; SmReset(&s); SmMaMove m; SmMaReset(&m);
+    // martial art move: marked on its first tick, paid once on its first scored points (= ninjutsu pts), never again in the same move
+    CHECK(SmMaStep(&m, 7, 1, 0) == 1 && SmMaPay(&s, &c, &m, 100, 0) == 0.f && s.maHits == 0);  // no points yet: waits
+    CHECK(SmMaStep(&m, 7, 1, 0) == 0 && near(SmMaPay(&s, &c, &m, 116, 14), c.nin) && s.maHits == 1);
+    CHECK(SmMaStep(&m, 7, 1, 0) == 0 && SmMaPay(&s, &c, &m, 132, 30) == 0.f && s.maHits == 1);
+    // normal move (row word FFFFFFFF) or unreadable -> none
+    CHECK(SmMaStep(&m, 8, 0, 0) == 0 && SmMaPay(&s, &c, &m, 150, 14) == 0.f);
+    CHECK(SmMaStep(&m, 9, -1, 0) == 0 && SmMaPay(&s, &c, &m, 170, 14) == 0.f && s.maHits == 1);
+    // the next martial art move pays again
+    CHECK(SmMaStep(&m, 10, 1, 0) == 1 && near(SmMaPay(&s, &c, &m, 190, 9), c.nin) && s.maHits == 2);
+    // guardian spirit skill / ninjutsu (their rows carry the word too): no martial art bonus, also when the gauge mark comes a tick later
+    CHECK(SmMaStep(&m, 11, 1, 1) == 1 && SmMaPay(&s, &c, &m, 210, 20) == 0.f);
+    SmMaStep(&m, 12, 1, 0); SmMaStep(&m, 12, 1, 1); CHECK(SmMaPay(&s, &c, &m, 230, 20) == 0.f && s.maHits == 2);
+    // the bonus goes into the meter like the others
+    { SmState q; SmReset(&q); SmMaMove h; SmMaReset(&h); SmMaStep(&h, 1, 1, 0); SmMaPay(&q, &c, &h, 0, 5); CHECK(near(q.pts, c.ma)); }
+    { SmCfg z = c; z.ma = -4; SmCfgClamp(&z); CHECK(z.ma == 0.f); }
 }
 // #127057 weapon swap attack: a hitting move that started within swapMs of a slot change, once per change.
 static void Swap(void) {
@@ -364,7 +397,7 @@ static void KiPerfect(void) {
     CHECK(near(SmOnKiEx(&s, &c, 2100, 0), c.ki) && s.kiPerfects == 1);
 }
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp(); GuardianSpirit();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp(); GuardianSpirit(); MartialArt();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

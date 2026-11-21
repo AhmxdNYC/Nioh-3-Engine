@@ -49,6 +49,8 @@
 #define SM_GS_PTS 25        // #127213 guardian spirit skill (Spirit Force gauge spent at a move start)
 #define SM_GS_MS 1000       // ... the gauge drop must come within this of the move start
 #define SM_GS_DROP 1.f      // ... by at least this much below the value just before the move
+#define SM_MA_PTS SM_NIN_PTS // #127295 martial art: same as the ninjutsu bonus (ini MartialArtPts unset = NinjutsuPts)
+#define SM_SKILL_NONE_ID 0xBA71u  // #127295 action-row skill word the game's AttackSkill test (cond 0x2F, 0x2EA15B) treats as none
 #define SM_ACT_NONE 0xFFFFFFFFu
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -69,6 +71,7 @@ typedef struct {
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
     float swap; int swapMs;               // #127057 weapon swap attack bonus / window
     float gs; int gsMs;                   // #127213 guardian spirit skill bonus / drop window from the move start
+    float ma;                             // #127295 martial art bonus (default = nin)
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -94,6 +97,7 @@ typedef struct {
     double lastSwap; int swapPaid;   // #127057 game ms of the last weapon slot change / its swap attack already scored
     uint32_t swaps, swapHits;
     uint32_t gsUses, gsHits;  // #127213 guardian spirit skill moves seen / scored
+    uint32_t maUses, maHits;  // #127295 martial art moves seen / scored
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
 } SmState;
 
@@ -104,6 +108,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS;
     c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS;
+    c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
@@ -122,6 +127,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->counter < 0) c->counter = 0; if (c->nin < 0) c->nin = 0; if (c->soul < 0) c->soul = 0; if (c->style < 0) c->style = 0;
     if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000;
     if (c->gs < 0) c->gs = 0; if (c->gsMs < 0) c->gsMs = 0; if (c->gsMs > 5000) c->gsMs = 5000;
+    if (c->ma < 0) c->ma = 0;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -237,6 +243,28 @@ static inline float SmGsPay(SmState* s, const SmCfg* c, SmGsMove* g, double t, f
     g->paid = 1; s->gsHits++;
     SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; return c->gs;
 }
+// #127295 martial art, from the game's own action data (no act ids, no input): the current action's 336-byte file row
+// R = [[ctrl+0xE8]+0x20] has a skill word at dword R+0xDC. The game's state test 0x2E9948 cond 0x2F (-> hit +0x13C bit 6,
+// Collision::Damage::Hit::IsAttackAttackSkill) is true when that dword's bit 31 is clear and its low u16 is not 0xBA71.
+// MartialArtPts unset (< 0) = NinjutsuPts.
+static inline int SmSkillRow(uint32_t w) { return !(w >> 31) && (w & 0xFFFFu) != SM_SKILL_NONE_ID; }
+static inline float SmMaPtsResolve(int ini, float nin) { return ini < 0 ? nin : (float)ini; }
+// Per move: `skill` = 1 the move's row is a skill row, 0 not, -1 unreadable; `other` = this move is already another skill bonus
+// (guardian spirit gauge drop / ninjutsu gauge spend: those rows carry the skill word too). Returns 1 on the tick the move is marked.
+typedef struct { uint64_t run; int on, ma, other, paid; } SmMaMove;
+static inline void SmMaReset(SmMaMove* m) { m->run = 0; m->on = m->ma = m->other = m->paid = 0; }
+static inline int SmMaStep(SmMaMove* m, uint64_t run, int skill, int other) {
+    if (!m->on || run != m->run) { m->on = 1; m->run = run; m->ma = m->other = m->paid = 0; }
+    if (other) m->other = 1;
+    if (skill > 0 && !m->ma) { m->ma = 1; return 1; }
+    return 0;
+}
+// ... paid once per move on its first scored points (movePts = the move's own points so far), never on a guardian spirit / ninjutsu move.
+static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, float movePts) {
+    if (!m->ma || m->other || m->paid || !(movePts > 0.f) || c->ma <= 0.f) return 0.f;
+    m->paid = 1; s->maHits++;
+    SmAdd(s, c, c->ma); s->lastEvent = s->lastScore = t; return c->ma;
+}
 // #127075 Ki pulse with the perfect flag: perfect adds kiPerfect on top when the pulse scores at all.
 static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) {
     s->kis++;
@@ -305,6 +333,7 @@ typedef struct {
     int slot, swapped;            // #127057 active weapon slot at its start (-1 unknown) / it was a weapon swap attack (scored)
     float sf0, sfMin, sfMax;      // #127213 Spirit Force gauge just before the move / lowest during it / its max (sfMax <= 0 = unread)
     int gs;                       // #127213 marked as a guardian spirit skill (gauge drop at its start)
+    int skillRd, ma; uint32_t skill;  // #127295 action-row skill word read / it scored as a martial art / the word (R+0xDC)
 } SmMoveRec;
 #define SM_MOVE_SOUL_MS 20000
 static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
@@ -321,10 +350,11 @@ static inline int SmMoveFmt(char* o, int n, const SmMoveRec* m) {
     char pad[96], su[24]; SmPadStr(pad, sizeof pad, m->btn, m->lt, m->rt);
     if (m->startupF < 0) snprintf(su, sizeof su, "-"); else snprintf(su, sizeof su, "%.0f f", m->startupF);
     char sf[64]; if (m->sfMax > 0.f) snprintf(sf, sizeof sf, " | spirit %.1f->%.1f/%.1f%s", m->sf0, m->sfMin, m->sfMax, m->gs ? " guardian spirit" : ""); else sf[0] = 0;
+    char sk[48]; if (!m->skillRd) sk[0] = 0; else if (SmSkillRow(m->skill)) snprintf(sk, sizeof sk, " | skill 0x%X%s", m->skill, m->ma ? " martial art" : ""); else snprintf(sk, sizeof sk, " | skill -");
     char sl[32]; if (m->slot >= 0) snprintf(sl, sizeof sl, " | slot %d%s", m->slot, m->swapped ? " swap attack" : ""); else sl[0] = 0;
-    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s%s",
+    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s%s%s",
         m->act, m->act, m->ms, m->ms * 0.06, m->landed > 0 ? "HIT" : m->windows > 0 ? "MISS" : "no attack", m->windows, m->landed,
         su, m->style == 0 ? "Samurai" : m->style == 1 ? "Ninja" : "style ?",
-        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl, sf);
+        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl, sf, sk);
 }
 #endif
