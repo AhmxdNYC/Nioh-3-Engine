@@ -6587,7 +6587,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { StanceTimerTick(); SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); for (int k = 0; k < N3T_SLOTS; ++k) g_sph[k].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
-    __try { PlTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_plog = 0; Log("PLAYERLOG tick exception %08lX - off", GetExceptionCode()); }  // human #122228
+    __try { PlTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_plog = 0; g_cfg_pclk = 0; Log("PLAYERLOG tick exception %08lX - off", GetExceptionCode()); }  // human #122228
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     __try { DrillTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DRILL tick exception %08lX", GetExceptionCode()); g_dr_off = 1; DrStop("exception"); }
     __try { AggroTick(); ResetPosTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO tick exception %08lX", GetExceptionCode()); g_ag_off = 1; for (int i = 0; i < MV_CHASE_MAX; ++i) g_mv_chase[i] = 0; }  // user #13787

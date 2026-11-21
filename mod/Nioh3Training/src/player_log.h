@@ -27,6 +27,7 @@ static void PlLine(DWORD now, const char* kind, const char* fmt, ...) {
     SYSTEMTIME st; GetLocalTime(&st);
     fprintf(g_pl_f, "%02u:%02u:%02u.%03u  +%-7lu %s  ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, now - g_pl_t0, kind);
     va_list ap; va_start(ap, fmt); vfprintf(g_pl_f, fmt, ap); va_end(ap);
+    if (kind[0] == 'P' || kind[0] == 'A') fprintf(g_pl_f, "  | %d fps %.1f ms", g_pl_clk.fps, g_pl_clk.frameMs);  // #127933 PAD / ACT
     fputc('\n', g_pl_f);
 }
 static int PlOpen(void) {
