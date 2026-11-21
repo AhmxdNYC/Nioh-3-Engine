@@ -4231,6 +4231,7 @@ void NoFinToggle(int dir) {
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
+static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 // One sentence for the list footer, the Fight now footer, and the post-cover toast. The catalogue lesson column
 // is the script scan (IsDeathGroupEnemy reached, BossBattleMode never called). The list draws before that script runs.

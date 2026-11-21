@@ -10,7 +10,7 @@
 constexpr int uBoss = 940;
 constexpr int kItSeqBase = 0xA0000, kItSeqEnd = kItSeqBase + 0x10000;          // + kN3Moves index of the sequence's first move
 constexpr int kItBossOpenBase = 0xB0000, kItBossOpenEnd = kItBossOpenBase + 64; // + slot: 'Boss C: name   A: open'
-constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66, kItBossLast = -67, kItRepFlow = -68;
+constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66, kItBossLast = -67, kItRepFlow = -59;  // #126768: was -68 = kItListFilter (the arena filter row drew as "Between repeated moves")
 constexpr int kMcSeq = kMcCount;  // the Sequences group row (kItMoveCatBase - kMcSeq) and page (g_moveCat == kMcSeq)
 bool IsBossOpenItem(int item) { return item >= kItBossOpenBase && item < kItBossOpenEnd; }
 bool IsSeqItem(int item) { return item >= kItSeqBase && item < kItSeqBase + N3_MOVE_COUNT; }

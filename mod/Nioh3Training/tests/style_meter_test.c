@@ -155,13 +155,13 @@ static void Clamp(void) {
     SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 1, 1);
     CHECK(!s.active && s.hits == 1);
 }
-// human #126755: shipped tuning is twice as hard as the first one.
+// human #126755: shipped tuning is 4x as hard (#126766) as the first one.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 80.f) && near(c.rankPts[SM_RANKS - 1], 400.f) && near(c.decayPerS, 18.f));
+    CHECK(near(c.rankPts[0], 160.f) && near(c.rankPts[SM_RANKS - 1], 800.f) && near(c.decayPerS, 18.f));
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.5f));  // 4 different moves = half of D now
+    CHECK(s.rank == 0 && near(SmGauge(&s, &c), 0.25f));  // 4 different moves = a quarter of D now
 }
 int main(void) {
     Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning();
