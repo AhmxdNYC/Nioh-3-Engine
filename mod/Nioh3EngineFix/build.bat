@@ -266,6 +266,9 @@ rem GPU removal reason for crash records (#96825) + its offline test with a fake
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\devremoved.obj src\devremoved.cpp || exit /b 1
 cl /nologo /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /Febuild\devremoved_test.exe /Fobuild\ tests\devremoved_test.cpp src\devremoved.cpp || exit /b 1
 build\devremoved_test.exe || exit /b 1
+rem GH #152: GpuOpt patches only command-list vtables owned by the D3D12 runtime, never a proxy (ReShade dxgi.dll)
+cl /nologo /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE /Febuild\listowner_test.exe /Fobuild\ tests\listowner_test.cpp || exit /b 1
+build\listowner_test.exe || exit /b 1
 rem GH #133/#134 presenter role: a DLSS-G pacer thread (no game frame) must not draw on the game queue (no game/device)
 if not exist build\prt mkdir build\prt
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\presenter_role_test.exe /Fobuild\prt\ tests\presenter_role_test.cpp || exit /b 1
