@@ -237,6 +237,53 @@ static void MoveFmt(void) {
     m.slot = 1; m.swapped = 1; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| slot 1 swap attack"));
     m.windows = 0; m.landed = 0; m.startupF = -1; m.btn = 0; m.rt = 0; SmMoveFmt(b, sizeof b, &m);
     CHECK(strstr(b, "no attack") && strstr(b, "startup - |") && strstr(b, "pad -"));
+    CHECK(strstr(b, "spirit") == 0);                                           // #127213 gauge unread: no column
+    m.sf0 = 80; m.sfMin = 55; m.sfMax = 100; m.gs = 1; SmMoveFmt(b, sizeof b, &m);
+    CHECK(strstr(b, "| spirit 80.0->55.0/100.0 guardian spirit"));
+    m.gs = 0; SmMoveFmt(b, sizeof b, &m); CHECK(strstr(b, "| spirit 80.0->55.0/100.0") && !strstr(b, "guardian"));
+}
+// #127213 guardian spirit skill: Spirit Force gauge drop (>= 1 below the tick before the move) near the move start, once per move.
+// Feeds n ticks of 16 ms on move `run` with gauge `cur`; pays like the game glue (the move's own points so far > 0).
+static int GsTicks(SmGsMove* g, SmState* s, const SmCfg* c, double* t, uint64_t run, const float* cur, int n, float movePts, float* paid) {
+    int marks = 0;
+    for (int i = 0; i < n; ++i) { *t += 16; marks += SmGsStep(g, *t, run, cur[i], c->gsMs); *paid += SmGsPay(s, c, g, *t, movePts); }
+    return marks;
+}
+static void GuardianSpirit(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s); SmGsMove g; SmGsReset(&g);
+    CHECK(c.gs == SM_GS_PTS && c.gs == 25.f && c.gsMs == SM_GS_MS);
+    double t = 1000; float paid = 0;
+    const float idle[3] = {100, 100, 100}, cast[4] = {100, 70, 70, 70}, flat[4] = {70, 70, 70, 70}, refill[4] = {70, 100, 100, 100};
+    GsTicks(&g, &s, &c, &t, 1, idle, 3, 0, &paid);                                        // standing: base 100
+    // gauge drop at the start of a move -> one bonus, even with several hits / ticks after
+    CHECK(GsTicks(&g, &s, &c, &t, 2, cast, 4, 12, &paid) == 1 && near(paid, c.gs) && s.gsHits == 1);
+    CHECK(GsTicks(&g, &s, &c, &t, 2, flat, 4, 30, &paid) == 0 && near(paid, c.gs));      // same move, more hits: no second bonus
+    // no drop -> none
+    paid = 0; CHECK(GsTicks(&g, &s, &c, &t, 3, flat, 4, 12, &paid) == 0 && paid == 0.f);
+    // refill (gauge rises, Practice / RecoverGuardianAction) -> none, and the refilled value is the new base
+    CHECK(GsTicks(&g, &s, &c, &t, 4, refill, 4, 12, &paid) == 0 && paid == 0.f);
+    // a drop smaller than 1 (float noise) -> none
+    { const float tiny[3] = {99.5f, 99.5f, 99.5f}; CHECK(GsTicks(&g, &s, &c, &t, 5, tiny, 3, 12, &paid) == 0); }
+    // drop too long after the move start -> none
+    { SmGsMove h; SmGsReset(&h); double u = 0; float pp = 0; const float a[1] = {100}; GsTicks(&h, &s, &c, &u, 1, a, 1, 0, &pp);
+      CHECK(SmGsStep(&h, 100, 2, 100, c.gsMs) == 0 && SmGsStep(&h, 100 + c.gsMs + 1, 2, 50, c.gsMs) == 0 && !h.gs); }
+    // marked but no points yet: bonus waits for the move's first scored hit
+    { SmGsMove h; SmGsReset(&h); SmState q; SmReset(&q); double u = 0; float pp = 0; const float a[1] = {100}, b[2] = {60, 60};
+      GsTicks(&h, &q, &c, &u, 1, a, 1, 0, &pp);
+      CHECK(GsTicks(&h, &q, &c, &u, 2, b, 2, 0, &pp) == 1 && pp == 0.f && q.gsHits == 0);
+      CHECK(near(SmGsPay(&q, &c, &h, u, 15), c.gs) && SmGsPay(&q, &c, &h, u, 30) == 0.f && q.gsHits == 1); }
+    // two moves, each spending -> two bonuses
+    { SmGsMove h; SmGsReset(&h); SmState q; SmReset(&q); double u = 0; float pp = 0;
+      const float a[1] = {100}, m1[3] = {100, 75, 75}, m2[3] = {75, 50, 50};
+      GsTicks(&h, &q, &c, &u, 1, a, 1, 0, &pp);
+      CHECK(GsTicks(&h, &q, &c, &u, 2, m1, 3, 10, &pp) == 1 && GsTicks(&h, &q, &c, &u, 3, m2, 3, 10, &pp) == 1);
+      CHECK(near(pp, 2 * c.gs) && q.gsHits == 2); }
+    // unreadable gauge (-1) before the move: no base, nothing
+    { SmGsMove h; SmGsReset(&h); SmState q; SmReset(&q); double u = 0; float pp = 0; const float a[1] = {-1}, b[2] = {50, 50};
+      GsTicks(&h, &q, &c, &u, 1, a, 1, 0, &pp); CHECK(GsTicks(&h, &q, &c, &u, 2, b, 2, 10, &pp) == 0 && pp == 0.f); }
+    // ini 0 = off; clamp
+    { SmCfg z = c; z.gs = 0; SmGsMove h; SmGsReset(&h); SmState q; SmReset(&q); h.gs = 1; CHECK(SmGsPay(&q, &z, &h, 0, 10) == 0.f); }
+    { SmCfg z = c; z.gs = -5; z.gsMs = 99999; SmCfgClamp(&z); CHECK(z.gs == 0.f && z.gsMs == 5000); }
 }
 // #127057 weapon swap attack: a hitting move that started within swapMs of a slot change, once per change.
 static void Swap(void) {
@@ -309,7 +356,7 @@ static void KiPerfect(void) {
     CHECK(near(SmOnKiEx(&s, &c, 2100, 0), c.ki) && s.kiPerfects == 1);
 }
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp(); GuardianSpirit();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }

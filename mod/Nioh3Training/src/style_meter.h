@@ -46,6 +46,9 @@
 #define SM_STYLE_PTS 15
 #define SM_SWAP_PTS 25      // #127057 weapon swap attack
 #define SM_SWAP_MS 600      // a move that starts within this of a weapon slot change is the swap attack
+#define SM_GS_PTS 25        // #127213 guardian spirit skill (Spirit Force gauge spent at a move start)
+#define SM_GS_MS 1000       // ... the gauge drop must come within this of the move start
+#define SM_GS_DROP 1.f      // ... by at least this much below the value just before the move
 #define SM_ACT_NONE 0xFFFFFFFFu
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -65,6 +68,7 @@ typedef struct {
     int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
     float swap; int swapMs;               // #127057 weapon swap attack bonus / window
+    float gs; int gsMs;                   // #127213 guardian spirit skill bonus / drop window from the move start
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -89,6 +93,7 @@ typedef struct {
     uint32_t kiPerfects;
     double lastSwap; int swapPaid;   // #127057 game ms of the last weapon slot change / its swap attack already scored
     uint32_t swaps, swapHits;
+    uint32_t gsUses, gsHits;  // #127213 guardian spirit skill moves seen / scored
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
 } SmState;
 
@@ -98,6 +103,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS;
+    c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
@@ -115,6 +121,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
     if (c->counter < 0) c->counter = 0; if (c->nin < 0) c->nin = 0; if (c->soul < 0) c->soul = 0; if (c->style < 0) c->style = 0;
     if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000;
+    if (c->gs < 0) c->gs = 0; if (c->gsMs < 0) c->gsMs = 0; if (c->gsMs > 5000) c->gsMs = 5000;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -207,6 +214,29 @@ static inline int SmNinGate(double* lastT, double t, int n, int style) {
     *lastT = t;  // a chain of drops keeps extending the same throw
     return fresh;
 }
+// #127213 guardian spirit skill gate (same idea as SmNinGate: a gauge spend, no act ids). Fed once per tick with the player move key `run`
+// and the Spirit Force gauge `cur` (< 0 = unreadable). On a new move the value of the tick before it is the base; a drop of >= SM_GS_DROP
+// below the base within winMs of the move start marks the move as a guardian spirit skill, once per move. A refill (cur above the base)
+// raises the base, so it never counts. Returns 1 on the tick the move is marked.
+typedef struct { uint64_t run; double t0; float prev, base; int on, gs, paid; } SmGsMove;
+static inline void SmGsReset(SmGsMove* g) { g->run = 0; g->t0 = -1e18; g->prev = g->base = -1.f; g->on = g->gs = g->paid = 0; }
+static inline int SmGsStep(SmGsMove* g, double t, uint64_t run, float cur, int winMs) {
+    if (!g->on || run != g->run) { g->on = 1; g->run = run; g->t0 = t; g->base = g->prev; g->gs = g->paid = 0; }
+    int mark = 0;
+    if (cur < 0.f) g->base = -1.f;  // unreadable inside the move: no base, no mark this move
+    else if (g->base >= 0.f) {
+        if (cur > g->base) g->base = cur;
+        else if (!g->gs && g->base - cur >= SM_GS_DROP && t - g->t0 <= (double)winMs) { g->gs = 1; mark = 1; }
+    }
+    g->prev = cur;
+    return mark;
+}
+// ... and the marked move scored points (movePts = its own points so far): the bonus once per move.
+static inline float SmGsPay(SmState* s, const SmCfg* c, SmGsMove* g, double t, float movePts) {
+    if (!g->gs || g->paid || !(movePts > 0.f) || c->gs <= 0.f) return 0.f;
+    g->paid = 1; s->gsHits++;
+    SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; return c->gs;
+}
 // #127075 Ki pulse with the perfect flag: perfect adds kiPerfect on top when the pulse scores at all.
 static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) {
     s->kis++;
@@ -273,6 +303,8 @@ typedef struct {
     int soulForm;                 // a soul core form started (BR FormUseTick / seal use) within SM_MOVE_SOUL_MS before the move
     int nin, great, enemy;        // ninjutsu gauge spent during it / GreatAttack collider / an enemy hit window was open at its start
     int slot, swapped;            // #127057 active weapon slot at its start (-1 unknown) / it was a weapon swap attack (scored)
+    float sf0, sfMin, sfMax;      // #127213 Spirit Force gauge just before the move / lowest during it / its max (sfMax <= 0 = unread)
+    int gs;                       // #127213 marked as a guardian spirit skill (gauge drop at its start)
 } SmMoveRec;
 #define SM_MOVE_SOUL_MS 20000
 static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
@@ -288,10 +320,11 @@ static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
 static inline int SmMoveFmt(char* o, int n, const SmMoveRec* m) {
     char pad[96], su[24]; SmPadStr(pad, sizeof pad, m->btn, m->lt, m->rt);
     if (m->startupF < 0) snprintf(su, sizeof su, "-"); else snprintf(su, sizeof su, "%.0f f", m->startupF);
+    char sf[64]; if (m->sfMax > 0.f) snprintf(sf, sizeof sf, " | spirit %.1f->%.1f/%.1f%s", m->sf0, m->sfMin, m->sfMax, m->gs ? " guardian spirit" : ""); else sf[0] = 0;
     char sl[32]; if (m->slot >= 0) snprintf(sl, sizeof sl, " | slot %d%s", m->slot, m->swapped ? " swap attack" : ""); else sl[0] = 0;
-    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s",
+    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s%s",
         m->act, m->act, m->ms, m->ms * 0.06, m->landed > 0 ? "HIT" : m->windows > 0 ? "MISS" : "no attack", m->windows, m->landed,
         su, m->style == 0 ? "Samurai" : m->style == 1 ? "Ninja" : "style ?",
-        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl);
+        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl, sf);
 }
 #endif
