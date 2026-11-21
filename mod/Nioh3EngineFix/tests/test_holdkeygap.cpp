@@ -55,19 +55,44 @@ static void TestMode3() {
     assert(holdkeygap::HeldReal(7, 1.0f, 5, 10) == 7);
     // new press re-seeds from the count (c < last): 3 frames at 10 ms EMA
     assert(holdkeygap::NextHeldSec(2.0f, 3, 50, 0.01f, 0.01f) > 0.029f && holdkeygap::NextHeldSec(2.0f, 3, 50, 0.01f, 0.01f) < 0.031f);
-    // pause: a 1 s gap is not added; cap at kMinHeldFps (15) worth per frame
+    // pause: a 1 s gap is not added. A 200 ms hitch is kept (GH #150). The old count/15 cap turned a hitch into
+    // 66.67 ms per counted frame and clipped the hold.
     assert(holdkeygap::NextHeldSec(0.1f, 11, 10, 1.0f, 0.01f) == 0.1f);
-    assert(holdkeygap::NextHeldSec(0.6f, 11, 10, 0.2f, 0.01f) <= 11.0f / 15.0f + 1e-6f);
+    {
+        const float h = holdkeygap::NextHeldSec(0.6f, 11, 10, 0.2f, 0.01f);
+        assert(h > 0.79f && h < 0.81f);
+    }
     // GH #149: 60 setting at 25 / 20 / 16 real fps (CPU-bound lows), 220 ms hold -> stock < 12, fix >= 12. With the old
     // 30 fps cap these stayed at 10-11 (the player's log: frames 5 stock 5 real 10, frame 33.33 ms).
     const float lows[] = {25.0f, 20.0f, 16.0f};
     for (float fps : lows) {
         const int f = Mode3Held(fps, 60, 220.0f, &stock);
         assert(stock < 12);
-        assert(f >= 12 && f <= 15);
+        assert(f >= 12 && f <= 16);
     }
     // the player's logged frame: 5 counted frames held 200 ms real -> 12, not 10
     assert(holdkeygap::HeldReal(5, holdkeygap::NextHeldSec(0.16f, 5, 4, 0.04f, 0.04f), 5, 4) >= 12);
+    // GH #150: counter stuck at 2 across 14 frames at 63 fps (~222 ms). Old cap = 2/15 s -> 8 of the 12 the
+    // martial-art key needs. His log was this cap saturating (6 counts -> 24, 66.67 ms).
+    {
+        float held = 0.0f;
+        uint32_t c = 0, last = 0;
+        const float d = 1.0f / 63.0f;
+        for (int i = 0; i < 14; ++i) {
+            if (i == 0) c = 1;
+            else if (i == 1) c = 2;
+            held = holdkeygap::NextHeldSec(held, c, last, last ? d : 0.0f, d);
+            last = c;
+        }
+        const int r = holdkeygap::HeldReal(1, held, c, last);
+        assert(r >= 12);
+    }
+    // his session: 120 setting, ~63 fps, 220 ms hold. Stock stays under 12; the fix must clear it.
+    {
+        const int f = Mode3Held(63.0f, 120, 220.0f, &stock);
+        assert(stock < 12);
+        assert(f >= 12 && f <= 16);
+    }
     std::printf("PASS mode 3\n");
 }
 

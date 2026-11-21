@@ -41,17 +41,19 @@ inline float WindowStart(bool sameMove, float prevEnd, float prevT, float t, flo
 
 // Mode 3 pure rules (unit-tested, used by holdkeygap.cpp). Real seconds a button is held after one frame: c = the game's
 // frames-held count now, lastCnt = at the previous frame, d = real seconds since the previous frame, dt = EMA frame time.
-constexpr float kMinHeldFps = 15.0f;  // slowest real frame rate the held clock follows (GH #149)
+//
+// A gap of 0.25 s or more is not added (pause, or the input object was idle). Shorter gaps are real hitches and count
+// in full. There is no per-count cap: GH #149 capped the whole hold at count/30, then count/15. On a 120 setting that
+// cap is 4 units of 1/60 s per counted frame (66.67 ms). GH #150's log is that cap saturating ("frames 6 stock 6 real
+// 24 (frame 66.67 ms)") while the game still ran at ~63 fps, so a hold whose counter lagged real time stayed under 12.
 inline float NextHeldSec(float heldSec, uint32_t c, uint32_t lastCnt, float d, float dt) {
     if (c == 0) return 0.0f;
     if (c < lastCnt || lastCnt == 0) heldSec = (float)c * (dt > 0.0f ? dt : 1.0f / 60.0f);  // new press
     else if (d > 0.0f && d < 0.25f) heldSec += d;
-    // At most kMinHeldFps worth per counted frame (pauses). Was 30 fps: below 30 real fps (1% lows, CPU-bound PCs) a
-    // 200 ms hold capped at 5 frames * 33 ms = 10 of 12 and the martial art still started late (GH #149).
-    if (heldSec > (float)c / kMinHeldFps) heldSec = (float)c / kMinHeldFps;
     return heldSec;
 }
 // Held getter result: max(stock, real hold in 1/60 s). Stock when the press is not tracked yet or the count went back.
+// Truncates: rounding a fraction up changed steady-fps counts and let 10.2/60 s reach 12 (regression review, GH #150).
 inline int HeldReal(int stock, float heldSec, uint32_t c, uint32_t lastCnt) {
     if (c == 0 || lastCnt == 0 || c < lastCnt) return stock;
     const float real = heldSec * 60.0f * (float)c / (float)lastCnt;
