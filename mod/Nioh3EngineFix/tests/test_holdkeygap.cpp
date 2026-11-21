@@ -3,6 +3,7 @@
 #undef NDEBUG
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include "../src/holdkeygap.h"
 
 static int FiresStock(const float* steps, int n, float t0, float key, bool fix) {
@@ -120,8 +121,57 @@ static void TestTrackers() {
     std::printf("PASS trackers\n");
 }
 
+
+// GH #154 per-press record: simulate the getter + tick for one press and check the summary fields. Diagnostic only.
+static void TestPressRecord() {
+    using namespace holdkeygap;
+    // 63 fps, 120 setting, 240 ms hold, getter asked every frame
+    PressStat p;
+    const float d = 1.0f / 63.0f;
+    float held = 0.0f;
+    uint32_t c = 0, last = 0;
+    int frames = 0;
+    for (float t = 0.0f; t + 1e-6f < 0.24f; t += d) {
+        ++c;
+        ++frames;
+        if (last) NoteStep(p, d);
+        held = NextHeldSec(held, c, last, last ? d : 0.0f, d);
+        last = c;
+        const int stock = (int)((float)c * 60.0f / 120.0f);
+        const int ret = HeldReal(stock, held, c, last);
+        assert(ret >= stock);
+        NoteCall(p, stock, ret, held, false);
+    }
+    assert(p.calls == frames && p.stockCalls == 0);
+    assert(p.maxStock < kMaHeld && p.maxReal >= kMaHeld);
+    assert(p.stockAt < 0.0f && p.fixAt > 0.18f && p.fixAt < 0.22f);  // 12/60 s = 200 ms
+    assert(p.maxStep > 0.015f && p.maxStep < 0.017f && p.skipped == 0.0f);
+    // a 300 ms pause inside the press is reported as skipped, not as a step
+    NoteStep(p, 0.3f);
+    assert(p.skipped > 0.29f && p.maxStep < 0.017f);
+    // press end detection
+    assert(PressEnded(0, 5) && PressEnded(2, 9) && !PressEnded(6, 5) && !PressEnded(0, 0) && !PressEnded(3, 0));
+    assert(!PressWorthLog(0.05f) && PressWorthLog(0.24f) && !PressWorthLog(5.0f));
+    // the summary fits a report state value (95 chars) with the "inNN " prefix, even with wide numbers
+    char buf[160];
+    PressStat w;
+    w.calls = 999; w.stockCalls = 999; w.maxStock = 999; w.maxReal = 999; w.stockAt = 2.999f; w.fixAt = 2.999f; w.maxStep = 0.249f;
+    w.skipped = 0.999f;
+    const int n = FormatPress(buf, sizeof buf, 63, 2.999f, 999u, w);
+    std::printf("press line %d chars: %s\n", n, buf);
+    assert(n + 5 <= 95);
+    FormatPress(buf, sizeof buf, 2, 0.24f, (uint32_t)frames, p);
+    std::printf("press line: %s\n", buf);
+    assert(std::strstr(buf, "stock -") != nullptr && std::strstr(buf, "12@fix ") != nullptr);
+    // a fallback call (press not tracked yet) is counted
+    PressStat f;
+    NoteCall(f, 3, 3, 0.0f, true);
+    assert(f.calls == 1 && f.stockCalls == 1 && f.fixAt < 0.0f);
+}
+
 int main() {
     TestMode3();
+    TestPressRecord();
     TestTrackers();
     const float fixed[] = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     assert(FiresStock(fixed, 8, 10.0f, 12.0f, false) == 1);

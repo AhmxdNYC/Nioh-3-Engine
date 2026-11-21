@@ -3645,6 +3645,7 @@ DWORD WINAPI Worker(LPVOID) {
             hki.iniPath = iniPath.c_str();
             hki.base = reinterpret_cast<uintptr_t>(g_base);
             hki.knownBuild = known;
+            hki.setState = &crashreport::SetState;  // GH #154 last held presses in the report
             holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
