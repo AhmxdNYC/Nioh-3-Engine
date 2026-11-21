@@ -1282,3 +1282,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 7:10 am EST | pc/1 combo build #127415 | offline tests PASS, unproven live | next: install TR 041a06a9 + BR d80bd21c when game free | d228576a
 - 2026-11-21 7:18 am EST | pc/0 | combo d228576a staged by pc/1 (#127415 done, style 191/191, refill PASS) | offline proven, live unproven | next: pc/1 RESULT on #127433 | TASK #127433
 2026-11-21 7:40 am EST | regression-pc #127463 combo d228576a verdict sent | proven offline: merged tree PASS; staged pair missing Projectile tag | next: rebuild from branch+main, live recheck | no code commits
+- 2026-11-21 7:43 am EST | pc/0 | combo rebased on main 0ae14e49, TR 1242ab60 BR a6731bcf | offline proven (regression same tree #127481), live unproven | next: pc/1 RESULT #127433/#127490 | NOTE #127490
