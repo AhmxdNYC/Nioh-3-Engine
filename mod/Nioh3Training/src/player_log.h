@@ -3,11 +3,19 @@
 //   hh:mm:ss.mmm  +ms  PAD  down A          (button edges: A B X Y LB RB LT RT LS RS Up Down Left Right Start Back; up edges add 'held N ms')
 //   hh:mm:ss.mmm  +ms  PAD  move N / stop   (left stick, 8 directions, dead zone 8000)
 //   hh:mm:ss.mmm  +ms  ACT  0x271F -> 0x2A31 (prev ran 412 ms)   (the player's action id = dword [[ctrl+0xE8]], same read as boss moves)
-// Read only: XInputGetState (its own reader, nothing masked or injected) and the player's action id. Game thread, every pump tick.
-// 0 = off (default): nothing is read or written.
+//   PAD / ACT lines end with "| 61 fps 16.4 ms" = fps of the last 1 s clock window and the wall time of the newest game frame (#127933).
+// [Record] PlayerClock = 1 (#127918 / #127933) adds one CLK line per second to the same file (player_clock.h):
+//   hh:mm:ss.mmm  +ms  CLK  wall 1000 ms  game 998 ms  ratio 1.00  eng 1000 ms 1.00  fps 61  worst 18.2 ms  [nostep N] [stalls N]
+//   game = the player's step [ctrl+0x40] (1/60 s units) summed once per engine update (counter G+0x610 moved), eng = the
+//   engine clock (ticks x time scale / fps-for-dt). ratio < 0.9 with fps under the cap = the game runs in slow motion.
+// Read only: XInputGetState (its own reader, nothing masked or injected), the player's action id and step, the engine
+// update counter. Game thread, every pump tick.
+// 0 = off (default) for both keys: nothing is read or written.
 #ifndef N3_PLAYER_LOG_H
 #define N3_PLAYER_LOG_H
-static int g_cfg_plog;
+#include "player_clock.h"
+static int g_cfg_plog, g_cfg_pclk;
+static PlClk g_pl_clk;
 static FILE* g_pl_f;
 static DWORD g_pl_t0, g_pl_flush, g_pl_act_t, g_pl_down_t[20];
 static uint32_t g_pl_act = 0xFFFFFFFFu;
@@ -32,7 +40,8 @@ static int PlOpen(void) {
     HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll");
     g_pl_xget = x ? (PlXGet)(void*)GetProcAddress(x, "XInputGetState") : 0;
     g_pl_t0 = GetTickCount();
-    PlLine(g_pl_t0, "LOG", "Nioh3 player log (human #122228): PAD = controller edges, ACT = player action id changes%s", g_pl_xget ? "" : " (no XInput: actions only)");
+    PlLine(g_pl_t0, "LOG", "Nioh3 player log (human #122228): PAD = controller edges, ACT = player action id changes, | fps + newest frame ms%s%s", g_pl_xget ? "" : " (no XInput: actions only)",
+           g_cfg_pclk ? ", CLK = game clock vs wall clock once a second" : "");
     Log("PLAYERLOG: writing %s (pad %s)", p, g_pl_xget ? "XInputGetState" : "missing");
     return 1;
 }
@@ -67,10 +76,37 @@ static void PlAct(DWORD now) {
     else PlLine(now, "ACT", "0x%X -> 0x%X (prev ran %lu ms)", g_pl_act, a, now - g_pl_act_t);
     g_pl_act = a; g_pl_act_t = now;
 }
+// #127933 game clock sample (once per pump tick; counts a frame only when the engine update counter moved)
+static void PlClock(DWORD now) {
+    static double s_qpf;
+    if (!s_qpf) { LARGE_INTEGER f; QueryPerformanceFrequency(&f); s_qpf = 1000.0 / (double)f.QuadPart; }
+    LARGE_INTEGER q; QueryPerformanceCounter(&q);
+    uint64_t g = 0;
+    if (!Rd64(B + Grva(0x4759910), &g) || !g) return;
+    uint32_t cnt = 0; double eng = -1.0; float step = -1.0f;
+    __try {
+        cnt = *(volatile uint32_t*)(g + 0x610);
+        const int fps = *(volatile int32_t*)(g + 0x614); const float ts = *(volatile float*)(g + 0x624);
+        if (fps > 0 && fps <= 1000 && ts >= 0.0f && ts < 16.0f) eng = 1000.0 * (double)ts / (double)fps;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    uint64_t me = PlayerChar(), ai = 0, ctrl = 0;
+    if (me && Rd64(me + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl) {
+        __try { step = *(volatile float*)(ctrl + 0x40); } __except (EXCEPTION_EXECUTE_HANDLER) { step = -1.0f; }
+    }
+    PlClkLine l;
+    if (!PlClkSample(&g_pl_clk, (double)q.QuadPart * s_qpf, cnt, step, eng, &l) || !g_cfg_pclk) return;
+    char x[48] = "";
+    if (l.nostep && l.stalls) snprintf(x, sizeof x, "  nostep %u  stalls %u", l.nostep, l.stalls);
+    else if (l.nostep) snprintf(x, sizeof x, "  nostep %u", l.nostep);
+    else if (l.stalls) snprintf(x, sizeof x, "  stalls %u", l.stalls);
+    PlLine(now, "CLK", "wall %.0f ms  game %.0f ms  ratio %.2f  eng %.0f ms %.2f  fps %d  worst %.1f ms%s",
+           l.wall, l.game, l.ratio, l.eng, l.engRatio, l.fps, l.worst, x);
+}
 static __attribute__((noinline)) void PlTick(void) {
-    if (!g_cfg_plog || !PlOpen()) return;
+    if ((!g_cfg_plog && !g_cfg_pclk) || !PlOpen()) return;
     const DWORD now = GetTickCount();
-    PlPad(now); PlAct(now);
+    PlClock(now);
+    if (g_cfg_plog) { PlPad(now); PlAct(now); }
     if (now - g_pl_flush >= 1000) { g_pl_flush = now; fflush(g_pl_f); }
 }
 #endif
