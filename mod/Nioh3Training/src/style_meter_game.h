@@ -19,7 +19,7 @@ __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
-static int g_cfg_sm_actlog;  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
+static int g_cfg_sm_actlog, g_cfg_sm_movelog;  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
 static HWND g_sm_game;
@@ -28,6 +28,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
+    g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);  // #127003: on with the style meter (SmFeed only runs when StyleMeter=1)
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
     SmCfg c; SmCfgDefaults(&c);
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
@@ -170,6 +171,15 @@ static __attribute__((noinline)) int SmNinjutsuUsed(uint64_t actor) {
     pst = st; have = 1;
     return n;
 }
+// #127003 move logger pad snapshot: raw XInput (xinput1_4 directly, not the game's IAT slot), the first connected pad with input, else pad 0.
+static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    *b = 0; *lt = *rt = 0;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (!xgs) return;
+    for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;  // XINPUT_STATE: packet, wButtons +4, LT +6, RT +7
+        const uint16_t bb = *(uint16_t*)(st + 4); if (bb || st[6] > 64 || st[7] > 64 || !*b) { *b = bb; *lt = st[6]; *rt = st[7]; } if (bb || st[6] > 64 || st[7] > 64) return; }
+}
 // #126843 Samurai (0) / Ninja (1) style: chr +0xA95C (the byte Boss Rematch's FbStyleNow reads). A switch counts once the new value held
 // 150 ms of game time (the byte is not the real style for a moment inside soul-core forms). Returns 1 on the tick a switch is confirmed.
 static __attribute__((noinline)) int SmStyleSwitched(uint64_t actor, double t) {
@@ -230,6 +240,25 @@ static void SmFeed(double gdt) {
     if (pl && ifr && g_sm_enemy) ctr = 1;
     const int nin = pl ? SmNinjutsuUsed(g_fp[FP_PL].a) : 0;
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
+    if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
+        static uint64_t mrun; static SmMoveRec mr; static double mt0, soulT = -1e18; static int mon, mlines;
+        static unsigned (*fu)(void); static int futried;
+        if (!fu && !futried) { futried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); fu = rm ? (unsigned (*)(void))GetProcAddress(rm, "Nioh3BossRematch_FormUseTick") : 0; }
+        if (soul > 0) soulT = g_sm_clock;
+        if (mon) { mr.landed += (int)hits; if (nin) mr.nin = 1; }
+        if (run != mrun) {
+            if (mon && mlines < 20000) { ++mlines; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
+            mrun = run; mt0 = g_sm_clock; mon = act != SM_ACT_NONE && act != 0;
+            memset(&mr, 0, sizeof mr); mr.act = act; mr.startupF = -1.f; mr.enemy = g_sm_enemy;
+            uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
+            mr.style = v <= 1 ? v : -1;
+            SmPadNow(&mr.btn, &mr.lt, &mr.rt);
+            const unsigned ft = fu ? fu() : 0;
+            mr.soulForm = g_sm_clock - soulT <= SM_MOVE_SOUL_MS || (ft && GetTickCount() - ft <= SM_MOVE_SOUL_MS);
+        }
+        if (mon) { if (g_fp[FP_PL].run.hits > mr.windows) mr.windows = g_fp[FP_PL].run.hits; if (g_fp[FP_PL].run.great) mr.great = 1;
+                   if (startupF >= 0.f && mr.startupF < 0.f) mr.startupF = startupF; }
+    }
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
     const int fight = g_pst_live != 0;
     AcquireSRWLockExclusive(&g_sm_lock);

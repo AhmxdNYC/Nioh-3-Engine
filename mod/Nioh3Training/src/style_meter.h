@@ -224,4 +224,33 @@ static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit)
 static inline int SmVisible(const SmState* s, const SmCfg* c, double t, int fight) {
     return s->active && (fight || t - s->lastEvent < (double)c->combatMs);
 }
+// #127003 move logger: one record per player move (action run), hit or miss. Pure (formatting only) so the test covers it.
+typedef struct {
+    uint32_t act; double ms;      // action id, run length (game ms)
+    int windows, landed;          // hit windows the move opened (frame probe) / hits that landed on an enemy during it
+    float startupF;               // first hit window, 60 fps frames (-1 = no window: a non-attack or a whiff with no collider)
+    int style;                    // 0 Samurai, 1 Ninja, -1 unknown (chr +0xA95C)
+    uint16_t btn; uint8_t lt, rt; // XInput buttons / triggers held when the move started (stance / weapon swap / guardian are pad combos)
+    int soulForm;                 // a soul core form started (BR FormUseTick / seal use) within SM_MOVE_SOUL_MS before the move
+    int nin, great, enemy;        // ninjutsu gauge spent during it / GreatAttack collider / an enemy hit window was open at its start
+} SmMoveRec;
+#define SM_MOVE_SOUL_MS 20000
+static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
+    static const struct { uint16_t m; const char* s; } k[] = { {0x1000,"A"},{0x2000,"B"},{0x4000,"X"},{0x8000,"Y"},{0x0100,"LB"},{0x0200,"RB"},
+        {0x0040,"LS"},{0x0080,"RS"},{0x0001,"Up"},{0x0002,"Down"},{0x0004,"Left"},{0x0008,"Right"},{0x0010,"Start"},{0x0020,"Back"} };
+    int w = 0; o[0] = 0;
+    for (unsigned i = 0; i < sizeof k / sizeof k[0] && w < n - 1; ++i) if (b & k[i].m) w += snprintf(o + w, n - w, "%s%s", w ? "+" : "", k[i].s);
+    if (lt > 64 && w < n - 1) w += snprintf(o + w, n - w, "%sLT", w ? "+" : "");
+    if (rt > 64 && w < n - 1) w += snprintf(o + w, n - w, "%sRT", w ? "+" : "");
+    if (!w) w = snprintf(o, n, "-");
+    return w;
+}
+static inline int SmMoveFmt(char* o, int n, const SmMoveRec* m) {
+    char pad[96], su[24]; SmPadStr(pad, sizeof pad, m->btn, m->lt, m->rt);
+    if (m->startupF < 0) snprintf(su, sizeof su, "-"); else snprintf(su, sizeof su, "%.0f f", m->startupF);
+    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s",
+        m->act, m->act, m->ms, m->ms * 0.06, m->landed > 0 ? "HIT" : m->windows > 0 ? "MISS" : "no attack", m->windows, m->landed,
+        su, m->style == 0 ? "Samurai" : m->style == 1 ? "Ninja" : "style ?",
+        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "");
+}
 #endif

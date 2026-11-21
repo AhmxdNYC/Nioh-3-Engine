@@ -2,6 +2,7 @@
 //   py -m ziglang cc -target x86_64-windows-gnu -O0 -UNDEBUG tests/style_meter_test.c -o build/style_meter_test.exe && build/style_meter_test.exe
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #undef NDEBUG
 #include <assert.h>
 #include "../src/style_meter.h"
@@ -223,8 +224,19 @@ static void Ramp(void) {  // human #126972: drain speeds up with idle time past 
     SmState e; SmReset(&e); e.active = 1; e.rank = 2; e.pts = 100.f; e.lastScore = 1900.0;
     SmTick(&e, &c, 2000.0, 100.0); CHECK(100.f - e.pts < 1.2f);                    // fresh hit: ramp barely started
 }
+// #127003 move logger line: hit / miss / no attack, pad combo text.
+static void MoveFmt(void) {
+    char b[400]; SmMoveRec m; memset(&m, 0, sizeof m);
+    m.act = 0x2A31; m.ms = 500; m.windows = 1; m.landed = 0; m.startupF = 18; m.style = 0; m.btn = 0x0200 | 0x8000; m.rt = 255;
+    SmMoveFmt(b, sizeof b, &m);
+    CHECK(strstr(b, "act 0x2A31 (10801)") && strstr(b, "MISS") && strstr(b, "startup 18 f") && strstr(b, "Samurai") && strstr(b, "pad Y+RB+RT"));
+    m.landed = 2; m.soulForm = 1; m.style = 1; SmMoveFmt(b, sizeof b, &m);
+    CHECK(strstr(b, "HIT") && strstr(b, "Ninja") && strstr(b, "soul core form"));
+    m.windows = 0; m.landed = 0; m.startupF = -1; m.btn = 0; m.rt = 0; SmMoveFmt(b, sizeof b, &m);
+    CHECK(strstr(b, "no attack") && strstr(b, "startup - |") && strstr(b, "pad -"));
+}
 int main(void) {
-    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); Ramp();
+    Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Ramp();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
 }
