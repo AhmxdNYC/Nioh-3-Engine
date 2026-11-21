@@ -101,6 +101,10 @@ typedef struct { float k; int w, h, pad; } SmGeo;
 #define SM_LETTER_PCT 60
 #endif
 #define SM_LK ((float)SM_LETTER_PCT / 100.f)
+// #127242 the rank word under the letter is off (human: remove the words, bring the ranks closer to the meter). 1 brings the word row back.
+#ifndef SM_SHOW_WORD
+#define SM_SHOW_WORD 0
+#endif
 // tallest letter / word in the atlas: the letter and word rows are always this tall, so the word and gauge never move with the rank (#127152)
 static void SmAtlasMax(int* lw, int* lh, int* ww, int* wh) {
     *lw = *lh = *ww = *wh = 0;
@@ -116,7 +120,8 @@ static SmGeo SmGeom(int H) {
     const int gw = sm_atlas_gauge_bg[2] > ww ? sm_atlas_gauge_bg[2] : ww;
     const float lwk = lw * SM_LK;
     g.w = (int)((lwk > gw ? lwk : (float)gw) * g.k) + 2 * g.pad;
-    g.h = (int)((lh * SM_LK + wh + sm_atlas_gauge_bg[3] * SM_BAR_HK) * g.k) + 4 * g.pad;
+    g.h = SM_SHOW_WORD ? (int)((lh * SM_LK + wh + sm_atlas_gauge_bg[3] * SM_BAR_HK) * g.k) + 4 * g.pad
+                       : (int)((lh * SM_LK + sm_atlas_gauge_bg[3] * SM_BAR_HK) * g.k) + 2 * g.pad + g.pad / 3;  // letter, small gap, bar
     return g;
 }
 static void SmBlit(HDC dst, int x, int y, const int* r, int srcW, float k) {
@@ -236,8 +241,13 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         // #127149 no glow halo behind the letter (human did not like it)
         const float ks = kl * st->scale;
         SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
-        y += (int)rowL + g->pad;
-        SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y + (int)((mwh - W[3]) * g->k / 2.f), W, W[2], g->k, 255); y += (int)(mwh * g->k) + g->pad;
+        if (SM_SHOW_WORD) {
+            y += (int)rowL + g->pad;
+            SmBlitA(mem, (int)(mid - W[2] * g->k / 2.f + 0.5f), y + (int)((mwh - W[3]) * g->k / 2.f), W, W[2], g->k, 255); y += (int)(mwh * g->k) + g->pad;
+        } else {
+            (void)W; (void)mwh;
+            y += (int)rowL + g->pad / 3;  // #127242 no word: the letter sits just above the bar
+        }
         barX = (int)(mid - sm_atlas_gauge_bg[2] * g->k / 2.f + 0.5f); barY = y;
         barW = (int)(sm_atlas_gauge_bg[2] * g->k + 0.5f); barH = (int)(sm_atlas_gauge_bg[3] * g->k * SM_BAR_HK + 0.5f); if (barH < 4) barH = 4;
         gaugeBottom = y + barH + g->pad;
