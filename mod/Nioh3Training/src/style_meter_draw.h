@@ -151,14 +151,19 @@ typedef struct {
     SmPop pops[SM_POPS]; int npops;  // p[0] oldest
     double now; int lifeMs;
 } SmDrawSt;
-typedef struct { SmGeo g; int w, h, mx, my, pf, popH; } SmCanvas;
+// #127289 pop-up text size as a share of pf (human: in proportion with the shorter bar, #127273 SM_BAR_WK)
+#ifndef SM_POP_K
+#define SM_POP_K 0.72f
+#endif
+typedef struct { SmGeo g; int w, h, mx, my, pf, popH, pp; } SmCanvas;  // pp = pop-up font px
 static SmCanvas SmCanvasGeom(int H, int pops) {
     SmCanvas c; c.g = SmGeom(H);
     int lw = 0, lh = 0;
     for (int i = 0; i < SM_RANKS; ++i) { if (sm_atlas_letter[i][2] > lw) lw = sm_atlas_letter[i][2]; if (sm_atlas_letter[i][3] > lh) lh = sm_atlas_letter[i][3]; }
     const float letterPx = lh * c.g.k;
     c.pf = (int)(letterPx * 0.12f + 0.5f); if (c.pf < 10) c.pf = 10;
-    c.popH = pops ? (int)(c.pf * 1.25f) * SM_POPS + c.g.pad : 0;
+    c.pp = (int)(c.pf * SM_POP_K + 0.5f); if (c.pp < 9) c.pp = 9;
+    c.popH = pops ? (int)(c.pp * 1.25f) * SM_POPS + c.g.pad : 0;
     c.mx = (int)(lw * c.g.k * 0.10f) + (int)(10.f * (float)H / 1080.f) + 2;
     c.my = (int)(lh * c.g.k * 0.10f) + (int)(10.f * (float)H / 1080.f) + 2;
     c.w = c.g.w + 2 * c.mx; c.h = c.g.h + c.my + c.popH + c.my / 2;
@@ -274,13 +279,13 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
     GdiFlush();
     if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now);
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
-        const int TW = w, TH = (int)(c->pf * 1.25f);
+        const int TW = w, TH = (int)(c->pp * 1.25f);
         BITMAPINFO bi; memset(&bi, 0, sizeof bi);
         bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = TW; bi.bmiHeader.biHeight = -TH;
         bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
         uint32_t* tpx = 0; HDC tdc = CreateCompatibleDC(mem);
         HBITMAP tb = tdc ? CreateDIBSection(tdc, &bi, DIB_RGB_COLORS, (void**)&tpx, 0, 0) : 0;
-        HFONT fn = CreateFontW(-c->pf, 0, 0, 0, FW_HEAVY, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
+        HFONT fn = CreateFontW(-c->pp, 0, 0, 0, FW_HEAVY, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
         if (tb && tpx && fn) {
             HGDIOBJ ob = SelectObject(tdc, tb), of = SelectObject(tdc, fn);
             SetBkMode(tdc, TRANSPARENT); SetTextColor(tdc, RGB(255, 255, 255));
@@ -294,7 +299,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
                 SIZE s1 = {0, 0}, s2 = {0, 0}; GetTextExtentPoint32A(tdc, t, (int)strlen(t), &s1);
                 if (tb2[0]) GetTextExtentPoint32A(tdc, tb2, (int)strlen(tb2), &s2);
                 const int x0 = (TW - (int)(s1.cx + s2.cx)) / 2;  // whole line stays centred
-                const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;
+                const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pp * 0.8f), oy = gaugeBottom + line * TH;
                 for (int part = 0; part < 2; ++part) {  // #127179 bonus in its own colour
                     const char* str = part ? tb2 : t; if (!str[0]) continue;
                     memset(tpx, 0, (size_t)TW * TH * 4);
