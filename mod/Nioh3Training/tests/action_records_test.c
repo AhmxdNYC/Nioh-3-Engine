@@ -21,9 +21,12 @@ static int ToadCheck(const ArTable* table) {
     // human #123773 (668f1f12): 0x4E24 spawns object 47 (20047@174): type byte 1, no hitbox slot (+0x15 FF), no children, no components =
     // proven hit-free (AmObjMayHit 0), so its one own window counts. 20 -> 21 counted.
     const int s=AmFind(&t,0x4E24);assert(s>=0&&t.m[s].nwin==1&&t.m[s].hits==1&&!t.m[s].spawns&&!t.m[s].nohit);
+    // human #123773: 0x0C88 slot 1 is a damaging untimed row (element 50) that no object or component names: dead, so its one timed window
+    // counts. 21 -> 22 counted.
+    const int u=AmFind(&t,0xC88);assert(u>=0&&t.m[u].nwin==1&&t.m[u].hits==1&&!t.m[u].untimed);
     const int z=AmFind(&t,0xC68);assert(z>=0&&t.m[z].attack&&t.m[z].nohit&&!t.m[z].hits);  // human #126246: known 0 hits
     printf("Giant Toad: %d actions, %d joined the archive, hit count known %d before ArApply, %d after\n",na,joined,before,after);
-    assert(before==21&&after==21&&joined<=1);free(d);return after;
+    assert(before==22&&after==22&&joined<=1);free(d);return after;
 }
 int main(int argc,char** argv) {
     assert(argc==2); FILE* f=fopen(argv[1],"rb");assert(f);fseek(f,0,SEEK_END);long size=ftell(f);rewind(f);

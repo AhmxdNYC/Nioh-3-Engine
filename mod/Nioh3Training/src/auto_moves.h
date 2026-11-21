@@ -230,6 +230,30 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     // Data check (tools/hits/spawn_hits.c, 373 files): 513 attacks gain a count this way; where a same-motion sibling is counted with no spawn at
     // all, the counts are equal in 304 / 318 pairs (95.6 %; counted-vs-counted siblings agree 91.2 %, so these spawns carry no hit). Spawns whose
     // objects DO carry a damaging hitbox stay unknown: "own windows + one hit per object" matched the siblings in only 20 / 69 pairs.
+    // human #123773: an untimed row fires only through something that names (action id, slot): an object (sub-table 7 +0x12 / +0x15) or a hitbox
+    // component (sub-table 8 type 33, u16 +0x00 / +0x04). A damaging untimed row that nothing in the file names is a dead copy (Hino-enma 0x4E65 /
+    // 0x4E78 / 0x4E79: the untimed row duplicates a timed one; FRAMEPROBE live 1 / 1 / 1 hit = their own windows, notes/frame-probe-hino-22356.log),
+    // so it no longer blanks the count. Only when sub-tables 7 / 8 are in the image (same check as AmObjMayHit); otherwise every row may fire.
+    {
+        static uint8_t named[AM_MAXMOVES][AM_MAXROWS];
+        const uint32_t o0 = t->off[0], n7 = AmU16(d, o0 + 30), n8 = AmU16(d, o0 + 34);
+        const int ok = AmU16(d, o0 + 32) == 336 && n7 * 336u == t->len[7] && !(t->len[8] && (AmU16(d, o0 + 36) != 80 || n8 * 80u != t->len[8]));
+        if (ok) {
+            memset(named, 0, sizeof named);
+            for (uint32_t q = 0; q < n7; ++q) { const uint32_t b = t->off[7] + q * 336; const int r = AmFind(t, AmU16(d, b + 0x12)); if (r >= 0 && d[b + 0x15] < AM_MAXROWS) named[r][d[b + 0x15]] = 1; }
+            for (uint32_t c = 0; c < n8; ++c) { const uint32_t e = t->off[8] + c * 80; if (AmU16(d, e + 0x4C) != 33) continue; const int r = AmFind(t, AmU16(d, e)); const uint16_t s = AmU16(d, e + 4); if (r >= 0 && s < AM_MAXROWS) named[r][s] = 1; }
+            const uint32_t nhb = t->len[2] / AM_HB;
+            for (int r = 0; r < na; ++r) {
+                int u = 0;
+                for (int k = 0; k < nown[r]; ++k) {
+                    if (own[r][k] >= nhb) continue;  // as AmWindows
+                    const uint32_t b = t->off[2] + (uint32_t)own[r][k] * AM_HB;
+                    if (AmU16(d, b + 8) == 0xFFFF && (AmU16(d, b + 0x10) || AmU16(d, b + 0x12)) && named[r][k]) ++u;
+                }
+                t->m[r].untimed = (uint8_t)(u > 255 ? 255 : u);
+            }
+        }
+    }
     static uint8_t memo[65536]; memset(memo, 0, sizeof memo);
     for (int r = 0; r < na; ++r) {
         const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW; AmMove* m = &t->m[r]; int nonamb = 0;
