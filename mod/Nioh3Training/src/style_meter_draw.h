@@ -16,6 +16,12 @@ static float g_sm_letter_dx[SM_RANKS];
 // #127175 bar fill colour per rank (D grey .. SSS red). #127238 letters are now cream like the words, so the colours that used to be
 // read from the old letter sprites are kept here instead.
 static const uint32_t g_sm_rank_rgb[SM_RANKS] = {0xD8DEE6u, 0xD7DDE5u, 0xE6AD50u, 0xE58037u, 0xE64430u, 0xE64431u, 0xE63C2Au};
+// #127259 the bar fills in the letters' colour (cream, style/word_letters.py FILL 236,232,222), the same at every rank.
+// SM_BAR_RANK_RGB 1 brings back the per-rank colours above.
+#ifndef SM_BAR_RANK_RGB
+#define SM_BAR_RANK_RGB 0
+#endif
+#define SM_LETTER_RGB 0xECE8DEu
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
         const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
@@ -262,7 +268,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         gaugeBottom = c->my + g->h;
     }
     GdiFlush();
-    if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, g_sm_rank_rgb[rank], st->now);
+    if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now);
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
         const int TW = w, TH = (int)(c->pf * 1.25f);
         BITMAPINFO bi; memset(&bi, 0, sizeof bi);
