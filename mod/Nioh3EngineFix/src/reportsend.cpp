@@ -90,6 +90,42 @@ bool ReadAll(const wchar_t* path, std::string& out, size_t cap) {
     return ok != FALSE;
 }
 
+// human #128257: the Report box attaches the Player log (Training [Record] PlayerLog / PlayerClock, menu row #128100) so a hold or
+// slow-motion report carries the PAD / ACT / CLK timeline without the player sending Nioh3PlayerLog.txt by hand. Newest
+// kPlayerLogCap bytes (whole lines), placed before the settings sections: the 256 KB body trim cuts the snapshot's END (module
+// lists) first, so the log survives a large snapshot. No file (Player log never on) = snapshot unchanged.
+constexpr size_t kPlayerLogCap = 64 * 1024;
+std::string AttachPlayerLog(const std::string& snapshot, std::string log, bool cutFront, const char* fileTime) {
+    if (log.empty()) return snapshot;
+    if (cutFront) {  // the window starts mid-line: drop that partial line
+        const size_t nl = log.find('\n');
+        log.erase(0, nl == std::string::npos ? log.size() : nl + 1);
+        if (log.empty()) return snapshot;
+    }
+    char head[200];
+    snprintf(head, sizeof head, "\r\n-- player log (Nioh3PlayerLog.txt, %s%zu bytes, file written %s) --\r\n", cutFront ? "newest " : "",
+             log.size(), fileTime && fileTime[0] ? fileTime : "?");
+    std::string sec = head + log;
+    if (sec.back() != '\n') sec += "\r\n";
+    const size_t at = snapshot.find("\r\n-- mod settings (");
+    if (at == std::string::npos) return snapshot + sec;
+    return snapshot.substr(0, at) + sec + snapshot.substr(at);
+}
+std::string WithPlayerLog(const std::string& snapshot, const std::wstring& dir) {
+    const std::wstring path = dir + L"Nioh3PlayerLog.txt";
+    WIN32_FILE_ATTRIBUTE_DATA fa{};
+    if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &fa)) return snapshot;
+    const unsigned long long size = ((unsigned long long)fa.nFileSizeHigh << 32) | fa.nFileSizeLow;
+    std::string log;
+    if (!ReadAll(path.c_str(), log, kPlayerLogCap)) return snapshot;
+    char when[40] = {};
+    FILETIME lf{};
+    SYSTEMTIME st{};
+    if (FileTimeToLocalFileTime(&fa.ftLastWriteTime, &lf) && FileTimeToSystemTime(&lf, &st))
+        snprintf(when, sizeof when, "%04u-%02u-%02u %02u:%02u:%02u", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+    return AttachPlayerLog(snapshot, log, size > kPlayerLogCap, when);
+}
+
 bool WriteAll(const wchar_t* path, const std::string& data, bool append) {
     HANDLE h = CreateFileW(path, append ? FILE_APPEND_DATA : GENERIC_WRITE, FILE_SHARE_READ, nullptr, append ? OPEN_ALWAYS : CREATE_ALWAYS,
                            FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -230,6 +266,7 @@ DWORD WINAPI SendThread(LPVOID p) {
         ReadAll((std::wstring(g_dir) + L"Nioh3EngineFix-report-latest.txt").c_str(), snapshot, 200 * 1024);
 #endif
     if (snapshot.empty()) snapshot = "(no snapshot: [Debug] CrashReport is off or the writer failed)";
+    snapshot = WithPlayerLog(snapshot, g_dir);  // human #128257
     // 2. recent event log: mod log tails, newest last; then the menu input ring
     std::vector<std::string> events;
     TailLines(L"Nioh3ModEvents.jsonl", "Events", 60, events);
