@@ -7,6 +7,17 @@ static const GUID SM_CLSID_WICImagingFactory = {0xcacaf262, 0x9370, 0x4615, {0xa
 static const GUID SM_IID_IWICImagingFactory = {0xec5ec8a9, 0xc395, 0x4314, {0x9c, 0x77, 0x54, 0xd7, 0xa9, 0x35, 0xff, 0x70}};
 static const GUID SM_GUID_PBGRA = {0x6fddc324, 0x4e03, 0x4bfe, {0xb1, 0x85, 0x3d, 0x77, 0x76, 0x8d, 0xc9, 0x10}};
 static HDC g_sm_atlas_dc; static HBITMAP g_sm_atlas_bmp;
+// #127157 per-letter horizontal shift (atlas px) from the sprite box centre to the centre of its solid ink (alpha > 200), measured
+// from the decoded atlas: SS / SSS have a faint slash trail on one side, so box-centred they looked off-centre over the bar.
+static float g_sm_letter_dx[SM_RANKS];
+static void SmLetterInk(const uint8_t* px, UINT w) {
+    for (int i = 0; i < SM_RANKS; ++i) {
+        const int* L = sm_atlas_letter[i]; int lo = -1, hi = -1;
+        for (int x = 0; x < L[2]; ++x) for (int y = 0; y < L[3]; ++y)
+            if (px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4 + 3] > 200) { if (lo < 0) lo = x; hi = x; break; }
+        g_sm_letter_dx[i] = lo < 0 ? 0.f : (float)L[2] / 2.f - (float)(lo + hi) / 2.f;
+    }
+}
 // Decode the embedded atlas into a premultiplied BGRA top-down DIB (the AlphaBlend source). Returns 1 on success.
 static int SmAtlasLoad(void) {
     typedef HRESULT (WINAPI *CoInitFn)(LPVOID, DWORD);
@@ -36,7 +47,7 @@ static int SmAtlasLoad(void) {
         g_sm_atlas_dc = CreateCompatibleDC(scr); ReleaseDC(0, scr);
         if (g_sm_atlas_bmp && px && g_sm_atlas_dc) {
             hr = IWICFormatConverter_CopyPixels(cv, 0, w * 4, w * 4 * h, (BYTE*)px);
-            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); ok = 1; }
+            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); SmLetterInk((const uint8_t*)px, w); ok = 1; }
         }
     } else if (SUCCEEDED(hr)) hr = E_FAIL;
     if (cv) IWICFormatConverter_Release(cv);
@@ -141,7 +152,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         const int* L = sm_atlas_letter[rank]; const int* W = sm_atlas_word[rank];
         int mlw, mlh, mww, mwh; SmAtlasMax(&mlw, &mlh, &mww, &mwh);
         // #127152 fixed rows: letter row = tallest letter, word row = tallest word; each letter sits on the row's bottom line
-        const float kl = g->k * SM_LK, rowL = mlh * kl, cx = mid, cy = y + rowL - L[3] * kl / 2.f;
+        const float kl = g->k * SM_LK, rowL = mlh * kl, cx = mid + g_sm_letter_dx[rank] * kl * st->scale, cy = y + rowL - L[3] * kl / 2.f;
         // #127149 no glow halo behind the letter (human did not like it)
         const float ks = kl * st->scale;
         SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
@@ -178,7 +189,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             for (int i = st->npops - 1; i >= 0; --i) {
                 float in = 1.f; const float a = SmPopAlpha(&st->pops[i], st->now, st->lifeMs, &in);
                 if (a <= 0.f) continue;
-                char t[48]; snprintf(t, sizeof t, "%s +%.0f", st->pops[i].label, st->pops[i].pts);
+                char t[48]; snprintf(t, sizeof t, "%s x%d +%.0f", st->pops[i].label, st->pops[i].count > 0 ? st->pops[i].count : 1, st->pops[i].pts);  // #127166 how many, then points
                 memset(tpx, 0, (size_t)TW * TH * 4);
                 RECT r = {0, 0, TW, TH}; DrawTextA(tdc, t, -1, &r, DT_CENTER | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
                 const int ox = (int)(mid - TW / 2.f) + (int)((1.f - in) * c->pf * 0.8f), oy = gaugeBottom + line * TH;

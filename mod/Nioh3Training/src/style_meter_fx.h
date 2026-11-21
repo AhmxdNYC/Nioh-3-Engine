@@ -20,7 +20,7 @@
 #define SM_GLOW_PERIOD_MS 1100
 #define SM_EASE_TAU_MS 90
 
-typedef struct { char label[24]; float pts; double t0, tLast; } SmPop;
+typedef struct { char label[24]; float pts; int count; double t0, tLast; } SmPop;  // count: times this bonus merged in (#127166)
 typedef struct { SmPop p[SM_POPS]; int n; } SmPopQ;  // p[0] = oldest
 
 static inline void SmPopPrune(SmPopQ* q, double t, int lifeMs) {
@@ -32,13 +32,13 @@ static inline void SmPopPush(SmPopQ* q, const char* label, float pts, double t, 
     SmPopPrune(q, t, lifeMs);
     for (int i = 0; i < q->n; ++i)
         if (!strcmp(q->p[i].label, label) && t - q->p[i].tLast < SM_POP_MERGE_MS) {  // same bonus again: add to it, move it to the top
-            SmPop m = q->p[i]; m.pts += pts; m.tLast = t;
+            SmPop m = q->p[i]; m.pts += pts; m.count++; m.tLast = t;
             for (int j = i; j + 1 < q->n; ++j) q->p[j] = q->p[j + 1];
             q->p[q->n - 1] = m; return;
         }
     if (q->n == SM_POPS) { for (int j = 0; j + 1 < q->n; ++j) q->p[j] = q->p[j + 1]; q->n--; }
     SmPop* p = &q->p[q->n++]; memset(p, 0, sizeof *p);
-    strncpy(p->label, label, sizeof p->label - 1); p->pts = pts; p->t0 = p->tLast = t;
+    strncpy(p->label, label, sizeof p->label - 1); p->pts = pts; p->count = 1; p->t0 = p->tLast = t;
 }
 // 0..1 opacity of a line last refreshed at tLast; *in = 0..1 pop-in progress (slide / scale).
 static inline float SmPopAlpha(const SmPop* p, double t, int lifeMs, float* in) {
