@@ -64,7 +64,8 @@ static inline float SmBounce(double dt) {
 //   impact            white flash on the new letter (and bar), a sword-slash streak across it, the meter shakes
 //   impact..+140      small settle squash, then rest.
 #define SM_UP_IMPACT 190
-#define SM_UP_MS 820   // #127304 room for sparks / ring / embers after the impact
+#define SM_UP_HOLD 70   // #127323 hit-stop: the rank-up freezes this long at the impact (letter white-hot)
+#define SM_UP_MS 900   // #127304 room for sparks / ring / embers after the impact (+ the #127323 hit-stop)
 #define SM_UP_BIG 1.75f
 typedef struct { float ns, na, os, oa, ody, flash, slash, shx, shy, imp; } SmUpFx;  // imp = ms since impact (<0 before)  // new scale/alpha, old scale/alpha/rise (1080p px), flash 0..1, slash progress (<0 none), impact shake
 static inline SmUpFx SmRankUp(double dt) {
@@ -81,7 +82,7 @@ static inline SmUpFx SmRankUp(double dt) {
     if (e < 140) f.ns = (float)(1.0 - 0.07 * sin(e / 140.0 * 3.14159265358979) * (1.0 - e / 140.0));
     if (e < 240) f.flash = (float)(1.0 - e / 240.0);
     if (e < 200) f.slash = (float)(e / 200.0);
-    if (e < 220) { const double a = 11.0 * (1.0 - e / 220.0); f.shx = (float)(a * sin(e * 0.21)); f.shy = (float)(a * 0.7 * cos(e * 0.27)); }
+    if (e < 220) { const double a = 18.0 * (1.0 - e / 220.0); f.shx = (float)(a * sin(e * 0.21)); f.shy = (float)(a * 0.7 * cos(e * 0.27)); }
     return f;
 }
 // #127304 each rank gets its own rank-up, building up as you climb (index = the rank reached, 1 = C .. 6 = SSS):

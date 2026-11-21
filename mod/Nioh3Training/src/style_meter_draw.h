@@ -165,8 +165,8 @@ static SmCanvas SmCanvasGeom(int H, int pops) {
     c.pf = (int)(letterPx * 0.12f + 0.5f); if (c.pf < 10) c.pf = 10;
     c.pp = (int)(c.pf * SM_POP_K + 0.5f); if (c.pp < 9) c.pp = 9;
     c.popH = pops ? (int)(c.pp * 1.25f) * SM_POPS + c.g.pad : 0;
-    c.mx = (int)(lw * c.g.k * 0.34f) + (int)(10.f * (float)H / 1080.f) + 2;
-    c.my = (int)(lh * c.g.k * 0.34f) + (int)(10.f * (float)H / 1080.f) + 2;
+    c.mx = (int)(lw * c.g.k * 0.5f) + (int)(10.f * (float)H / 1080.f) + 2;
+    c.my = (int)(lh * c.g.k * 0.5f) + (int)(10.f * (float)H / 1080.f) + 2;
     c.w = c.g.w + 2 * c.mx; c.h = c.g.h + c.my + c.popH + c.my / 2;
     return c;
 }
@@ -251,20 +251,22 @@ static void SmFlashRect(uint32_t* px, int w, int h, int x0, int y0, int rw, int 
 }
 // #127299 sword-slash streak across the letter: a thin bright cut sweeping lower-left -> upper-right, tapered tail, fades at the end
 static void SmSlash(uint32_t* px, int w, int h, float cx, float cy, float lw, float lh, float s, float unit, float tilt) {
-    const float ax = cx - lw * 0.75f, ay = cy + lh * tilt, bx = cx + lw * 0.75f, by = cy - lh * tilt;
+    // #127323 thicker blade (scales with the letter) with a warm glow edge, reaching well past the letter
+    const float ax = cx - lw * 1.0f, ay = cy + lh * tilt * 1.33f, bx = cx + lw * 1.0f, by = cy - lh * tilt * 1.33f;
     const float dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy, len = sqrtf(len2);
     if (len2 <= 1.f) return;
-    const float head = s * 1.25f, tail = head - 0.45f, wmax = 3.2f * unit + 0.8f, fade = s < 0.7f ? 1.f : (1.f - s) / 0.3f;
+    const float head = s * 1.25f, tail = head - 0.45f, wmax = lh * 0.05f + 1.5f * unit + 1.f, fade = s < 0.7f ? 1.f : (1.f - s) / 0.3f;
     const int x0 = (int)(ax - wmax - 2), x1 = (int)(bx + wmax + 2), y0 = (int)((by < ay ? by : ay) - wmax - 2), y1 = (int)((ay > by ? ay : by) + wmax + 2);
     for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
         const float p = ((xx - ax) * dx + (yy - ay) * dy) / len2;
         if (p < tail || p > head || p < 0.f || p > 1.f) continue;
         const float d = fabsf((xx - ax) * dy - (yy - ay) * dx) / len;
-        const float wd = wmax * (p - tail) / (head - tail);
-        if (d >= wd) continue;
-        const float a = (1.f - d / wd) * fade;
+        const float wd = wmax * (p - tail) / (head - tail), gw = wd * 1.7f;
+        if (d >= gw) continue;
+        if (d >= wd) { const float a = (1.f - (d - wd) / (gw - wd)) * 0.55f * fade; if (a > 0.f) SmPxOver(&px[yy * w + xx], 255, 205, 120, (unsigned)(a * 255.f)); continue; }
+        const float a = (1.f - 0.35f * d / wd) * fade;
         if (a <= 0.f) continue;
-        SmPxOver(&px[yy * w + xx], 255, 250, 236, (unsigned)(a * 255.f));
+        SmPxOver(&px[yy * w + xx], 255, 252, 240, (unsigned)(a * 255.f));
     }
 }
 // #127304 parry sparks: hot streaks flung out of the impact point, pulled down by gravity, white -> orange -> red as they cool.
@@ -278,11 +280,11 @@ static void SmSparks(uint32_t* px, int w, int h, float cx, float cy, float e, in
             vx = (SmRand01(seed, i, 2) - 0.5f) * 140.f; vy = -(90.f + 150.f * SmRand01(seed, i, 3)); g = -60.f;
         } else {        // sparks: mostly sideways fan (a blade-on-blade spray), some up
             const float a = (SmRand01(seed, i, 2) - 0.5f) * 2.6f + (i & 1 ? 3.14159f : 0.f);
-            const float v = 380.f + 420.f * SmRand01(seed, i, 3); vx = cosf(a) * v; vy = sinf(a) * v * 0.75f - 120.f; g = 900.f;
+            const float v = 520.f + 560.f * SmRand01(seed, i, 3); vx = cosf(a) * v; vy = sinf(a) * v * 0.75f - 120.f; g = 900.f;
         }
         const float ox = embers ? (SmRand01(seed, i, 4) - 0.5f) * 80.f : 0.f, oy = embers ? 30.f : 0.f;
         const float x = cx + (ox + vx * t) * unit, y = cy + (oy + vy * t + 0.5f * g * t * t) * unit;
-        const float cvx = vx, cvy = vy + g * t, tl = embers ? 0.02f : 0.05f;  // streak length = velocity x tl
+        const float cvx = vx, cvy = vy + g * t, tl = embers ? 0.03f : 0.07f;  // streak length = velocity x tl
         const float x2 = x - cvx * tl * unit, y2 = y - cvy * tl * unit;
         const float u = t * 1000.f / life, al = (1.f - u * u);
         unsigned r, gg, b;
@@ -292,22 +294,24 @@ static void SmSparks(uint32_t* px, int w, int h, float cx, float cy, float e, in
         const float len = sqrtf((x - x2) * (x - x2) + (y - y2) * (y - y2)); const int steps = (int)len + 1;
         for (int k = 0; k <= steps; ++k) {
             const float q = (float)k / steps, px0 = x2 + (x - x2) * q, py0 = y2 + (y - y2) * q;
-            const int ix = (int)px0, iy = (int)py0; if (ix < 0 || iy < 0 || ix + 1 >= w || iy + 1 >= h) continue;
+            const int ix = (int)px0, iy = (int)py0; if (ix < 1 || iy < 1 || ix + 1 >= w || iy + 1 >= h) continue;
             const unsigned a = (unsigned)(al * (0.35f + 0.65f * q) * 255.f);  // brighter head, faint tail
-            SmPxOver(&px[iy * w + ix], r, gg, b, a);
+            SmPxOver(&px[iy * w + ix], r, gg, b, a);  // #127323 3 px thick: reads at 1080p
             SmPxOver(&px[iy * w + ix + 1], r, gg, b, a * 3 / 4); SmPxOver(&px[(iy + 1) * w + ix], r, gg, b, a * 3 / 4);
+            SmPxOver(&px[iy * w + ix - 1], r, gg, b, a / 2); SmPxOver(&px[(iy - 1) * w + ix], r, gg, b, a / 2);
         }
     }
 }
 // #127304 ki shockwave ring: thin pale-blue ring expanding out of the letter, thinning and fading
-static void SmRing(uint32_t* px, int w, int h, float cx, float cy, float e, float r0, float unit) {
+static void SmRing(uint32_t* px, int w, int h, float cx, float cy, float e, float r0, float unit, uint32_t rgb) {
     const float dur = 360.f; if (e < 0.f || e >= dur) return;
-    const float u = e / dur, R = r0 * (0.5f + 1.3f * (1.f - (1.f - u) * (1.f - u))), th = (5.f * (1.f - u) + 1.f) * unit, al = (1.f - u) * 0.9f;
+    const float u = e / dur, R = r0 * (0.5f + 1.3f * (1.f - (1.f - u) * (1.f - u))), th = (11.f * (1.f - u) + 2.f) * unit, al = (1.f - u) * 0.95f;
     const int x0 = (int)(cx - R - th - 1), x1 = (int)(cx + R + th + 1), y0 = (int)(cy - R * 0.55f - th - 1), y1 = (int)(cy + R * 0.55f + th + 1);
     for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
         const float dx = xx - cx, dy = (yy - cy) / 0.55f, d = fabsf(sqrtf(dx * dx + dy * dy) - R);  // flattened ellipse: a ring on the ground plane
         if (d >= th) continue;
-        SmPxOver(&px[yy * w + xx], 205, 232, 255, (unsigned)((1.f - d / th) * al * 255.f));
+        const float q = 1.f - d / th;  // white-hot core, ring colour at the edges
+        SmPxOver(&px[yy * w + xx], SmMix((rgb >> 16) & 0xFF, 255, q * q), SmMix((rgb >> 8) & 0xFF, 255, q * q), SmMix(rgb & 0xFF, 255, q * q), (unsigned)(q * al * 255.f));
     }
 }
 // ---- #127315 a different rank-up motion per rank (human: "sort of reused same transition") -----------------------------
@@ -398,6 +402,30 @@ static void SmSplatter(uint32_t* px, int w, int h, int x0, int y0, int rw, int r
         }
     }
 }
+// #127323 impact burst ("still don't feel super cool"): thick tapered light rays shooting out of the letter, white at the root ->
+// rank colour at the tips, plus a soft core flash; drawn BEHIND the letters. e = ms since impact, R = ray reach (canvas px).
+static void SmBurst(uint32_t* px, int w, int h, float cx, float cy, float e, float R, int n, unsigned seed, uint32_t rgb, float dur) {
+    if (e < 0.f || e >= dur || n <= 0) return;
+    const float grow = 1.f - expf(-e / 45.f), fu = e < 110.f ? 0.f : (e - 110.f) / (dur - 110.f), al = (1.f - fu) * (1.f - fu), sq = 0.72f, TAU = 6.2831853f;  // full size within ~0.1 s, holds, then fades
+    const unsigned cr = (rgb >> 16) & 0xFF, cg = (rgb >> 8) & 0xFF, cb = rgb & 0xFF;
+    const float Rm = R * grow, core = R * 0.42f * (0.6f + 0.4f * grow);
+    const int x0 = (int)(cx - Rm - 1), x1 = (int)(cx + Rm + 1), y0 = (int)(cy - Rm * sq - 1), y1 = (int)(cy + Rm * sq + 1);
+    for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; ++yy) for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; ++xx) {
+        const float dx = xx - cx, dy = (yy - cy) / sq, d = sqrtf(dx * dx + dy * dy); if (d >= Rm) continue;
+        float a = 0.f; unsigned r = 255, g = 255, b = 255;
+        if (d < core) a = (1.f - d / core) * 0.85f * al;  // core flash
+        const float ang = atan2f(dy, dx) + 3.14159265f; const int k = (int)(ang / TAU * n) % n;
+        const float ac = ((float)k + 0.3f + 0.4f * SmRand01(seed, (unsigned)k, 1)) / n * TAU;
+        const float L = Rm * (0.5f + 0.5f * SmRand01(seed, (unsigned)k, 2));
+        if (d < L) {
+            const float t = d / L, hw = (0.6f + 0.5f * SmRand01(seed, (unsigned)k, 3)) * (3.14159265f / n) * sqrtf(1.f - t);
+            float da = fabsf(ang - ac); if (da > 3.14159265f) da = TAU - da;
+            if (da < hw) { const float ra = (1.f - da / hw) * (1.f - t * 0.6f) * al;
+                if (ra > a) { a = ra; r = SmMix(255, cr, t); g = SmMix(255, cg, t); b = SmMix(255, cb, t); } }
+        }
+        if (a > 0.f) SmPxOver(&px[yy * w + xx], r, g, b, (unsigned)((a > 1.f ? 1.f : a) * 255.f));
+    }
+}
 typedef struct { HDC mem; uint32_t* px; int w, h; float mid, rowBottom, kl, unit; } SmLetterCtx;
 static void SmLetterCentre(const SmLetterCtx* x, int r, float* cx, float* cy) {
     const int* L = sm_atlas_letter[r]; *cx = x->mid + g_sm_letter_dx[r] * x->kl; *cy = x->rowBottom - L[3] * x->kl / 2.f;
@@ -411,20 +439,30 @@ static void SmLetterAt(const SmLetterCtx* x, int r, float dx, float dy, float s,
 }
 static inline float SmClamp01(float v) { return v < 0.f ? 0.f : v > 1.f ? 1.f : v; }
 // dt = ms since the shown rank stepped up from prev to r. Returns 0 when no transition is running (caller draws the letter at rest).
-static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt) {
-    if (dt < 0.f || dt >= SM_UP_MS || prev < 0 || prev >= SM_RANKS || prev == r) return 0;
-    uint32_t* px = x->px; const int w = x->w, h = x->h; const float u = x->unit; int rc[4], ro[4];
+// #127323 per rank: impact time (ms into the motion), burst colour, ray count, reach (x letter height), echo count
+static const struct { float t; uint32_t rgb; int rays; float reach; int echoes; } sm_up_hit[SM_RANKS] = {
+    {150, 0xFFFFFFu, 10, 1.0f, 0}, {150, 0xFFC860u, 12, 1.15f, 0}, {130, 0xFFE6C8u, 14, 1.2f, 0}, {280, 0xE0202Au, 14, 1.25f, 0},
+    {160, 0x8CCBFFu, 18, 1.35f, 0}, {210, 0xFFD27Au, 20, 1.45f, 0}, {350, 0xFF4A1Eu, 24, 1.6f, 0},
+};
+static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
+    if (dt0 < 0.f || dt0 >= SM_UP_MS || prev < 0 || prev >= SM_RANKS || prev == r || r < 1 || r >= SM_RANKS) return 0;
+    uint32_t* px = x->px; const int w = x->w, h = x->h; const float u = x->unit; int rc[4] = {0, 0, 0, 0}, ro[4];
     float cx, cy; SmLetterCentre(x, r, &cx, &cy); const float S = x->kl * sm_atlas_letter[r][3];  // letter height in canvas px
+    // #127323 hit-stop: the whole motion freezes for SM_UP_HOLD ms at the impact (the letter goes white-hot), then plays on
+    const float T = sm_up_hit[r].t, ie = dt0 - T;
+    const float dt = dt0 < T ? dt0 : dt0 < T + SM_UP_HOLD ? T : dt0 - SM_UP_HOLD;
+    if (ie >= 0.f) { GdiFlush(); SmBurst(px, w, h, cx, cy, ie, S * sm_up_hit[r].reach, sm_up_hit[r].rays, 0x9Bu + (unsigned)r, sm_up_hit[r].rgb, 380.f + 40.f * r); }
     switch (r) {
     case 1: {  // C: parry clang - the new letter strikes in from the right, knocks the old one away, sparks at the contact point
         const float hit = 150.f, e = dt - hit;
-        if (dt < hit) SmLetterAt(x, prev, 0, 0, 1, 1, 0);
-        else SmLetterAt(x, prev, -e * 0.9f * u, e * e * 0.0009f * u, 1, 1.f - e / 260.f, 0);
         const float nd = dt < hit ? (1.f - dt / hit) * (1.f - dt / hit) * 1.4f * S : (e < 120.f ? 0.07f * S * sinf(e / 120.f * 3.14159f) : 0.f);
+        const float push = -0.8f * S * SmClamp01(1.f - nd / (0.8f * S));  // #127323 the C shoves the D aside as it lands (blades meet, no overlap)
+        if (dt < hit) SmLetterAt(x, prev, push, 0, 1, 1, 0);
+        else SmLetterAt(x, prev, push - e * 0.9f * u, e * e * 0.0009f * u, 1, 1.f - e / 260.f, 0);
         SmLetterAt(x, r, nd, 0, 1, 1, rc); GdiFlush();
         if (e >= 0.f) { SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFFFFFFu, 0.75f * (1.f - e / 180.f));
-            SmSparks(px, w, h, (float)rc[0] + 4.f * u, cy, e, 36, 0xC1u, u, 0); }
-        return 1; }
+            SmSparks(px, w, h, (float)rc[0] + 4.f * u, cy, e, 64, 0xC1u, u, 0); }
+        break; }
     case 2: {  // B: clean cut - a slash cuts the old letter in two, the halves slide apart, the new letter fades in behind
         const float cut = 130.f;
         SmLetterAt(x, prev, 0, 0, 1, 1, ro); GdiFlush();
@@ -433,8 +471,8 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt) {
         const float na = SmClamp01((dt - 100.f) / 240.f);
         SmLetterAt(x, r, 0, 0, 0.92f + 0.08f * na, na, rc); GdiFlush();
         if (dt < cut + 60.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / (cut + 60.f), u, 0.30f);
-        if (dt >= cut) SmSparks(px, w, h, pcx, pcy, dt - cut, 14, 0xB2u, u, 0);
-        return 1; }
+        if (dt >= cut) SmSparks(px, w, h, pcx, pcy, dt - cut, 40, 0xB2u, u, 0);
+        break; }
     case 3: {  // A: ink brush - the new letter is painted in left to right with wet red ink and splatter; the old one sinks away
         const float paint = 280.f;
         SmLetterAt(x, r, 0, 0, 1, 1, rc); GdiFlush();
@@ -443,44 +481,55 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt) {
         else SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0x961218u, 0.55f * (1.f - (dt - paint) / 200.f));
         SmSplatter(px, w, h, rc[0], rc[1], rc[2], rc[3], front, dt, u);
         SmLetterAt(x, prev, 0, dt * 0.12f * u, 1, 1.f - dt / 150.f, 0);
-        return 1; }
+        break; }
     case 4: {  // S: ki burst - the old letter is drawn into a shrinking ring of ki, then the S bursts out blue-white with a shockwave
         const float gather = 160.f, e = dt - gather;
         if (dt < gather) { const float q = dt / gather;
             SmLetterAt(x, prev, 0, 0, 1.f - 0.8f * q, 1.f - q, 0); GdiFlush();
-            SmRing(px, w, h, cx, cy, (1.f - q) * 220.f, S * 0.9f, u);
-            return 1; }
+            SmRing(px, w, h, cx, cy, (1.f - q) * 220.f, S * 0.9f, u, 0x8CCBFFu);
+            break; }
         const float sc = e < 110.f ? 0.3f + 0.88f * (e / 110.f) : e < 260.f ? 1.18f - 0.18f * ((e - 110.f) / 150.f) : 1.f;
         SmLetterAt(x, r, 0, 0, sc, 1, rc); GdiFlush();
         SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0x96CDFFu, 0.85f * (1.f - e / 420.f));
-        SmRing(px, w, h, cx, cy, e, S * 0.75f, u);
-        return 1; }
+        SmRing(px, w, h, cx, cy, e, S * 0.85f, u, 0x8CCBFFu);
+        break; }
     case 5: {  // SS: double strike - two fast cross cuts, the old letter flickers out, the SS strobes in white-hot with sparks
         const float in = 210.f, e = dt - in;
         if (dt < in) { const int on = dt < 100.f || ((int)(dt / 28.f) & 1); SmLetterAt(x, prev, 0, 0, 1, on ? 1.f : 0.35f, ro); GdiFlush();
             float pcx, pcy; SmLetterCentre(x, prev, &pcx, &pcy);
             if (dt < 120.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], dt / 120.f, u, 0.30f);
             if (dt >= 90.f) SmSlash(px, w, h, pcx, pcy, (float)ro[2], (float)ro[3], (dt - 90.f) / 120.f, u, -0.30f);
-            return 1; }
+            break; }
         const int on = e < 40.f || (e >= 70.f && e < 130.f) || e >= 150.f;
         SmLetterAt(x, r, 0, 0, 1, on ? 1.f : 0.f, rc); GdiFlush();
         if (on) SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFFFFFFu, 0.9f * (1.f - e / 320.f));
-        SmSparks(px, w, h, cx, cy, e, 44, 0x55u, u, 0);
-        return 1; }
+        SmSparks(px, w, h, cx, cy, e, 72, 0x55u, u, 0);
+        break; }
     default: {  // SSS: demon shatter - the old letters burst into glowing shards, the SSS rises red-hot out of the embers,
                 //      triple cut + shockwave, cooling to cream
         if (dt < 420.f) { SmLetterAt(x, prev, 0, 0, 1, 1, ro); GdiFlush(); SmShatterRect(px, w, h, ro[0], ro[1], ro[2], ro[3], dt, u); }
-        const float e = dt - 150.f; if (e < 0.f) return 1;
+        const float e = dt - 150.f; if (e < 0.f) break;
         const float rise = 1.f - SmClamp01(e / 240.f);
         SmLetterAt(x, r, 0, rise * rise * 0.8f * S, 1, SmClamp01(e / 90.f), rc); GdiFlush();
         SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFF4A1Eu, 0.9f * SmClamp01(1.f - (e - 120.f) / 480.f));
         if (e >= 200.f) { const float f = e - 200.f; static const float tl[3] = {0.30f, -0.30f, 0.04f};
-            SmRing(px, w, h, cx, cy, f, S * 0.8f, u);
+            SmRing(px, w, h, cx, cy, f, S * 0.95f, u, 0xFF6A2Au);
             for (int k = 0; k < 3; ++k) { const float s = (f - 60.f * k) / 180.f; if (s >= 0.f && s < 1.f) SmSlash(px, w, h, cx, cy, (float)rc[2], (float)rc[3], s, u, tl[k]); } }
-        SmSparks(px, w, h, cx, cy + S * 0.35f, e, 30, 0xE3BE25u, u, 1);
-        if (e >= 200.f) SmSparks(px, w, h, cx, cy, e - 200.f, 40, 0x66u, u, 0);
-        return 1; }
+        SmSparks(px, w, h, cx, cy + S * 0.35f, e, 48, 0xE3BE25u, u, 1);
+        if (e >= 200.f) SmSparks(px, w, h, cx, cy, e - 200.f, 80, 0x66u, u, 0);
+        break; }
     }
+    // #127323 impact layer on the new letter: pure white silhouette during the hit-stop, then cooling; afterimage echoes expand out of it
+    if (ie >= 0.f && rc[2] > 0) {
+        GdiFlush();
+        const float wf = ie < SM_UP_HOLD ? 1.f : 1.f - (ie - SM_UP_HOLD) / 160.f;
+        if (wf > 0.f) SmTintRect(px, w, h, rc[0], rc[1], rc[2], rc[3], 0xFFFFFFu, wf);
+        for (int k = 0; k < sm_up_hit[r].echoes; ++k) {
+            const float q = (ie - SM_UP_HOLD * 0.5f - 70.f * k) / 300.f; if (q < 0.f || q >= 1.f) continue;
+            SmLetterAt(x, r, 0, 0, 1.f + (0.55f + 0.15f * k) * (1.f - (1.f - q) * (1.f - q)), 0.55f * (1.f - q) * (1.f - q), 0);
+        }
+    }
+    return 1;
 }
 // Draws into mem / px (w x h, cleared here). Sprites when the atlas decoded, else the plain text fallback (no motion on the fallback letter).
 static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* st) {
