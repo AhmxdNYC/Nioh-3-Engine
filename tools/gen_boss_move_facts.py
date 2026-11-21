@@ -155,8 +155,9 @@ def generate():
             if not (x['attack'] or x['n_rows'] or x['unblockable']):
                 continue
             hits = x['hits'] if isinstance(x['hits'], int) else 0
-            if [sp for sp in x['spawns'].split() if sp not in ambient and obj_may_hit(d, st, owned, rowof, 20000 + int(sp.split('@')[0]), memo)]                     or x['untimed_rows']:
+            if [sp for sp in x['spawns'].split() if sp not in ambient and obj_may_hit(d, st, owned, rowof, 20000 + int(sp.split('@')[0]), memo)]                     or x['untimed_dmg_rows']:
                 hits = 0  # spawned objects / projectiles add hits that are not in the file: total unknown, not guessed
+                # human #123773: an untimed row with power and element 0 deals no damage whoever fires it (auto_moves.h AmWindows)
             # other bosses rarely set the +0x13C / +0x142 attack block (Hino-enma: most real attacks do not): a timed hit window counts too
             atk = int(bool(x['attack'] or (chr_id != 16102 and (x['hits'] or x['unblockable']))))
             lines.append('    {%du, %su, %d, %d, %d},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], atk))

@@ -1,4 +1,5 @@
 // human #123773: boss hit-count coverage survey over data/extract/lfm/archive_01 (arg 1 = file list). 2026-11-20: 373 files, 6251/8251 attacks counted; gap 844 spawn, 346 untimed, 116 both, 694 no own rows.
+// 2026-11-20 (pc2/hits-gap-126228): damaging-untimed rule -> 6873/8251; gap 285 spawn, 245 untimed, 88 both, 760 no own timed rows.
 #include <stdio.h>
 #include <stdlib.h>
 #include "../../mod/Nioh3Training/src/auto_moves.h"

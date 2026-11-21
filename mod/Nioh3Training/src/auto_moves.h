@@ -85,7 +85,9 @@ static int AmWindows(const uint8_t* d, const AmTable* t, const uint16_t* idx, in
         if (idx[i] >= nhb) continue;
         const uint32_t b = t->off[2] + (uint32_t)idx[i] * AM_HB;
         const uint16_t st = AmU16(d, b + 8), ef = AmU16(d, b + 0xA), ln = AmU16(d, b + 0xC);
-        if (st == 0xFFFF) { ++*untimed; continue; }
+        // human #123773: an untimed row fires only when something names (action, slot); one with power and element 0 deals no damage
+        // whoever fires it (the rule timed rows and spawned objects already follow), so only damaging untimed rows make the count unknown.
+        if (st == 0xFFFF) { if (AmU16(d, b + 0x10) || AmU16(d, b + 0x12)) ++*untimed; continue; }
         AmWin w = {st, (uint16_t)(ef != 0xFFFF ? ef : st + ln), AmU16(d, b + 0x10), AmU16(d, b + 0x12), AmHitGroup(d, b), idx[i], 1};
         if (w.pow || w.elem) rows[nr++] = w;
     }

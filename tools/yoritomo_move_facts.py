@@ -146,7 +146,7 @@ def facts(path):
             'static_hits': static_hits,
             'hit_source': 'player observation #40826' if observed is not None else 'static window estimate',
             'windows': ' '.join('%d-%d(%d/%d)' % (w['start'], w['end'], w['pow'], w['elem']) for w in win),
-            'spawns': ' '.join('%d@%d' % s for s in spawns), 'untimed_rows': len(untimed), 'zero_power_rows': len(zero),
+            'spawns': ' '.join('%d@%d' % s for s in spawns), 'untimed_rows': len(untimed), 'untimed_dmg_rows': sum(1 for h in untimed if h['pow'] or h['elem']), 'zero_power_rows': len(zero),
             'n_rows': len(rows), 'how': how, 'hits_upper_bound': uncertain(win),
         }
 

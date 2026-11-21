@@ -11,7 +11,7 @@ typedef struct {
     uint8_t fact;      // listed in boss_move_facts.h style: block || own hitbox rows || great
     uint8_t hits;      // archive hit count when record_known; otherwise the runtime hit windows (AmRuntimeHits), 0 = unknown
     uint8_t nwin;      // raw hit windows (before the spawn / untimed rule)
-    uint8_t nrows, untimed, spawns;  // own hitbox rows, untimed (spawned-object) rows, non-ambient spawn events whose object may hit (AmObjMayHit)
+    uint8_t nrows, untimed, spawns;  // own hitbox rows, damaging untimed (spawned-object) rows, non-ambient spawn events whose object may hit (AmObjMayHit)
     uint8_t link;      // next is a real move (not idle, not self): a sequence link, as in boss_sequences.h
     uint8_t loop;      // the next action repeats itself (looping middle part)
     char kind;
