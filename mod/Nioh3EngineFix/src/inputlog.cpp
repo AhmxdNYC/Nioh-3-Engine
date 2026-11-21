@@ -68,6 +68,8 @@ long long Stamp() {  // a down timestamp; never 0 so 0 can mean "not down"
 }
 long long HeldSince(long long downAt) { return downAt > 0 ? Ms() - downAt : -1; }
 
+volatile long long g_relAt = 0, g_relHeld = 0;  // GH #154 newest real release (ms stamp, held ms)
+
 void NoteInput(const char* dev, const char* what, const char* edge, long long held = -1) {
     char d[16], w[32], e[16], line[180];
     Scrub(dev, d, sizeof d);
@@ -75,6 +77,7 @@ void NoteInput(const char* dev, const char* what, const char* edge, long long he
     Scrub(edge, e, sizeof e);
     if (!d[0] || !w[0] || !e[0]) return;
     const long long t = Ms();
+    if (held >= 0 && strcmp(d, "key") != 0) { g_relHeld = held; g_relAt = t ? t : 1; }  // GH #154 ("key" = mod hotkeys)
     if (held >= 0)
         snprintf(line, sizeof line,
                  "{\"event\":\"input\",\"fields\":{\"dev\":\"%s\",\"what\":\"%s\",\"edge\":\"%s\",\"ms\":%lld,\"held\":%lld}}", d, w, e,
@@ -176,6 +179,15 @@ const struct { unsigned bit; const char* name; } kBtn[] = {
 };
 
 }  // namespace
+
+bool LastRelease(long long* ageMs, long long* heldMs) {
+    const long long at = g_relAt, h = g_relHeld;
+    if (!at) return false;
+    if (ageMs) *ageMs = Ms() - at;
+    if (heldMs) *heldMs = h;
+    return true;
+}
+
 
 void Reset() {
     Lock();

@@ -25,6 +25,8 @@ struct StartInfo {
     bool knownBuild = false;
     // GH #154: last held presses go to the report's "last mod state" (crashreport::SetState). Null = log lines only.
     void (*setState)(const char* key, const char* value) = nullptr;
+    // GH #154: newest real key / button release (inputlog::LastRelease) - tells the player's presses from AI ones.
+    bool (*lastRelease)(long long* ageMs, long long* heldMs) = nullptr;
 };
 
 constexpr uint32_t kScanRva = 0x20DFC0;  // v2.02 key scan (rvas.json)
@@ -109,19 +111,40 @@ inline void NoteStep(PressStat& p, float d) {
 }
 // A press ended between two ticks: the count went to 0 or restarted below the last one.
 inline bool PressEnded(uint32_t c, uint32_t lastCnt) { return lastCnt != 0 && (c == 0 || c < lastCnt); }
+// The game's held count at inp+0xA4 does NOT go to 0 on key-up: it freezes at its last value until the next press
+// (live #127721: 16 holds, 0 records with PressEnded alone). A count that stays the same for kStillEnd ticks in a row
+// while the input object is still ticked is a released key. still = ticks in a row with no rise (caller keeps it).
+constexpr int kStillEnd = 3;
+inline bool PressStopped(uint32_t c, uint32_t lastCnt, int& still) {
+    if (c == 0 || lastCnt == 0 || c != lastCnt) { still = 0; return false; }
+    return ++still == kStillEnd;
+}
 // Worth a line: held at least 100 ms real (taps are not the issue) and not a menu-long hold.
 inline bool PressWorthLog(float heldSec) { return heldSec >= 0.1f && heldSec <= 3.0f; }
+// The player's press: a real key / button came up within kReleaseMatchMs before the record closed (AI characters' input
+// objects share the class and have no device release).
+constexpr long long kReleaseMatchMs = 300;
+inline bool IsPlayerPress(bool haveRelease, long long ageMs) { return haveRelease && ageMs >= 0 && ageMs <= kReleaseMatchMs; }
+// Game fps during the press: counted frames / real seconds held (0 when unknown), capped at 999 for the line width.
+inline int PressFps(float heldSec, uint32_t frames) {
+    if (!(heldSec > 0.0f) || !frames) return 0;
+    const float f = (float)frames / heldSec;
+    return f > 999.0f ? 999 : (int)(f + 0.5f);
+}
 // Fits a report state value (95 chars with the "inN " prefix). Example:
-// "b2 231ms f14 12@fix 197 stock - | max 7/13 | calls 9/0 | step 21 skip 0" = button 2 held 231 ms real over 14 counted
-// frames; the fixed value reached 12 at 197 ms held, stock never; max stock 7 / fixed 13; 9 getter calls, 0 of them answered
-// stock because the press was not tracked yet; longest frame 21 ms; 0 ms of the hold not counted (gaps >= 250 ms).
-inline int FormatPress(char* out, unsigned cap, int button, float heldSec, uint32_t frames, const PressStat& p) {
-    char fx[16], st[16];
+// "b2 231ms f14 61fps fix197 stk- max7/13 call9/0 step21 skip0 key240" = button 2 held 231 ms real over 14 counted
+// frames (61 fps while held); the fixed value reached 12 at 197 ms held, stock never; max stock 7 / fixed 13; 9 getter
+// calls, 0 answered stock because the press was not tracked yet; longest frame 21 ms; 0 ms of the hold not counted (gaps
+// >= 250 ms); the real key was down 240 ms (key- = no device release matched: an AI character's press).
+inline int FormatPress(char* out, unsigned cap, int button, float heldSec, uint32_t frames, const PressStat& p, long long keyMs) {
+    char fx[16], st[16], ky[16];
     if (p.fixAt >= 0.0f) snprintf(fx, sizeof fx, "%d", (int)(p.fixAt * 1000.0f + 0.5f)); else snprintf(fx, sizeof fx, "-");
     if (p.stockAt >= 0.0f) snprintf(st, sizeof st, "%d", (int)(p.stockAt * 1000.0f + 0.5f)); else snprintf(st, sizeof st, "-");
-    return snprintf(out, cap, "b%d %dms f%u %d@fix %s stock %s | max %d/%d | calls %d/%d | step %d skip %d",
-                    button, (int)(heldSec * 1000.0f + 0.5f), frames, kMaHeld, fx, st, p.maxStock, p.maxReal, p.calls, p.stockCalls,
-                    (int)(p.maxStep * 1000.0f + 0.5f), (int)(p.skipped * 1000.0f + 0.5f));
+    if (keyMs >= 0) snprintf(ky, sizeof ky, "%lld", keyMs > 9999 ? 9999LL : keyMs); else snprintf(ky, sizeof ky, "-");
+    return snprintf(out, cap, "b%d %dms f%u %dfps fix%s stk%s max%d/%d call%d/%d step%d skip%d key%s",
+                    button, (int)(heldSec * 1000.0f + 0.5f), frames > 999u ? 999u : frames, PressFps(heldSec, frames), fx, st,
+                    p.maxStock, p.maxReal, p.calls, p.stockCalls, (int)(p.maxStep * 1000.0f + 0.5f),
+                    (int)(p.skipped * 1000.0f + 0.5f), ky);
 }
 
 }  // namespace holdkeygap

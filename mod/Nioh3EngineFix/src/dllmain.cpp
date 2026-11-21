@@ -56,6 +56,7 @@
 #include "resinfoguard.h"
 #include "assertguard.h"
 #include "holdkeygap.h"
+#include "inputlog.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -3646,6 +3647,7 @@ DWORD WINAPI Worker(LPVOID) {
             hki.base = reinterpret_cast<uintptr_t>(g_base);
             hki.knownBuild = known;
             hki.setState = &crashreport::SetState;  // GH #154 last held presses in the report
+            hki.lastRelease = &inputlog::LastRelease;  // GH #154 player presses vs AI
             holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):

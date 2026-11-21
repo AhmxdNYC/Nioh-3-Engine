@@ -157,12 +157,39 @@ static void TestPressRecord() {
     PressStat w;
     w.calls = 999; w.stockCalls = 999; w.maxStock = 999; w.maxReal = 999; w.stockAt = 2.999f; w.fixAt = 2.999f; w.maxStep = 0.249f;
     w.skipped = 0.999f;
-    const int n = FormatPress(buf, sizeof buf, 63, 2.999f, 999u, w);
+    const int n = FormatPress(buf, sizeof buf, 63, 2.999f, 99999u, w, 123456);
     std::printf("press line %d chars: %s\n", n, buf);
     assert(n + 5 <= 95);
-    FormatPress(buf, sizeof buf, 2, 0.24f, (uint32_t)frames, p);
+    FormatPress(buf, sizeof buf, 2, 0.24f, (uint32_t)frames, p, 240);
     std::printf("press line: %s\n", buf);
-    assert(std::strstr(buf, "stock -") != nullptr && std::strstr(buf, "12@fix ") != nullptr);
+    assert(std::strstr(buf, "stk-") != nullptr && std::strstr(buf, " fix") != nullptr && std::strstr(buf, " key240") != nullptr);
+    FormatPress(buf, sizeof buf, 2, 0.24f, (uint32_t)frames, p, -1);
+    assert(std::strstr(buf, " key-") != nullptr);
+    // fps while held = counted frames / real seconds
+    assert(PressFps(0.2f, 12) == 60 && PressFps(0.0f, 5) == 0 && PressFps(0.2f, 0) == 0 && PressFps(0.001f, 999) == 999);
+    // GH #154 live #127721: the count freezes on key-up instead of going to 0. Held 14 frames, then frozen: the record
+    // closes on the kStillEnd-th unchanged tick, once.
+    {
+        int still = 0;
+        uint32_t last = 0;
+        int ends = 0, endAt = -1;
+        const uint32_t seq[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 14, 14, 14, 14, 14, 14};
+        for (int i = 0; i < (int)(sizeof seq / sizeof seq[0]); ++i) {
+            if (PressStopped(seq[i], last, still)) { ++ends; endAt = i; }
+            last = seq[i];
+        }
+        assert(ends == 1 && endAt == 13 + kStillEnd);
+        // a hitch inside the hold (count jumps by several) does not end it; a 0 count never "stops"
+        still = 0;
+        assert(!PressStopped(9, 5, still) && !PressStopped(10, 9, still) && still == 0);
+        assert(!PressStopped(0, 0, still) && !PressStopped(0, 7, still));
+        // two unchanged ticks then a rise: not ended, counter reset
+        still = 0;
+        assert(!PressStopped(5, 5, still) && !PressStopped(5, 5, still) && !PressStopped(6, 5, still) && still == 0);
+    }
+    // player match: a device release within kReleaseMatchMs
+    assert(IsPlayerPress(true, 40) && IsPlayerPress(true, kReleaseMatchMs) && !IsPlayerPress(true, kReleaseMatchMs + 1));
+    assert(!IsPlayerPress(false, 10) && !IsPlayerPress(true, -5));
     // a fallback call (press not tracked yet) is counted
     PressStat f;
     NoteCall(f, 3, 3, 0.0f, true);
