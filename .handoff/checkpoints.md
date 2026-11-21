@@ -1305,3 +1305,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-21 12:30 pm EST | pc/1 #127953 | live check of player log CLK | proven live Main PC (both arms) | next: pc/0 release bundle | 87b8b137, logs D:/nioh3-re/kb-120730/*-CLKON*
 - 2026-11-21 12:55 pm EST | regression-pc/0 #127959 release review | PROVEN offline: rc-127959 429409b2 (EF 8920efc1, TR 5fffe2bb local) 159/194 vs main 158/194, same 35 fails, new player_clock_test passes; audit 49=baseline; diff check PASS
   Next: lead/installer ships from regression-pc/rc-127959 (bump MOD_VERSION + catalog pin). Logs D:/nioh3-wt/rg127959-logs.
+- 2026-11-21 12:35 pm EST | pc/1 session end | #127953 player log CLK: DONE (live PASS RESULT sent, TO-USER Done sent). Nothing half-done. Next: none for pc/1; pc/0 bundles 87b8b137 (pc1/playerlog-clk-127933) + GH #155 2aff9b8d for installer-pc. Harness D:/nioh3-re/kb-120730/wrap_clk.py (restore now retries).
