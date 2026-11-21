@@ -53,13 +53,12 @@ inline float NextHeldSec(float heldSec, uint32_t c, uint32_t lastCnt, float d, f
     return heldSec;
 }
 // Held getter result: max(stock, real hold in 1/60 s). Stock when the press is not tracked yet or the count went back.
-// A fraction counts (11.2 -> 12): the game's test is an integer ">=". Truncating was the miss on the last frame.
+// Truncates: rounding a fraction up changed steady-fps counts and let 10.2/60 s reach 12 (regression review, GH #150).
 inline int HeldReal(int stock, float heldSec, uint32_t c, uint32_t lastCnt) {
     if (c == 0 || lastCnt == 0 || c < lastCnt) return stock;
     const float real = heldSec * 60.0f * (float)c / (float)lastCnt;
     if (!(real > (float)stock + 0.5f) || !(real < 100000.0f)) return stock;
-    const int whole = (int)real;
-    const int r = (real > (float)whole + 0.02f) ? whole + 1 : whole;
+    const int r = (int)real;
     return r > stock ? r : stock;
 }
 
