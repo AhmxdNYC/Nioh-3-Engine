@@ -5754,6 +5754,7 @@ static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t 
 }
 static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hit);  // #35391 frame_meter_game.h (IFrameProbe)
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit);  // #126502 style_meter_game.h: count player hits landed / taken (read only)
+static int BvHpDmgFloor(uint64_t hp, int dmg);  // #127382 boss_vitals_game.h: delayed infinite boss health never lets the boss die
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
     const int rawDmg = dmg;
@@ -5782,6 +5783,7 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
             }
         }
     }
+    __try { dmg = BvHpDmgFloor(hp, dmg); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: before NOFIN, so the floor keeps it out of the HP-0 path
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
         __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
@@ -6761,6 +6763,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
         if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
         g_cfg_menupause = GetPrivateProfileIntA("Training", "MenuPause", 1, ini);  // user #13274
+        g_cfg_bv_delay = GetPrivateProfileIntA("Training", "BossRefillDelayMs", 2000, ini); if (g_cfg_bv_delay < 0) g_cfg_bv_delay = 0; if (g_cfg_bv_delay > 60000) g_cfg_bv_delay = 60000;
+        Log("BOSSVITALS BossRefillDelayMs %d (#127382: infinite boss health / Ki refill %s)", g_cfg_bv_delay, g_cfg_bv_delay ? "after the hits stop for that long" : "every tick (old rule)");
         { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); }
         if (!g_cfg_menupause) Log("MENU PAUSE off ([Training] MenuPause 0); boss-presence sampling remains available to EngineFix");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};

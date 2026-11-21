@@ -16,7 +16,7 @@ spec.loader.exec_module(motion)
 assert (ROOT / 'mod/Nioh3Training/src/move_motion.h').read_text(encoding='utf-8') == motion.generate(), 'Regenerate move_motion.h (py tools/gen_move_motion.py --write)'
 print('SKIP arena regeneration: missing tools/gen_summon_rows.py in source history', flush=True)
 with tempfile.TemporaryDirectory(prefix='n3-move-tests-') as temp:
-    for name in ('idle_hold_test', 'ih_alive_test', 'drill_test', 'gate_zone_test', 'move_toggle_test', 'player_hp_test', 'player_hp_entry_test', 'player_recovery_test', 'hazard_guard_test', 'slot_hold_test', 'boss_vitals_test', 'aggro_test', 'practice_stats_test', 'negki_meter_test', 'auto_stagger_test', 'autobind_test', 'auto_moves_test', 'last_attack_rule_test'):
+    for name in ('idle_hold_test', 'ih_alive_test', 'drill_test', 'gate_zone_test', 'move_toggle_test', 'player_hp_test', 'player_hp_entry_test', 'player_recovery_test', 'hazard_guard_test', 'slot_hold_test', 'boss_vitals_test', 'boss_refill_test', 'aggro_test', 'practice_stats_test', 'negki_meter_test', 'auto_stagger_test', 'autobind_test', 'auto_moves_test', 'last_attack_rule_test'):
         exe = Path(temp) / (name + '.exe')
         subprocess.run([sys.executable, '-m', 'ziglang', 'cc', '-O2','-UNDEBUG', '-Wall', '-fms-extensions',
                         str(Path(__file__).with_name(name + '.c')), '-o', str(exe)], check=True)

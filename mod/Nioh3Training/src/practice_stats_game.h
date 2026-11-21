@@ -270,6 +270,7 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
 static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
     const float amt0 = amt; float c0 = 0.0f, s0 = 0.0f;
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    __try { amt = BvKiDmgFloor(K, amt); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: delayed infinite boss Ki, no break from small hits
     const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss
     if (lg) { __try { c0 = *(volatile float*)(K + 0x14); s0 = *(volatile float*)(K + 0x60); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     const uint8_t r = ((PstKiFn)(B + Grva(0x844604)))(K, amt);
