@@ -1335,3 +1335,25 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 ## 2026-11-21 9:17 pm EST | pc/1 | GH #159 clock hunt vs Practice boss (#128819)
 - Done: ON vs MIN (Training kept) arms on Takeda Practice, Main PC 1.8.37. Proven: per-hit player-clock dip 0.21-0.55x only with EF on; vanilla-ish step fixed 0.5 (0.778x game speed at 93 fps).
 - Next: RE what scales the step upstream of Nioh3.exe+0x2f7f2b / +0x897300 under EF's variable step. Files: D:/nioh3-re/clk-128770 (clkhuntp.py, slow.py, RESULT-128819.txt), bridge #9096.
+
+## 2026-11-21 9:28 pm EST | pc/1 | offline RC full report + GH158 (#128820)
+- Done: branch pc2/rc-report-gh158 f86025e5; EF f6485558, TR 93aee9a8 staged D:/nioh3-re/rc-report-gh158. Proven offline: reportsend, roundtrip, player_log_tee, 4 GH158 C tests, 31 Training py, no_hardcode_audit PASS. Unproven live.
+- Next: lead decides regression/live test of these ASIs; no update prep until human lifts #128846.
+- 2026-11-21 9:41 pm EST | pc2/0 #128905 live check RC f86025e5 done | proven: combat-fall rescue works, void-pose retry loop remains, live site rejects 1 MB report | next: pc/3 fix retry_pose grounded proof + deploy site report_api before ship | logs bridge #9099, C:/nioh3-re/g158
+- 2026-11-21 9:50 pm EST | regression-pc/0 | RC f86025e5 regression PASS (cand 118/152, base 118/149, same old fails; bootnotice/prefetch/replayprof flaky on both) | proven offline | next: pc/0 decides live check/ship | logs D:/nioh3-wt/rg128906-*
+
+## 2026-11-21 9:30 pm EST | pc/1 | session end
+- Done: GH159 Practice clock hunt RESULT #128838-area (file #9096); offline RC #128820 RESULT #128885 + count fix #128890 (pc2/rc-report-gh158 f86025e5, EF f6485558, TR 93aee9a8 at D:/nioh3-re/rc-report-gh158). Nothing half-done; no game, lock free.
+- Next: wait for lead TASK; GH159 RE = what scales step upstream of Nioh3.exe+0x2f7f2b/+0x897300 under EF.
+
+2026-11-21 10:00 pm EST | pc/1 #128972 soul core form gap static RE | proven static (Ghidra): 217D8B4 = Player::EquipGuardianSpirit, form id = weapon itemdef+0x58, core = d-pad shortcut map [[0x4751530]]+0x23B7E0 | unproven live | next: one live call 215BE6C(0,slot,set,newCoreId) for set 0/1, then press the d-pad and check the summoned yokai + HUD icon | notes/soulcore-form-source-128972.md d5493581
+- 2026-11-21 10:38 pm EST | pc/2 | live soul core switch (#128901/#129083): d-pad shortcut theory FAILED live (#129031). Human shrine-equip diff (#129100): slot inv+23B6B8 + counter inv+23B6F0 (+1) + inv+8 + 2 recs inv+1E0AD0/1E0BB8. DECISION #129099 open: try slot write + counter bump in human game pid 20604. Next: on yes, coremem.py set 0 <idx> + wr32 inv+23B6F0 +1, then LEFT use; else own session. Tools tools/soulcore/ (before/after pkl D:/nioh3-re/live-sc129083). Also built: BR f1b8be49 Start+end speed row (pc2/scboth-129070 1c275b49) INSTALLED Main PC, regression-pc testing; old BR c171c4ae in D:/nioh3-re/human-129035/brbak.
+
+2026-11-21 10:46 pm EST | pc/1 #129115 BR test harness fix | proven offline: last_hit 353/353, helper_exit 119x2 PASS, BR src unchanged (f1b8be49) | next: lead decides build/ship (no publish #128846) | pc2/scboth-129070 92912b0a
+
+2026-11-21 11:21 pm EST | pc/1 #129171 active soul core update RE | static proven: shrine order 216B9D0 -> 2285C48 -> 21607A4 -> 2183744 -> 215F85C -> 2182968 (game thread) | unproven live | next: slot 2 runs it live (NOTE #129207) | note 241f30a1, RESULT #129206
+
+2026-11-22 | pc/1 session end | done: #128972 form RE (d5493581), #129115 BR test stubs (pc2/scboth-129070 92912b0a), #129171 shrine core-swap order (241f30a1, RESULT #129206, NOTE #129207 to slot 2) | half-done: none on pc/1 | next: slot 2 runs live swap 216B9D0->2285C48->21607A4->2183744->215F85C->2182968 | notes/soulcore-form-source-128972.md
+- 2026-11-22 12:15 am EST | pc/1 #129280 | done: TR game-thread soul core equip (swapcore order) + BR Equip core rows | proven offline (harness + tests + no-hardcode), unproven live | next: install TR ed0a525e + BR 05ec3563 from D:/nioh3-re/live-scmenu-129277 with human OK, test equip in-game | commit c5de8384 branch pc1/scmenu-129277
+2026-11-22 2:12 am EST | pc/2 arena walk test first live PASS R1CBC (#129539) | proven live on Main PC, 1 row only | next: other 19 rows with the same runner | ed1ec0b4
+2026-11-22 2:18 am EST | pc/2 #129550 | done: walk runner saved tools/rematch/arena_walk_run.ps1 ce36cc58 (pc2/arenafightstart-129412), R1CBC PASS #129539, ship handed to lead HANDOFF #129557 | half-done: release not shipped (lead/installer-pc), 19 arena rows + --learn not run | next: lead runs regression on ce36cc58 then installer-pc ships; then arena_walk_run.ps1 -Rows <other 19>
