@@ -370,7 +370,7 @@ def build_rows(ms, old, log):
     def emit(m, e, rid, how):
         mid = m["mid"]
         f = rc.pick_fight_start(fi, mid, e["pid"])
-        ar = rc.pick_arena(fi, mid, e["pid"], f) if f and f["kind"] != "mission start" else None
+        ar = rc.pick_arena(fi, mid, e["pid"], f, train=True) if f and f["kind"] != "mission start" else None
         if m["kind"] == 2 or not f:          # open-field region (or no usable start point): stand in front of the boss
             x, y, z, yaw = field_point(e)
             kind, start, conf = "field", nearest_start(m, e["pos"]), "field placement"

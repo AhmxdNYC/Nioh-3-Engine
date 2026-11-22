@@ -495,7 +495,19 @@ def pick_gate(fi, mid, pid):
 BAD_TRIG = ("BGM", "JUKE", "ITEM", "GUEST", "INV", "SILENCE", "CLEAR", "VOICE", "TALK", "NOKATANA", "NO_KATANA")
 
 
-def pick_arena(fi, mid, pid, f):
+def _load_fight_seen():
+    p = N / "arena-fightstart.csv"
+    out = collections.defaultdict(list)
+    if p.exists():
+        for r in csv.DictReader(open(p, encoding="utf-8")):
+            out[int(r["mission"], 16)].append((float(r["x"]), float(r["y"]), float(r["z"])))
+    return out
+
+
+FIGHT_SEEN = _load_fight_seen()
+
+
+def pick_arena(fi, mid, pid, f, train=False):
     """-> dict(x, y, z, yaw, box, src, conf) = a point just inside the arena trigger, or None.  f = pick_fight_start() result.
     Box: a script trigger box (kind trig) with BOSS in its name <= 40 m from the boss (conf medium; high when ARENA_SEEN), else a
     BOSS area box of the table <= 40 m (low, not seen as a trigger in the script).  Point: from the box centre towards the start
@@ -519,6 +531,14 @@ def pick_arena(fi, mid, pid, f):
         src, conf = "boss area box", "low"
     if not cands:
         return None
+    # human #129412: Fight now is the true way into the arena, so when a Fight now log shows where the game itself put the player at
+    # BossBattleMode start (walk-in trigger or intro teleport; notes/arena-fightstart.csv from tools/harvest_fightstart.py), use that.
+    # Only rows that already have an arena trigger (the Train in this arena offer, arena_train_rows_offline). Training only (train=True, tools/auto_arena.py): Boss Rematch's Fight now warp needs a point inside the trigger box, not this one.
+    for s in (FIGHT_SEEN.get(mid, []) if train else []):
+        if _dist_m(s, bp) <= 40:
+            yaw = math.degrees(math.atan2(bp[0] - s[0], bp[2] - s[2]))
+            return {"x": s[0], "y": s[1] + 100, "z": s[2], "yaw": yaw, "box": 0, "src": "game fight start (Fight now log)",
+                    "conf": "seen", "geo": "seen_%.0f_%.0f_%.0f" % s}
     b = sorted(cands, key=lambda b: (_dist_m(b["pos"], bp), b["id"]))[0]
     if (mid, b["id"]) in ARENA_SEEN:
         conf = "high"
@@ -545,7 +565,9 @@ def pick_arena(fi, mid, pid, f):
     cosv = (sl[0] * bl[0] + sl[1] * bl[1]) / ((math.hypot(*sl) * math.hypot(*bl)) or 1)
     if (abs(bl[0]) > hx or abs(bl[1]) > hz) and cosv < -0.9:
         bx, bz = inside_toward(bp)
-        if math.hypot(bx - wx, bz - wz) > 300:
+        if math.hypot(bx - wx, bz - wz) > 300 and not train:
+            wx, wz = bx, bz   # Boss Rematch warp: stays inside the trigger box (rematch_harness Yamagata check)
+        elif math.hypot(bx - wx, bz - wz) > 300:
             # human #129403: 60 % toward the boss-side edge still sat inside the closed arena gate (R1CBC 337047 -> pushed out to 337232,
             # 10.8 m from the boss). The gate stands inside the doorway box, so go past the box's boss-side edge by 1.5 m (the arena floor
             # the boss stands on), never closer than 4 m to the boss.
