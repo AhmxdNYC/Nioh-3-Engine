@@ -764,13 +764,14 @@
   {
    "id": "R1CBC",
    "name": "Yamagata Masakage",
-   "date": "2026-11-08",
+   "date": "2026-11-22",
    "evidence": [
+    129539,
     84163,
     84214,
     84169
    ],
-   "scope": "cover end + bar + FIGHT start",
+   "scope": "Train in arena FIGHT start + walk to boss, 2 hits in 30 s (arena_walk_test #129539)",
    "path": {
     "route": "R",
     "replay_mission_id": "0x1CBC",
@@ -783,10 +784,10 @@
     "warp_yaw": "-145.5",
     "emaki_index": "-",
     "fight_kind": "shrine",
-    "arena_x": "337691",
-    "arena_y": "10244",
-    "arena_z": "206714",
-    "arena_yaw": "-89.2",
+    "arena_x": "337047",
+    "arena_y": "10228",
+    "arena_z": "206774",
+    "arena_yaw": "-92.5",
     "arena_box": "66599",
     "gate_id": "66599",
     "gate_kind": "box",
