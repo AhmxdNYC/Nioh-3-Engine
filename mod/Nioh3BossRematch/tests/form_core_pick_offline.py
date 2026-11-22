@@ -48,6 +48,7 @@ double SoulTune(int,int,bool*){return 0;}void FccPress(double,int){}void FccPadT
 char g_msg[512]; int g_sel=0,g_confirm=0;
 constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
 struct {void Enter(int,int){}} g_uiPages;
+void* TrainingExport(const char*){return nullptr;}  // human #129277 Equip core rows: no Nioh3Training.asi here
 #include "soul_core_tuning_menu.h"
 } }
 using namespace addon::bosslog;

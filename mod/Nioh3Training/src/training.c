@@ -6418,6 +6418,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
 #include "style_meter_game.h"  // #126502 style meter ([StyleMeter] StyleMeter, default 0): rank D..SSS from the same pump, any fight
+#include "soul_core_swap_game.h"  // human #129277: mod menu Equip core (shrine order on the game thread; nothing runs unless the row asks)
 #include "metadata_actors_game.h"
 #include "autobind_game.h"  // pc2 #23565: automatic boss action-file binding ([Debug] AutoBind, default 1, log only)
 #include "auto_moves_game.h"  // pc2 #23907: runtime boss move list from the loaded action file ([Debug] AutoMoves, default 1)
@@ -6583,6 +6584,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { DeadDelTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DESPAWN deferred tick exception %08lX", GetExceptionCode()); }
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
     __try { SpPruneTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRUNE tick exception %08lX", GetExceptionCode()); }  // crash 2026-10-18
+    __try { ScwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SOULCORE swap tick exception %08lX", GetExceptionCode()); InterlockedExchange(&g_scw_req, 0); }  // human #129277
     __try { SumNoDeathTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMNODEATH tick exception %08lX", GetExceptionCode()); }  // user #13197
     __try { StanceTimerTick(); SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); for (int k = 0; k < N3T_SLOTS; ++k) g_sph[k].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }

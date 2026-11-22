@@ -4408,6 +4408,7 @@ int ItemsBase(int* out, int cap) {
 #if BR_SOULCORE
         add(kItScForms);  // human #61869: Soul core transformations ON / OFF
         SctAddCoreRows(add);  // human #81220: per-core transformation ON / OFF
+        ScEqAddRows(add);  // human #129277: Equip core slot / Equip core
         SctAddHubRow(add); // Player > Soul core tuning
 #endif  // BR_SOULCORE
         PstAddPlayerRows(add);  // user #22389
@@ -5537,7 +5538,7 @@ const char* ItemGroup(int item) {
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
     if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
 #if BR_SOULCORE
-        item == kItScForms || IsScCoreItem(item) ? "Soul cores" :
+        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) ? "Soul cores" :
 #endif  // BR_SOULCORE
         nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
