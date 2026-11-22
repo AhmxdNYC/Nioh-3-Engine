@@ -524,7 +524,13 @@ def pick_arena(fi, mid, pid, f):
         conf = "high"
     c, ext, a = b["pos"], b["ext"], math.radians(b["yawf"])
     sp = f["pos"]
-    dx, dz = sp[0] - c[0], sp[2] - c[2]
+    hx0, hz0 = ext[0] / 2, ext[2] / 2
+    bdx, bdz = bp[0] - c[0], bp[2] - c[2]
+    blx, blz = bdx * math.cos(a) - bdz * math.sin(a), bdx * math.sin(a) + bdz * math.cos(a)
+    # human #129352 (R1CBC Train in arena left the player behind the arena fence): when the boss stands outside the trigger box, the box is
+    # a doorway trigger across the arena entrance, so its start-point half lies outside the arena. Aim at the boss side of the box instead.
+    tgt = bp if abs(blx) > hx0 or abs(blz) > hz0 else sp
+    dx, dz = tgt[0] - c[0], tgt[2] - c[2]
     lx, lz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)   # into box-local axes
     hx, hz = ext[0] / 2, ext[2] / 2
     t = min(hx / abs(lx) if lx else 1e9, hz / abs(lz) if lz else 1e9, 1.0)      # ray centre -> start point leaves the box at t
