@@ -19,7 +19,7 @@
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
-static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100;
+static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
 static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
@@ -47,6 +47,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_popms = (int)GetPrivateProfileIntA("StyleMeter", "PopUpMs", SM_POP_LIFE_MS, ini); if (g_cfg_sm_popms < 300 || g_cfg_sm_popms > 5000) g_cfg_sm_popms = SM_POP_LIFE_MS;
     g_cfg_sm_shakepts = (int)GetPrivateProfileIntA("StyleMeter", "ShakePts", SM_SHAKE_PTS, ini); if (g_cfg_sm_shakepts < 1) g_cfg_sm_shakepts = SM_SHAKE_PTS;  // #127003: on with the style meter (SmFeed only runs when StyleMeter=1)
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
+    g_cfg_sm_alpha = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterOpacity", 100, ini); if (g_cfg_sm_alpha < 20 || g_cfg_sm_alpha > 100) g_cfg_sm_alpha = 100;
     SmCfg c; SmCfgDefaults(&c);
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
     c.dodge = (float)(int)GetPrivateProfileIntA("StyleMeter", "DodgePts", SM_DODGE_PTS, ini);
@@ -127,7 +128,7 @@ static void SmIniPoll(void) {
 // Menu (Boss Rematch Player page, #126804; human #127379 full control for player testing): 'what' indexes sm_menu_keys.
 // Get: -1 = unknown what. Set: writes [StyleMeter] and applies at once (value < 0 on an on/off key = toggle). Returns the stored value.
 // Keep the order: Boss Rematch's menu rows use these indices (0..4 are the original #126804 / #127075 rows).
-typedef struct { const char* key; int def, lo, hi; } SmMenuKey;
+typedef struct { const char* key; int def, lo, hi, negDef; } SmMenuKey;  // negDef: an ini value < 0 means 'default place' -> report def
 static const SmMenuKey sm_menu_keys[] = {
     {"StyleMeter", 0, 0, 1}, {"RankPtsPct", 100, 25, 400}, {"DrainPct", 100, 0, 500}, {"DecayDelayMs", SM_DECAY_DELAY_MS, 0, 15000},
     {"KiPerfectPts", SM_KI_PERFECT_PTS, 0, 200},
@@ -136,6 +137,7 @@ static const SmMenuKey sm_menu_keys[] = {
     {"NinjutsuPts", SM_NIN_PTS, 0, 200}, {"SoulCorePts", SM_SOUL_PTS, 0, 200}, {"StyleSwitchPts", SM_STYLE_PTS, 0, 200},
     {"WeaponSwapPts", SM_SWAP_PTS, 0, 200}, {"StartupBonusPct", SM_STARTUP_PCT, 0, 500}, {"RepeatPct", SM_REPEAT_PCT, 0, 100},
     {"DecayRampPct", SM_DECAY_RAMP_PCT, 0, 200},
+    {"StyleMeterX", 880, 0, 1000, 1}, {"StyleMeterY", 352, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (880/352 = the -1 default place)
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
 static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
@@ -145,7 +147,9 @@ N3T_API int Nioh3Training_StyleKeys(void) { return SM_MENU_KEYS; }  // #127379 h
 N3T_API int Nioh3Training_StyleGet(int what) {
     const char* k = SmKey(what);
     if (!k || !g_sm_ini[0]) return -1;
-    return SmKeyClamp(what, (int)GetPrivateProfileIntA("StyleMeter", k, SmKeyDefault(what), g_sm_ini));
+    const int raw = (int)GetPrivateProfileIntA("StyleMeter", k, SmKeyDefault(what), g_sm_ini);
+    if (raw < 0 && sm_menu_keys[what].negDef) return SmKeyDefault(what);
+    return SmKeyClamp(what, raw);
 }
 N3T_API int Nioh3Training_StyleSet(int what, int value) {
     const char* k = SmKey(what);
@@ -523,7 +527,7 @@ static void SmRender(HWND wnd, const SmCanvas* c, const SmDrawSt* st) {
         SmCompose(mem, px, c, st);
         GdiFlush();
         POINT src = {0, 0}; SIZE sz = {w, h};
-        BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+        BLENDFUNCTION bf = {AC_SRC_OVER, 0, (BYTE)(255 * g_cfg_sm_alpha / 100), AC_SRC_ALPHA};  // human #128855 opacity
         UpdateLayeredWindow(wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
         SelectObject(mem, ob);
     }
@@ -588,9 +592,9 @@ static DWORD WINAPI SmThread(LPVOID p) {
             SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, cv.w, cv.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want_r; shown = 1; lastRank = -1;
         }
-        static int wasAnim;
-        if (showRank != lastRank || gpx != lastGauge || anim || wasAnim) {
-            lastRank = showRank; lastGauge = gpx; wasAnim = anim;
+        static int wasAnim, lastAlpha = -1;
+        if (showRank != lastRank || gpx != lastGauge || anim || wasAnim || g_cfg_sm_alpha != lastAlpha) {
+            lastRank = showRank; lastGauge = gpx; wasAnim = anim; lastAlpha = g_cfg_sm_alpha;
             __try { SmRender(g_sm_wnd, &cv, &st); } __except (EXCEPTION_EXECUTE_HANDLER) { }
         }
     }

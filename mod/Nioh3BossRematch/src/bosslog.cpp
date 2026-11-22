@@ -7108,12 +7108,15 @@ double SoulTune(int which, int dir, bool* live) {
     static const T k[] = {{L"SealExitRevealMs", 50, 0, 2000, false}, {L"SealExitSmokeFwd", 10, -200, 200, false}, {L"SealExitSmokeSide", 10, -200, 200, false},
                           {L"SealExitSmokeRepeatMs", 100, 0, 2000, false}, {L"FormHideDelayMs", 50, 0, 1000, false}, {L"SealSpeed", .1, .5, 3, true},
                           {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}, {L"SealExitAtLastHitMs", 50, -500, 1000, false},
-                          {L"FormCrouchCancel", 50, 0, 1000, false}};  // human #122288
+                          {L"FormCrouchCancel", 50, 0, 1000, false},  // human #122288
+                          {L"FastThrow", 1, 1, 16, false}, {L"RunThrowMaxMs", 100, 0, 3000, false}, {L"SealTailRampMs", 50, 0, 1000, false}};  // human #128855 throw layers
     if (which < 0 || which >= (int)(sizeof k / sizeof *k)) return 0;
-    if (live) *live = which < 5 || which >= 7 || g_ftHooked.load();
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
-             : which == 10 ? g_fccMs.load() : g_frz[which - 7].load();
+             : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
+             : which == 13 ? (double)g_tailRampMs.load() : g_frz[which - 7].load();
+    if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
     }
@@ -7121,7 +7124,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250};
         v = shipped[which];
     } else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
@@ -7136,17 +7139,20 @@ double SoulTune(int which, int dir, bool* live) {
     case 6: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
     case 9: g_exitAtLastHitMs.store((int)v); break;
     case 10: g_fccMs.store((int)v); break;  // human #122288
+    case 11: if (g_ftHooked.load()) g_ftMul.store(v > 1 ? (float)v : 0.f); break;  // human #128855 (read per frame by HkMotionSpeed)
+    case 12: g_rtMaxMs.store((int)v); break;
+    case 13: g_tailRampMs.store((float)v); break;
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
     if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
     WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
-    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
+    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6 || which >= 11) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
     return v;
 }
 
 void SoulTuneReset() {
-    for (int which = 0; which < 11; ++which) SoulTune(which, 2, nullptr);
+    for (int which = 0; which < 14; ++which) SoulTune(which, 2, nullptr);
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
