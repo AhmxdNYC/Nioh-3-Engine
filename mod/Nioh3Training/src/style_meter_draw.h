@@ -735,6 +735,32 @@ static int SmRankUpDraw(const SmLetterCtx* x, int prev, int r, float dt0) {
     return 1;
 }
 // Draws into mem / px (w x h, cleared here). Sprites when the atlas decoded, else the plain text fallback (no motion on the fallback letter).
+// human #129310 LetterStyle 1: the rank as plain HUD text like the game's own numbers (off-white serif, soft dark shadow), no sprite / rank-up art
+#ifndef SM_GAME_TEXT_RGB
+#define SM_GAME_TEXT_RGB 0xECE6D6u
+#endif
+static void SmGameLetter(HDC mem, uint32_t* px, int w, int h, const char* txt, float mid, float baseY, float rowL, float unit) {
+    const int TH = (int)(rowL * 1.25f) + 2, TW = w; if (TH < 4 || TW < 4) return;
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = TW; bi.bmiHeader.biHeight = -TH;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t* tpx = 0; HDC tdc = CreateCompatibleDC(mem);
+    HBITMAP tb = tdc ? CreateDIBSection(tdc, &bi, DIB_RGB_COLORS, (void**)&tpx, 0, 0) : 0;
+    HFONT fn = CreateFontW(-(int)(rowL * 1.15f), 0, 0, 0, FW_NORMAL, FALSE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Cambria");
+    if (tb && tpx && fn) {
+        HGDIOBJ ob = SelectObject(tdc, tb), of = SelectObject(tdc, fn);
+        SetBkMode(tdc, TRANSPARENT); SetTextColor(tdc, RGB(255, 255, 255)); memset(tpx, 0, (size_t)TW * TH * 4);
+        TEXTMETRICW tm; GetTextMetricsW(tdc, &tm); SIZE sz = {0, 0}; GetTextExtentPoint32A(tdc, txt, (int)strlen(txt), &sz);
+        RECT r = {0, 0, TW, TH}; DrawTextA(tdc, txt, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+        const int ox = (int)(mid - sz.cx / 2.f + 0.5f), oy = (int)(baseY - tm.tmAscent - rowL * 0.18f + 0.5f), so = (int)(2.f * unit + 0.5f) > 1 ? (int)(2.f * unit + 0.5f) : 1;
+        SmMaskOver(px, w, h, tpx, TW, TH, ox + so, oy + so, 0x000000, 0.7f);   // soft shadow like the game's HUD numbers
+        SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, SM_GAME_TEXT_RGB, 1.f);
+        SelectObject(tdc, of); SelectObject(tdc, ob);
+    }
+    if (fn) DeleteObject(fn);
+    if (tb) DeleteObject(tb);
+    if (tdc) DeleteDC(tdc);
+}
 static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* st) {
     const int w = c->w, h = c->h; const SmGeo* g = &c->g;
     memset(px, 0, (size_t)w * h * 4);
@@ -755,6 +781,9 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         // #127149 no glow halo behind the letter (human did not like it)
         // #127315 rank-up: each rank has its own motion (SmRankUpDraw); otherwise the letter at rest
         const SmLetterCtx lc = {mem, px, w, h, mid, y + rowL, kl, unit};
+#ifdef SM_LETTER_STYLE
+        if (SM_LETTER_STYLE) SmGameLetter(mem, px, w, h, sm_rank_name[rank], mid, y + rowL, rowL, unit); else
+#endif
         if (!SmRankUpDraw(&lc, st->prevRank, rank, (float)st->upMs)) {
             const float ks = kl * st->scale;
             SmBlitA(mem, (int)(cx - L[2] * ks / 2.f + 0.5f), (int)(cy - L[3] * ks / 2.f + 0.5f), L, L[2], ks, 255);
