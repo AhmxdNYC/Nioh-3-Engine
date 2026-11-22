@@ -45,6 +45,7 @@ std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
 std::atomic<uint64_t> g_tailSeal{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_ghostReq{0};
 std::atomic<double> g_tailT0{0},g_ghostT{0},g_ghostHideAt{0},g_ghostReqAt{0},g_fxrT0{0};
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{100},g_fxrFwd{0},g_fxrSide{0};
+std::atomic<float> g_ftMul{0};std::atomic<int> g_rtMaxMs{1200};  // #129115: FastThrow / RunThrow rows (human #128855)
 bool g_sieNativeEnd=true;
 uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]={};
 const char* g_sieWhy="idle",*g_fh4EndWhy="test-end";
@@ -446,7 +447,7 @@ int main(){
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==11&&rows.back()==kItSctBase+10);
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==15&&rows.back()==kItSctBase+14);  // #129070: 15 rows by design
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");
