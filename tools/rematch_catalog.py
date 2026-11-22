@@ -524,17 +524,29 @@ def pick_arena(fi, mid, pid, f):
         conf = "high"
     c, ext, a = b["pos"], b["ext"], math.radians(b["yawf"])
     sp = f["pos"]
-    hx0, hz0 = ext[0] / 2, ext[2] / 2
-    bdx, bdz = bp[0] - c[0], bp[2] - c[2]
-    blx, blz = bdx * math.cos(a) - bdz * math.sin(a), bdx * math.sin(a) + bdz * math.cos(a)
-    # human #129352 (R1CBC Train in arena left the player behind the arena fence): when the boss stands outside the trigger box, the box is
-    # a doorway trigger across the arena entrance, so its start-point half lies outside the arena. Aim at the boss side of the box instead.
-    tgt = bp if abs(blx) > hx0 or abs(blz) > hz0 else sp
-    dx, dz = tgt[0] - c[0], tgt[2] - c[2]
-    lx, lz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)   # into box-local axes
     hx, hz = ext[0] / 2, ext[2] / 2
-    t = min(hx / abs(lx) if lx else 1e9, hz / abs(lz) if lz else 1e9, 1.0)      # ray centre -> start point leaves the box at t
-    wx, wz = c[0] + dx * t * 0.6, c[2] + dz * t * 0.6
+
+    def local(p):  # world xz offset from the box centre -> box-local axes
+        dx, dz = p[0] - c[0], p[2] - c[2]
+        return dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)
+
+    def inside_toward(p):  # from the box centre towards p, 60 % of the way to the box edge (inside under either size convention)
+        dx, dz = p[0] - c[0], p[2] - c[2]
+        lx, lz = local(p)
+        t = min(hx / abs(lx) if lx else 1e9, hz / abs(lz) if lz else 1e9, 1.0)   # ray centre -> p leaves the box at t
+        return c[0] + dx * t * 0.6, c[2] + dz * t * 0.6
+
+    wx, wz = inside_toward(sp)
+    # human #129352 (R1CBC Train in arena left the player behind the arena fence): a doorway trigger across the arena entrance, with the
+    # start point on one side and the boss on the other, has its start-point half outside the arena. Use the boss half only when the boss
+    # is outside the box, the box lies between start point and boss (cos < -0.9) and the box is deep enough that the two halves are > 3 m
+    # apart (a thin slab is the doorway itself). Regression #129382: the wider rule moved 5 confirmed rows; this one changes only R1CBC.
+    sl, bl = local(sp), local(bp)
+    cosv = (sl[0] * bl[0] + sl[1] * bl[1]) / ((math.hypot(*sl) * math.hypot(*bl)) or 1)
+    if (abs(bl[0]) > hx or abs(bl[1]) > hz) and cosv < -0.9:
+        bx, bz = inside_toward(bp)
+        if math.hypot(bx - wx, bz - wz) > 300:
+            wx, wz = bx, bz
     hs = math.hypot(sp[0] - wx, sp[2] - wz)
     hb = math.hypot(bp[0] - wx, bp[2] - wz)
     wy = (sp[1] * hb + bp[1] * hs) / (hs + hb if hs + hb else 1) + 100
