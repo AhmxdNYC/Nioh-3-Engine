@@ -546,7 +546,15 @@ def pick_arena(fi, mid, pid, f):
     if (abs(bl[0]) > hx or abs(bl[1]) > hz) and cosv < -0.9:
         bx, bz = inside_toward(bp)
         if math.hypot(bx - wx, bz - wz) > 300:
-            wx, wz = bx, bz
+            # human #129403: 60 % toward the boss-side edge still sat inside the closed arena gate (R1CBC 337047 -> pushed out to 337232,
+            # 10.8 m from the boss). The gate stands inside the doorway box, so go past the box's boss-side edge by 1.5 m (the arena floor
+            # the boss stands on), never closer than 4 m to the boss.
+            dx, dz = bp[0] - c[0], bp[2] - c[2]
+            lx, lz = bl
+            t = min(hx / abs(lx) if lx else 1e9, hz / abs(lz) if lz else 1e9, 1.0)
+            d = math.hypot(dx, dz) or 1
+            e = min(t * d + 150, max(d - 400, t * d))
+            wx, wz = c[0] + dx / d * e, c[2] + dz / d * e
     hs = math.hypot(sp[0] - wx, sp[2] - wz)
     hb = math.hypot(bp[0] - wx, bp[2] - wz)
     wy = (sp[1] * hb + bp[1] * hs) / (hs + hb if hs + hb else 1) + 100

@@ -1,7 +1,7 @@
 # Nioh3Training arena table (tools/auto_arena.py, generated from the game data; do not edit). mission, start point, world, boss char id, boss placement id, player x y z yaw, boss x y z, kind (arena = inside the trigger; start = the Fight-now start point; summon = roster only), id, name[, cells (arena cells admitted by CrossWorldForceCells, and the CellSkip whitelist unless wl_cells), wl_cells (CellSkip / PlaceableSkip whitelist)]; the two cell columns are carried over by id
 # game data fingerprint 34E90681 (archive sizes + times): rerun tools/auto_arena.py when it changes
 0xC1D9	557889	0xDF	803396	555606	74584	1257	40842	149.0	75426	1262	39489	start	RC1D9	Tokugawa Kunimatsu
-0x1CBC	67064	0x4B	307259	65092	337047	10228	206774	-92.5	336153	10107	206736	arena	R1CBC	Yamagata Masakage
+0x1CBC	67064	0x4B	307259	65092	336684	10220	206759	-92.5	336153	10107	206736	arena	R1CBC	Yamagata Masakage
 0x0034	77032	0x96	947280	76781	204603	12471	237697	178.5	204630	12393	236640	arena	R0034	Jakotsu-baba
 0x1C7C	89576	0x96	482895	84220	286869	23348	102172	0.0	286866	23357	104632	start	R1C7C	Baba Nobuharu
 0x0F7F	98581	0x96	598115	94568	166313	15819	164340	-100.4	163307	15890	162511	start	R0F7F	Yamagata Masakage (A Fiery Invasion)
@@ -28,7 +28,7 @@
 0xB3FE	8064861	0x35	485999	8066787	240273	14016	111477	222.0	241286	14027	112933	start	RB3FE	Kumagai Naoyoshi
 0xDC12	8074176	0x35	210803	8073284	229140	6962	212040	70.0	231615	7955	212020	start	RDC12	Giant Toad
 0x1C95	1008183	0x96	466641	1008922	204735	12381	237661	-171.0	204760	12393	236124	start	D1C95	Takeda Shingen
-0x7F16	1010297	0x4B	307259	1010621	336974	10205	206824	-93.3	335411	10105	206734	arena	D7F16	Yamagata Masakage (The Battle of Hitokoto Slope)
+0x7F16	1010297	0x4B	307259	1010621	335969	10205	206746	-91.2	335411	10105	206734	arena	D7F16	Yamagata Masakage (The Battle of Hitokoto Slope)
 0x0B0B	1036090	0x96	502003	1038159	190840	11432	198067	30.0	191681	11429	199518	start	R0B0B	Naito Masatoyo
 0xC362	1107817	0x96	131751	1102178	250806	9624	251043	-40.2	249363	10136	251949	start	RC362	Hattori Hanzo (The Demon's Regimen)
 0x2068	1078352	0x96	132808	1071509	198525	15878	223336	83.7	198824	16551	224915	start	R2068	Otazu no Kata
