@@ -21,6 +21,7 @@ extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
+static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen (rank D, empty bar) between hits
 static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
@@ -41,6 +42,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
+    g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
     g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);
     g_cfg_sm_pops = (int)GetPrivateProfileIntA("StyleMeter", "PopUps", 1, ini) ? 1 : 0;  // #127085
     g_cfg_sm_motion = (int)GetPrivateProfileIntA("StyleMeter", "Motion", 1, ini) ? 1 : 0;
@@ -138,6 +140,7 @@ static const SmMenuKey sm_menu_keys[] = {
     {"WeaponSwapPts", SM_SWAP_PTS, 0, 200}, {"StartupBonusPct", SM_STARTUP_PCT, 0, 500}, {"RepeatPct", SM_REPEAT_PCT, 0, 100},
     {"DecayRampPct", SM_DECAY_RAMP_PCT, 0, 200},
     {"StyleMeterX", 880, 0, 1000, 1}, {"StyleMeterY", 352, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (880/352 = the -1 default place)
+    {"AlwaysOn", 0, 0, 1},  // human #129172 index 23
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
 static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
@@ -459,7 +462,7 @@ static void SmFeed(double gdt) {
     if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
-    const int vis = pl && SmVisible(&g_sm, &g_smc, g_sm_clock, fight);
+    const int vis = pl && (g_cfg_sm_always || SmVisible(&g_sm, &g_smc, g_sm_clock, fight));  // human #129172
     const int r1 = g_sm.rank, a1 = g_sm.active; const float gg = SmGauge(&g_sm, &g_smc);
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
