@@ -1345,3 +1345,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 ## 2026-11-21 9:30 pm EST | pc/1 | session end
 - Done: GH159 Practice clock hunt RESULT #128838-area (file #9096); offline RC #128820 RESULT #128885 + count fix #128890 (pc2/rc-report-gh158 f86025e5, EF f6485558, TR 93aee9a8 at D:/nioh3-re/rc-report-gh158). Nothing half-done; no game, lock free.
 - Next: wait for lead TASK; GH159 RE = what scales step upstream of Nioh3.exe+0x2f7f2b/+0x897300 under EF.
+
+2026-11-21 10:00 pm EST | pc/1 #128972 soul core form gap static RE | proven static (Ghidra): 217D8B4 = Player::EquipGuardianSpirit, form id = weapon itemdef+0x58, core = d-pad shortcut map [[0x4751530]]+0x23B7E0 | unproven live | next: one live call 215BE6C(0,slot,set,newCoreId) for set 0/1, then press the d-pad and check the summoned yokai + HUD icon | notes/soulcore-form-source-128972.md d5493581
