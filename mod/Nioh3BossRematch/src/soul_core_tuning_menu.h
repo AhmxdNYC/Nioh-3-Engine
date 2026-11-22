@@ -29,7 +29,7 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
 }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
-                                      "Crouch cancel window:", "Throw speed:", "Throw speed-up limit:", "Exit speed ramp:"};  // human #122288, #128855
+                                      "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:"};  // human #122288, #128855, #129054 plain names
 const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250};
 void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
@@ -142,9 +142,9 @@ const char* SctFooter(int item) {
     case 7: return "ON: the start smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
     case 8: return "ON: the end smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
     case 10: return "Crouch (L3) this soon after a soul core press cancels the transformation (no real crouch); the core is not spent. OFF = no cancel. 50 ms steps, 0-1000. [Spirit] FormCrouchCancel. Live, saved.";
-    case 11: return "Soul core throw animation speed (the throw before you transform, standing or running). x1 = the game's speed. 1 steps, x1-x16. [Spirit] FastThrow. Live, saved.";
-    case 12: return "Longest time the throw speed-up stays on after the press; it also ends as soon as the throw ends. OFF = no throw speed-up. 100 ms steps, 0-3000. [Spirit] RunThrowMaxMs. Live, saved.";
-    case 13: return "Exit: how long the yokai takes to go from Transform speed up to Exit tail speed after its last hit. 0 = jump at once. 50 ms steps, 0-1000. [Spirit] SealTailRampMs. Live, saved.";
+    case 11: return "How fast you toss the soul core before you turn into the yokai (standing or running). Higher = you transform sooner. x1 = the game's speed. 1 steps, x1-x16. [Spirit] FastThrow. Live, saved.";
+    case 12: return "Safety cap for the row above: the faster toss never lasts longer than this after you press the core; it also ends as soon as the throw ends. OFF = no throw speed-up. 100 ms steps, 0-3000. [Spirit] RunThrowMaxMs. Live, saved.";
+    case 13: return "After the yokai's last hit, how long it takes to speed up from Transform speed to Exit tail speed (smooth vs sudden). 0 = jump at once. 50 ms steps, 0-1000. [Spirit] SealTailRampMs. Live, saved.";
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }
