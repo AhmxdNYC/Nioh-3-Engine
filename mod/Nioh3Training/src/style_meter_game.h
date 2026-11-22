@@ -30,6 +30,8 @@ static int g_sm_letter_pct = 60;  // human #129306 [StyleMeter] LetterPct rank l
 #define SM_BAR_STYLE g_sm_bar_style
 static int g_sm_letter_style = 0;  // human #129310 [StyleMeter] LetterStyle 1 = plain game-HUD serif text letter, 0 = sprite letter, live
 #define SM_LETTER_STYLE g_sm_letter_style
+static unsigned g_sm_bar_rgb = 0xA89A6Cu;  // human #129320 [StyleMeter] BarColor RRGGBB hex for the BarStyle 1 fill (default game gold), live
+#define SM_GAME_BAR_RGB g_sm_bar_rgb
 static int g_sm_bar_style = 0;  // human #129306 [StyleMeter] BarStyle 0 = shaded rank-colour bar, 1 = flat game-HUD bar (gold, dark outline, no sheen), live
 static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
@@ -55,7 +57,9 @@ static void SmReadIni(const char* ini, int reset) {
     { int bp = (int)GetPrivateProfileIntA("StyleMeter", "BarHeightPct", 100, ini); if (bp < 50 || bp > 400) bp = 100; g_sm_bar_hk = SM_BAR_HK_DEF * (float)bp / 100.f; }  // human #129225 thicker bar
     { int lp = (int)GetPrivateProfileIntA("StyleMeter", "LetterPct", 60, ini); if (lp < 15 || lp > 150) lp = 60; g_sm_letter_pct = lp; }  // human #129306 smaller rank letter
     g_sm_bar_style = (int)GetPrivateProfileIntA("StyleMeter", "BarStyle", 0, ini) ? 1 : 0;
-    g_sm_letter_style = (int)GetPrivateProfileIntA("StyleMeter", "LetterStyle", 0, ini) ? 1 : 0;  // human #129310  // human #129306 game-HUD look
+    g_sm_letter_style = (int)GetPrivateProfileIntA("StyleMeter", "LetterStyle", 0, ini) ? 1 : 0;  // human #129310
+    { char cb[16] = {0}; GetPrivateProfileStringA("StyleMeter", "BarColor", "", cb, sizeof cb, ini); char* e = 0; const char* q = cb[0] == '#' ? cb + 1 : cb;
+      const unsigned long v = strtoul(q, &e, 16); g_sm_bar_rgb = (q[0] && e && *e == 0 && v <= 0xFFFFFFul) ? (unsigned)v : 0xA89A6Cu; }  // human #129320 purple fill  // human #129306 game-HUD look
     g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);
     g_cfg_sm_pops = (int)GetPrivateProfileIntA("StyleMeter", "PopUps", 1, ini) ? 1 : 0;  // #127085
     g_cfg_sm_motion = (int)GetPrivateProfileIntA("StyleMeter", "Motion", 1, ini) ? 1 : 0;
