@@ -31,6 +31,8 @@ HIT = re.compile(rb"STYLE MOVE: .*?\| (HIT|MISS) \|.*?landed (\d+)")
 CTRL = re.compile(rb"ARENA \+\d+ ms CONTROL: player released at (-?\d+) (-?\d+) (-?\d+)")
 MON = re.compile(rb"BOSSMON \+\d+ ms boss .*? player (-?\d+) (-?\d+) (-?\d+) dist ([\d.]+) m")
 SESS = re.compile(rb"TRAIN arena session (\S+):")
+NATIVE = re.compile(rb"FIGHT start: \[(\w+)\]")
+ARRIVE = re.compile(rb"ENTER \S+: Train in this arena: in the arena at (-?\d+) (-?\d+) (-?\d+)")
 
 
 BRLOG = GAME / "Nioh3BossRematch.log"
@@ -91,6 +93,8 @@ def main():
     ap.add_argument("--rows", default="")
     ap.add_argument("--walk-sec", type=int, default=30)
     ap.add_argument("--load-sec", type=int, default=90)
+    ap.add_argument("--attack", default="X", help="light attack button on this pad layout (human Main PC: X; RB on the stock layout)")
+    ap.add_argument("--repeat", type=int, default=1, help="passes per row (2 = native load, then in-place swap in that world)")
     ap.add_argument("--owner-pid", type=int, default=0)
     ap.add_argument("--i-own-the-game", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
@@ -146,18 +150,21 @@ def main():
     out = ROOT / "captures" / "rematch" / ("arenawalk-%s.csv" % stamp)
     out.parent.mkdir(parents=True, exist_ok=True)
     res = []
-    for r in rows:
+    for r in [r for r in rows for _ in range(a.repeat)]:
         tl = Tail(TLOG)
-        print("[%s] %s: fnow %s" % (time.strftime("%H:%M:%S"), r["id"], r["mission"]))
-        tcmd("fnow %s" % r["mission"])
-        start = None
+        # human #129412: the menu's Train in arena = Boss Rematch 'Fight now (in the arena)' (pipe 'fight <id>', same kReqFight as the
+        # menu): native mission load when the player is elsewhere, Training's in-place arena swap (row pose) when already in that world.
+        print("[%s] %s: fight -> %s" % (time.strftime("%H:%M:%S"), r["id"], br_pipe("fight %s" % r["id"])))
+        arrived, start = None, None
         t0 = time.time()
         while time.time() - t0 < a.load_sec and start is None:
             time.sleep(0.5)
-            m = CTRL.search(tl.new())
+            buf = tl.new()
+            m = CTRL.search(buf) or NATIVE.search(buf)
             if m:
-                start = tuple(int(x) for x in m.groups())
-        rec = {"row": r["id"], "mission": r["mission"], "verdict": "NO-SESSION", "first_hit_s": "", "hits": 0, "min_dist_m": "",
+                arrived = "swap" if m.re is CTRL else m[1].decode()   # walk clock starts once the boss is live (FIGHT start)
+                start = tuple(int(x) for x in m.groups()) if m.re is CTRL else (0, 0, 0)
+        rec = {"row": r["id"], "mission": r["mission"], "route": arrived or "", "verdict": "NO-SESSION", "first_hit_s": "", "hits": 0, "min_dist_m": "",
                "start": "%d %d %d" % start if start else "", "end": ""}
         if start:
             time.sleep(2.5)                      # boss AI grace + gauge
@@ -165,7 +172,7 @@ def main():
             hits, mind, end, tw = 0, 1e9, None, time.time()
             while time.time() - tw < a.walk_sec:
                 vp("stick", "L", 0, 1, 900)
-                vp("press", "RB", 120)
+                vp("press", a.attack, 120)
                 b = tl.new()
                 for m in MON.finditer(b):
                     mind, end = min(mind, float(m[4])), (m[1].decode(), m[2].decode(), m[3].decode())
@@ -182,6 +189,9 @@ def main():
         res.append(rec)
         tcmd("trainstop")
         time.sleep(3)
+        if arrived and len(rows) > 1 and a.repeat == 1:
+            print("   exit -> %s" % br_pipe("exit"))   # end the Boss Rematch trip before the next row's trainarena
+            time.sleep(20)
     with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, list(res[0].keys()) if res else ["row"])
         w.writeheader()
