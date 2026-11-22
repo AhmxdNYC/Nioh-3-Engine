@@ -1355,3 +1355,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-22 | pc/1 session end | done: #128972 form RE (d5493581), #129115 BR test stubs (pc2/scboth-129070 92912b0a), #129171 shrine core-swap order (241f30a1, RESULT #129206, NOTE #129207 to slot 2) | half-done: none on pc/1 | next: slot 2 runs live swap 216B9D0->2285C48->21607A4->2183744->215F85C->2182968 | notes/soulcore-form-source-128972.md
 - 2026-11-22 12:15 am EST | pc/1 #129280 | done: TR game-thread soul core equip (swapcore order) + BR Equip core rows | proven offline (harness + tests + no-hardcode), unproven live | next: install TR ed0a525e + BR 05ec3563 from D:/nioh3-re/live-scmenu-129277 with human OK, test equip in-game | commit c5de8384 branch pc1/scmenu-129277
+2026-11-22 2:12 am EST | pc/2 arena walk test first live PASS R1CBC (#129539) | proven live on Main PC, 1 row only | next: other 19 rows with the same runner | ed1ec0b4
