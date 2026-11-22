@@ -22,6 +22,9 @@ static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
 static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen (rank D, empty bar) between hits
+#define SM_BAR_HK_DEF 1.7f  // = style_meter_draw.h default (#127273)
+static float g_sm_bar_hk = SM_BAR_HK_DEF;  // human #129225 [StyleMeter] BarHeightPct (100 = 1.7x sprite gauge height), live
+#define SM_BAR_HK g_sm_bar_hk
 static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
@@ -43,6 +46,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
+    { int bp = (int)GetPrivateProfileIntA("StyleMeter", "BarHeightPct", 100, ini); if (bp < 50 || bp > 400) bp = 100; g_sm_bar_hk = SM_BAR_HK_DEF * (float)bp / 100.f; }  // human #129225 thicker bar
     g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);
     g_cfg_sm_pops = (int)GetPrivateProfileIntA("StyleMeter", "PopUps", 1, ini) ? 1 : 0;  // #127085
     g_cfg_sm_motion = (int)GetPrivateProfileIntA("StyleMeter", "Motion", 1, ini) ? 1 : 0;
