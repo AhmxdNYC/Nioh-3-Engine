@@ -1352,3 +1352,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-21 10:46 pm EST | pc/1 #129115 BR test harness fix | proven offline: last_hit 353/353, helper_exit 119x2 PASS, BR src unchanged (f1b8be49) | next: lead decides build/ship (no publish #128846) | pc2/scboth-129070 92912b0a
 
 2026-11-21 11:21 pm EST | pc/1 #129171 active soul core update RE | static proven: shrine order 216B9D0 -> 2285C48 -> 21607A4 -> 2183744 -> 215F85C -> 2182968 (game thread) | unproven live | next: slot 2 runs it live (NOTE #129207) | note 241f30a1, RESULT #129206
+
+2026-11-22 | pc/1 session end | done: #128972 form RE (d5493581), #129115 BR test stubs (pc2/scboth-129070 92912b0a), #129171 shrine core-swap order (241f30a1, RESULT #129206, NOTE #129207 to slot 2) | half-done: none on pc/1 | next: slot 2 runs live swap 216B9D0->2285C48->21607A4->2183744->215F85C->2182968 | notes/soulcore-form-source-128972.md
