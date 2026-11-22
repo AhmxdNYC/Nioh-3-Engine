@@ -122,7 +122,10 @@ keys=['SealExitRevealMs','SealExitSmokeFwd','SealExitSmokeSide','SealExitSmokeRe
 source=(root/'src/bosslog.cpp').read_text()
 fallbacks=dict(re.findall(r'GetPrivateProfileStringW\(L"Spirit", L"([^"]+)", L"([^"]+)"',source))
 expected=[float(br.get(('Spirit',key),fallbacks.get(key,''))) for key in keys]
+found=[]
 for path,pattern in [(root/'src/bosslog.cpp',r'static const double shipped\[\] = \{([^}]+)\}'),(root/'src/soul_core_tuning_menu.h',r'kSctDefault\[kSctN\] = \{([^}]+)\}')]:
  values=[float(x) for x in re.search(pattern,path.read_text()).group(1).split(',')]
- assert values==expected,(path.name,values,expected)
+ assert values[:len(keys)]==expected,(path.name,values,expected)
+ found.append(values)
+assert found[0]==found[1][:len(found[0])] and len(found[1])==len(found[0])+1,(found)  # menu = shipped + Start+end combo row (#128855 throw layers, #129070)
 print('20 soul-core shipped-default cross-checks PASS')

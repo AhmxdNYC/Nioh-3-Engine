@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 14;  // human #128855: +3 throw layers;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 15;  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -29,8 +29,17 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
 }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
-                                      "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:"};  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250};
+                                      "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:"};  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0};
+// human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
+constexpr int kSctBoth = 14;
+void SctBothText(bool* live, bool* changed, char* b, size_t n) {
+    bool l1 = true, l2 = true;
+    const double toss = bosslog::SoulTune(11, 0, &l1), tail = bosslog::SoulTune(6, 0, &l2);
+    if (live) *live = l1 && l2;
+    if (changed) *changed = toss > kSctDefault[11] + 1e-6 || toss < kSctDefault[11] - 1e-6 || tail > kSctDefault[6] + 1e-6 || tail < kSctDefault[6] - 1e-6;
+    snprintf(b, n, "toss x%d, exit x%.1f", toss <= 1 ? 1 : (int)toss, tail);
+}
 void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
     else if (w == 10 && v <= 0) snprintf(b, n, "OFF");  // human #122288
@@ -83,6 +92,15 @@ bool SctChange(int item, int dir) {
     }
     const int w = item - kItSctBase;
     bool live = true;
+    if (w == kSctBoth) {  // human #129070
+        const int d = dir ? dir : 1;
+        bosslog::SoulTune(11, d, nullptr); bosslog::SoulTune(6, d, nullptr);
+        char bt[40]; SctBothText(&live, nullptr, bt, sizeof bt);
+        Log("Rematch: menu Soul core Start + end speed %s -> %s (human #129070)", d > 0 ? "up" : "down", bt);
+        snprintf(g_msg, sizeof g_msg, live ? "Start + end speed: %s. Applies on the next LEFT soul core use. Saved."
+                 : "Start + end speed: %s. Saved; the speed hooks are off this session, applies next launch.", bt);
+        return true;
+    }
     const double v = bosslog::SoulTune(w, dir ? dir : 1, &live);
     char t[24]; SctValueText(w, v, t, sizeof t);
     Log("Rematch: menu Soul core %s -> %s (human #58117)", kSctLabel[w], t);
@@ -120,6 +138,12 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     if (item == kItSctOpen) { snprintf(buf, n, "%s Soul core tuning   A: open", mk); *color = sel ? cWhite : cGray; return true; }
     const int w = item - kItSctBase;
     bool live = true;
+    if (w == kSctBoth) {  // human #129070
+        bool ch = false; char bt[40]; SctBothText(&live, &ch, bt, sizeof bt);
+        snprintf(buf, n, "%s %-26s %-20s Left / Right%s", mk, kSctLabel[w], bt, live ? "" : "  (next launch)");
+        *color = sel ? cWhite : !live ? cDim : ch ? cYellow : cGray;
+        return true;
+    }
     const double v = bosslog::SoulTune(w, 0, &live);
     char t[24]; SctValueText(w, v, t, sizeof t);
     snprintf(buf, n, "%s %-26s %-11s Left / Right%s", mk, kSctLabel[w], t, live ? "" : "  (next launch)");
@@ -144,6 +168,7 @@ const char* SctFooter(int item) {
     case 10: return "Crouch (L3) this soon after a soul core press cancels the transformation (no real crouch); the core is not spent. OFF = no cancel. 50 ms steps, 0-1000. [Spirit] FormCrouchCancel. Live, saved.";
     case 11: return "How fast you toss the soul core before you turn into the yokai (standing or running). Higher = you transform sooner. x1 = the game's speed. 1 steps, x1-x16. [Spirit] FastThrow. Live, saved.";
     case 12: return "Safety cap for the row above: the faster toss never lasts longer than this after you press the core; it also ends as soon as the throw ends. OFF = no throw speed-up. 100 ms steps, 0-3000. [Spirit] RunThrowMaxMs. Live, saved.";
+    case 14: return "Speeds up the start and the end together: each step moves Core toss speed (the throw before you transform) and Exit tail speed (after the last hit) one notch. Change either row on its own to fine-tune. Live, saved.";
     case 13: return "After the yokai's last hit, how long it takes to speed up from Transform speed to Exit tail speed (smooth vs sudden). 0 = jump at once. 50 ms steps, 0-1000. [Spirit] SealTailRampMs. Live, saved.";
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
