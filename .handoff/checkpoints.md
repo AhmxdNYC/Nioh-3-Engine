@@ -1335,3 +1335,7 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 ## 2026-11-21 9:17 pm EST | pc/1 | GH #159 clock hunt vs Practice boss (#128819)
 - Done: ON vs MIN (Training kept) arms on Takeda Practice, Main PC 1.8.37. Proven: per-hit player-clock dip 0.21-0.55x only with EF on; vanilla-ish step fixed 0.5 (0.778x game speed at 93 fps).
 - Next: RE what scales the step upstream of Nioh3.exe+0x2f7f2b / +0x897300 under EF's variable step. Files: D:/nioh3-re/clk-128770 (clkhuntp.py, slow.py, RESULT-128819.txt), bridge #9096.
+
+## 2026-11-21 9:28 pm EST | pc/1 | offline RC full report + GH158 (#128820)
+- Done: branch pc2/rc-report-gh158 f86025e5; EF f6485558, TR 93aee9a8 staged D:/nioh3-re/rc-report-gh158. Proven offline: reportsend, roundtrip, player_log_tee, 4 GH158 C tests, 31 Training py, no_hardcode_audit PASS. Unproven live.
+- Next: lead decides regression/live test of these ASIs; no update prep until human lifts #128846.
