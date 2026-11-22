@@ -14,6 +14,11 @@ held, saves backed up (restore afterwards). The script refuses without --i-own-t
 
     py -I tools/rematch/arena_walk_test.py --i-own-the-game --owner-pid <pid> [--rows R1CBC,R15FF] [--walk-sec 30] [--dry-run]
 Output: captures/rematch/arenawalk-<stamp>.csv (row, mission, verdict, first_hit_s, hits, min_dist_m, start, end).
+
+--learn (human #129421, universal placement): first, for every Boss Rematch row with no spot in notes/arena-fightstart.csv, run
+Fight now (Boss Rematch pipe 'fight <id>'), walk forward until the game starts the fight ('BossBattleMode start - player now' in
+Nioh3BossRematch.log, up to --learn-sec), then 'exit'. Afterwards run tools/harvest_fightstart.py and tools/auto_arena.py, install
+the new Nioh3Training_arenas.tsv (game restart) and run this script again without --learn for the hit check.
 """
 import argparse, csv, os, re, subprocess, sys, time
 from pathlib import Path
@@ -26,6 +31,32 @@ HIT = re.compile(rb"STYLE MOVE: .*?\| (HIT|MISS) \|.*?landed (\d+)")
 CTRL = re.compile(rb"ARENA \+\d+ ms CONTROL: player released at (-?\d+) (-?\d+) (-?\d+)")
 MON = re.compile(rb"BOSSMON \+\d+ ms boss .*? player (-?\d+) (-?\d+) (-?\d+) dist ([\d.]+) m")
 SESS = re.compile(rb"TRAIN arena session (\S+):")
+
+
+BRLOG = GAME / "Nioh3BossRematch.log"
+PIPE = r"\\.\pipe\nioh3bossrematch"
+BBM = re.compile(rb"BossBattleMode start - player now (-?\d+) (-?\d+) (-?\d+);")
+
+
+def br_pipe(line, timeout=5.0):
+    """one command on the Boss Rematch pipe (nioh3bossrematch) -> reply line ('error ...' when the pipe is gone)."""
+    try:
+        with open(PIPE, "r+b", buffering=0) as p:
+            p.write((line + "\n").encode("ascii"))
+            b, t0 = b"", time.time()
+            while not b.endswith(b"\n") and time.time() - t0 < timeout:
+                c = p.read(1)
+                if not c:
+                    break
+                b += c
+            return b.decode("ascii", "replace").strip()
+    except OSError as e:
+        return "error %s" % e
+
+
+def seen_rows():
+    p = ROOT / "notes" / "arena-fightstart.csv"
+    return {r["row"] for r in csv.DictReader(open(p, encoding="utf-8"))} if p.exists() else set()
 
 
 def rows_from_tsv(want):
@@ -63,6 +94,8 @@ def main():
     ap.add_argument("--owner-pid", type=int, default=0)
     ap.add_argument("--i-own-the-game", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--learn", action="store_true")
+    ap.add_argument("--learn-sec", type=int, default=60)
     a = ap.parse_args()
     rows = rows_from_tsv(set(x for x in a.rows.split(",") if x))
     print("%d arena rows%s" % (len(rows), " (dry run)" if a.dry_run else ""))
@@ -83,6 +116,31 @@ def main():
     def tcmd(line):
         with open(TCMD, "a", encoding="ascii") as f:
             f.write(line + "\r\n")
+
+    if a.learn:
+        have = seen_rows()
+        todo = [r for r in rows if r["id"] not in have and r["id"][0] in "RDH"]
+        print("learn: %d rows without a Fight now spot" % len(todo))
+        for r in todo:
+            bl = Tail(BRLOG)
+            q = br_pipe("fight %s" % r["id"])
+            print("[%s] %s: fight -> %s" % (time.strftime("%H:%M:%S"), r["id"], q))
+            if not q.startswith("queued"):
+                continue
+            got, t0 = None, time.time()
+            while time.time() - t0 < a.load_sec + a.learn_sec and not got:
+                time.sleep(1)
+                m = BBM.search(bl.new())
+                if m:
+                    got = m.groups()
+                elif time.time() - t0 > 20:
+                    vp("stick", "L", 0, 1, 900)   # walk in through the trigger when the game does not warp/teleport
+            print("   -> %s" % ("seen %s" % b" ".join(got).decode() if got else "no fight start"))
+            time.sleep(3)
+            print("   exit -> %s" % br_pipe("exit"))
+            time.sleep(15)
+        print("now: py -I tools/harvest_fightstart.py && py -I tools/auto_arena.py, install the Training TSV, restart, rerun without --learn")
+        return 0
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
     out = ROOT / "captures" / "rematch" / ("arenawalk-%s.csv" % stamp)
