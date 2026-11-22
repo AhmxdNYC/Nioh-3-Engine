@@ -1340,3 +1340,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - Done: branch pc2/rc-report-gh158 f86025e5; EF f6485558, TR 93aee9a8 staged D:/nioh3-re/rc-report-gh158. Proven offline: reportsend, roundtrip, player_log_tee, 4 GH158 C tests, 31 Training py, no_hardcode_audit PASS. Unproven live.
 - Next: lead decides regression/live test of these ASIs; no update prep until human lifts #128846.
 - 2026-11-21 9:41 pm EST | pc2/0 #128905 live check RC f86025e5 done | proven: combat-fall rescue works, void-pose retry loop remains, live site rejects 1 MB report | next: pc/3 fix retry_pose grounded proof + deploy site report_api before ship | logs bridge #9099, C:/nioh3-re/g158
+- 2026-11-21 9:50 pm EST | regression-pc/0 | RC f86025e5 regression PASS (cand 118/152, base 118/149, same old fails; bootnotice/prefetch/replayprof flaky on both) | proven offline | next: pc/0 decides live check/ship | logs D:/nioh3-wt/rg128906-*
