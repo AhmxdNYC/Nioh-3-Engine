@@ -46,3 +46,18 @@ byte [0x45C6F2F] = 1 (shortcut HUD refresh) and 845338([[0x45B9E40]]+0xB8, 0x49F
   weapon-driven.
 - Unproven live: that the HUD icon updates from [0x45C6F2F] alone; that a cooldown is per item (a fresh core may be usable
   at once). Check with one live call + one press.
+
+## 5. Shrine equip = the active-core update, and why the 11-21 live write showed count 0 (static, pc/1 #129171)
+Sources: watch log D:/nioh3-re/live-sc129137/watch.log (human's shrine equip, tid 25776 = game thread) + Ghidra RO decomp.
+inv = [Nioh3.exe+0x4751530] (the value, rcx 7FF74CF714E0 in the log). slot s = soul core slot 0..7 (5529D8(inv,s)).
+Shrine handler 0x1DECB78 (s = [menu+0x8D0], rec = new core's inventory record, 0xE8 bytes, +0x28 serial):
+1. `sc = 216B9D0(inv, s)`: d-pad shortcut index 0..15 that holds the OLD core's usable id (96285C(9649AC(oldId), s>1)), -1 = none. Must run BEFORE the write.
+2. `2285C48(s, rec)` must be true (core valid for this slot); else no equip.
+3. `21607A4(inv, rec)`: if rec is already in another slot, unequip it there (54C6A8 -> 21607D8(inv, other, 1)).
+4. `2183744(inv, s, rec)`: slot = 54CF94(inv, rec+0x28) (the write seen at +2183790), then **54B734(inv) rebuilds the usable-core list
+   inv+0x1E0AD0 (200 x 0xE8, counts)** (552DD6 copy, counter A52F88), then 723C20(), 1CA64E4(s).
+5. `215F85C(inv)`: drops invalid shortcut entries.
+6. **`if (sc != -1) 2182968(inv, sc, s)`**: puts the NEW core's usable id into d-pad shortcut sc (21828B0 store for the current set).
+7. `34EDF8(0xF53E7B0C, 0)` (menu event). For the HUD icon also set byte [0x45C6F2F] = 1 as Item::SetShortCut does.
+Why count 0: only the slot write/rebuild ran. The rebuild no longer makes the old core's usable item, but the d-pad shortcut still
+held the old usable id (step 6 skipped), so the HUD showed the old core with 0. Fix = steps 1 and 6 around the equip, same thread.
