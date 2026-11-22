@@ -1341,3 +1341,7 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - Next: lead decides regression/live test of these ASIs; no update prep until human lifts #128846.
 - 2026-11-21 9:41 pm EST | pc2/0 #128905 live check RC f86025e5 done | proven: combat-fall rescue works, void-pose retry loop remains, live site rejects 1 MB report | next: pc/3 fix retry_pose grounded proof + deploy site report_api before ship | logs bridge #9099, C:/nioh3-re/g158
 - 2026-11-21 9:50 pm EST | regression-pc/0 | RC f86025e5 regression PASS (cand 118/152, base 118/149, same old fails; bootnotice/prefetch/replayprof flaky on both) | proven offline | next: pc/0 decides live check/ship | logs D:/nioh3-wt/rg128906-*
+
+## 2026-11-21 9:30 pm EST | pc/1 | session end
+- Done: GH159 Practice clock hunt RESULT #128838-area (file #9096); offline RC #128820 RESULT #128885 + count fix #128890 (pc2/rc-report-gh158 f86025e5, EF f6485558, TR 93aee9a8 at D:/nioh3-re/rc-report-gh158). Nothing half-done; no game, lock free.
+- Next: wait for lead TASK; GH159 RE = what scales step upstream of Nioh3.exe+0x2f7f2b/+0x897300 under EF.
