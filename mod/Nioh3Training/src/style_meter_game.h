@@ -25,6 +25,10 @@ static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen
 #define SM_BAR_HK_DEF 1.7f  // = style_meter_draw.h default (#127273)
 static float g_sm_bar_hk = SM_BAR_HK_DEF;  // human #129225 [StyleMeter] BarHeightPct (100 = 1.7x sprite gauge height), live
 #define SM_BAR_HK g_sm_bar_hk
+static int g_sm_letter_pct = 60;  // human #129306 [StyleMeter] LetterPct rank letter size (60 = old fixed SM_LETTER_PCT), live
+#define SM_LETTER_PCT g_sm_letter_pct
+#define SM_BAR_STYLE g_sm_bar_style
+static int g_sm_bar_style = 0;  // human #129306 [StyleMeter] BarStyle 0 = shaded rank-colour bar, 1 = flat game-HUD bar (gold, dark outline, no sheen), live
 static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored the martial art bonus (move log tag)
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
@@ -47,6 +51,8 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
     { int bp = (int)GetPrivateProfileIntA("StyleMeter", "BarHeightPct", 100, ini); if (bp < 50 || bp > 400) bp = 100; g_sm_bar_hk = SM_BAR_HK_DEF * (float)bp / 100.f; }  // human #129225 thicker bar
+    { int lp = (int)GetPrivateProfileIntA("StyleMeter", "LetterPct", 60, ini); if (lp < 15 || lp > 150) lp = 60; g_sm_letter_pct = lp; }  // human #129306 smaller rank letter
+    g_sm_bar_style = (int)GetPrivateProfileIntA("StyleMeter", "BarStyle", 0, ini) ? 1 : 0;  // human #129306 game-HUD look
     g_cfg_sm_movelog = (int)GetPrivateProfileIntA("StyleMeter", "MoveLog", 1, ini);
     g_cfg_sm_pops = (int)GetPrivateProfileIntA("StyleMeter", "PopUps", 1, ini) ? 1 : 0;  // #127085
     g_cfg_sm_motion = (int)GetPrivateProfileIntA("StyleMeter", "Motion", 1, ini) ? 1 : 0;

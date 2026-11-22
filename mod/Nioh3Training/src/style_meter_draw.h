@@ -211,6 +211,33 @@ static inline unsigned SmMix(unsigned a, unsigned b, float t) { return (unsigned
 #ifndef SM_SHEEN_MS
 #define SM_SHEEN_MS 1600.0
 #endif
+// human #129306 BarStyle 1: the game's own HUD bar look (sampled from the Nioh 3 gold bar at 1440p): 1 px near-black outline,
+// dark see-through track, flat muted gold fill with slightly brighter top/bottom rows, thin dark segment lines. No sheen, no tip.
+#ifndef SM_GAME_BAR_RGB
+#define SM_GAME_BAR_RGB 0xA89A6Cu
+#endif
+static void SmBarGame(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, float gauge) {
+    const unsigned cr = (SM_GAME_BAR_RGB >> 16) & 0xFF, cg = (SM_GAME_BAR_RGB >> 8) & 0xFF, cb = SM_GAME_BAR_RGB & 0xFF;
+    const float f = gauge < 0.f ? 0.f : gauge > 1000.f ? 1.f : gauge / 1000.f;
+    const int fw = (int)((bw - 2) * f + 0.5f);
+    for (int y = 0; y < bh; ++y) {
+        const int yy = y0 + y; if (yy < 0 || yy >= H) continue;
+        const int rim = y == 0 || y == bh - 1;
+        const float v = bh > 3 ? (float)(y - 1) / (float)(bh - 3) : 0.5f;    // 0 top .. 1 bottom inside the outline
+        const float e = v < 0.5f ? 0.5f - v : v - 0.5f;                      // game bar: edges a bit brighter than the middle
+        const float shade = 0.9f + e * 0.3f;
+        for (int x = 0; x < bw; ++x) {
+            const int xx = x0 + x; if (xx < 0 || xx >= W) continue;
+            uint32_t* d = &px[yy * W + xx];
+            if (rim || x == 0 || x == bw - 1) { SmPxOver(d, 10, 6, 6, 235); continue; }
+            if (x - 1 >= fw) { SmPxOver(d, 22, 18, 18, 150); continue; }
+            unsigned r = (unsigned)(cr * shade), g = (unsigned)(cg * shade), b = (unsigned)(cb * shade);
+            if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
+            SmPxOver(d, r, g, b, 250);
+            for (int q = 1; q < 4; ++q) if (x == bw * q / 4) SmPxOver(d, 40, 30, 22, 200);   // segment lines like the game's gold bar
+        }
+    }
+}
 static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, float gauge, uint32_t rgb, double now) {
     unsigned cr = (rgb >> 16) & 0xFF, cg = (rgb >> 8) & 0xFF, cb = rgb & 0xFF;
     if (!rgb) { cr = 0xF5; cg = 0xCD; cb = 0x8B; }
@@ -753,6 +780,9 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
         gaugeBottom = c->my + g->h;
     }
     GdiFlush();
+#ifdef SM_BAR_STYLE
+    if (barW > 0 && SM_BAR_STYLE) SmBarGame(px, w, h, barX, barY, barW, barH, st->gauge); else
+#endif
     if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now);
     // #127364 no shared bar flash on rank-up
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
