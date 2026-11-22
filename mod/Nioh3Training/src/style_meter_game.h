@@ -42,7 +42,7 @@ static void SmFxPop(const char* label, float pts) { SmFxPop2(label, pts, 0.f); }
 static HWND g_sm_game;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
-    g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1000) g_cfg_sm_x = -1;
+    g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1100) g_cfg_sm_x = -1;  // human #129276: >1000 lets the visible bar reach the mini map edge (box padding hangs off-screen)
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
@@ -143,7 +143,7 @@ static const SmMenuKey sm_menu_keys[] = {
     {"NinjutsuPts", SM_NIN_PTS, 0, 200}, {"SoulCorePts", SM_SOUL_PTS, 0, 200}, {"StyleSwitchPts", SM_STYLE_PTS, 0, 200},
     {"WeaponSwapPts", SM_SWAP_PTS, 0, 200}, {"StartupBonusPct", SM_STARTUP_PCT, 0, 500}, {"RepeatPct", SM_REPEAT_PCT, 0, 100},
     {"DecayRampPct", SM_DECAY_RAMP_PCT, 0, 200},
-    {"StyleMeterX", 880, 0, 1000, 1}, {"StyleMeterY", 352, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (880/352 = the -1 default place)
+    {"StyleMeterX", 880, 0, 1100, 1}, {"StyleMeterY", 352, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (880/352 = the -1 default place)
     {"AlwaysOn", 0, 0, 1},  // human #129172 index 23
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
