@@ -1331,3 +1331,7 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-21 8:57 pm EST | pc/1 #128770 GH #159 writer hunt | proven on Main PC: no player-clock write below the step without enemy hits, mods ON (EF 0c05109e) and OFF identical; writers all in Nioh3.exe (step 0x68618a then x-speed 0x20de72; anim 0x480eb4, resets 0x35dbfa/0x35c281) | next: rerun D:/nioh3-re/clk-128770/clkhunt.py style run against a Training Practice boss so hits/hit-stop happen | files D:/nioh3-re/clk-128770 (clk_dbg.c, clkhunt.py, an.py, dbg-CLKHON/OFF.csv)
 - 2026-11-21 9:00 pm EST | pc/1 session end | #128770 done (RESULT sent, f92ccbb2). Half-done: none. Next (only if lead TASKs it): run D:/nioh3-re/clk-128770 logger vs a Training Practice boss so hits happen. Lock free, no Nioh.
+
+## 2026-11-21 9:17 pm EST | pc/1 | GH #159 clock hunt vs Practice boss (#128819)
+- Done: ON vs MIN (Training kept) arms on Takeda Practice, Main PC 1.8.37. Proven: per-hit player-clock dip 0.21-0.55x only with EF on; vanilla-ish step fixed 0.5 (0.778x game speed at 93 fps).
+- Next: RE what scales the step upstream of Nioh3.exe+0x2f7f2b / +0x897300 under EF's variable step. Files: D:/nioh3-re/clk-128770 (clkhuntp.py, slow.py, RESULT-128819.txt), bridge #9096.
