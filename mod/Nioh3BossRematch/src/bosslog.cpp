@@ -2712,6 +2712,7 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 }
 // human #130649: once the stick is allowed, the attack keeps playing but must not walk the yokai.
 // The player position is the only position. Facing follows the player every frame, not the press yaw.
+// The input tick runs before that root motion, so HkMotionSpeed calls this again once the move is in the body.
 static void FormSteerHold(uint64_t player, uint64_t seal, double now) {
     FormPin(player, seal);
     float pos[4] = {};
@@ -3862,9 +3863,23 @@ std::atomic<int> g_runFadeMs{100}, g_runFadeSpeed{200};
 std::atomic<double> g_runFadeAt{0};
 float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     const float r = ((float (*)(uint64_t, uint8_t, uint8_t))g_ftOrig)(ctrl, layer, flag);
-    if (!(r > 0.f) || r > 50.f) return r;
     uint64_t a = 0;
-    if (!Rd(ctrl + 0xE0, a) || !a) return r;
+    // human #130649: pin after the attack's root motion. Still cores never set steer, so they stay locked.
+    if (Rd(ctrl + 0xE0, a) && a && layer == 0 && g_fh4.steer && g_fh4.owner && a == g_fh4.seal) {
+        static thread_local int planting = 0;
+        static double loggedStart = -1;
+        if (!planting) {
+            planting = 1;
+            if (loggedStart != g_fh4.started) {
+                loggedStart = g_fh4.started;
+                Log("FormSteer: attack cannot move the yokai; the player position holds it t=%.3f", Now());
+            }
+            FormSteerHold(g_fh4.owner, a, Now());
+            planting = 0;
+        }
+    }
+    if (!(r > 0.f) || r > 50.f) return r;
+    if (!a) return r;
     if (layer == 0 && a == FkPlayer()) AirSampleTick(a);
     if (const float sm = SealRateMul(a); sm != 1.f) {
         static uint64_t loggedA = 0; static float loggedM = 0; static double loggedT = 0;
