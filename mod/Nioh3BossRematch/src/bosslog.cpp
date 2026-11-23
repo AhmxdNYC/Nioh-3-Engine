@@ -2710,6 +2710,32 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
     }
     return true;
 }
+// human #130649: once the stick is allowed, the attack keeps playing but must not walk the yokai.
+// The player position is the only position. Facing follows the player every frame, not the press yaw.
+static void FormSteerHold(uint64_t player, uint64_t seal, double now) {
+    FormPin(player, seal);
+    float pos[4] = {};
+    if (!Copy(pos, player + 0x110, 12) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return;
+    uint64_t prm = 0, comp = 0;
+    if (Rd(seal + 0x3B0, prm) && prm && Rd(prm + 0x30, comp) && comp)
+        WrBytes(comp + 0x70, pos, 12);
+    const int ro = g_fhRotOff.load();
+    float rows[12] = {};
+    if (ro <= 0 || !Copy(rows, player + ro, sizeof(rows))) return;
+    const float yaw = std::atan2(rows[8], rows[10]);
+    if (!std::isfinite(yaw)) return;
+    if (comp) {
+        WrBytes(comp + 0xA4, &yaw, 4);
+        WrBytes(comp + 0x200, &yaw, 4);
+    }
+    static double next = 0;
+    static uint64_t logged = 0;
+    if (logged != seal || now >= next) {
+        Log("FormSteer hold: body pinned, facing %.1f deg (live) t=%.3f", yaw * 57.29578f, now);
+        logged = seal;
+        next = now + 1.0;
+    }
+}
 // pc #56910 [Spirit] FormFollowSeal: traveling soul cores (d-pad DOWN) move their yokai away from the player, so FormPin (seal -> player)
 // would hold it in place. 1 = every frame warp the hidden player onto the seal (669AB8 on the player + its rotation rows), camera keeps
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
@@ -4745,7 +4771,7 @@ void FormHide4Tick(uint64_t player) {
                     if (styleAt != g_ghostReqAt.load() || hs != heldStyle) { styleAt = g_ghostReqAt.load(); heldStyle = hs;
                         Log("FormFollow end: style %d (press %d, switch %s, A95C %d) %s t=%.3f", hs, ps, g_fbStyleQ.load() ? "queued" : "none", FbStyleNow(), hs == 0 ? "samurai -> ground" : "ninja -> airborne", now); } }
                 const bool exitHold = gq && gq == g_fh4.seal && now < g_ghostReqAt.load();
-                if (steer && !exitHold) { g_fbLS.store(0); FormPin(player, g_fh4.seal); }
+                if (steer && !exitHold) { g_fbLS.store(0); FormSteerHold(player, g_fh4.seal, now); }
                 else if (fd == 1 && exitHold && heldStyle != 0) {
                     static double heldAt = -1; static float hold[4] = {};
                     if (heldAt != g_ghostReqAt.load() && Copy(hold, player + 0x110, 16)) {
