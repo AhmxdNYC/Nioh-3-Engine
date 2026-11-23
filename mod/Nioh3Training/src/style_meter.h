@@ -3,6 +3,11 @@
 // Generic (human rule #87625): no per-boss or per-move table. Events and their base points:
 //   hit     the player's hit took HP off an enemy                  cfg.hit   (x variety factor, below)
 //   dodge   an enemy hit window opened and closed while the player had i-frames in it and took no damage   cfg.dodge
+//   deflect the same, during the universal Samurai deflect (game glue: the move's action-row skill word is in [StyleMeter] DeflectSkill)
+//                                                                                                              cfg.deflect
+//   counter (avoid) the same, during any other skill move (martial art / weapon counter / ninjutsu / guardian spirit: the game's own
+//           skill marks) cfg.dodge, shown as Counter; one counter per move between this and the hit counter below (game glue)
+//           (game glue decides both signals; the rule here is only the priority: other skill -> counter, deflect -> deflect, else dodge)
 //   ki      a Ki pulse landed within cfg.kiHitMs of a landed hit     cfg.ki   (human #126744: a pulse after a whiff scores 0; kiHitMs 0 = no gate)
 //   startup (#126821) a NEW use's points x (1 + startupPct % x how far its first hit window opened between startupMinF and startupMaxF, 60 fps
 //           frames, from the frame meter's own run: run.hit[0]). Slow, risky startups earn more; unknown startup = x1.
@@ -24,6 +29,10 @@
 #define SM_HIST 8
 #define SM_HIT_PTS 20  // #127568 human Main PC tuning (was 10)
 #define SM_DODGE_PTS 45  // #127568 (was 30)
+#define SM_DEFLECT_PTS 45  // [StyleMeter] DeflectPts (same as a dodge until tuned)
+#define SM_DEFLECT_SKILL 0x67D2u  // [StyleMeter] DeflectSkill: action-row skill word of the universal Samurai deflect (live 2026-11-23: one word
+                                  // on 15 directional deflect actions 25503..25621, 276 uses, never an attack frame; weapon counters have their own)
+#define SM_DEFLECT_SKILLS 8
 #define SM_KI_PTS 30  // #127568 (was 20)
 #define SM_KI_PERFECT_PTS 15  // #127075 extra on a perfect Ki pulse (the frame meter's teal check)
 #define SM_NIN_GAP_MS 500     // #127065 one ninjutsu per throw: gauge drops closer than this are the same throw
@@ -45,9 +54,17 @@
 #define SM_SOUL_PTS 40
 #define SM_STYLE_PTS 15
 #define SM_SWAP_PTS 25      // #127057 weapon swap attack
-#define SM_SWAP_MS 600      // a move that starts within this of a weapon slot change is the swap attack
+#define SM_SWAP_MS 600      // a move that starts within this of a weapon slot change is the swap attack (old rule, SmSwapHit)
+#define SM_SWITCH_MS 3000   // [StyleMeter] WeaponSwitchMs: a hit with another weapon within this of the last hit is a weapon switch
 #define SM_GS_PTS 25        // #127213 guardian spirit skill (Spirit Force gauge spent at a move start)
 #define SM_GS_MS 1000       // ... the gauge drop must come within this of the move start
+#define SM_COMBO_MS 3000        // human: combo = landed hits each within this of the previous one; getting hit breaks it
+#define SM_COMBO_STEP 10        // ... a bonus every this many hits in one combo
+#define SM_COMBO_BASE 25        // ... first milestone's bonus, each later one +SM_COMBO_INC, never above SM_COMBO_MAX (25, 40, 55, 70, 85, 100, 100..)
+#define SM_COMBO_INC 15
+#define SM_COMBO_MAX 100
+#define SM_GS_HOLD_MS 1500      // human: a guardian spirit spend in combat holds the drain this long (the summoned spirit's first hit comes ~1.5 s later)
+#define SM_GS_SUMMON_MS 8000  // human: hits by the summoned guardian spirit (R2 + Triangle / RT + Y) count this long after its Spirit Force spend
 #define SM_GS_DROP 1.f      // ... by at least this much below the value just before the move
 #define SM_MA_PTS SM_NIN_PTS // #127295 martial art: same as the ninjutsu bonus (ini MartialArtPts unset = NinjutsuPts)
 #define SM_SKILL_NONE_ID 0xBA71u  // #127295 action-row skill word the game's AttackSkill test (cond 0x2F, 0x2EA15B) treats as none
@@ -61,6 +78,7 @@ static const float sm_rank_pts_default[SM_RANKS] = {60.f, 90.f, 130.f, 180.f, 25
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
+    float deflect;                        // a clean avoid with the deflect signal, not a skill move
     int repeatPct, repeatFloorPct, multiPct;
     int decayDelayMs; float decayPerS; int decayRankPct; int decayRampPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
@@ -70,12 +88,16 @@ typedef struct {
     int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
     float swap; int swapMs;               // #127057 weapon swap attack bonus / window
+    int switchMs;                         // weapon switch: the last hit with the other weapon must be this recent
     float gs; int gsMs;                   // #127213 guardian spirit skill bonus / drop window from the move start
+    int gsSummonMs;                       // human: summoned guardian spirit hits count this long after the summon's gauge spend (0 = off)
+    int comboMs, comboStep, comboBase, comboInc, comboMax;  // human: combo window / milestone size / milestone bonus (0 base = no bonus)
     float ma;                             // #127295 martial art bonus (default = nin)
     float rankPts[SM_RANKS];
 } SmCfg;
 
-typedef struct { int inWin, sawIfr, hit; } SmDodge;
+typedef struct { int inWin, sawIfr, hit, sawDeflect, sawSkill; } SmDodge;
+enum { SM_AV_NONE = 0, SM_AV_DODGE = 1, SM_AV_DEFLECT = 2, SM_AV_COUNTER = 3 };
 
 typedef struct {
     int rank;               // 0 = D .. 6 = SSS
@@ -96,25 +118,31 @@ typedef struct {
     uint32_t kiPerfects;
     double lastSwap; int swapPaid;   // #127057 game ms of the last weapon slot change / its swap attack already scored
     uint32_t swaps, swapHits;
+    int hitSlot; double hitSlotT;    // weapon slot of the last landed hit (-1 unknown) / its game ms (weapon switch bonus)
     uint32_t gsUses, gsHits;  // #127213 guardian spirit skill moves seen / scored
     uint32_t maUses, maHits;  // #127295 martial art moves seen / scored
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
+    uint32_t deflects;      // clean avoids that were deflects
+    uint32_t counterAvoids; // clean avoids during a skill move that counted as that move's counter
+    uint32_t combo, comboBest, comboBonuses;  // human: landed hits in the current combo / longest combo / milestone bonuses paid
+    double comboT;          // game ms of the combo's last hit
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
-    c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->ki = (float)SM_KI_PTS; c->kiPerfect = (float)SM_KI_PERFECT_PTS;
+    c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->deflect = (float)SM_DEFLECT_PTS; c->ki = (float)SM_KI_PTS; c->kiPerfect = (float)SM_KI_PERFECT_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
     c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
-    c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS;
-    c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS;
+    c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS; c->switchMs = SM_SWITCH_MS;
+    c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS; c->gsSummonMs = SM_GS_SUMMON_MS;
+    c->comboMs = SM_COMBO_MS; c->comboStep = SM_COMBO_STEP; c->comboBase = SM_COMBO_BASE; c->comboInc = SM_COMBO_INC; c->comboMax = SM_COMBO_MAX;
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
 static inline void SmCfgClamp(SmCfg* c) {
-    if (c->hit < 0) c->hit = 0; if (c->dodge < 0) c->dodge = 0; if (c->ki < 0) c->ki = 0; if (c->kiPerfect < 0) c->kiPerfect = 0;
+    if (c->hit < 0) c->hit = 0; if (c->dodge < 0) c->dodge = 0; if (c->deflect < 0) c->deflect = 0; if (c->ki < 0) c->ki = 0; if (c->kiPerfect < 0) c->kiPerfect = 0;
     if (c->repeatPct < 0) c->repeatPct = 0; if (c->repeatPct > 100) c->repeatPct = 100;
     if (c->repeatFloorPct < 0) c->repeatFloorPct = 0; if (c->repeatFloorPct > 100) c->repeatFloorPct = 100;
     if (c->multiPct < 0) c->multiPct = 0; if (c->multiPct > 100) c->multiPct = 100;
@@ -125,14 +153,17 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->startupMinF < 0) c->startupMinF = 0; if (c->startupMaxF <= c->startupMinF) c->startupMaxF = c->startupMinF + 1;
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
     if (c->counter < 0) c->counter = 0; if (c->nin < 0) c->nin = 0; if (c->soul < 0) c->soul = 0; if (c->style < 0) c->style = 0;
-    if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000;
+    if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000; if (c->switchMs < 0) c->switchMs = 0; if (c->switchMs > 30000) c->switchMs = 30000;
     if (c->gs < 0) c->gs = 0; if (c->gsMs < 0) c->gsMs = 0; if (c->gsMs > 5000) c->gsMs = 5000;
+    if (c->gsSummonMs < 0) c->gsSummonMs = 0; if (c->gsSummonMs > 30000) c->gsSummonMs = 30000;
+    if (c->comboMs < 200) c->comboMs = 200; if (c->comboMs > 20000) c->comboMs = 20000; if (c->comboStep < 2) c->comboStep = 2; if (c->comboStep > 1000) c->comboStep = 1000;
+    if (c->comboBase < 0) c->comboBase = 0; if (c->comboInc < 0) c->comboInc = 0; if (c->comboMax < c->comboBase) c->comboMax = c->comboBase;
     if (c->ma < 0) c->ma = 0;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
-    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = s->lastStyleT = -1e18; s->lastDamaged = -1;
+    s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = s->lastStyleT = s->hitSlotT = s->comboT = -1e18; s->lastDamaged = -1; s->hitSlot = -1;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -188,6 +219,17 @@ static inline float SmOnSkill(SmState* s, const SmCfg* c, double t, int kind) {
     SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return p;
 }
 // #127057 weapon swap attack: the active weapon slot changed (the game's GetActiveWeaponSlot) ...
+// Weapon switch (any way of switching: flash / swap attack, the quick-swap button, ...): a landed hit with a different weapon slot than the
+// last landed hit, while that hit is recent (switchMs, 3 s: fluid switching, not a switch between fights). Once per switch: the next hit with the same weapon is a normal hit. slot < 0 =
+// unknown (nothing scores, nothing is remembered).
+static inline float SmWeaponHit(SmState* s, const SmCfg* c, double t, int slot) {
+    if (slot < 0) return 0.f;
+    const int sw = s->hitSlot >= 0 && slot != s->hitSlot && t - s->hitSlotT <= (double)c->switchMs;
+    s->hitSlot = slot; s->hitSlotT = t;
+    if (!sw || c->swap <= 0.f) return 0.f;
+    s->swapHits++;
+    SmAdd(s, c, c->swap); s->lastEvent = s->lastScore = t; return c->swap;
+}
 static inline void SmOnSwap(SmState* s, double t) { s->swaps++; s->lastSwap = t; s->swapPaid = 0; }
 // ... and a move that started within swapMs of that change landed a hit: one bonus per slot change (swap spam without hits scores nothing).
 static inline float SmSwapHit(SmState* s, const SmCfg* c, double t, double runStart) {
@@ -212,6 +254,9 @@ static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
     SmAdd(s, c, c->style); s->lastEvent = s->lastScore = t; return c->style;
 }
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }
+static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->deflect); s->deflects++; s->lastEvent = s->lastScore = t; return c->deflect; }
+// Counter by avoiding: dodge points; count = 1 when this move has not been counted as a counter yet (the hit counter may have been first).
+static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) { SmAdd(s, c, c->dodge); if (count) s->counterAvoids++; s->lastEvent = s->lastScore = t; return c->dodge; }
 // #127065 / #127075 ninjutsu gate: n gauge drops this tick -> 1 if it is a new throw. One per throw (drops within SM_NIN_GAP_MS of the
 // last one are the same throw, e.g. two +20 10 ms apart, act 34000 -> 34052), and only in Ninja mode (style 1; -1 = unknown is allowed).
 static inline int SmNinGate(double* lastT, double t, int n, int style) {
@@ -242,6 +287,21 @@ static inline float SmGsPay(SmState* s, const SmCfg* c, SmGsMove* g, double t, f
     if (!g->gs || g->paid || !(movePts > 0.f) || c->gs <= 0.f) return 0.f;
     g->paid = 1; s->gsHits++;
     SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; return c->gs;
+}
+// human: summoned guardian spirit (the attack that sends the spirit out, R2 + Triangle on PlayStation). Its hits come from the spirit's
+// own actor (same team as the player), so they are not the player's hits. A guardian spirit gauge spend opens a window of gsSummonMs;
+// each hit by a same-team actor inside it scores like a hit of the summon move (one use: variety, multi-hit, keeps the meter from
+// draining) and the guardian spirit bonus once per summon, unless that move already paid it with the player's own hits.
+typedef struct { double t0; uint64_t run; uint32_t act; int paid; } SmSummon;
+static inline void SmSummonReset(SmSummon* m) { m->t0 = -1e18; m->run = 0; m->act = 0; m->paid = 1; }
+static inline void SmSummonOpen(SmSummon* m, double t, uint64_t run, uint32_t act) { m->t0 = t; m->run = run; m->act = act; m->paid = 0; }
+static inline int SmSummonLive(const SmSummon* m, const SmCfg* c, double t) { return c->gsSummonMs > 0 && t - m->t0 >= 0.0 && t - m->t0 <= (double)c->gsSummonMs; }
+static inline float SmSummonHits(SmState* s, const SmCfg* c, SmSummon* m, double t, int n, float* bonus) {
+    float p = 0.f; *bonus = 0.f;
+    if (n <= 0 || !SmSummonLive(m, c, t)) return 0.f;
+    for (int i = 0; i < n && i < 64; ++i) p += SmOnHitEx(s, c, t, m->act, m->run, -1.f, 0);
+    if (!m->paid && c->gs > 0.f) { m->paid = 1; s->gsHits++; SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; *bonus = c->gs; }
+    return p;
 }
 // #127295 martial art, from the game's own action data (no act ids, no input): the current action's 336-byte file row
 // R = [[ctrl+0xE8]+0x20] has a skill word at dword R+0xDC. The game's state test 0x2E9948 cond 0x2F (-> hit +0x13C bit 6,
@@ -279,7 +339,7 @@ static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
     SmAdd(s, c, c->ki); s->lastEvent = s->lastScore = t; return c->ki;
 }
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
-    s->damaged++; s->lastEvent = t;
+    s->damaged++; s->lastEvent = t; s->combo = 0;  // getting hit breaks the combo
     if (s->dodge.inWin) s->dodge.hit = 1;
     if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) { s->pts = 0.f; return; }  // same combo: no second drop
     s->lastDamaged = t;
@@ -287,6 +347,28 @@ static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->pts = 0.f; s->active = s->rank > 0;
     s->useOn = 0; s->useAct = SM_ACT_NONE;
 }
+// human: combo. n landed hits this tick (the player's and the summoned spirit's). A gap over comboMs starts a new combo; every comboStep-th
+// hit of one combo pays a milestone bonus (comboBase, +comboInc each later milestone, capped at comboMax). Returns the bonus paid;
+// *mile = the combo count of the last milestone reached this tick (0 = none).
+static inline float SmComboMilestone(const SmCfg* c, uint32_t combo) {
+    if (c->comboStep <= 0 || combo == 0 || combo % (uint32_t)c->comboStep) return 0.f;
+    const int k = (int)(combo / (uint32_t)c->comboStep) - 1; const int b = c->comboBase + k * c->comboInc;
+    return (float)(b > c->comboMax ? c->comboMax : b);
+}
+static inline float SmComboHits(SmState* s, const SmCfg* c, double t, int n, uint32_t* mile) {
+    float bonus = 0.f; *mile = 0;
+    for (int i = 0; i < n && i < 64; ++i) {
+        if (s->combo && t - s->comboT > (double)c->comboMs) s->combo = 0;
+        s->combo++; s->comboT = t;
+        if (s->combo > s->comboBest) s->comboBest = s->combo;
+        const float b = SmComboMilestone(c, s->combo);
+        if (b > 0.f) { bonus += b; *mile = s->combo; s->comboBonuses++; }
+    }
+    if (bonus > 0.f) { SmAdd(s, c, bonus); s->lastEvent = s->lastScore = t; }
+    return bonus;
+}
+// the combo ended (gap over comboMs): the count drops to 0. Per tick.
+static inline void SmComboTick(SmState* s, const SmCfg* c, double t) { if (s->combo && t - s->comboT > (double)c->comboMs) s->combo = 0; }
 // Per tick: idle decay. t = game ms now, dt = game ms since the last tick.
 static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     if (!s->active || dt <= 0) return;
@@ -304,19 +386,26 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
 }
 // Dodge detector, once per tick: enemyActive = an enemy hit window is open now, ifr = the player has i-frames now, tookHit = the player lost HP
 // this tick. 1 on the tick the window closes when i-frames were seen inside it and no damage came in.
-static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) {
-    int award = 0;
+// deflectNow / skillNow = the deflect signal / the player's move is a skill, this tick. Returns SM_AV_* on the tick the window closes clean
+// (i-frames seen, no damage): a skill move anywhere in the window = counter, else the deflect signal = deflect, else dodge.
+static inline int SmDodgeStepEx(SmDodge* d, int enemyActive, int ifr, int tookHit, int deflectNow, int skillNow) {
+    int award = SM_AV_NONE;
     if (enemyActive) {
-        if (!d->inWin) { d->inWin = 1; d->sawIfr = 0; d->hit = 0; }
+        if (!d->inWin) { d->inWin = 1; d->sawIfr = 0; d->hit = 0; d->sawDeflect = 0; d->sawSkill = 0; }
         if (ifr) d->sawIfr = 1;
+        if (deflectNow) d->sawDeflect = 1;
+        if (skillNow) d->sawSkill = 1;
         if (tookHit) d->hit = 1;
     } else if (d->inWin) {
         if (tookHit) d->hit = 1;  // the damage of the last frame of the window lands on the close tick
-        award = d->sawIfr && !d->hit;
+        if (deflectNow) d->sawDeflect = 1;
+        if (skillNow) d->sawSkill = 1;
+        award = d->sawIfr && !d->hit ? (d->sawSkill ? SM_AV_COUNTER : d->sawDeflect ? SM_AV_DEFLECT : SM_AV_DODGE) : SM_AV_NONE;
         d->inWin = 0;
     }
     return award;
 }
+static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) { return SmDodgeStepEx(d, enemyActive, ifr, tookHit, 0, 0) != 0; }
 // Visible: something to show, and a boss fight is live or the last event is recent.
 static inline int SmVisible(const SmState* s, const SmCfg* c, double t, int fight) {
     return s->active && (fight || t - s->lastEvent < (double)c->combatMs);
