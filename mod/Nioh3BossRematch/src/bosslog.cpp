@@ -2715,9 +2715,11 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
-// human #130495 / #130513: [Spirit] FormSteer=1. Remember where the yokai first stood. Once it moves FormSteerCm
-// (first try 10) in any direction, the left stick steers for the rest of that form (yokai pinned to the player).
-// Attacks stay blocked. 0 = off. FormBlockLS is put back when the form ends.
+// human #130495 / #130513 / #130536: [Spirit] FormSteer=1. Remember where the yokai BODY first stood.
+// The attack root (chr+0x110) lunges with the swing and does not count. The body is the physics controller
+// the warp already writes, [[chr+3B0]+30]+0x70 (669C40). Same split as SealHitAtkOnly: a body is not an attack.
+// Once that body moves FormSteerCm (first try 10) in any direction, the left stick steers for the rest of that
+// form (yokai pinned to the player). Attacks stay blocked. 0 = off. FormBlockLS is put back when the form ends.
 // Both keys are re-read from the ini file about twice a second (raw read, not the profile cache) so the cm can change live.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10};
 int g_fbLSIni = 1;
@@ -3086,8 +3088,10 @@ struct Fh4State {
     int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
     float sealP0[4] = {};
     double followT0 = 0;
-    bool steer = false;  // human #130495: yokai left its spawn spot, left stick steers
-    float steerD = 0;    // farthest cm from that spot this form
+    bool steer = false;  // human #130495: yokai body left its spawn spot, left stick steers
+    float steerD = 0;    // farthest cm the body moved from that spot this form
+    float steerP0[4] = {};  // human #130536: body spawn, not the attack root and not the follow probe
+    bool steerHave = false;
 };
 Fh4State g_fh4;
 bool PickFormActive() { return g_fh4.owner != 0; }
@@ -3331,7 +3335,7 @@ void Fh4Restore(uint64_t player) {
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
     if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && g_fh4.steerD > 0.5f)
-        Log("FormSteer: yokai moved only %.0f cm (need %d), stick stayed off", g_fh4.steerD, g_formSteerCm.load());
+        Log("FormSteer: body moved only %.0f cm (need %d), stick stayed off", g_fh4.steerD, g_formSteerCm.load());
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
@@ -4185,7 +4189,15 @@ static void FormSteerPoll(double now) {
     g_formSteerCm.store(cm);
     Log("FormSteer live on=%d cm=%d (was on=%d cm=%d)", on, cm, wasOn, wasCm);
 }
-// human #130495. True once this form's yokai has moved FormSteerCm from its first spot. Does not move anyone.
+// human #130536. chr+0x110 is the attack root (the lunge). The yokai body is the physics controller
+// [[chr+3B0]+30], and 669C40 writes its position at +0x70. A missing body does not fall back to the attack.
+static bool FormSteerBodyPos(uint64_t seal, float* p) {
+    uint64_t ai = 0, comp = 0;
+    if (!seal || !Rd(seal + 0x3B0, ai) || !ai || !Rd(ai + 0x30, comp) || !comp) return false;
+    if (!Copy(p, comp + 0x70, 16)) return false;
+    return std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]);
+}
+// human #130495. True once this form's yokai body has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
     if (g_formSteer.load() <= 0 || !g_fh4.seal) {
         if (g_fh4.steer) { g_fh4.steer = false; g_fbLS.store(g_fbLSIni); }
@@ -4193,15 +4205,21 @@ static bool FormSteerTick(double now) {
     }
     if (g_fh4.steer) return true;
     float p[4] = {};
-    if (!Copy(p, g_fh4.seal + 0x110, 16) || !std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2])) return false;
-    if (g_fh4.followT0 <= 0) { memcpy(g_fh4.sealP0, p, sizeof(p)); g_fh4.followT0 = now; return false; }
-    const float dx = p[0] - g_fh4.sealP0[0], dy = p[1] - g_fh4.sealP0[1], dz = p[2] - g_fh4.sealP0[2];
+    if (!FormSteerBodyPos(g_fh4.seal, p)) return false;
+    if (!g_fh4.steerHave) { memcpy(g_fh4.steerP0, p, sizeof(p)); g_fh4.steerHave = true; return false; }
+    const float dx = p[0] - g_fh4.steerP0[0], dy = p[1] - g_fh4.steerP0[1], dz = p[2] - g_fh4.steerP0[2];
     const float d = sqrtf(dx * dx + dy * dy + dz * dz);
     if (d > g_fh4.steerD) g_fh4.steerD = d;
     const int cm = g_formSteerCm.load();
     if (cm > 0 && d >= (float)cm) {
         g_fh4.steer = true;
-        Log("FormSteer: yokai moved %.0f cm from spawn -> left stick steers, attacks stay off t=%.3f", d, now);
+        float gap = -1.f;
+        float atk[4] = {};
+        if (Copy(atk, g_fh4.seal + 0x110, 12) && std::isfinite(atk[0]) && std::isfinite(atk[1]) && std::isfinite(atk[2])) {
+            const float ax = atk[0] - p[0], ay = atk[1] - p[1], az = atk[2] - p[2];
+            gap = sqrtf(ax * ax + ay * ay + az * az);
+        }
+        Log("FormSteer: body moved %.0f cm from spawn (attack root %.0f cm off the body) -> left stick steers, attacks stay off t=%.3f", d, gap, now);
         return true;
     }
     return false;
