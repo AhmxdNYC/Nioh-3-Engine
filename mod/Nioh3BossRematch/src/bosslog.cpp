@@ -2717,8 +2717,9 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // human #130495 / #130513 / #130570: [Spirit] FormSteer=1. Remember where the yokai first stood.
 // Live 22:45:40: bind act 0xC53 moved that spot 46 cm in 50 ms (gap 0) and the form ended still on the attack.
-// Idle is action 0x1 (SealEndOnIdle: C53 -> 0x1). The attack does not arm the stick. The stick arms only once
-// the seal is idle and still >= FormSteerCm from the spawn sample. Attacks stay blocked. 0 = off.
+// Idle is action 0x1 (SealEndOnIdle: C53 -> 0x1). The attack does not arm the stick, and its landing
+// (46-83 cm, log 22:44-22:56) is not the spot that counts. The stick arms only once the seal is idle
+// and the body has then moved FormSteerCm. Attacks stay blocked. 0 = off.
 // FormBlockLS is put back when the form ends. Both keys are re-read from the ini about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10};
 int g_fbLSIni = 1;
@@ -4227,9 +4228,15 @@ static bool FormSteerTick(double now) {
     if (d > g_fh4.steerD) g_fh4.steerD = d;
     const int cm = g_formSteerCm.load();
     // human #130570. The attack action moves this spot (22:45:40, act 0xC53, 46 cm, gap 0) while the
-    // yokai they see stays put. Idle is action 0x1. Arm only after the attack, if the body is still far.
+    // yokai they see stays put. Idle is action 0x1. Arm only after the landing, if the body then moves.
     const uint32_t act = PlayerActId(g_fh4.seal);
     if (act != 1) {
+        // human #130570: the 46-83 cm (log 22:44-22:56) is this attack landing. Slide the spot with it
+        // so idle measures travel after the landing, not the drop onto the player.
+        if (act != 0 && act != 0xFFFF && act != 0xFFFFFFFF) {
+            memcpy(g_fh4.steerP0, p, sizeof(p));
+            g_fh4.steerD = 0;
+        }
         if (cm > 0 && d >= (float)cm && !g_fh4.steerAtkNoted) {
             g_fh4.steerAtkNoted = true;
             Log("FormSteer: attack 0x%X moved %.0f cm, not the body, stick stays off t=%.3f", act, d, now);
@@ -4244,7 +4251,7 @@ static bool FormSteerTick(double now) {
             const float ax = atk[0] - p[0], ay = atk[1] - p[1], az = atk[2] - p[2];
             gap = sqrtf(ax * ax + ay * ay + az * az);
         }
-        Log("FormSteer: idle body still %.0f cm from spawn (attack root %.0f cm off) -> left stick steers, attacks stay off t=%.3f", d, gap, now);
+        Log("FormSteer: idle body moved %.0f cm from the landing (attack root %.0f cm off) -> left stick steers, attacks stay off t=%.3f", d, gap, now);
         return true;
     }
     return false;
