@@ -116,6 +116,7 @@ untested. Reports from other hardware are welcome; please attach `Nioh3EngineFix
 | [`tools/saves/`](tools/saves/) | the save-file helpers the engine fix's Saves page uses (built into the package by `build.bat`) |
 | [`symbols/`](symbols/) | symbol database: about 16,000 named functions, globals and structs in `Nioh3.exe` v2.02 (RVAs only), with x64dbg / IDA / Ghidra scripts |
 | [`research/`](research/) | our reverse-engineering notes: renderer (all 11 packages), frame timing, loading, jobs, profiles |
+| [`docs/engineer/`](docs/engineer/) | **start here if you are joining as a developer**: setup, symbol database, every mod feature, tests, play-as-a-boss brief |
 | [`docs/`](docs/) | benchmarks, final bench charts, why-it-runs-badly report, code map, engine subsystem write-ups, progress charts |
 | [`tools/progress/`](tools/progress/) + [`data/`](data/) | scripts and our own address tables that build every chart and the code map from your own copy of the game |
 
@@ -202,6 +203,8 @@ Setup, priorities and how to send a pull request: [CONTRIBUTING.md](CONTRIBUTING
 
 
 ## Building
+
+New developer? Read [docs/engineer/](docs/engineer/README.md) first.
 
 The engine fix and the rematch add-on build with MSVC (x64 C++ tools) and the Windows SDK: run `build.bat` in the
 mod's folder (it finds Visual Studio / Build Tools through vswhere). The Training add-on builds with zig's clang:
