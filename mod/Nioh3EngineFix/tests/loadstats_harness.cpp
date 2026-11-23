@@ -6,6 +6,12 @@
 //   build+run: tests\run_loadstats_harness.cmd  ->  "LOADSTATS HARNESS: ALL OK"
 #include "../src/loadstats.cpp"
 
+// #108787: loadstats.cpp asks zinflate.cpp for the [Patches] Inflate replacements; off here (tests/zinflate_test.cpp covers it)
+namespace zinfl {
+InflFn Replacement(int) { return nullptr; }
+void NoteSites(int, int, const char*) {}
+}  // namespace zinfl
+
 #include <cstdio>
 
 using namespace loadstats;

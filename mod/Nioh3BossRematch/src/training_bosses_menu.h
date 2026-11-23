@@ -10,7 +10,7 @@
 constexpr int uBoss = 940;
 constexpr int kItSeqBase = 0xA0000, kItSeqEnd = kItSeqBase + 0x10000;          // + kN3Moves index of the sequence's first move
 constexpr int kItBossOpenBase = 0xB0000, kItBossOpenEnd = kItBossOpenBase + 64; // + slot: 'Boss C: name   A: open'
-constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66;
+constexpr int kItBossStance = -60, kItBossAggro = -61, kItBossGap = -62, kItBossReset = -63, kItBossRemove = -64, kItSumAnother = -65, kItStanceTimer = -66, kItBossLast = -67, kItRepFlow = -59;  // #126768: was -68 = kItListFilter (the arena filter row drew as "Between repeated moves")
 constexpr int kMcSeq = kMcCount;  // the Sequences group row (kItMoveCatBase - kMcSeq) and page (g_moveCat == kMcSeq)
 bool IsBossOpenItem(int item) { return item >= kItBossOpenBase && item < kItBossOpenEnd; }
 bool IsSeqItem(int item) { return item >= kItSeqBase && item < kItSeqBase + N3_MOVE_COUNT; }
@@ -70,6 +70,17 @@ void BossAggroSet(int dir) {
     Log("Rematch: menu Boss %c aggro -> %d", 'A' + g_bossSlot, on);
     snprintf(g_msg, sizeof g_msg, on ? "Boss %c aggro ON: it keeps you as its target and walks up to you (5 m) before its repeating move." : "Boss %c aggro OFF: it behaves as before.", 'A' + g_bossSlot);
 }
+// human #122193: 'Between moves: Flow / Pause' for Repeat last 2 / 3 (global, [Training] RepeatFlow)
+int RepFlowGet() { using Fn = int (*)(); const auto f = (Fn)TrainingExport("Nioh3Training_GetRepeatFlow"); return f ? f() : -1; }
+void RepFlowToggle() {
+    using Fn = int (*)(int, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetRepeatFlow");
+    const int v = RepFlowGet();
+    if (!f || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs the Nioh3Training.asi of this build (Flow / Pause)."); return; }
+    const int on = f(!v, 1);
+    Log("Rematch: menu repeat between moves -> %s", on ? "Flow" : "Pause");
+    snprintf(g_msg, sizeof g_msg, on ? "Flow: Last 2 / 3 moves chain straight into each other like the boss's own combos (also in Stand still)." : "Pause: each repeated move plays out to idle before the next one starts.");
+}
 int BossGapGet() {
     using Fn = int (*)(uint32_t);
     const auto f = (Fn)TrainingExport("Nioh3Training_GetRepeatGapChr");
@@ -90,6 +101,40 @@ void BossGapStep(int dir) {  // Left / Right 0.25 s, A = longer, wraps to 0 afte
     v = f(chr, v, 1);
     Log("Rematch: menu Boss %c gap between repeats -> %d ms", 'A' + g_bossSlot, v);
     g_msg[0] = 0;
+}
+// human #68578 (Discord request) 'Repeat last move': Off / Last move / Last 2 / Last 3 moves. The boss does the attack you want, you pause, pick
+// the mode and it keeps doing that attack (or those few in its order), no move names needed. Training records the boss's own attack starts.
+int LastMovesGet(uint32_t chr, uint32_t* ids, int cap) {
+    using Fn = int (*)(uint32_t, uint32_t*, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetLastMoves");
+    return f && chr ? f(chr, ids, cap) : 0;
+}
+int RepeatLastGet(uint32_t chr) {
+    using Fn = int (*)(uint32_t);
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetRepeatLast");
+    return f && chr ? f(chr) : 0;
+}
+const char* LastMoveText(uint32_t chr, uint32_t id) {
+    static char bufs[3][64]; static int nb; char* b = bufs[nb++ % 3];
+    for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && kN3Moves[i].id == id) { snprintf(b, 64, "0x%04X %.28s", id, MoveName(kN3Moves[i])); return b; }
+    snprintf(b, 64, "0x%04X", id); return b;
+}
+void RepeatLastStep(uint32_t chr, int dir) {  // A / Right: next mode, Left: previous (Off, Last move, Last 2, Last 3)
+    using Fn = int (*)(uint32_t, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetRepeatLast");
+    if (!chr) { snprintf(g_msg, sizeof g_msg, "No boss here yet: start Training or a Boss Match first."); return; }
+    if (!f) { snprintf(g_msg, sizeof g_msg, "Needs the Nioh3Training.asi of this build (Repeat last move)."); return; }
+    uint32_t ids[3] = {0}; const int have = LastMovesGet(chr, ids, 3);
+    int v = RepeatLastGet(chr) + (dir < 0 ? -1 : 1);
+    if (v > 3) v = 0;
+    if (v < 0) v = 3;
+    if (v > have) v = dir < 0 ? have : 0;
+    const int rc = f(chr, v);
+    Log("Rematch: menu Repeat last move chr %u -> %d (captured %d, rc %d)", chr, v, have, rc);
+    if (v == 0) { snprintf(g_msg, sizeof g_msg, have ? "Repeat last move OFF: the boss fights as set again." : "No attack seen yet: let the boss attack once, then pause and pick Last move."); return; }
+    if (rc <= 0) { snprintf(g_msg, sizeof g_msg, "Could not repeat that move (see the mod log)."); return; }
+    if (rc == 1) snprintf(g_msg, sizeof g_msg, "The boss now repeats %s. Close the menu.", LastMoveText(chr, ids[0]));
+    else snprintf(g_msg, sizeof g_msg, "The boss now repeats its last %d moves in order, starting with %s.", rc, LastMoveText(chr, ids[rc - 1]));
 }
 void BossResetPos() {
     using Fn = int (*)(int);

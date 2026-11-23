@@ -86,7 +86,7 @@ static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
 // Only a Training/Rematch boss (BvActor) gets native * pct / 100; everyone else and 100 % pass through. Takes effect at the boss's next motion start / layer refresh.
 typedef float (*PstSpdFn)(uint64_t, uint8_t, uint8_t); static PstSpdFn o_pstspd; static volatile LONG g_pst_spd_hooked, g_pst_spd_logs;
 // #43283: a Boss Match is a Training session that is not Practice. g_bmd_on is the wrong flag: a loot or no-finisher menu change clears it. This never writes g_pst.v.
-static int PstBossMatchOn(void) { return g_tr.active && !g_tr.practice; }
+static int PstBossMatchOn(void) { return g_tr.active ? !g_tr.practice : NativeSlotsActive(); }
 static __attribute__((noinline)) int PstIsBossActor(uint64_t a) {
     if (!a) return 0;
     for (int s = 0; s < N3T_SLOTS; ++s) if (BvActor(s) == a) return 1;
@@ -109,7 +109,7 @@ static void PstSpdHookInstall(void) {
     g_pst_spd_hooked = 2;
     // 134E68: mov rax,rsp | mov [rax+8],rbx | mov [rax+10h],rbp | mov [rax+18h],rsi | mov [rax+20h],rdi (19 bytes, no rip-relative operand)
     if (memcmp((void*)(B + Grva(0x134E68)), "\x48\x8B\xC4\x48\x89\x58\x08\x48\x89\x68\x10\x48\x89\x70\x18\x48\x89\x78\x20", 19)) { Log("hook ComputeMotionSpeed 134E68: bytes differ, boss speed off"); return; }
-    o_pstspd = (PstSpdFn)Hook(0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
+    HOOK_SET(o_pstspd, 0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
     Log("hook ComputeMotionSpeed 134E68: on (boss speed #22389)");
 }
 // user #23013 (Kagetoki / Jubei 'negative Ki'), notes/human-boss-negative-ki-23013.md. Static RE re-checked on re/Nioh3.dump.exe (decomp.cmd, 2026-10-22):
@@ -270,6 +270,7 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
 static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
     const float amt0 = amt; float c0 = 0.0f, s0 = 0.0f;
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    __try { amt = BvKiDmgFloor(K, amt); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: delayed infinite boss Ki, no break from small hits
     const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss
     if (lg) { __try { c0 = *(volatile float*)(K + 0x14); s0 = *(volatile float*)(K + 0x60); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     const uint8_t r = ((PstKiFn)(B + Grva(0x844604)))(K, amt);
@@ -327,7 +328,10 @@ static __attribute__((noinline)) uint64_t PstSoulFindGlob(void) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("SOULCORE g:Inventory signature not found, infinite soul cores off"); return 0;
 }
-static __attribute__((noinline)) void PstPlayerSoul(void) {
+// #126913 style meter soul core bonus: the same detection counts uses into g_soul_uses (SmFeed takes them). fix 0 = read only (style meter
+// on, PlayerInfiniteSoulCore off): nothing is written back, a use is still counted once.
+static volatile LONG g_soul_uses;
+static __attribute__((noinline)) void PstPlayerSoul(int fix) {
     if (!g_soul_scan) { g_soul_scan = 1; g_soul_glob = PstSoulFindGlob(); }
     uint64_t a = 0, inv = 0, me = PlayerChar(), ai = 0, ctrl = 0;
     if (!g_soul_glob || !Rd64(g_soul_glob, &a) || !a || !Rd64(a, &inv) || !inv) return;
@@ -358,14 +362,18 @@ static __attribute__((noinline)) void PstPlayerSoul(void) {
             const uint8_t* r = arr + (size_t)i * 0xE8; const uint16_t id = *(const uint16_t*)r;
             if (!id || id != *(const uint16_t*)(r + 2)) { g_soul_have[i] = 0; continue; }
             volatile uint32_t* cnt = (volatile uint32_t*)(r + 4); const uint32_t c = *cnt;
-            for (int k = 0; k < g_soul_nmin; ++k)
+            for (int k = 0; k < g_soul_nmin && fix; ++k)
                 if (g_soul_min_id[k] == id && c < g_soul_min_n[k]) { *cnt = g_soul_min_n[k]; PstLog("PRACTICE soul core floor: item 0x%X slot %d count %u -> %u (SoulCoreMin)", id, i, c, g_soul_min_n[k]); }
             int known = 0;  // human #58313: in ninja style the throw act 0x28FD lasts one frame (-> 0x82A) and the poll misses it; an item
             for (int k = 0; k < g_soul_nknown; ++k) if (g_soul_known[k] == id) { known = 1; break; }  // already put back once is a soul core
             if ((seal || known) && g_soul_have[i] && g_soul_prev[i] == c + 1 && c + 1 <= 99) {
                 if (!known && g_soul_nknown < 32) g_soul_known[g_soul_nknown++] = id;
+                InterlockedIncrement(&g_soul_uses);
+                if (!fix) { g_soul_prev[i] = c; g_soul_drop[i] = 0; continue; }
                 *cnt = g_soul_prev[i]; PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (%s, put back)", id, i, c, g_soul_prev[i], seal ? "used in the seal throw" : "known soul core"); continue; }
             if (seal && g_soul_have[i] && g_soul_drop[i] && now - g_soul_drop[i] < 1500 && g_soul_dropc[i] == c && c + 1 <= 99) {
+                InterlockedIncrement(&g_soul_uses);
+                if (!fix) { g_soul_drop[i] = 0; if (g_soul_nknown < 32 && !known) g_soul_known[g_soul_nknown++] = id; g_soul_prev[i] = c; continue; }
                 *cnt = c + 1; g_soul_drop[i] = 0; if (g_soul_nknown < 32 && !known) g_soul_known[g_soul_nknown++] = id;
                 PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (used just before the form start, put back)", id, i, c, c + 1);
                 g_soul_prev[i] = c + 1; continue; }
@@ -390,7 +398,7 @@ static __attribute__((noinline)) void PstResetFightTick(void) {
         }
     }
     if (warp && g_tr.active && g_tr.hasStart) {
-        __try { w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RESETFIGHT player Warp faulted %08lX", GetExceptionCode()); }
+        __try { w = PlayerRecoveryWarp(g_tr.pp); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RESETFIGHT player Warp faulted %08lX", GetExceptionCode()); }
     }
     Log("RESETFIGHT player: HP refill %d, Ki refill %d, back to start %s (Warp %d, start %.0f %.0f %.0f)", hpOk, kiOk, warp ? "requested" : "no start recorded", w, g_tr.pp[0], g_tr.pp[1], g_tr.pp[2]);
 }
@@ -602,7 +610,7 @@ static void PstTick(void) {
         if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
         g_pst_env_sess = sess;
     }
-    if (g_pst.v[PS_PLAYER_INF_SOUL]) PstPlayerSoul();  // pc #57367: everywhere, not only in Practice (soul-core testing on any save)
+    if (g_pst.v[PS_PLAYER_INF_SOUL] || g_cfg_sm) PstPlayerSoul(g_pst.v[PS_PLAYER_INF_SOUL] != 0);  // pc #57367: everywhere (+ #126913 style meter, read only)
     else memset(g_soul_have, 0, sizeof g_soul_have);
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");

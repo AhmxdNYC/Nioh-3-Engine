@@ -1,0 +1,119 @@
+"""Exercise production primary selection, capture promotion, ghost lifetime and rate hooks."""
+from pathlib import Path
+import subprocess
+root=Path(__file__).resolve().parent.parent
+s=(root/'src/bosslog.cpp').read_text()
+def between(a,b): return s[s.index(a):s.index(b,s.index(a))]
+pre=r"""
+#include <windows.h>
+#include <atomic>
+#include <algorithm>
+#include <vector>
+#include <map>
+#include <set>
+#include <cmath>
+#include <cstdio>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+std::map<uint64_t,std::vector<unsigned char>> mem;
+template<class T>void put(uint64_t a,T x){auto& b=mem[a];b.resize(sizeof(x));memcpy(b.data(),&x,sizeof(x));}
+template<class T>bool Rd(uint64_t a,T& x){auto i=mem.find(a);if(i==mem.end()||i->second.size()!=sizeof(x))return false;memcpy(&x,i->second.data(),sizeof(x));return true;}
+bool WrBytes(uint64_t a,const void* x,size_t n){auto& b=mem[a];b.resize(n);memcpy(b.data(),x,n);return true;}
+double clockNow=10;double Now(){return clockNow;}uint64_t FkPlayer(){return 123;}
+void Log(const char*,...){}
+struct {double t=10;} g_pressSnap;std::atomic<double> g_pickT{10};std::atomic<uint32_t> g_pickCore{0x16127};
+std::set<uint64_t> oldActors,dead;bool AliveAtPress(uint64_t a){return oldActors.count(a)!=0;}
+uint64_t ActorTableGlobal(){return 1;}int FormHideSealPresent(uint64_t,uint64_t a){return dead.count(a)?0:1;}
+SRWLOCK g_fh4Lock=SRWLOCK_INIT;
+struct {uint64_t owner=123,seal=0;double capT=0;bool keepSeal=false;} g_fh4;
+std::atomic<uint64_t> g_ghostReq{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_tailSeal{0};
+std::atomic<double> g_ghostHideAt{0},g_ghostT{0},g_tailT0{0};
+std::atomic<int> g_ghostHideMs{0};int g_ghostFadeMs=250;float g_ghostFade0=1;
+std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{250};
+bool enabled=true;bool ScOn(){return enabled;}int binds=0;void FormHideEndBegin(uint64_t,uint64_t){++binds;}
+"""
+code=pre+between('struct PressHitSource','void SealEndOnHitNoteSpawn')+between('struct PressGhost','void Fh4KeepSeal')+between('float SealRateMul(','std::atomic<uint32_t> g_ftActs')+between('void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {','struct SealTailHitWatch')
+code+='void adopt(uint64_t& cap,double& capT){uint64_t player=123;'+between('    double primaryAt = 0;\n    const uint64_t primary = PressPrimarySeal(&primaryAt);','    if (g_fh4.owner && (g_fh4.fromSpawn')+'}\n'
+code+=r"""
+struct FxRec {bool world=true;uint32_t id=0x62DF5;double t=0;float blk[16]={},pl[4]={};uint64_t owner=0,a7=0,replayTarget=0,d=0;};
+struct FxPlay {double at;FxRec r;};
+constexpr int kFxRecMax=64;FxRec g_fxRec[kFxRecMax],g_frzRec[2];int g_fxRecN=1,g_fxPlayN=0;
+FxPlay g_fxPlay[kFxRecMax];bool g_frzOk[2]={};SRWLOCK g_fxRecLock=SRWLOCK_INIT;
+std::atomic<int> g_fxrOn{1},g_fxrRepeatMs{0},g_formSid{0};std::atomic<double> g_fxrT0{0},g_fxrUntil{0}; int g_fxrTailMs=100; uint32_t g_fxrCtr[12]={};
+int g_fxrCtrN=0;bool g_fxrBone=false;
+bool Copy(void* out,uint64_t a,size_t n){if(n!=16)return false;float pos[4]={(float)a,0,0,0};memcpy(out,pos,16);return true;}
+bool FxCenterId(uint32_t){return true;}bool CoverAt(FxRec&,float*,uint32_t){return false;}void FxFwd(float*,float,float){}
+"""
+code+=between('bool ExitSmokeId(uint32_t id) {', '// human #58146: freeze switches')
+code+='void record(FxRec r){'+between('    if (!r.world || !ExitSmokeId(r.id)) return;', '    if (n < kFxRecMax) {')+'}\n'
+code+=between('void RelocateExitReplay(', 'void SealExitReplayTick()')
+code+=between('bool FormSealContinuation(uint64_t actor) {', '\n')+'\n'
+code+='bool entryAllowed(uint64_t cap){'+between('                   if (FormSealExited(cap)) return false;', '                   bool fresh =')+'return true;}\n'
+code+=r"""
+int checks=0;void check(bool v){++checks;if(!v){printf("FAIL %d\n",checks);exit(1);}}
+void actor(uint64_t a,uint32_t id,uint64_t root,float fade=1){put(a,id<<4);put(a+0x20,root);put(root+0x248,fade);}
+float fade(uint64_t root){float f=-1;Rd(root+0x248,f);return f;}
+int main(){
+ actor(456,0x16127,10000);actor(789,0xC17E3,20000,.5f);
+ g_hitSourceSnapshot=10;g_pressHitSources={{456,10.30},{789,10.42}};double at=0;
+ check(PressPrimarySeal(&at)==456&&at==10.30);
+ g_pressHitSources={{789,10.30},{456,10.42}};check(PressPrimarySeal(&at)==456&&at==10.42);
+ g_pickCore=0x999;check(PressPrimarySeal(&at)==789&&at==10.30);g_pickCore=0x16127;
+ oldActors.insert(456);check(PressPrimarySeal(&at)==789);oldActors.clear();
+ g_hitSourceSnapshot=9;check(!PressPrimarySeal(&at));g_hitSourceSnapshot=10;
+ g_pressHitSources={{456,10.30},{789,10.42}};g_fh4.seal=789;g_fh4.capT=10.42;
+ uint64_t cap=789;double capT=10.42;adopt(cap,capT);
+ check(cap==456&&g_fh4.seal==456&&g_fh4.keepSeal&&binds==1);
+ clockNow=11;g_ghostHideAt=11.05;PressGhostBegin({456,789,456,123},true);
+ check(g_pressGhosts.size()==2);check(fade(10000)==1&&fade(20000)==.5f);
+ clockNow=11.125;PressGhostTick();check(std::abs(fade(10000)-.5f)<.001f);check(std::abs(fade(20000)-.25f)<.001f);
+ check(std::abs(SealRateMul(456)-1.7f)<.001f&&std::abs(SealRateMul(789)-1.7f)<.001f);
+ clockNow=11.3;enabled=false;g_fh4.owner=0;PressGhostTick();check(fade(10000)==0&&fade(20000)==0);
+ check(SealRateMul(456)==2&&SealRateMul(789)==2&&SealRateMul(999)==1);
+ dead.insert(456);PressGhostTick();check(g_pressGhosts.size()==1&&SealRateMul(789)==2);
+ put(789,uint32_t(0x5129B<<4));PressGhostTick();check(g_pressGhosts.empty()&&SealRateMul(789)==1);
+ actor(456,0x16127,10000);dead.clear();clockNow=12;PressGhostBegin({456},false);check(fade(10000)==0);
+ PressGhostForget(456);check(g_pressGhosts.empty());
+ // #108161: helper exit keeps the ghost at its form speed (tail = base), default ghost tail stays x2
+ actor(456,0x16127,10000);PressGhostBegin({456},false);check(g_pressGhosts.back().tail==2.f);PressGhostForget(456);
+ actor(456,0x16127,10000);g_ghostKeepSpeed=true;PressGhostBegin({456},false);g_ghostKeepSpeed=false;check(g_pressGhosts.back().tail==g_pressGhosts.back().base);PressGhostForget(456);check(g_pressGhosts.empty());
+ actor(456,0x16127,10000);PressGhostBegin({456},true);clockNow=33;PressGhostTick();check(g_pressGhosts.empty());
+ clockNow=40;check(SealExitReplayQueue(456,123)==1);const double firstAt=g_fxPlay[0].at;const float firstX=g_fxPlay[0].r.blk[12];
+ clockNow=40.1;check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==1);
+ check(g_fxPlay[0].at==firstAt&&g_fxPlay[0].r.blk[12]==firstX);
+ check(SealExitReplayQueue(789,789)==0&&g_fxPlayN==1); // a second exit callback must not erase pending smoke
+ SealExitReplayPressReset();check(g_fxRecN==0&&g_fxPlayN==0&&g_exitReplayIds.empty());
+ // Exact shape of the report: repeated bone auras plus duplicate world smoke.
+ for(int i=0;i<24;++i){FxRec r;r.world=false;r.id=i<14?0x1394F:i<18?0x62DF6:i<20?0x2BFD:0x916;record(r);}
+ check(g_fxRecN==0);
+ FxRec smoke;for(int i=0;i<24;++i)record(smoke);check(g_fxRecN==1);
+ g_fxrRepeatMs=500;check(SealExitReplayQueue(456,123)==1&&g_fxPlayN==1&&g_fxPlay[0].r.owner==0);
+ for(int press=0;press<100;++press){SealExitReplayBegin(press+1);check(g_fxRecN==0&&g_fxPlayN==0);record(smoke);record(smoke);check(g_fxRecN==1&&SealExitReplayQueue(456,123)==1);}
+ SealExitReplayPressReset();g_fxPlayN=1;g_fxPlay[0].r={};g_fxPlay[0].r.replayTarget=0;
+ SealExitReplayBegin(140);check(g_fxPlayN==1); // preserve queued START cover
+ record(smoke);FxRec other;other.id=0x62557;record(other);check(SealExitReplayQueue(456,123)==2);
+ check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==2); // once per id across all sources
+ // Reject bone records even if legacy capture supplied them, and retain endpoint travel.
+ SealExitReplayPressReset();g_fxRecN=4;g_fxRec[0]={};g_fxRec[0].world=true;g_fxRec[0].pl[0]=223182;g_fxRec[0].blk[12]=223210;
+ g_fxRec[1]={};g_fxRec[1].world=false;g_fxRec[1].owner=789;g_fxRec[1].id=0x1394F;g_fxrBone=true;
+ g_fxRec[2]=g_fxRec[0];g_fxRec[3]={};g_fxRec[3].id=0x916; // non-smoke world effect rejected too
+ check(SealExitReplayQueue(456,123)==1);check(g_fxPlay[0].r.blk[12]==123+0x110+28);
+ check(g_fxPlay[0].r.owner==0&&g_fxPlay[0].r.world);
+ auto& moved=g_fxPlay[0].r;moved.replayTarget=1123;RelocateExitReplay(moved);
+ check(moved.blk[12]==1123+0x110+28);RelocateExitReplay(moved);check(moved.blk[12]==1123+0x110+28);
+ // Repeated capture timestamps and tail action changes never make an exited actor eligible.
+ actor(456,0x16127,10000);actor(789,0xC17E3,20000);g_hitSourceSnapshot=g_pressSnap.t;
+ g_pressHitSources={{456,10.3},{789,10.42}};RetireFormSeals(456);
+ check(FormSealExited(456)&&FormSealExited(789));check(!entryAllowed(456));g_fh4.owner=123;g_fh4.seal=456;check(FormSealContinuation(456));g_fh4.owner=0;check(!FormSealContinuation(456));clockNow+=100;check(FormSealExited(456));
+ check(PressPrimarySeal(&at)==0);dead.insert(456);check(!FormSealExited(456));dead.clear();check(entryAllowed(456));
+ put(789,uint32_t(0x5129B<<4));check(!FormSealExited(789));
+ printf("primary selection, capture promotion, multi-actor ghost/rate: %d checks PASS\n",checks);
+}
+"""
+out=root/'build/primary-ghost-test';out.mkdir(parents=True,exist_ok=True)
+unit=out/'test.cpp';unit.write_text(code);exe=out/'test.exe'
+setup=Path('C:/nioh3-engine/tools/msvc/setup_x64.bat')
+cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /Fo"{out / "test.obj"}" /Fe"{exe}" "{unit}"'
+r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout,r.stderr);r.check_returncode()
+subprocess.run([str(exe)],check=True,timeout=30)

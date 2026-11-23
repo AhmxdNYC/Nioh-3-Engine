@@ -36,6 +36,8 @@
 #include "tilestats.h"
 #include "loadmem.h"
 #include "loadstats.h"
+#include "zinflate.h"
+#include "fhlinger.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
@@ -48,11 +50,20 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "bootnotice.h"
+#include "padguard.h"
+#include "aichainguard.h"
+#include "motionguard.h"
+#include "resinfoguard.h"
+#include "assertguard.h"
+#include "holdkeygap.h"
+#include "inputlog.h"
 #include "crashreport.h"
+#include "reportsend.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
 #include "readfix.h"
+#include "ptstart.h"
 #include "readprobe.h"
 #include "jt.h"
 #include "pmode.h"
@@ -72,6 +83,9 @@
 #include "meshletwait.h"
 #include "drainwait.h"
 #include "hitchlog.h"
+#include "perfsnap.h"
+#include "crashupload.h"
+#include "../../shared/known_build.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -140,7 +154,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.1"
+#define MOD_VERSION "1.8.39"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -148,6 +162,10 @@ void caveFps();
 void caveScale();
 void caveLim();
 void caveTier();
+void caveGov();
+void caveHold();
+extern uint64_t gov_getFps, gov_obj;  // GovFpsFix / GovTrace (GitHub #98)
+extern uint32_t gov_fix, gov_fps;
 void caveMenu();
 void caveL1();
 extern uint64_t vrr_minNs[3];
@@ -158,6 +176,8 @@ extern uint64_t l1_callee;
 extern uint32_t vrr_enable;
 extern uint32_t vrr_tier;
 extern uint32_t vrr_capCur;
+extern uint64_t vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;  // Tier120Floor (GitHub #98)
+extern uint32_t vrr_floorOn, vrr_floorEnters;
 extern uint32_t vrr_arm[3];
 extern uint32_t vrr_cap[3];
 BOOL WINAPI hookPeek(LPMSG msg, HWND wnd, UINT fmin, UINT fmax, UINT remove);
@@ -249,6 +269,8 @@ extern uint64_t w6_wakeAll, w6_wakes;
 // 1.6.0: TG tick governor (caveLim), WG wake gate (WS2/WS3/WSs), DS, CP, SPF
 extern uint32_t tg_cap;
 extern uint32_t vrr_fpsOut;
+extern uint32_t vrr_teArm;  // GH #155: stay armed through the 120 tier's time effect (G[620] == 60)
+extern uint32_t vrr_dtShift;  // DtSmooth (GitHub #98): EMA shift for the VRR frame interval, 0 = off
 extern uint32_t wg_installed;
 void caveDs();
 void caveCP();
@@ -380,6 +402,33 @@ int g_tgFloor = 30, g_tgRatioPct = 125;
 int g_loaderCap = 10;            // 1.7.14: resource-load in-flight cap (16 when LC is applied), for LoadStats
 int g_lcCapWanted = 16;          // 1.7.30: LC = 1 -> 16, LC = 11..64 -> that cap (BuildRepl rewrites the LCa/LCb immediates)
 bool g_tgL1 = false;              // L1 installed this session
+bool g_govTrace = false;          // [VRR] GovTrace (GitHub #98): log the P8d frame governor once per second when it changes
+
+void Log(const char* fmt, ...);
+static bool GovRead(uint64_t obj, int32_t v[3]) {  // level +5C, accumulator +60, cooldown +64; obj is the game's
+    __try { memcpy(v, (const void*)(uintptr_t)(obj + 0x5C), 12); return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+// Called from the OSD stats tick. Threshold = fps*1000/30 with the value P8d handed over (the game's imul + /30).
+extern "C" void GovTraceTick() {
+    if (!g_govTrace) return;
+    static ULONGLONG last = 0;
+    static int32_t prev[3] = {-1, -1, -1};
+    static uint32_t prevFps = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (now - last < 1000) return;
+    last = now;
+    const uint64_t obj = *(volatile uint64_t*)&gov_obj;
+    const uint32_t fps = *(volatile uint32_t*)&gov_fps;
+    int32_t v[3];
+    if (!obj || !GovRead(obj, v)) return;
+    if (!memcmp(v, prev, sizeof(v)) && fps == prevFps) return;
+    memcpy(prev, v, sizeof(v));
+    prevFps = fps;
+    Log("GOV: level %d acc %d thr %d (fps in %u, %s) cooldown %d", v[0], v[1], (int)((int64_t)fps * 1000 / 30), fps,
+        gov_fix ? "stock GetFps" : "tier", v[2]);
+}
 volatile double g_tgRendered = 0, g_tgTicks = 0;
 ULONGLONG g_tgLowerSince = 0;
 
@@ -388,6 +437,8 @@ volatile uint32_t g_dsEnable = 0;
 HANDLE g_dsTimer = nullptr;
 volatile LONG g_dsTid = 0;
 int64_t g_dsMarginUs = 150;
+int64_t g_dsDqMarginUs = 80;  // margin when DQ's short quantum is the spin's period (#96142)
+volatile long g_dsLate = 0;   // DQ mode: timer woke after the quantum had already run out
 int64_t g_qpcFreqDs = 0;
 volatile long g_dsWaits = 0;
 volatile long long g_dsTicks = 0;
@@ -444,16 +495,26 @@ extern "C" void caveMW();
 extern "C" void caveMWWake();
 extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
 extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
+#include "framewaitpark.h"
+extern "C" void caveFwp();
+extern "C" uint64_t fwp_resume;
 
 struct Config {
     int mw = 0, rd = 0;
+    int fwp = 0, fwpSpinUs = 200, fwpSleepUs = 100;  // #101247 frame-wait park (0 stock, 1 park, 2 measure-only)
     int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
-    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
+    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, kidstsCapCpus = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
+    int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int timeEffectArm = 0;  // GH #155: 1 = VRR stays armed (real-time dt) while the game's time effect halves G[620] in the 120 tier
+    int dtSmooth = 0;  // GitHub #98 (pc/1 #113171): VRR game dt = EMA of the frame interval, weight 1/2^N (0 = off, 1..6)
+    int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
+    int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
+    char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -473,7 +534,7 @@ struct Config {
     // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
     int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
-    int ds = 0, dsMarginUs = 150;
+    int ds = 1, dsMarginUs = 150, dsDqMarginUs = 80;  // DS default on (#96048; -5.5% CPU at a 60 fps cap, #96036)
     int lk = 0, cp = 0, spf = 0;
     int ma = 0;  // 1.7.39: main-thread locked "atomic loads" (code bytes, next launch)
     int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
@@ -533,6 +594,45 @@ Config LoadConfig() {
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
     c.workerCap = I(L"Patches", L"WorkerCap", c.workerCap);
+    // Walk-fix defaults (v1.8.19, Ally PASS #105500): KidstsCap and FileLoadPrio default 1 (both no-ops on a full-affinity
+    // PC with more than FileLoadPrio_MaxCpus CPUs). Shipped inis up to v1.8.18 wrote 0; flip an explicit 0 to 1 once and
+    // stamp WalkFixDefaultV = 1 (same pattern as FpwDefaultV #104185); with the marker present the keys are never touched
+    // again (a later manual 0 sticks). Runs before thrsched reads FileLoadPrio.
+    if (I(L"Patches", L"WalkFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"KidstsCap", 1) == 0) WritePrivateProfileStringW(L"Patches", L"KidstsCap", L"1", f);
+        if (I(L"Patches", L"FileLoadPrio", 1) == 0) WritePrivateProfileStringW(L"Patches", L"FileLoadPrio", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"WalkFixDefaultV", L"1", f);
+    }
+    // Loading-fix defaults (v1.8.22, PC2 #109923 FileLoad+Poll 31 -> 8.9 CPU-s/min, Ally #110220 no regression): PollFix
+    // default 1, RC default 2. Inis up to v1.8.21 shipped RC = 0 (opt-in experiment); flip an explicit 0 once and stamp
+    // LoadFixDefaultV = 1 (same pattern as WalkFixDefaultV); with the marker present a later manual 0 sticks.
+    // Runs before readfix/thrsched read RC and PollFix. Inflate stays opt-in (no measured gain, #109757).
+    if (I(L"Patches", L"LoadFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"RC", 2) == 0) WritePrivateProfileStringW(L"Patches", L"RC", L"2", f);
+        if (I(L"Patches", L"PollFix", 1) == 0) WritePrivateProfileStringW(L"Patches", L"PollFix", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"LoadFixDefaultV", L"1", f);
+    }
+    // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
+    // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
+    // and the count is below the logical CPU count; becomes WorkerCap = max(6, count) because the engine's own pool base
+    // is clamp(logical, 6, 32) (a real 4-core CPU gets base 6). notes/walk-hitch-102842.md.
+    {
+        const int kc = I(L"Patches", L"KidstsCap", 1);
+        if (kc > 0 && c.workerCap == 0) {
+            DWORD_PTR pm = 0, sm = 0;
+            int n = kc;
+            if (kc == 1) {
+                n = 0;  // affinity unreadable -> skip (no WorkerCap), logged via kidstsCapCpus = -1
+                if (GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm))
+                    for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+                else
+                    n = -1;
+            }
+            const int logical = (int)GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+            if (n >= 1 && n < logical) c.workerCap = std::clamp(n, 6, 31) < logical ? std::clamp(n, 6, 31) : 0;
+            c.kidstsCapCpus = n;
+        }
+    }
     c.as0 = I(L"Patches", L"AS0", c.as0);
     const wchar_t* armK[3] = {L"Tier30", L"Tier60", L"Tier120"};
     const wchar_t* minK[3] = {L"Min30", L"Min60", L"Min120"};
@@ -544,6 +644,20 @@ Config LoadConfig() {
     }
     c.maxFps = I(L"VRR", L"MaxFps", c.maxFps);
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
+    c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
+    c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
+    c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
+    c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
+    c.dtSmooth = std::clamp(I(L"VRR", L"DtSmooth", c.dtSmooth), 0, 6);
+    c.timeEffectArm = I(L"VRR", L"TimeEffectArm", c.timeEffectArm) ? 1 : 0;
+    c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
+    {
+        wchar_t w[128] = {};
+        GetPrivateProfileStringW(L"VRR", L"StockSites", L"", w, 128, f);
+        for (int i = 0; i < 127 && w[i]; ++i) c.stockSites[i] = (w[i] < 128) ? (char)w[i] : '?';
+    }
+    c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
+    c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
     c.r1Ms = std::clamp(I(L"Tuning", L"R1_TimeoutMs", c.r1Ms), 0, 16);
     c.l1MarginUs = std::clamp(I(L"Tuning", L"L1_MarginUs", c.l1MarginUs), 200, 20000);
@@ -560,7 +674,10 @@ Config LoadConfig() {
     c.e1 = I(L"Patches", L"E1", c.e1);
     c.rd = I(L"Patches", L"RD", 0); // startup-only paired renderer drain
     c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
-    c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
+    c.fwp = I(L"Patches", L"FWP", 0);  // explicit opt-in, never Auto
+    c.fwpSpinUs = std::clamp(I(L"Patches", L"FWP_SpinUs", 200), 0, 2000);
+    c.fwpSleepUs = std::clamp(I(L"Patches", L"FWP_SleepUs", 100), 20, 1000);
+    c.w6 = A(L"Patches", L"W6", c.w6, 1, 1, "present-wait spin -> WaitOnAddress; Wine: power goes to the GPU; Windows PC2 -0.2..-0.5 cores, no hitches (#124475/#124575)");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
     if (c.ppPeriod != 2 && c.ppPeriod != 4 && c.ppPeriod != 8 && c.ppPeriod != 16) c.ppPeriod = 4;
@@ -581,6 +698,12 @@ Config LoadConfig() {
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
     c.tg = I(L"Patches", L"TG", c.tg);
+    // One-time versioned default (#96048): installs updated from <=1.8.13 keep the old shipped DS = 0 in their ini. Flip an
+    // explicit 0 to 1 once, then stamp DSDefaultV = 1 so a later manual DS = 0 sticks.
+    if (I(L"Patches", L"DSDefaultV", 0) < 1) {
+        if (GetPrivateProfileIntW(L"Patches", L"DS", 1, f) == 0) WritePrivateProfileStringW(L"Patches", L"DS", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"DSDefaultV", L"1", f);
+    }
     c.ds = I(L"Patches", L"DS", c.ds);
     c.lk = I(L"Patches", L"LK", c.lk);
     c.ma = I(L"Patches", L"MA", c.ma);
@@ -605,6 +728,7 @@ Config LoadConfig() {
     c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
     c.tgRatioPct = std::clamp(I(L"Tuning", L"TG_RatioPct", c.tgRatioPct), 100, 200);
     c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
+    c.dsDqMarginUs = std::clamp(I(L"Tuning", L"DS_DqMarginUs", c.dsDqMarginUs), 20, 150);
     c.gpuProf = I(L"Profiler", L"GPUProf", c.gpuProf);
     c.gpuMarkers = I(L"Profiler", L"GPUProf_Markers", c.gpuMarkers);
     c.jt = I(L"Profiler", L"JT", I(L"Patches", L"JT", c.jt));  // [Patches] JT too: the abba2 harness writes unknown arm keys there
@@ -767,6 +891,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveScale: return (void*)&caveScale;
         case gen::Target::caveLim: return (void*)&caveLim;
         case gen::Target::caveTier: return (void*)&caveTier;
+        case gen::Target::caveGov: return (void*)&caveGov;
+        case gen::Target::caveHold: return (void*)&caveHold;
         case gen::Target::caveMenu: return (void*)&caveMenu;
         case gen::Target::hookPeek: return (void*)&hookPeek;
         case gen::Target::caveL1: return (void*)&caveL1;
@@ -784,6 +910,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveRDWait: return (void*)&caveRDWait;
         case gen::Target::caveRDWake: return (void*)&caveRDWake;
         case gen::Target::caveMWWake: return (void*)&caveMWWake;
+        case gen::Target::caveFwp: return (void*)&caveFwp;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
         case gen::Target::caveIkKick: return (void*)&caveIkKick;
@@ -845,11 +972,16 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveMeshLod: return (void*)&caveMeshLod;
         case gen::Target::caveFxSim: return (void*)&caveFxSim;
         case gen::Target::caveFxDraw: return (void*)&caveFxDraw;
+        case gen::Target::caveRenderDims: return (void*)&caveRenderDims;  // #67206 XRES (extraperf.asm)
+        case gen::Target::caveDrawLimit: return (void*)&caveDrawLimit;  // #67225 RenderDistance
+        case gen::Target::cavePlaceDist: return (void*)&cavePlaceDist;
+        case gen::Target::caveCharLod: return (void*)&caveCharLod;
+        case gen::Target::cavePropDist: return (void*)&cavePropDist;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveRDWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFwp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1461,6 +1593,17 @@ void ConfigureVrr(const Config& c) {
         vrr_maxNs[i] = 1000000000ull / (uint64_t)minF;  // longest interval
         Log("VRR tier %3d: armed=%u clamp %d..%d fps, limiter cap %d", tiers[i], vrr_arm[i], minF, maxF, maxF);
     }
+    vrr_dtShift = (uint32_t)c.dtSmooth;
+    vrr_teArm = (uint32_t)c.timeEffectArm;
+    Log("VRR TimeEffectArm=%d: %s (GH #155)", c.timeEffectArm,
+        c.timeEffectArm ? "the 120 tier stays real-time while the game's time effect runs" : "the 120 tier runs stock (fixed 1/120 s steps) while the game's time effect runs");
+    if (c.dtSmooth) Log("VRR DtSmooth=%d: game dt = EMA of the frame interval (weight 1/%d, GitHub #98)", c.dtSmooth, 1 << c.dtSmooth);
+    vrr_floorNs = c.t120Floor ? 1000000000ull / (uint64_t)c.t120Floor : 0;
+    vrr_floorHoldNs = (uint64_t)c.t120FloorHoldMs * 1000000ull;
+    vrr_floorProbeNs = (uint64_t)c.t120FloorProbeS * 1000000000ull;
+    if (c.t120Floor)
+        Log("VRR Tier120Floor: below %d fps for %d ms the 120 tier runs as the 60 tier for %d s, then re-measures (GitHub #98)",
+            c.t120Floor, c.t120FloorHoldMs, c.t120FloorProbeS);
     // stock-equivalent values until the first P1 frame (tier assumed 60 there; overwritten every frame by caveFps)
     auto nd = reinterpret_cast<NearData*>(g_near);
     nd->ticks120 = 2;
@@ -1491,6 +1634,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (gpuopt::SetVrsTuning(key, val, reply, n)) return true;  // #119730
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
     if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
@@ -1531,13 +1675,22 @@ DWORD WINAPI Worker(LPVOID) {
     g_base = (uint8_t*)GetModuleHandleW(nullptr);
     auto nt = Nt(g_base);
     g_imageSize = nt->OptionalHeader.SizeOfImage;
-    const bool known = nt->FileHeader.TimeDateStamp == gen::kBuildTimestamp && nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage;
+    // #77: shared check (mod/shared/known_build.h): the Steam exe, or the same v2.02 code without the Steam DRM wrapper
+    const int buildKind = n3kb_classify((uintptr_t)g_base);
+    const bool known = buildKind != N3KB_UNKNOWN;
+    static_assert(N3KB_STAMP == gen::kBuildTimestamp && N3KB_SIZE_STEAM == gen::kBuildSizeOfImage, "known_build.h vs patches.json");
+    if (buildKind == N3KB_STRIPPED) Log("known-stripped: v2.02 code without the Steam DRM wrapper (SizeOfImage %zX, 7 sections at the Steam RVAs, .text sha matches)", (size_t)nt->OptionalHeader.SizeOfImage);
     Log("Nioh3.exe at %p: TimeDateStamp %08lX SizeOfImage %zX -> %s", g_base, nt->FileHeader.TimeDateStamp, g_imageSize,
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
     // every fixed game address goes through Grva() (gamerva.h): identity here on v2.02, pattern lookup on another build
     gamerva::Init((uintptr_t)g_base, known, &Log);
-    if (!known)
+    if (!known) {
+        // #94070: say which kind of variant this is; the safe, byte-verified groups stay on either way
+        Log("exe variant: TimeDateStamp %08lX / SizeOfImage %zu (%s); known is %08X / %u", nt->FileHeader.TimeDateStamp, g_imageSize,
+            nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage ? "same image size, other build stamp (repack/patch)" : "other image size (new game build)",
+            (unsigned)gen::kBuildTimestamp, (unsigned)gen::kBuildSizeOfImage);
         Log("unknown build: each patch is installed only when its own bytes match (fixed addresses found by byte pattern)");
+    }
 
     // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
     if (known) {
@@ -1617,6 +1770,8 @@ DWORD WINAPI Worker(LPVOID) {
     const DWORD logical = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
     bool wcPending = cfg.workerCap > 0 && known && wca && wcb;
     if (wcPending && (cfg.workerCap < 6 || cfg.workerCap > 31)) { Log("WC: WorkerCap must be 6..31 - skipped"); wcPending = false; }
+    if (cfg.kidstsCapCpus < 0) Log("KC: KidstsCap - process affinity unreadable, skipped (no WorkerCap)");
+    else if (cfg.kidstsCapCpus) Log("KC: KidstsCap sees %d CPUs (of %lu logical) -> WorkerCap %d", cfg.kidstsCapCpus, logical, cfg.workerCap);
     if (wcPending && logical <= (DWORD)cfg.workerCap) { Log("WC: %lu logical CPUs <= WorkerCap %d - nothing to cap", logical, cfg.workerCap); wcPending = false; }
     auto tryWC = [&]() {
         uint8_t* a = g_base + wca->rva;
@@ -1672,6 +1827,9 @@ DWORD WINAPI Worker(LPVOID) {
     bool rfPending = known && readfix::BootWanted(SelfPathWithExt(L".ini").c_str(), rfBoot);
     const int rfCap = wcPending ? cfg.workerCap : 0;
     auto tryRF = [&]() { rfPending = readfix::BootTry(reinterpret_cast<uintptr_t>(g_base), rfBoot, rfCap, logical, &Log); };
+    // PTS (crash #86): the Present thread must not start before its wake event exists (ptstart.h); boot-time, before the renderer
+    bool ptsPending = known && ptstart::BootWanted(SelfPathWithExt(L".ini").c_str());
+    auto tryPTS = [&]() { ptsPending = ptstart::BootTry(reinterpret_cast<uintptr_t>(g_base), &Log); };
     bool vsPending = known;  // 1.7.48 VS: D3D12CreateDevice IAT hook before the device exists ([Profiler] MemStats = 2)
     const std::wstring vsIni = SelfPathWithExt(L".ini");
     const DWORD t0 = GetTickCount();
@@ -1683,6 +1841,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (as0Pending) tryAS0();
         if (asPending) asPending = asyncslots::BootTry(reinterpret_cast<uintptr_t>(g_base), asBoot, &Log);
         if (rfPending) tryRF();
+        if (ptsPending) tryPTS();
         if (known) {
             ready = true;
             for (const gen::Site* s : sentinels)
@@ -1692,7 +1851,7 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending || ptsPending) ? 0 : known ? 20 : 250);
     }
     if (vsPending) vsPending = !memstats::BootIat(reinterpret_cast<uintptr_t>(g_base), vsIni.c_str(), &Log);
     if (rfPending) tryRF();
@@ -1706,6 +1865,8 @@ DWORD WINAPI Worker(LPVOID) {
     if (asBoot.gateWritten) s_as0Applied = true;
     if (wcPending) Log("WC: sites not in their original state after decryption - skipped");
     if (p12Pending) Log("P12: site not in its original state after decryption - skipped");
+    if (ptsPending) tryPTS();
+    if (ptsPending) Log("PTS: present thread entry not in its original state after decryption - skipped");
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
     Log(ready ? "code is decrypted (%lu ms after start)" : "code did not reach the expected state within %lu ms - scanning anyway, each site is still verified",
         GetTickCount() - t0);
@@ -1717,13 +1878,16 @@ DWORD WINAPI Worker(LPVOID) {
     auto groupOn = [&](const char* g) {
         if (!strcmp(g, "W1")) return cfg.w1 != 0;
         if (!strcmp(g, "W2")) return cfg.w2 != 0;
-        if (!strcmp(g, "VRR")) return cfg.vrr != 0;
+        // 1.8.2: the ini value is the live switch. Resolving these groups even when the switch is 0 keeps the menu row live.
+        // L1 and FG stay unresolved under Proton unless the OnWine key is 1 (the menu says why).
+        if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
-        if (!strcmp(g, "W3")) return cfg.w3 != 0;
-        if (!strcmp(g, "R1")) return cfg.r1 != 0;
-        if (!strcmp(g, "L1")) return cfg.l1 != 0;
-        if (!strcmp(g, "FG")) return cfg.fg != 0;
-        if (!strcmp(g, "WK")) return cfg.wk != 0 || (cfg.wakeStats != 0 && known);  // WakeStats splits the checks here
+        if (!strcmp(g, "VRRHOLD")) return cfg.vrr != 0 && cfg.holdWindowFix != 0;
+        if (!strcmp(g, "W3")) return true;
+        if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
+        if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
+        if (!strcmp(g, "FG")) return !(g_wineEarly && !cfg.fgOnWine);
+        if (!strcmp(g, "WK")) return true;
         // experimental: a group installs only when its own bytes match (DepsOk). knownBuild is not required.
         if (!strcmp(g, "B")) return cfg.b != 0;
         if (!strcmp(g, "PP")) return cfg.pp != 0;
@@ -1738,6 +1902,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
         if (!strcmp(g, "RD")) return cfg.rd != 0;
         if (!strcmp(g, "MW")) return cfg.mw != 0;
+        if (!strcmp(g, "FWP")) return cfg.fwp != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
@@ -1760,6 +1925,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "VSMA")) return samelook::VsmaIni() != 0;  // 1.7.49 same-look package
         if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0 || extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO
         if (!strcmp(g, "GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")) return extraperf::Wanted();  // 1.7.59 XGI / XLOD / XPRT
+        if (!strcmp(g, "XRS")) return extraperf::Wanted() && extraperf::ResLevel() > 0;  // #67206: was missing, so XRES never resolved
+        if (!strcmp(g, "RDD") || !strcmp(g, "RDP") || !strcmp(g, "RDC") || !strcmp(g, "RDF")) return extraperf::Wanted();  // #67225 RenderDistance, including 1.00
         if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
@@ -1769,6 +1936,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
+        if (!strcmp(g, "PG")) return false;  // PadListGuard pad list-walk sites: verified offline (test_patterns, test_padguard), hooked by padguard.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
         if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
@@ -1827,16 +1995,55 @@ DWORD WINAPI Worker(LPVOID) {
             std::vector<Item*> one{it};
             run(it->s->id, one, it->found);
         }
-    // VRR: all-or-nothing
+    // VRR: all-or-nothing. Always installed; cfg.vrr 0 leaves the stock timing path (the cave checks vrr_enable).
     bool vrrDone = false;
-    if (cfg.vrr) {
+    {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
+        if (ok) {  // P8d -> caveGov: remember the stock GetFps call target (site still unpatched here; the AOB pins E8)
+            for (Item* it : v)
+                if (!strcmp(it->s->id, "P8d") && it->addr[0] == 0xE8) {
+                    int32_t rel;
+                    memcpy(&rel, it->addr + 1, 4);
+                    gov_getFps = (uint64_t)(uintptr_t)(it->addr + 5 + rel);
+                }
+            gov_fix = (cfg.govFpsFix && gov_getFps) ? 1u : 0u;
+            g_govTrace = cfg.govTrace != 0;
+            if (cfg.govFpsFix || cfg.govTrace)
+                Log("VRR GovFpsFix=%d GovTrace=%d: frame governor threshold (P8d) uses %s (GetFps RVA %X; GitHub #98)", (int)gov_fix,
+                    cfg.govTrace, gov_fix ? "the stock GetFps" : "the tier", gov_getFps ? (unsigned)(gov_getFps - (uint64_t)(uintptr_t)g_base) : 0u);
+        }
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
-        if (ok) ConfigureVrr(cfg);
+        if (ok && cfg.stockSites[0]) {  // GitHub #98 bisection: drop listed tick/tier sites so they keep the stock code
+            static const char* kStockable[] = {"P3a", "P3b", "P3c", "P3d", "P3e", "P3f", "P3g", "P6", "P8a", "P8b", "P8c", "P8d", "P9"};
+            auto listed = [&](const char* id) {
+                for (const char* p = cfg.stockSites; *p;) {
+                    while (*p == ',' || *p == ' ') ++p;
+                    const char* e = p;
+                    while (*e && *e != ',' && *e != ' ') ++e;
+                    if (e > p && strlen(id) == (size_t)(e - p) && !_strnicmp(id, p, e - p)) return true;
+                    p = e;
+                }
+                return false;
+            };
+            std::vector<Item*> keep;
+            std::string left;
+            for (Item* it : v) {
+                bool stockable = false;
+                for (const char* k : kStockable) stockable |= !strcmp(k, it->s->id);
+                if (stockable && listed(it->s->id)) { left += it->s->id; left += ' '; continue; }
+                keep.push_back(it);
+            }
+            v.swap(keep);
+            Log("VRR StockSites=%s: left stock (GitHub #98 bisection, test only): %s", cfg.stockSites, left.empty() ? "none" : left.c_str());
+        }
+        if (ok) {
+            ConfigureVrr(cfg);
+            vrr_enable = cfg.vrr ? 1u : 0u;
+        }
         // keep the scripts' safe order: data-only users first, P1 (activation) last; written together anyway
         vrrDone = run("VRR", v, ok);
-        if (vrrDone && cfg.menuQuantize) {
+        if (vrrDone && cfg.vrr && cfg.menuQuantize) {
             auto m = collect("VRRMENU");
             bool mok = allFound(m);
             if (mok) {
@@ -1847,10 +2054,15 @@ DWORD WINAPI Worker(LPVOID) {
             }
             run("VRR menu quantize (P7)", m, mok);
         }
+        if (vrrDone && cfg.vrr && cfg.holdWindowFix) {
+            auto h = collect("VRRHOLD");
+            bool hok = run("VRR hold window (P10)", h, allFound(h));
+            Log("VRR HoldWindowFix=1: player notice window in real 60 Hz ticks %s (GitHub #98)", hok ? "installed" : "NOT installed");
+        }
     }
-    // W3: message pump
+    // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).
     bool w3Done = false, r1Done = false, wkDone = false;
-    if (cfg.w3) {
+    {
         auto v = collect("W3");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1860,16 +2072,16 @@ DWORD WINAPI Worker(LPVOID) {
             if (ok) {
                 g_peekSlot = slot;
                 g_w3Ms = (DWORD)cfg.w3Ms;
-                g_w3Enable = 1;
+                g_w3Enable = cfg.w3 ? 1 : 0;
             } else Log("W3: IAT slot looks wrong - skipped");
         }
         w3Done = run("W3", v, ok);
     }
-    // R1: render-begin wait (two sites)
-    if (cfg.r1) {
+    // R1: render-begin wait (two sites). R1=0 still installs the hook with timeout 0 (stock poll) so the menu row is live.
+    {
         auto v = collect("R1");
         bool ok = allFound(v) && g_near;
-        if (ok) reinterpret_cast<NearData*>(g_near)->r1Timeout = (uint32_t)cfg.r1Ms;
+        if (ok) reinterpret_cast<NearData*>(g_near)->r1Timeout = cfg.r1 ? (uint32_t)cfg.r1Ms : 0;
         r1Done = run("R1", v, ok);
     }
     // L1: frame limiter. Under Wine/Proton the high-resolution timer flag may be accepted but not honoured, which
@@ -1883,8 +2095,8 @@ DWORD WINAPI Worker(LPVOID) {
         Log("W3: Wine/Proton -> empty-queue wait is Sleep(%lu ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)",
             g_w3Ms ? g_w3Ms : 1);
     }
-    if (cfg.l1 && wine && !cfg.l1OnWine) { Log("L1: skipped under Wine/Proton (set [Patches] L1OnWine=1 to try it)"); l1State = osd::State::WineSkipped; }
-    if (cfg.l1 && (!wine || cfg.l1OnWine)) {
+    if (wine && !cfg.l1OnWine) { Log("L1: skipped under Wine/Proton (set [Patches] L1OnWine=1 to try it)"); l1State = osd::State::WineSkipped; }
+    else {
         auto v = collect("L1");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1902,15 +2114,15 @@ DWORD WINAPI Worker(LPVOID) {
                 l1_callee = callee;
                 g_l1MarginUs = (uint64_t)cfg.l1MarginUs;
                 g_l1MinUs = (uint64_t)cfg.l1MinUs;
-                g_l1Enable = 1;
+                g_l1Enable = cfg.l1 ? 1 : 0;
             }
         }
         l1State = run("L1", v, ok) ? osd::State::On : osd::State::Failed;
     }
     // F1: FSR frame-generation presenter pacing wait (only runs with FSR frame generation on). Same timer caveat
-    // under Wine/Proton as L1.
-    if (cfg.fg && wine && !cfg.fgOnWine) { Log("F1: skipped under Wine/Proton (set [Patches] FGOnWine=1 to try it)"); f1State = osd::State::WineSkipped; }
-    if (cfg.fg && (!wine || cfg.fgOnWine)) {
+    // under Wine/Proton as L1. The hook stays in when FG=0; g_fgEnable is the switch.
+    if (wine && !cfg.fgOnWine) { Log("F1: skipped under Wine/Proton (set [Patches] FGOnWine=1 to try it)"); f1State = osd::State::WineSkipped; }
+    else {
         auto v = collect("FG");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1930,16 +2142,16 @@ DWORD WINAPI Worker(LPVOID) {
             } else {
                 g_fgMarginTicks = (int64_t)cfg.l1MarginUs * g_qpcFreq / 1000000;
                 g_fgThreshTicks = (int64_t)(cfg.l1MarginUs + cfg.l1MinUs) * g_qpcFreq / 1000000;
-                g_fgEnable = 1;
+                g_fgEnable = cfg.fg ? 1 : 0;
             }
         }
         f1State = run("F1", v, ok) ? osd::State::On : osd::State::Failed;
     }
     // WK: job-system wake gate (skip the futile "wake one more worker" when no queue of the pool holds work)
-    if (cfg.wk || (cfg.wakeStats && known)) {
+    {  // WK=0 still installs the gate so the menu can turn it on; wk_enable 0 is the stock wake
         auto v = collect("WK");
         bool ok = allFound(v) && g_near;
-        if (ok) wk_enable = cfg.wk ? 1u : 0u;  // installed only for WakeStats: the gate stays off (stock)
+        if (ok) wk_enable = cfg.wk ? 1u : 0u;
         wkDone = run("WK", v, ok);
     }
 
@@ -1984,6 +2196,33 @@ DWORD WINAPI Worker(LPVOID) {
         if (!installed && !g_mwInstallUncertain) g_mw.enabled = false;
         Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
             installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
+    }
+    // FWP (#101247): RenderWaitForFrame job spin 4A4F1C -> kick once + own high-res timer park. Single site, main thread.
+    if (cfg.fwp == 1 || cfg.fwp == 2) {
+        g_fwpMode = cfg.fwp; g_fwpSpinUs = cfg.fwpSpinUs; g_fwpSleepUs = cfg.fwpSleepUs;
+        g_fwpOn = expGroup("FWP", true, [&]() {
+            Item* it = findItem("FWP");
+            if (!it || !it->addr) return false;
+            const uint8_t* a = it->addr;  // 48 8B 8F C8 01 00 00 | E8 rel32 (kick) | FF C3 84 DB | 0F 85 rel32 (loop head)
+            if (a[7] != 0xE8 || a[16] != 0x0F || a[17] != 0x85) return false;
+            const uintptr_t kick = (uintptr_t)(a + 12) + *reinterpret_cast<const int32_t*>(a + 8);
+            const uintptr_t head = (uintptr_t)(a + 22) + *reinterpret_cast<const int32_t*>(a + 18);
+            if (kick != (uintptr_t)(g_base + Grva(0x3EB04)) || head != (uintptr_t)(g_base + Grva(0x4A4F3B))) {
+                Log("FWP: kick/loop-head targets differ from 3EB04/4A4F3B - stock retained");
+                return false;
+            }
+            LARGE_INTEGER q; QueryPerformanceFrequency(&q); g_fwpQpf = q.QuadPart;
+            if (g_fwpMode == 1) {
+                g_fwpTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+                if (!g_fwpTimer) { Log("FWP: no high-resolution timer - stock retained"); return false; }
+            }
+            g_fwpKick = reinterpret_cast<void (*)(void*)>(kick);
+            fwp_resume = (uint64_t)head;
+            return true;
+        });
+        Log("FWP: %s (RenderWaitForFrame job spin 4A4F1C; mode %d = %s, spin %d us, sleep step %d us)",
+            g_fwpOn ? "installed" : "NOT installed (stock)", g_fwpMode, g_fwpMode == 1 ? "kick once + timer park" : "measure-only stock loop",
+            g_fwpSpinUs, g_fwpSleepUs);
     }
     // Independent FG copy-job crash guard; does not change game settings.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
@@ -2302,6 +2541,7 @@ DWORD WINAPI Worker(LPVOID) {
         g_dsTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         if (!g_dsTimer) { Log("DS: high-resolution waitable timer not available"); return false; }
         g_dsMarginUs = cfg.dsMarginUs;
+        g_dsDqMarginUs = cfg.dsDqMarginUs;
         g_qpcFreqDs = qf.QuadPart;
         g_dsEnable = cfg.ds == 1 ? 1u : 0u;
         return true;
@@ -2426,7 +2666,27 @@ DWORD WINAPI Worker(LPVOID) {
         const bool ok = expGroup("RCO", true, [&]() { return true; });
         if (ok) {
             if (samelook::RcoIni()) samelook::SetRcoInstalled();
-            if (extraperf::Wanted()) extraperf::SetRcoInstalled();
+            if (extraperf::Wanted()) {
+                extraperf::SetRcoInstalled();
+                // #67772 XSSR: ApplySsrQuality 39B0E8 finds the RLR parameter object with 2386FC([[4759910]+530], 0xEF3D849D)
+                // and writes its +B8 half-size flag every tick; XSSR repeats that lookup in the RCO cave. Byte-checked here
+                // (mov rcx,[rip+g] / mov edx,EF3D849D / mov rcx,[rcx+530h] / call 2386FC + the callee prologue); a mismatch
+                // only drops the half-size flag (XSSR 2 still scales the ray steps).
+                static const uint8_t kSsrSig[] = {0xBA, 0x9D, 0x84, 0x3D, 0xEF, 0x48, 0x8B, 0x89, 0x30, 0x05, 0x00, 0x00, 0xE8};
+                static const uint8_t kLookSig[] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57};
+                const uintptr_t site = (uintptr_t)(g_base + Grva(0x39B0F7));
+                bool ssrOk = false;
+                if (InModule(site) && InModule(site + 32) && memcmp((const void*)site, "\x48\x8B\x0D", 3) == 0 &&
+                    memcmp((const void*)(site + 7), kSsrSig, sizeof kSsrSig) == 0) {
+                    const uintptr_t glob = site + 7 + *(const int32_t*)(site + 3);
+                    const uintptr_t look = site + 24 + *(const int32_t*)(site + 20);
+                    if (InModule(glob) && InModule(look) && memcmp((const void*)look, kLookSig, sizeof kLookSig) == 0) {
+                        extraperf::SetSsrInstalled(reinterpret_cast<void* const*>(glob), look);
+                        ssrOk = true;
+                    }
+                }
+                if (!ssrOk) Log("XSSR: ApplySsrQuality bytes differ from v2.02 - SSR half-size flag NOT installed (ray-step scale only)");
+            }
         } else {
             Log("RCO: render-config overrides NOT installed (update-rate knobs / Extra performance render-config options)");
         }
@@ -2472,6 +2732,112 @@ DWORD WINAPI Worker(LPVOID) {
             return true;
         });
         if (!fx) Log("XPRT: GPU particle share NOT installed");
+        // #67206 XRES (Extreme preset / [ExtraPerf] XRES >= 1 at start only: level 0 users get no hook at all)
+        if (extraperf::ResLevel() > 0) {
+            const bool rs = expGroup("XRS", true, [&]() {
+                const char* ids[4] = {"XRS1", "XRS2", "XRS3", "XRS4"};
+                for (const char* id : ids) {
+                    Item* it = findItem(id);
+                    if (calleeOf(it->addr) != (uintptr_t)(g_base + it->s->expectRva)) {
+                        Log("XRES: %s callee differs from v2.02", id);
+                        return false;
+                    }
+                }
+                extraperf::SetResInstalled(calleeOf(findItem("XRS1")->addr));
+                return true;
+            });
+            if (!rs) Log("XRES: render size scale NOT installed");
+        }
+        // #67225 Render distance. Not a preset. Hooks stay in at 1.00 so the slider can move live.
+        // No patches.json deps (those pin v2.02 RVAs). A known build also requires the v2.02 callee;
+        // any other build is accepted when every site shares one in-module callee whose prologue matches.
+        auto prefixOk = [](uintptr_t a, const uint8_t* sig, size_t n) -> bool {
+            if (!InModule(a) || !sig || !n) return false;
+            return memcmp(reinterpret_cast<const void*>(a), sig, n) == 0;
+        };
+        auto sharedCallee = [&](const char* tag, const char* const* ids, int n, uintptr_t& out) -> bool {
+            out = 0;
+            for (int i = 0; i < n; ++i) {
+                Item* it = findItem(ids[i]);
+                if (!it || !it->found) return false;
+                const uintptr_t c = calleeOf(it->addr);
+                if (!out) out = c;
+                else if (c != out) {
+                    Log("%s: %s callee is not the shared one", tag, ids[i]);
+                    return false;
+                }
+                if (known && c != (uintptr_t)(g_base + it->s->expectRva)) {
+                    Log("%s: %s callee differs from v2.02", tag, ids[i]);
+                    return false;
+                }
+            }
+            return out != 0 && InModule(out);
+        };
+        static const char* kDrawIds[] = {"RDD1", "RDD2", "RDD3", "RDD4", "RDD5"};
+        static const char* kPlaceIds[] = {"RDP1", "RDP2", "RDP3", "RDP4", "RDP5", "RDP6", "RDP7", "RDP8", "RDP9", "RDP10"};
+        static const uint8_t kPlacePro[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9, 0x08, 0x03, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xD9};
+        const bool rdDraw = expGroup("RDD", true, [&]() {
+            uintptr_t cal = 0;
+            if (!sharedCallee("RDD", kDrawIds, 5, cal)) return false;
+            const uint8_t* p = reinterpret_cast<const uint8_t*>(cal);
+            // test rdx, rdx / je rel8 / movss xmm0, [rdx+118h]. The je displacement is the wildcard.
+            const bool pro = p[0] == 0x48 && p[1] == 0x85 && p[2] == 0xD2 && p[3] == 0x74 && p[5] == 0xF3 && p[6] == 0x0F &&
+                             p[7] == 0x10 && p[8] == 0x82 && p[9] == 0x18 && p[10] == 0x01 && p[11] == 0x00 && p[12] == 0x00;
+            if (!pro) {
+                Log("RDD: draw-distance prologue mismatch");
+                return false;
+            }
+            extraperf::SetRdDraw(cal);
+            return true;
+        });
+        const bool rdPlace = expGroup("RDP", true, [&]() {
+            uintptr_t cal = 0;
+            if (!sharedCallee("RDP", kPlaceIds, 10, cal)) return false;
+            if (!prefixOk(cal, kPlacePro, sizeof kPlacePro)) {
+                Log("RDP: placeable prologue mismatch");
+                return false;
+            }
+            extraperf::SetRdPlace(cal);
+            return true;
+        });
+        const bool rdChar = expGroup("RDC", extraperf::RdChars(), [&]() {  // GH #142: off by default
+            Item* it = findItem("RDC1");
+            if (!it || !it->found) return false;
+            uint8_t* s = it->addr;
+            if (s[0] != 0x41 || s[1] != 0x0F || s[2] != 0x2F || s[3] != 0xF0 || s[4] != 0x77) return false;
+            const uintptr_t fall = (uintptr_t)(s + 6);
+            const uintptr_t take = (uintptr_t)(s + 6 + (int8_t)s[5]);
+            if (!InModule(fall) || !InModule(take)) {
+                Log("RDC: character LOD branch leaves the module");
+                return false;
+            }
+            extraperf::SetRdChar(fall, take);
+            return true;
+        });
+        const bool rdProp = expGroup("RDF", true, [&]() {
+            Item* it = findItem("RDF1");
+            if (!it || !it->found) return false;
+            uint8_t* s = it->addr;
+            if (!InModule((uintptr_t)(s - 19)) || s[-19] != 0x39 || s[-18] != 0x06) {
+                Log("RDF: property hash compare is not in front of the copy");
+                return false;
+            }
+            const uintptr_t c = calleeOf(s);
+            static const uint8_t kCopyPro[] = {0x48, 0x8B, 0xC1};  // mov rax, rcx
+            if (!prefixOk(c, kCopyPro, sizeof kCopyPro)) {
+                Log("RDF: property-copy prologue mismatch");
+                return false;
+            }
+            if (known && c != (uintptr_t)(g_base + it->s->expectRva)) {
+                Log("RDF: callee differs from v2.02");
+                return false;
+            }
+            extraperf::SetRdProp(c);
+            return true;
+        });
+        Log("RenderDistance: entities %s, placeables %s, characters %s, foliage %s (x%.2f)",
+            rdDraw ? "on" : "off", rdPlace ? "on" : "off", rdChar ? "on" : "off", rdProp ? "on" : "off",
+            (double)extraperf::RdMul());
     }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.
@@ -2651,14 +3017,27 @@ DWORD WINAPI Worker(LPVOID) {
                         (double)g_tgTicks, (double)g_tgRendered, (l1 - pL1) / 30);
                     pL1 = l1;
                 }
+                if (g_fwpOn && sec % 30 == 0) {
+                    static LONG pC = 0, pP = 0, pK = 0, pB = 0;
+                    static LONG64 pT = 0;
+                    const LONG c = g_fwpCalls, pk = g_fwpParks, kc = g_fwpKicks, b = g_fwpBounded;
+                    const LONG64 t = g_fwpTicks, mx = InterlockedExchange64(&g_fwpMaxTicks, 0);
+                    const double ms = (double)(t - pT) * 1e3 / (double)f.QuadPart;
+                    Log("stats/s FWP: frame-wait spins %ld/30s, total %.1f ms/30s (avg %.0f us, max %.0f us), timer parks %ld, kicks %ld, "
+                        "bounded %ld (mode %d)", c - pC, ms, c > pC ? ms * 1e3 / (double)(c - pC) : 0.0,
+                        (double)mx * 1e6 / (double)f.QuadPart, pk - pP, kc - pK, b - pB, g_fwpMode);
+                    pC = c; pP = pk; pK = kc; pB = b; pT = t;
+                }
                 if (s_dsDone && sec % 30 == 0) {
                     static long pW = 0;
                     static long long pT = 0;
                     const long w = g_dsWaits;
                     const long long tk = g_dsTicks;
-                    Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us (switch %s)", (w - pW) / 30,
-                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, g_dsEnable ? "ON" : "off");
-                    pW = w; pT = tk;
+                    static long pL = 0;
+                    const long late = g_dsLate;
+                    Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us, late wakes (past the DQ quantum) %ld/30s (switch %s)", (w - pW) / 30,
+                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, late - pL, g_dsEnable ? "ON" : "off");
+                    pW = w; pT = tk; pL = late;
                 }
                 if (s_asyncKnown && sec % 30 == 0) {  // async compute queues the engine created (live slot table, .bss 0x45C0460)
                     const uint8_t* tb = g_base + Grva(0x45C0460);
@@ -2669,6 +3048,11 @@ DWORD WINAPI Worker(LPVOID) {
                     char ab[400];
                     asyncslots::StatusLine(ab, sizeof ab, reinterpret_cast<uintptr_t>(g_base));
                     if (ab[0]) Log("stats/s %s", ab);
+                }
+                if (sec % 30 == 0 && ptstart::Applied()) {  // PTS: > 0 = the start race happened and was held off
+                    static long s_ptsLogged = -1;
+                    const long w = ptstart::WaitRounds();
+                    if (w != s_ptsLogged) { Log("PTS: present thread start waits %ld round(s) of 1 ms for its event", w); s_ptsLogged = w; }
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
@@ -2715,6 +3099,8 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
+                    if (rb[0]) Log("stats %s", rb);
+                    thrsched::FlpStatusLine(rb, sizeof rb);
                     if (rb[0]) Log("stats %s", rb);
                 }
                 if (s_wlDone && sec % 30 == 0) {
@@ -2842,6 +3228,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.workerCap = cfg.workerCap;
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
+        mh.fwp = cfg.fwp;
         mh.fgOnWine = cfg.fgOnWine;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
@@ -3083,6 +3470,23 @@ DWORD WINAPI Worker(LPVOID) {
             li.knownBuild = known;
             loadmem::Start(li);
         }
+        {  // #117226 FileLinger: keep released archive handles open ([Patches] FileLinger = 0; fhlinger.cpp)
+            fhlinger::StartInfo fl;
+            fl.log = &Log;
+            fl.iniPath = iniPath.c_str();
+            fl.base = reinterpret_cast<uintptr_t>(g_base);
+            fl.knownBuild = known;
+            fhlinger::Start(fl);
+        }
+        {  // #108787 Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; zinflate.cpp). Before LoadStats:
+            // loadstats::Start patches the inflate call sites for it (also with LoadStats = 0).
+            zinfl::StartInfo zi;
+            zi.log = &Log;
+            zi.iniPath = iniPath.c_str();
+            zi.base = reinterpret_cast<uintptr_t>(g_base);
+            zi.knownBuild = known;
+            zinfl::Start(zi);
+        }
         {  // per-load measurement (loadstats.cpp, [Profiler] LoadStats = 0 by default; notes\loading.md)
             loadstats::StartInfo ls;
             ls.log = &Log;
@@ -3152,9 +3556,10 @@ DWORD WINAPI Worker(LPVOID) {
             vi.knownBuild = known;
             vi.version = MOD_VERSION;
             vi.menuRemote = &menu::Remote;
+            vi.hudIdsRemote = &menu::RemoteHudIds;
             vi.pauseReason = &menu::GamePauseReason;
             vpad::Start(vi);
-            if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);
+            if (vpad::KeysWanted()) { menu::SetKeyFilter(&vpad::KeyFilter); menu::SetInputVirtual(&vpad::InputVirtual); }
         }
         {  // PadLatency (padlat.cpp, [Debug] PadLatency = 0 by default; notes\pad-latency.md): measurement only
             padlat::StartInfo li;
@@ -3184,7 +3589,72 @@ DWORD WINAPI Worker(LPVOID) {
             cri.selfModule = g_self;
             cri.base = reinterpret_cast<uintptr_t>(g_base);
             cri.knownBuild = known;
+            cri.modVersion = MOD_VERSION;
             crashreport::Start(cri);
+        }
+        {  // #64882 menu Report box sender: reads [Report] ReportUrl / ReportBypass / InstallId; sends only when the player presses Send
+            reportsend::StartInfo rsi;
+            rsi.log = &Log;
+            rsi.iniPath = iniPath.c_str();
+            rsi.selfModule = g_self;
+            rsi.modVersion = MOD_VERSION;
+            reportsend::Start(rsi);
+        }
+        {  // PadListGuard (padguard.cpp, [General] PadListGuard = 1): a null `next` link in the pad manager's list walks ends
+           // the walk for that frame instead of crashing (GitHub #79 / #55; game-side race, see padguard_cave.h)
+            padguard::StartInfo pgi;
+            pgi.log = &Log;
+            pgi.iniPath = iniPath.c_str();
+            pgi.base = reinterpret_cast<uintptr_t>(g_base);
+            pgi.knownBuild = known;
+            padguard::Start(pgi);
+        }
+        {  // AiChainGuard (aichainguard.cpp, [General] AiChainGuard = 1): a boss AI chain list that runs into unreadable memory
+           // ends the copy at the last readable row instead of crashing (GitHub #95 / #30; game-side, see aichainguard.h)
+            aichainguard::StartInfo agi;
+            agi.log = &Log;
+            agi.iniPath = iniPath.c_str();
+            agi.base = reinterpret_cast<uintptr_t>(g_base);
+            agi.knownBuild = known;
+            aichainguard::Start(agi);
+        }
+        {  // MotionGuard (motionguard.cpp, [General] MotionGuard = 1): missing or freed motion data in the root-motion track
+           // lookup / motion key walk reads as "no motion data" instead of crashing (GitHub #143 / #144 / #103; game-side)
+            motionguard::StartInfo mgi;
+            mgi.log = &Log;
+            mgi.iniPath = iniPath.c_str();
+            mgi.base = reinterpret_cast<uintptr_t>(g_base);
+            mgi.knownBuild = known;
+            motionguard::Start(mgi);
+        }
+        {  // ResInfoGuard (resinfoguard.cpp, [General] ResInfoGuard = 1): a resource header whose sizes do not add up
+           // is rejected instead of hitting the game's breakpoint (GitHub #145; the reader's own false return)
+            resinfoguard::StartInfo rii;
+            rii.log = &Log;
+            rii.iniPath = iniPath.c_str();
+            rii.base = reinterpret_cast<uintptr_t>(g_base);
+            rii.knownBuild = known;
+            resinfoguard::Start(rii);
+        }
+        {  // AssertGuard (assertguard.cpp, [General] AssertGuard = 1): a game assert logs its message and continues past the
+           // game's leftover debug break instead of closing (GitHub #153; the call sites' own recovery code runs)
+            assertguard::StartInfo agi;
+            agi.log = &Log;
+            agi.iniPath = iniPath.c_str();
+            agi.base = reinterpret_cast<uintptr_t>(g_base);
+            agi.knownBuild = known;
+            assertguard::Start(agi);
+        }
+        {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
+           // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
+            holdkeygap::StartInfo hki;
+            hki.log = &Log;
+            hki.iniPath = iniPath.c_str();
+            hki.base = reinterpret_cast<uintptr_t>(g_base);
+            hki.knownBuild = known;
+            hki.setState = &crashreport::SetState;  // GH #154 last held presses in the report
+            hki.lastRelease = &inputlog::LastRelease;  // GH #154 player presses vs AI
+            holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
@@ -3209,6 +3679,23 @@ DWORD WINAPI Worker(LPVOID) {
             hi.c.ds = &g_dsWaits;
             hi.c.dsTicks = &g_dsTicks;
             hitchlog::Start(hi);
+        }
+        {  // #97638 performance snapshot in every player report / crash record (perfsnap.cpp; osd's Present hook feeds it, no new hook)
+            perfsnap::StartInfo pi;
+            pi.log = &Log;
+            pi.iniPath = iniPath.c_str();
+            pi.base = reinterpret_cast<uintptr_t>(g_base);
+            pi.knownBuild = known;
+            pi.l1 = &g_l1Count;
+            pi.w6Ticks = &g_w6Ticks;
+            pi.gfTicks = &g_gfTicks;
+            pi.dsTicks = &g_dsTicks;
+            pi.backendWaitsMs = &bkstats::CumWaitsMs;
+            pi.gpuPasses = &gp::StatusLine;
+            pi.menuOpen = &menu::IsOpen;  // #98365: a report from the menu shows the 10 s before it opened
+            perfsnap::Start(pi);
+            crashupload::SetPerfJson(&perfsnap::Json);
+            crashreport::SetPerfText(&perfsnap::Text);
         }
         {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
             pmode::StartInfo pmi;
@@ -3502,8 +3989,11 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     const int64_t elapsed = now->QuadPart - start;
     if (freq <= 0 || elapsed < 0) return TRUE;
     const int64_t qUs = drawprep::DqQuantumUs();  // 1.7.32: DQ on -> the spin's quantum is DQ_QuantumUs, not 1 ms
-    const int64_t left = (qUs ? freq * qUs / 1000000 : freq / 1000) - elapsed - freq * g_dsMarginUs / 1000000;  // engine ticks
-    if (left <= freq / 5000) return TRUE;
+    // DQ on: the quantum is short (200 us), so the 150 us margin left nothing to sleep (#96130: DS never slept, DQ spun a core).
+    // Use the smaller DQ margin and a 30 us floor; late wakes are counted so DQ's pacing can be checked.
+    const int64_t marginUs = qUs ? std::min<int64_t>(g_dsDqMarginUs, qUs / 2) : g_dsMarginUs;
+    const int64_t left = (qUs ? freq * qUs / 1000000 : freq / 1000) - elapsed - freq * marginUs / 1000000;  // engine ticks
+    if (left <= (qUs ? freq / 33333 : freq / 5000)) return TRUE;
     const int64_t leftQpc = left * g_qpcFreqDs / freq;
     LARGE_INTEGER due;
     due.QuadPart = -(leftQpc * 10000000 / g_qpcFreqDs);
@@ -3513,6 +4003,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     QueryPerformanceCounter(now);
     InterlockedIncrement(&g_dsWaits);
     InterlockedAdd64(&g_dsTicks, now->QuadPart - before);
+    if (qUs && (now->QuadPart - start) * 1000000 > (int64_t)g_qpcFreqDs * qUs) InterlockedIncrement(&g_dsLate);
     hitchlog::NoteWait(hitchlog::kDS, before, now->QuadPart);
     return TRUE;
 }

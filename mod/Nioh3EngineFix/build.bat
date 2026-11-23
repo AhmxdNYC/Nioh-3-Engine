@@ -22,6 +22,8 @@ where cl >nul 2>nul || (echo ERROR: no MSVC toolchain found & exit /b 1)
 rem regenerate the patch table header from patches.json when Python is available (it is checked in anyway)
 where py >nul 2>nul && py -I tools\gen_header.py
 if errorlevel 1 (echo ERROR: gen_header.py failed & exit /b 1)
+where py >nul 2>nul && py -I tools\generate_menu_defaults.py --check
+if errorlevel 1 (echo ERROR: packaged menu defaults stale & exit /b 1)
 rem fixed game RVAs: rvas.json -> src\rvas_gen.h must be current; warn about any raw base + RVA left (tools\check_fixed_rvas.py)
 where py >nul 2>nul && py -I tools\gen_rvas.py --check
 if errorlevel 1 echo WARNING: rvas.json / rvas_gen.h out of date - run tools\gen_rvas.py with a decrypted dump
@@ -31,6 +33,37 @@ if errorlevel 1 echo WARNING: raw fixed game RVAs left - see build\fixed_rvas.tx
 
 if not exist build mkdir build
 if not exist bin mkdir bin
+
+rem HUD lookup checks use the same scanner as runtime. CI can supply a decrypted image.
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\hud_patterns_test.exe /Fobuild\hud_patterns_test.obj tests\hud_patterns_test.cpp || exit /b 1
+if defined NIOH3_HUD_DUMP (
+    build\hud_patterns_test.exe "%NIOH3_HUD_DUMP%" || exit /b 1
+) else (
+    build\hud_patterns_test.exe || exit /b 1
+)
+
+rem Preset startup persistence and VRS independence (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extraperf_menu_test.obj tests\extraperf_menu_test.cpp || exit /b 1
+build\extraperf_menu_test.exe || exit /b 1
+
+rem PTS present-thread start guard (crash report #86): stock race crashes, guarded thread waits (no game/device).
+rem objs go to build\ptsh\ so tests that link build\*.obj do not pick up the harness main (#105462)
+if not exist build\ptsh mkdir build\ptsh
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\ptstart_harness.exe /Fobuild\ptsh\ tests\ptstart_harness.cpp src\ptstart.cpp || exit /b 1
+build\ptstart_harness.exe || exit /b 1
+
+rem VRS classification and command-list state regression tests (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
+build\vrs_menu_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_selective_test.obj tests\vrs_selective_test.cpp d3dcompiler.lib || exit /b 1
+build\vrs_selective_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1
+build\vrs_ceiling_test.exe || exit /b 1
+rem GH #138 hook-loop breaker: a DXGI function detoured back into the loop must not recurse forever
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\loop_breaker_test.exe /Fobuild\loop_breaker_test.obj tests\loop_breaker_test.cpp || exit /b 1
+build\loop_breaker_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_capture_test.exe /Fobuild\vrs_capture_test.obj tests\vrs_capture_test.cpp || exit /b 1
+build\vrs_capture_test.exe || exit /b 1
 
 ml64 /nologo /c /W3 /Fobuild\caves.obj src\caves.asm || exit /b 1
 rem GPU barrier batching (gpuopt.cpp): per-slot command-list thunks
@@ -100,6 +133,17 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem per-load measurement ([Profiler] LoadStats = 0 by default; notes\loading.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\loadstats.obj src\loadstats.cpp || exit /b 1
+rem Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; #108787). Vendored decompressor (MIT,
+rem third_party\libdeflate\LICENSE), C11; objs in build\libdeflate\ so tests that link build\*.obj do not pick them up.
+if not exist build\libdeflate mkdir build\libdeflate
+cl /nologo /c /O2 /MT /GS /Gy /Gw /std:c11 /W3 /DNDEBUG /Fobuild\libdeflate\ ^
+   third_party\libdeflate\lib\deflate_decompress.c third_party\libdeflate\lib\zlib_decompress.c ^
+   third_party\libdeflate\lib\adler32.c third_party\libdeflate\lib\utils.c third_party\libdeflate\lib\x86\cpu_features.c || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\zinflate.obj src\zinflate.cpp || exit /b 1
+rem FileLinger: keep released archive handles open ([Patches] FileLinger = 0; notes\streaming-guard-117226.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\fhlinger.obj src\fhlinger.cpp || exit /b 1
 rem FnProbe: live function probe ([Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\fnprobe.obj src\fnprobe.cpp || exit /b 1
@@ -115,6 +159,24 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem skip the post-load "press to continue" tip page ([General] AutoContinueLoad = 0 by default; notes\auto-continue-load.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\autocont.obj src\autocont.cpp || exit /b 1
+rem PadListGuard: a null link in the pad manager's list walks ends the walk instead of crashing ([General] PadListGuard = 1; GitHub #79 / #55)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\padguard.obj src\padguard.cpp || exit /b 1
+rem AiChainGuard: a boss AI chain list copy that runs into unreadable memory ends at the last readable row ([General] AiChainGuard = 1; GitHub #95 / #30)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\aichainguard.obj src\aichainguard.cpp || exit /b 1
+rem MotionGuard: missing or freed motion data in two game animation reads = "no motion data" instead of a crash ([General] MotionGuard = 1; GitHub #143 / #144)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\motionguard.obj src\motionguard.cpp || exit /b 1
+rem ResInfoGuard: a resource header whose sizes do not add up is rejected instead of a breakpoint ([General] ResInfoGuard = 1; GitHub #145)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\resinfoguard.obj src\resinfoguard.cpp || exit /b 1
+rem AssertGuard: a game assert logs its message and the game continues instead of closing on its debug break ([General] AssertGuard = 1; GitHub #153)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\assertguard.obj src\assertguard.cpp || exit /b 1
+rem HoldKeyGap: a move key between two uneven frames is tested instead of skipped ([General] HoldKeyGap = 0; human #120716)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\holdkeygap.obj src\holdkeygap.cpp || exit /b 1
 rem SkipBootNotice ([Debug] SkipBootNotice = -1: on only in Tour / VirtualPad sessions; notes\autosave-notice.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\bootnotice.obj src\bootnotice.cpp || exit /b 1
@@ -130,6 +192,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem RC read cache / AQ async archive reads / TSY / SH ([Patches] RC = AQ = TSY = SH = 0; notes\loading-ally-fixed.md 8.7)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\readfix.obj src\readfix.cpp || exit /b 1
+rem PTS present-thread start guard ([Patches] PTS = 1; crash report #86)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\ptstart.obj src\ptstart.cpp || exit /b 1
 rem PJ PSO journal + title-screen prewarm ([Patches] PJ = 0; notes\stutter.md 3.1)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\psojournal.obj src\psojournal.cpp || exit /b 1
@@ -191,9 +256,37 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 ml64 /nologo /c /W3 /Fobuild\extraperf_caves.obj src\extraperf.asm || exit /b 1
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\crashreport.obj src\crashreport.cpp || exit /b 1
+rem #64882 menu Report box sender (reportsend.cpp: POST /api/report, scrub, local copy in Nioh3Reports)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\reportsend.obj src\reportsend.cpp || exit /b 1
+rem #97638 performance snapshot for player reports and crash records (perfsnap.cpp; fed by osd's Present hook) + its unit test
+rem   (test first: its /Fobuild\ objects are then replaced by the release perfsnap.obj below)
+cl /nologo /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /Febuild\perfsnap_test.exe /Fobuild\ tests\perfsnap_test.cpp src\perfsnap.cpp || exit /b 1
+build\perfsnap_test.exe build\perfsnap_sample.json build\perfsnap_sample.txt >nul || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\perfsnap.obj src\perfsnap.cpp || exit /b 1
+rem who crashed: our mod / another mod / driver / Windows / game, unload trace (crashblame.cpp; human #94391/#94396)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\crashblame.obj src\crashblame.cpp || exit /b 1
+rem GPU removal reason for crash records (#96825) + its offline test with a fake removed device
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\devremoved.obj src\devremoved.cpp || exit /b 1
+cl /nologo /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /Febuild\devremoved_test.exe /Fobuild\ tests\devremoved_test.cpp src\devremoved.cpp || exit /b 1
+build\devremoved_test.exe || exit /b 1
+rem GH #152: GpuOpt patches only command-list vtables owned by the D3D12 runtime, never a proxy (ReShade dxgi.dll)
+cl /nologo /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE /Febuild\listowner_test.exe /Fobuild\ tests\listowner_test.cpp || exit /b 1
+build\listowner_test.exe || exit /b 1
+rem GH #133/#134 presenter role: a DLSS-G pacer thread (no game frame) must not draw on the game queue (no game/device)
+if not exist build\prt mkdir build\prt
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\presenter_role_test.exe /Fobuild\prt\ tests\presenter_role_test.cpp || exit /b 1
+build\presenter_role_test.exe || exit /b 1
+rem version resource: CompanyName marks our mods for crashblame (#94704)
+rc /nologo /fo build\nioh3_version.res ..\shared\nioh3_version.rc || exit /b 1
+rem automatic crash upload (crashupload.cpp; [Report] CrashUpload = 1, CrashUrl; bridge #64881)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\crashupload.obj src\crashupload.cpp || exit /b 1
+rem input ring (inputlog.cpp; controller edges, hotkeys, mod-menu selections; #64888)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\inputlog.obj src\inputlog.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib || exit /b 1
+   build\fhlinger.obj build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashblame.obj build\devremoved.obj build\nioh3_version.res build\crashupload.obj build\perfsnap.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\ptstart.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\padguard.obj build\aichainguard.obj build\motionguard.obj build\resinfoguard.obj build\assertguard.obj build\holdkeygap.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\zinflate.obj build\libdeflate\deflate_decompress.obj build\libdeflate\zlib_decompress.obj build\libdeflate\adler32.obj build\libdeflate\utils.obj build\libdeflate\cpu_features.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 rem Ship the Python helpers (only used with [SaveFiles] Native = 0; the default native path needs no Python).
 py ..\..\tools\saves\build_package.py || exit /b 1

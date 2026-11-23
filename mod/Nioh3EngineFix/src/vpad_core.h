@@ -107,7 +107,7 @@ inline uint8_t TriggerFrom(double v) {
 }
 
 // ---- commands ------------------------------------------------------------------------------------------------------------
-enum class Op : uint8_t { Bad, Ping, Press, Hold, Release, ReleaseAll, Stick, Trigger, Key, Arm, Disarm, State, MenuGet, MenuSet, Log, Wait, Help, RealPads };
+enum class Op : uint8_t { Bad, Ping, Press, Hold, Release, ReleaseAll, Stick, Trigger, Key, Arm, Disarm, State, MenuGet, MenuSet, Log, Wait, Help, RealPads, PadSet };
 
 struct Cmd {
     Op op = Op::Bad;
@@ -119,6 +119,7 @@ struct Cmd {
     char key[48] = {};   // menu key
     int value = 0;       // menu set value
     char text[200] = {}; // log text / error
+    Pad pad;             // pad: the whole held state at once (input replay, tools/testmatrix/padrec.py)
 };
 
 inline bool ParseInt(const char* s, int& out) {
@@ -187,6 +188,27 @@ inline Cmd Parse(const char* line) {
             if (*q == '\r' || *q == '\n') *q = ' ';
         return c;
     }
+    if (IEq(v, "pad")) {
+        // pad <buttons hex> <lt 0..255> <rt 0..255> <lx> <ly> <rx> <ry>: raw XInput values, the whole held state in one step
+        // (replies at once, no wait for a game read: a replay sets the next recorded state on its own clock)
+        if (n != 8) return Bad("usage: pad <buttons hex> <lt 0..255> <rt 0..255> <lx> <ly> <rx> <ry> (raw XInput values)");
+        const char* b = tok[1];
+        if (b[0] == '0' && (b[1] == 'x' || b[1] == 'X')) b += 2;
+        char* e = nullptr;
+        const unsigned long m = strtoul(b, &e, 16);
+        if (!*b || !e || *e || m > 0xFFFF) return Bad("pad buttons must be hex 0..FFFF");
+        int v7[6];
+        for (int i = 0; i < 6; ++i)
+            if (!ParseInt(tok[2 + i], v7[i])) return Bad("pad values must be integers");
+        if (v7[0] < 0 || v7[0] > 255 || v7[1] < 0 || v7[1] > 255) return Bad("pad triggers must be 0..255");
+        for (int i = 2; i < 6; ++i)
+            if (v7[i] < -32768 || v7[i] > 32767) return Bad("pad sticks must be -32768..32767");
+        c.op = Op::PadSet;
+        c.pad.buttons = (uint16_t)m;
+        c.pad.lt = (uint8_t)v7[0], c.pad.rt = (uint8_t)v7[1];
+        c.pad.lx = (int16_t)v7[2], c.pad.ly = (int16_t)v7[3], c.pad.rx = (int16_t)v7[4], c.pad.ry = (int16_t)v7[5];
+        return c;
+    }
     if (IEq(v, "wait")) {
         if (n != 2 || !ParseMs(tok[1], c.ms) || c.ms > 60000) return Bad("usage: wait <ms> (<= 60000)");
         c.op = Op::Wait;
@@ -250,6 +272,11 @@ inline Cmd Parse(const char* line) {
         if (n == 4 && IEq(tok[1], "set")) {
             c.op = Op::MenuSet;
             snprintf(c.key, sizeof(c.key), "%s", tok[2]);
+            if (IEq(tok[2], "HideHudIds")) {
+                if (strlen(tok[3]) >= sizeof(c.text)) return Bad("HUD ID list too long");
+                snprintf(c.text, sizeof(c.text), "%s", tok[3]);
+                return c;
+            }
             if (IEq(tok[3], "on") || IEq(tok[3], "true")) c.value = 1;
             else if (IEq(tok[3], "off") || IEq(tok[3], "false")) c.value = 0;
             else if (!ParseInt(tok[3], c.value)) return Bad("menu set value must be an integer or on/off");
@@ -263,7 +290,7 @@ inline Cmd Parse(const char* line) {
 inline const char* HelpText() {
     return "commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | "
            "stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | "
-           "wait <ms> | log <text> | realpads on|off";
+           "menu set HideHudIds <id,id,...|none> | pad <btn hex> <lt> <rt> <lx> <ly> <rx> <ry> | wait <ms> | log <text> | realpads on|off";
 }
 
 // ---- composer ------------------------------------------------------------------------------------------------------------
@@ -300,6 +327,7 @@ public:
         else held_.rx = x, held_.ry = y;
     }
     void SetTrigger(char side, uint8_t v) { (side == 'L' ? held_.lt : held_.rt) = v; }
+    void SetHeld(const Pad& p) { held_ = p; }  // pad command: buttons, triggers and sticks in one step
     // timed entries; returns the id (0 = table full)
     uint32_t AddButtons(uint16_t m, int ms) { return Add(1, m, 0, 0, 0, ms); }
     uint32_t AddStick(char side, int16_t x, int16_t y, int ms) { return Add(side == 'L' ? 2 : 3, 0, x, y, 0, ms); }

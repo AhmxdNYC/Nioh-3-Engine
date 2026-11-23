@@ -12,6 +12,9 @@ static const Def kDefs[] = {
     {"PerFrameTickCall", "PUMP", kCall, 0x56529C, 0, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"BossBattleMode", "FIGHT", kNative, 0x23A2DCC, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Mission::BossBattleMode"},
     {"BossBattleModeEnd", "FIGHT", kNative, 0x23A2F70, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::BossBattleModeEnd"},
+    {"IsDeathGroupEnemy", "FIGHT", kNative, 0x2BC8C4, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Character::IsDeathGroupEnemy"},
+    {"UI::SetCompassDestinationIndex", "FIGHT", kNative, 0x23B7FD0, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "UI::SetCompassDestinationIndex"},
+    {"UI::SetCompassDestination", "FIGHT", kNative, 0xA3E0C8, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "UI::SetCompassDestination"},
     {"Character::Create", "FIGHT", kHook, 0x1180740, 5, "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 48 83 EC 30", 0, 0, 0, 0, 0x0, nullptr},
     {"SetMissionFlag", "BOSSLOG", kHook, 0x70275C, 5, "48 89 5C 24 08 48 89 6C 24 18 44 88 4C 24 20 56", 0, 0, 0, 0, 0x0, nullptr},
     {"ShowBossGauge", "BOSSLOG", kNative, 0x23B8678, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "UI::ShowBossGauge"},
@@ -40,6 +43,23 @@ static const Def kDefs[] = {
     {"Mission::GetGameClearRewardNormal", "BOSSLOG", kNative, 0x23A444C, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::GetGameClearRewardNormal"},
     {"Mission::GetGameClearRewardHard", "BOSSLOG", kNative, 0x23A43EC, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::GetGameClearRewardHard"},
     {"GameClearRewardGrant", "BOSSLOG", kHook, 0x2280FA0, 7, "48 83 EC 28 80 F9 01 75 0C BA 6F CD 00 00 B9 72", 0, 0, 0, 0, 0x0, nullptr},
+    {"Mission::SetMissionClearFlag", "UNBEATEN", kNative, 0x23A582C, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::SetMissionClearFlag"},
+    {"Mission::ClearGadgetAccessWaitMode", "ROSTER", kNative, 0x23A3260, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::ClearGadgetAccessWaitMode"},
+    {"Emaki::RequestWaveBattle", "SCROLLTRAIN", kNative, 0x239A630, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Emaki::RequestWaveBattle"},
+    {"Time::GetTimeStep", "STAGED", kNative, 0x323B28, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Time::GetTimeStep"},
+    {"Player::IsEnterPlacementBox", "STAGED", kNative, 0x1397B8, 5, "48 89 5C 24 08", 0, 0, 0, 0, 0x0, "Player::IsEnterPlacementBox"},
+    {"WaveBattle::RequestID", "STAGED", kNative, 0x23B91F8, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "WaveBattle::RequestID"},
+    {"WaveBattle::IsActiveID", "STAGED", kNative, 0x90EA34, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "WaveBattle::IsActiveID"},
+    {"WaveBattle::IsClearID", "STAGED", kNative, 0x23B9168, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "WaveBattle::IsClearID"},
+    {"Item::ReserveAllItemAll", "KEEPGEAR", kNative, 0x23A1DC4, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemAll"},
+    {"Item::ReserveAllItemDojo", "KEEPGEAR", kNative, 0x23A1E38, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemDojo"},
+    {"Item::ReserveAllItemEdo", "KEEPGEAR", kNative, 0x23A1F04, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemEdo"},
+    {"Item::ResetReserveItem", "KEEPGEAR", kNative, 0x23A1F78, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Item::ResetReserveItem"},
+    {"Item::ClearEquipment", "KEEPGEAR", kNative, 0x23A0E7C, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Item::ClearEquipment"},
+    {"Item::SetShortCut", "KEEPGEAR", kNative, 0x23A210C, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Item::SetShortCut"},
+    {"Player::EquipNinjutsu", "KEEPGEAR", kNative, 0x23A80D8, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Player::EquipNinjutsu"},
+    {"Mission::NoDamageMode", "KEEPGEAR", kNative, 0x23A5308, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Mission::NoDamageMode"},
+    {"Player::RequestStyleChange", "KEEPGEAR", kNative, 0x23AAEE0, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Player::RequestStyleChange"},
     {"MissionLoadStep", "RLOG", kHook, 0x223AF50, 10, "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B F1 48 8B DA 48 8B 0D", 0, 0, 0, 0, 0x0, nullptr},
     {"EmakiMissionRequest", "RLOG", kHook, 0x10DBED0, 5, "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 20 06 00 00 48", 0, 0, 0, 0, 0x0, nullptr},
     {"MissionSetupEmaki", "RLOG", kHook, 0x1C2794C, 5, "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 E0 FE FF FF", 0, 0, 0, 0, 0x0, nullptr},
@@ -124,9 +144,12 @@ static const Def kDefs[] = {
     {"chk:PlayerPlace_Retry14", "SPAWN", kCheck, 0x1C0F2BD, 28, "48 8B 05 ?? ?? ?? ?? 48 8B 71 48 48 8B 48 08 0F B7 96 10 01 00 00 8B 49 14 66 85 D2", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:PlayerPlace_Find", "SPAWN", kCheck, 0x1C0F363, 48, "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:CamFlag4_Retry14", "SPAWN", kCheck, 0x2239C49, 48, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F", 0, 0, 0, 0, 0x0, nullptr},
+    {"call:ScrollReturnReady", "BAG", kCall, 0x1E0C0BD, 0, "E8 ?? ?? ?? ?? 84 C0 0F 84 ?? ?? ?? ?? 40 38 B7 30 04 00 00", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:ScrollReopenFlag", "BAG", kCheck, 0x1E0C0CA, 32, "40 38 B7 30 04 00 00 74 17 8B 97 24 04 00 00 48 8B CF E8 ?? ?? ?? ?? 40 88 B7 30 04 00 00 EB 48", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:ScrollItem1E82", "BAG", kCheck, 0x1E2C2C7, 16, "41 B8 82 1E 00 00 E8 ?? ?? ?? ?? 83 E8 01 74 32", 0, 0, 0, 0, 0x0, nullptr},
 #if BR_SOULCORE
-    {"chk:AttackCancelGate", "ACANCEL", kCheck, 0x23636A9, 0, "48 8B 03 BA C9 ED 00 00 45 33 C0 48 8B CB FF 90 D0 00 00 00 84 C0 0F 84 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},  // pc #58429 item gate 236361C soul-core HasSkill(0xEDC9) test (hand-added, derive_sites out of date)
-    {"fn:HasSkill", "ACANCEL", kFn, 0x28A88C, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 48 8B 99 E0 00 00 00 45 33 ED 0F B7 F2 4C 8B F9 48 85 DB", 0, 0, 0, 0, 0x0, nullptr},  // pc #58506 ctrl vt+D0 HasSkill(ctrl, id, 0) (hand-added)
+    {"chk:AttackCancelGate", "ACANCEL", kCheck, 0x23636A9, 0, "48 8B 03 BA C9 ED 00 00 45 33 C0 48 8B CB FF 90 D0 00 00 00 84 C0 0F 84 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
+    {"fn:HasSkill", "ACANCEL", kFn, 0x28A88C, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 48 8B 99 E0 00 00 00 45 33 ED 0F B7 F2 4C 8B F9 48 85 DB", 0, 0, 0, 0, 0x0, nullptr},
 #endif  // BR_SOULCORE
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));

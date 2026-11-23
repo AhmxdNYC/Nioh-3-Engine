@@ -181,7 +181,7 @@ inline void DrawState(const State& p, float x, float y, float s, float a, int st
     if (b & kRight) Layer(k, S_RIGHT, x, y, s, 1.0f);
 }
 
-inline int Style() { return menu_style::g_btnStyle ? 1 : 0; }
+inline int Style() { return menu_style::g_btnStyle == 1 ? 1 : 0; }  // Nintendo (2) uses the Xbox skin (same layout)
 
 // live entry (style = Style(), read once by the caller: it also picks the atlas): false = nothing drawn
 inline bool Draw(float x, float y, unsigned H, uint64_t nowMs, int style) {

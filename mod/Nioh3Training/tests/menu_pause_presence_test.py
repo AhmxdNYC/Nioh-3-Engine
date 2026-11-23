@@ -17,7 +17,7 @@ static DWORD GetTickCount(void){return now;}
 static int ActorInTable(uint64_t a){return a && table;}
 static int ActorDeadNow(uint64_t a,int* dead,uint64_t* cur,uint64_t* max){(void)a;*dead=deadFlag;*cur=hp;*max=maxHp;return deadFlag||(maxHp && !hp);}
 static int SlotAlive(int s){return g_slot_act[s]!=0;}
-static int KbCollect(uint64_t* out,int cap){(void)cap;if(nativeActor){out[0]=nativeActor;return 1;}return 0;}
+static int KbCollect(uint64_t* out,int cap,uint32_t* who){(void)cap;(void)who;if(nativeActor){out[0]=nativeActor;return 1;}return 0;}
 '''
 checks=r'''
 int main(void){
@@ -33,5 +33,6 @@ int main(void){
 '''
 with tempfile.TemporaryDirectory() as tmp:
  p=pathlib.Path(tmp);src=p/'test.c';exe=p/'test.exe';src.write_text(stubs+code+checks)
- subprocess.run([sys.argv[1],'cc',str(src),'-o',str(exe)],check=True)
+ cc=[sys.argv[1],'cc'] if len(sys.argv)>1 else [sys.executable,'-m','ziglang','cc'] # #98173: default to zig like the other tests
+ subprocess.run(cc+[str(src),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

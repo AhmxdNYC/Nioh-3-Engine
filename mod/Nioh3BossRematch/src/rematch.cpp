@@ -4,10 +4,10 @@
 //      slot byte, 0, params) = the shrine replay confirm (session 2026-10-08). R-b only for a mission cleared on this journey.
 //   H  hidden duel: R-b direct (no patch needed), or R-a with the reverted un-hide ([Rematch] HiddenDuels = 1).
 //   D  unlisted shipped record (master duels): R-b direct, cleared-on-this-journey only.
-//   E  one of the 20 Picture Scroll records: an owned Picture Scroll is the carrier; every entry of the Emaki byte->record map is
-//      pointed at the chosen record (snapshot + CRC), EmakiMissionRequest(item+28h, key, 0, params) as the item menu does; the map
-//      is restored when the scroll mission ends (charMgr +0x2C18 back to 0 for 5 s) or 30 s after a request that never loaded.
-//      "Use an owned Picture Scroll (game's pick)" = the same call without the redirect.
+//   E  one of the 20 Waves rows (Picture Scroll records, mission 0xCC96). DEV default searches a key seed and does not
+//      rewrite the emaki map (scrollctl noseedpick turns that rewrite back on). After the load, one shared warp walks the
+//      live record point, then x±600, z±600, then those four directions at 1500, until wave state is 3. State 1 after that
+//      ends the wave fight. These rows are not boss fights and do not arm a boss bar. Training arenas do not pick them.
 //   X  no route: listed greyed with the reason.
 //   F  "Fight now (straight to the boss)" = route E1 of the build note, for R / H / D rows ([Rematch] FightNow = 1): the same R-b call
 //      with the boss's start point as the third argument, MissionRequestById(id, slot byte, startPoint, params). The argument is
@@ -25,6 +25,9 @@
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
 #include "gamerva.h"
+#include "native_entry_gates_gen.h"
+#include "native_entry_waves_gen.h"
+#include "staged_start.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -35,6 +38,7 @@
 #include "../../settings/store.h"
 
 #include <atomic>
+#include <set>
 #include <new>
 #include <cmath>
 #include <cstdarg>
@@ -45,6 +49,7 @@
 
 namespace addon {
 namespace rematch {
+void SaveUiSettings(); // page-default dispatch is defined before the persistence worker
 namespace {
 
 using rcore::Row;
@@ -87,6 +92,44 @@ uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
     }
     return g_rightsCheckOrig(slot, key, mode);
 }
+
+// BAG: the call at 1E0C0BD leaves rcx as the shrine menu. 22D2454 ignores that rcx. When it returns ready and the
+// reopen flag is set, count item 1E82 in the bag: the list builds its rows from that item. Count 0 clears the flag
+// before the cmp at 1E0C0CA, so the else opens a menu that takes buttons. Any other count leaves the game's list.
+// #78739: the 6E43B0 call read a garbage count (2730937083, board #332), so the bag is read directly.
+int CountBagItem(uint16_t want);
+using ScrollReadyFn = uint8_t (*)(uint64_t);
+ScrollReadyFn g_scrollReadyOrig = nullptr;
+uint8_t ScrollReturnReadyHook(uint64_t menu) {
+    const uint8_t ready = g_scrollReadyOrig ? g_scrollReadyOrig(menu) : 0;
+    if (!ready || menu < 0x10000) return ready;
+    uint8_t flag = 0;
+    if (!Rd(menu + 0x430, flag) || flag == 0) return ready;
+    const int bag = CountBagItem(0x1E82);
+    const uint32_t count = bag < 0 ? 0xFFFFFFFFu : (uint32_t)bag;
+    if (count == 0xFFFFFFFFu) {
+        Log("Scroll return: picture-scroll count unreadable, list stays");
+        return ready;
+    }
+    Log("Scroll return: picture-scroll count %u, %s", count, count == 0 ? "shrine menu" : "list stays");
+    if (rcore::CloseScrollListWhenEmpty(count, flag)) {
+        const uint8_t zero = 0;
+        WrBytes(menu + 0x430, &zero, 1);
+    }
+    return ready;
+}
+
+static uint32_t EntryGateChoice(uint32_t mission, uint32_t placement, uint32_t legacyGate,
+                                bool door, bool atFight, bool training, bool warp, bool available) {
+    if (!warp || !available) return 0;
+    // Training moves the player; only request an observed script right. Generated
+    // WaitWarpStart dependencies include box gates and indirect/wave creators.
+    if (training) {
+        const uint32_t generated = NativeEntryGateFind(mission, placement);
+        if (generated) return generated;
+    }
+    return !atFight && door ? legacyGate : 0;
+}
 bool g_exitOk = false;
 const char* g_exitWhy = "";
 // SPAWN (1.4.0): appear in the arena from the first frame. The game places the player (1C0F24C) and centres the stage streaming
@@ -99,8 +142,22 @@ const char* g_spawnWhy = "";
 
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
-         fightSpawn = true, anyBoss = true;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here
+         fightSpawn = true, anyBoss = true, fightAgainDirect = false,  // #100232: [Rematch] FightAgainDirect
+         ignoreProgress = false;
+    int fightSettleMs = 1000, fightNudgeMs = 1000;  // #70586; anyBoss: legacy ini compatibility; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
 } g_cfg;
+
+// #256 Boss Match without save progress: an unbeaten mission started by IgnoreProgress is fought with the game's
+// Mission::SetMissionClearFlag script call skipped (hooks.cpp InstallVeto), so no clear / unlock / first-clear reward is written.
+// Armed when the request is queued; active only while the running mission (ms28) is that id; disarmed once the player
+// has been in it and then is anywhere else. The clear byte is read at arm and at disarm and logged (must stay 0).
+bool g_clearGuardOk = false;
+uint16_t g_bypassId = 0;              // set by ClearedNow when it let an uncleared id through (game thread)
+std::atomic<uint32_t> g_unbeaten{0};  // mission id of the running unbeaten trip, 0 = none
+std::atomic<int> g_unbeatenSeen{0}, g_unbeatenVetoes{0};
+ULONGLONG g_unbeatenAt = 0;
+uint8_t g_unbeatenClear0 = 0xFF;
+uint32_t g_runningMission = 0;        // ms28, refreshed every Tick (the veto runs on the script thread)
 
 std::vector<Row> g_rows;
 constexpr int kMaxRows = 512;
@@ -153,7 +210,12 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 std::atomic<bool> g_swappedInPlace{false};
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12, kReqEmakiTrain = 13, kReqField = 14, kReqCount };
+// Native gate retry returns through the owned transaction, then starts a fresh guarded request.
+int g_nativeAgainRow = -1;
+ULONGLONG g_nativeAgainAt = 0;
+uint64_t g_nativeAgainSequence = 0, g_nativeAgainEpoch = 0;
+std::atomic<uint64_t> g_requestEpoch{0};
 bool g_noSwap = false;  // game thread: kReqTeleport = Fight now through the NORMAL mission load (never Nioh3Training's in-place swap)
 // #12444: the teleport's mission load is not plain: once the target world's stage is ready inside a load, end the loading screen early (lsfade) and
 // request the boss gate sooner. [Rematch] TeleportFastLoad (1), TeleportLoadingScreenEndMs (-2 = Nioh3Training.ini [ArenaSwap] LoadingScreenEndMs, the
@@ -177,10 +239,13 @@ uint64_t g_qHash = 0;
 const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? g_rows[(size_t)row].name : ""; }
 
 void Post(uint32_t kind, int row, const char* via) {
+    g_requestEpoch.fetch_add(1);
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)"};
-    Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)", "return and fight the same native boss again",
+                                     "Training at a Picture Scroll (no waves)", "Open world (teleport and summon)"};
+    static_assert(sizeof(kn) / sizeof(kn[0]) == kReqCount, "every ReqKind needs a name: #79507 crashed reading past this table");
+    Log("Rematch: request %s%s%s queued from %s", kind < kReqCount ? kn[kind] : "unknown", row >= 0 ? " for " : "", RowName(row), via);
 }
 
 // ---- snapshot (memory reads only; any thread) ----
@@ -235,12 +300,19 @@ struct NativeAttempt {
     bool scroll = false, callAttempted = false, callCompleted = false;
     bool afterValid = false, loadSeen = false, loadDown = false;
     bool returnAttempted = false, returnCompleted = false, standaloneReturn = false, standaloneDone = false;
+    bool returnLoadSeen = false, returnDeparted = false;
+    uint32_t exitMission = 0, exitRetry = 0;
     ULONGLONG requestedAt = 0, settledAt = 0;
     uint8_t before[3 * 0x58] = {}, after[3 * 0x58] = {};
     const char* reason = nullptr;
 } g_attempt;
 uint64_t g_attemptSequence = 0;
 std::atomic<int> g_attemptPhase{aNone};
+// 1.8.9 (#80065): a native Fight now win leaves the attempt in aActive while the player stands at the Proceed gate, which refused every new
+// start until the mission was left. The win is the script's boss-mode end / mission-clear (rematch::NoteNativeWin). Once the boss is dead,
+// the player is in the world, not loading or paused, the attempt is settled: the pump retires it with a normal exit (ToIdle normalExit).
+std::atomic<uint64_t> g_attemptWonSeq{0};  // attempt sequence a win was seen for
+std::atomic<bool> g_attemptWonDone{false};  // set by AttemptObserve (game thread) when that win is settled at the gate
 const char* AttemptStartGate() {
     const int phase = g_attemptPhase.load();
     return phase == aNone ? nullptr : phase == aQuarantined ? "native request uncertain; restart game before another replay" : "native replay/return still pending";
@@ -249,6 +321,70 @@ void AttemptQuarantine(const char* why) {
     if (g_attemptPhase.load() == aNone) return;
     if (!g_attempt.reason) g_attempt.reason = why;
     g_attemptPhase.store(aQuarantined);
+}
+// #75648: while a trip we requested is the resume mission, the game's save writer is told it succeeded
+// and the file is left untouched. Story flags are not written or cleared. The hold ends when that resume
+// mission is no longer the trip, and the game's own AutosaveRequest then writes home.
+struct ResumeHoldState {
+    std::atomic<int> armed{0}, inPlace{0}, session{0}, entered{0}, skipped{0}, deferMap{0};
+    std::atomic<uint32_t> trip{0}, source{0};
+    ULONGLONG armedAt = 0, homeSince = 0, deferAt = 0;
+} g_resume;
+using SaveWriteFn = uint8_t (*)(void*, void*, void*, uint32_t, uint32_t*);
+using BackupWriteFn = uint8_t (*)(void*, void*, void*, uint32_t);
+using AutosaveFn = void (*)();
+SaveWriteFn g_saveWrite = nullptr;
+BackupWriteFn g_backupWrite = nullptr;
+AutosaveFn g_autoSave = nullptr;
+bool ReadLiveMission(uint32_t& live) {
+    uint64_t g = 0, ms = 0;
+    live = 0;
+    return Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x28, live);
+}
+bool ResumeSkipNow() {
+    if (!g_resume.armed.load()) return false;
+    uint32_t live = 0;
+    const bool ok = ReadLiveMission(live);
+    return rcore::ResumeBlocksWrite(true, g_resume.trip.load(), g_resume.source.load(), live, ok, g_resume.session.load() != 0);
+}
+uint8_t ResumeSaveWrite(void* dir, void* name, void* buf, uint32_t size, uint32_t* err) {
+    if (ResumeSkipNow()) {
+        if (err) *err = 0;
+        g_resume.skipped.fetch_add(1);
+        g_resume.entered.store(1);
+        return 1;
+    }
+    return g_saveWrite(dir, name, buf, size, err);
+}
+uint8_t ResumeBackupWrite(void* a, void* b, void* c, uint32_t n) {
+    if (ResumeSkipNow()) {
+        g_resume.skipped.fetch_add(1);
+        g_resume.entered.store(1);
+        return 1;
+    }
+    return g_backupWrite(a, b, c, n);
+}
+void ResumeArm(uint32_t trip, uint32_t source, ULONGLONG t, bool inPlace) {
+    // v3 (#80182): a trip started from the gate of a retired attempt (we are still in the old trip's mission) keeps the ORIGINAL home
+    // and the saves already held for it. The current mission is a boss mission, never a home.
+    const bool chained = g_resume.armed.load() && g_resume.source.load() && g_resume.trip.load() == source && g_resume.source.load() != source;
+    // Log text only: the mission the player really returns to. A trip armed from the gate of an earlier trip returns to that trip's home
+    // (possibly 0 = hub), not to the boss mission we stand in.
+    const uint32_t logHome = (g_resume.armed.load() && g_resume.trip.load() == source) ? g_resume.source.load() : source;
+    if (chained) {
+        Log("Rematch: resume hold kept for the first trip: home stays 0x%X (not 0x%X)", g_resume.source.load(), source);
+        source = g_resume.source.load();
+    }
+    g_resume.trip.store(trip);
+    g_resume.source.store(source);
+    g_resume.inPlace.store(inPlace ? 1 : 0);
+    g_resume.session.store(0);
+    g_resume.entered.store(0);
+    if (!chained) g_resume.skipped.store(0);
+    g_resume.homeSince = 0;
+    g_resume.armedAt = t;
+    g_resume.armed.store(1);
+    Log("Rematch: resume hold armed. Trip mission 0x%X, resume mission was 0x%X%s", trip, logHome, inPlace ? " (same mission)" : "");
 }
 void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, int slot,
                   ULONGLONG t, const Snap& s, const uint8_t* before, bool scroll = false) {
@@ -259,11 +395,14 @@ void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, in
     g_attempt.journey = journey;
     g_attempt.sourceMission = s.ms28;
     g_attempt.sourceRetry = s.ms14;
+    ResumeArm(mission, s.ms28, t, mission == s.ms28);
     g_attempt.row = row;
     g_attempt.queueSlot = slot;
     g_attempt.scroll = scroll;
     g_attempt.requestedAt = t;
     memcpy(g_attempt.before, before, sizeof(g_attempt.before));
+    g_attemptWonSeq.store(0);
+    g_attemptWonDone.store(false);
     g_attempt.evidence = aPossible;
     g_attempt.callAttempted = true;
     g_attemptPhase.store(aAwaitLoad);  // before a native call can enqueue then throw
@@ -313,26 +452,44 @@ const char* NativeGate(const Snap& s) {
     if (!s.msOk) return "mission state unreadable";
     return nullptr;
 }
+// Defined with the scroll state. True only before the scroll flag is set, while the load flag is on.
+bool ScrollLoadStuck(const Snap& s);
 const char* ExitGate(const Snap& s) {
     if (const char* why = NativeGate(s)) return why;
-    if (s.st[2]) return "loading";
+    if (s.st[2] && !ScrollLoadStuck(s)) return "loading";
     if (!s.ms28) return "not in a mission";
     return nullptr;
+}
+// Training still owns a multi-boss roster (an intermediate boss-mode end, or the roster result not final yet).
+bool RosterStillPending() {
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_RosterPending");
+    return f && f() != 0;
 }
 void AttemptObserve(const Snap& s, ULONGLONG t) {
     const int phase = g_attemptPhase.load();
     if (phase == aNone || phase == aQuarantined) return;
     if (SessionGate(s)) { AttemptQuarantine("session lost or connected during native attempt"); return; }
-    if (phase == aReturning && g_attempt.standaloneReturn) {
-        if (!s.gm) { g_attempt.settledAt = 0; return; }
-        if (s.st[2]) { g_attempt.loadSeen = true; g_attempt.settledAt = 0; return; }
-        if (!g_attempt.loadSeen || !s.msOk || !s.player || s.st[3] || s.st[4] ||
-            !s.ms28 || s.ms28 == g_attempt.sourceMission) { g_attempt.settledAt = 0; return; }
-        if (!g_attempt.settledAt || s.ms28 != g_attempt.returnMission || s.ms14 != g_attempt.returnRetry) {
-            g_attempt.returnMission = s.ms28;
-            g_attempt.returnRetry = s.ms14;
-            g_attempt.settledAt = t;
-        } else if (t - g_attempt.settledAt > 5000) g_attempt.standaloneDone = true;
+    if (phase == aReturning) {
+        // A completed return owns only its transition, not a later real mission.
+        // Latch departure across UI pauses/another load; never confuse the same
+        // mission entered at its ordinary start with the old Boss Match.
+        if (!g_attempt.returnCompleted || !s.gm) return;
+        if (s.st[2]) { g_attempt.returnLoadSeen = true; return; }
+        if (!g_attempt.returnLoadSeen || !s.msOk) return;
+        if (s.ms28 != g_attempt.exitMission || s.ms14 != g_attempt.exitRetry)
+            g_attempt.returnDeparted = true;
+        if (!s.player || s.st[3] || s.st[4] || !g_attempt.returnDeparted) return;
+        g_attempt.returnMission = s.ms28; g_attempt.returnRetry = s.ms14;
+        g_attempt.standaloneDone = true; // all explicit returns; restore via ToIdle
+        return;
+    }
+    if (phase == aActive) {
+        if (g_attempt.sequence && g_attemptWonSeq.load() == g_attempt.sequence && !fight::g_active && s.gm && s.msOk && s.player &&
+            !s.st[2] && !s.st[3] && !s.st[4]) {
+            if (!RosterStillPending()) g_attemptWonDone.store(true);
+            else { static ULONGLONG nx; if (t >= nx) { nx = t + 10000; Log("Rematch: native win seen at the gate, waiting for Training's roster to finish"); } }
+        }
         return;
     }
     if (phase != aAwaitLoad) return;
@@ -366,6 +523,8 @@ void AttemptReturning(const Snap& s) {
         g_attempt.sourceMission = s.ms28;
         g_attempt.sourceRetry = s.ms14;
     }
+    g_attempt.exitMission = s.ms28; g_attempt.exitRetry = s.ms14;
+    g_attempt.returnLoadSeen = g_attempt.returnDeparted = g_attempt.standaloneDone = false;
     g_attempt.returnAttempted = true;
     g_attemptPhase.store(aReturning);
 }
@@ -467,12 +626,14 @@ int StageWorld(int* stage) {  // StageMgr [45B9E58]: +0x500 current world, +0x88
     *stage = st;
     return w;
 }
-int CallEmakiRequest(uint64_t ref, const uint8_t* key12) {
+// start 0 lets EmakiMissionRequest use the record it resolved, or the mission default (17000009) when the lookup misses.
+// A nonzero start is kept even when the lookup misses (0x10DBED0: param_3 == 0 is the only path that substitutes the default).
+int CallEmakiRequest(uint64_t ref, const uint8_t* key12, uint32_t start) {
     alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // movaps [params] (10DC0CD): 16-byte aligned
     alignas(16) uint8_t k[16] = {};
     memcpy(k, key12, 12);
     __try {
-        ((void (*)(uint64_t, const uint8_t*, uint32_t, const uint32_t*))F_EMAKIREQ)(ref, k, 0, p);
+        ((void (*)(uint64_t, const uint8_t*, uint32_t, const uint32_t*))F_EMAKIREQ)(ref, k, start, p);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -779,6 +940,30 @@ bool FindScroll(Scroll& s) {  // the item-menu path 0 of EmakiItemUse_MenuHandle
     }
     return false;
 }
+int g_q6Count = -1;  // last Picture Scroll item count seen at a chosen-record request; -1 = inventory unreadable
+int CountScrollItems() {
+    uint64_t a = 0, inv = 0;
+    if (!Rd(G_INV, a) || !a || !Rd(a, inv) || !inv) return -1;
+    int n = 0;
+    for (int i = 0; i < 4096; ++i) {
+        const uint64_t it = inv + 0x224A60 + (uint64_t)i * 0xE8;
+        uint16_t id = 0;
+        if (!Rd(it, id)) break;
+        if (IsScroll(id)) ++n;
+    }
+    return n;
+}
+int CountBagItem(uint16_t want) {
+    uint64_t a = 0, inv = 0;
+    if (!Rd(G_INV, a) || !a || !Rd(a, inv) || !inv) return -1;
+    int n = 0;
+    for (int i = 0; i < 4096; ++i) {
+        uint16_t id = 0;
+        if (!Rd(inv + 0x224A60 + (uint64_t)i * 0xE8, id)) break;
+        if (id == want) ++n;
+    }
+    return n;
+}
 struct EmakiTab {
     uint64_t B = 0, M = 0;
     uint32_t count = 0;
@@ -795,8 +980,29 @@ bool ReadEmakiTab(EmakiTab& t) {
     t.n = (int)((ve - vb) / 8);
     return true;
 }
+// Live record +0x0C. No row list: this is the start the game copies into the queue when the lookup hits.
+bool ReadEmakiStart(const EmakiTab& t, uint32_t index, uint32_t& start) {
+    start = 0;
+    if (index >= t.count || !t.B) return false;
+    return Rd(t.B + 8 + (uint64_t)index * 0x34 + 0x0C, start) && start != 0;
+}
 rcore::MapPatch g_map;
 rcore::ETrack g_et;
+struct WavePlace {
+    int step = -1;
+    int seenFight = 0;
+    int cleared = 0;
+    int exhausted = 0;
+    int loggedWait = 0;
+    int loggedStop = 0;
+    int offset = -1;
+    ULONGLONG at = 0;
+    float base[4] = {};
+    bool have = false;
+} g_wavePlace;
+bool ScrollLoadStuck(const Snap& s) {
+    return g_state.load() == kEmaki && g_et.st == rcore::kEArmed && !s.emaki && s.st[2];
+}
 bool WrGuard(void* dst, const void* src, size_t n) { return WrBytes((uint64_t)dst, src, n); }
 int g_eRow = -1;
 uint8_t g_eByteSeen = 0;
@@ -845,6 +1051,7 @@ bool g_menuSeen = false, g_loadSeen = false;
 uint32_t g_msAtOpen = 0, g_replayMs = 0;
 uint32_t g_fightMission = 0, g_fightStart = 0;  // Fight now: requested mission + start point
 bool g_gateReq = false;      // the gate right was requested for this start
+bool g_trGateArmed = false;  // #71926: Training owns the destination, the door right is timed from the landing here
 ULONGLONG g_gateDue = 0;     // when to request it (landing + 1 s, after the arena warp when there is one)
 // player position on the last frame before the latest load began (the game's boss intro can load + move the player after the
 // arena trigger: Yamagata 2026-10-09 trigger at ~337700 -> load -> BossBattleMode at 334650), for the arena capture
@@ -855,9 +1062,15 @@ bool g_fightByMission = false;                   // exit detection on mission st
 bool g_fightLoading = false;
 int g_fightLoads = 0;
 bool g_fightWarp = false;        // "Fight now (in the arena)": warp after the load
+bool g_trainingDestination = false; // sticky for this attempt, even after Training finishes entry
+// human #107514: the next Fight now of this row is 'Train in this arena' (no boss gate request, Training stops at the arena warp)
+std::atomic<int> g_arenaOnlyRow{-1};
+bool g_fightArenaOnly = false;
+int g_trainingRoute = -1;
 bool g_warpPending = false;      // a warp is due once the mission is idle (load done, player, no fight)
 ULONGLONG g_warpDue = 0;
 int g_warps = 0, g_fightRow = -1;
+int g_lastFightRow = -1; ULONGLONG g_lastFightEnd = 0;  // #106298: the row an attempt had when it ended, for the post-win white dot
 // Fight now verification (per start): armed -> warped -> PASS (a BossBattleMode after the first warp) / FAIL (none within 8 s of
 // the first warp, loading time not counted; up to 3 warps when the player is not inside the trigger box 1.5 s after a warp)
 enum FnState : int { kFnIdle = 0, kFnArmed = 1, kFnWarped = 2, kFnPass = 3, kFnFail = 4 };
@@ -871,15 +1084,31 @@ const char* FnName(int v) {
 uint64_t g_qHashAtOpen = 0;
 
 void Refuse(const char* why) {
+    // #107514/#107642: a refused request never leaves a 'Train in this arena' pick (BR row or Training arena-only) for a later Fight now
+    rcore::ArenaOnlyRefuseClear(g_arenaOnlyRow, (void (*)(int))TrainingExport("Nioh3Training_SetArenaOnlyNext"));
     Log("Rematch: refused: %s", why);
     Result("refused: %s", why);
     ToastF(cOrange, 6000, "Boss match refused: %s", why);
 }
+// #79069 Training at a Picture Scroll arena. In memory only: set by a Training request, cleared by every ExecEmaki and by ToIdle.
+std::atomic<bool> g_scrollNoWaves{false};
+void StagedWaveReset();
 void ToIdle(const char* why, bool normalExit = false) {
+    StagedWaveReset();
+    g_scrollNoWaves.store(false);
     if (!normalExit) AttemptQuarantine(why);
     UnhideRestore(why);
     const bool restored = SpawnRestore(why);
-    const bool mapRestored = MapRestoreNow(why);
+    uint32_t liveMission = 0;
+    const bool liveOk = ReadLiveMission(liveMission);
+    const bool deferMap = g_map.active && rcore::ResumeBlocksWrite(g_resume.armed.load() != 0, g_resume.trip.load(), g_resume.source.load(),
+                                                                    liveMission, liveOk, g_resume.session.load() != 0);
+    const bool mapRestored = deferMap ? true : MapRestoreNow(why);
+    if (deferMap) {
+        g_resume.deferMap.store(1);
+        g_resume.deferAt = Ms();
+        Log("Rematch: map restore deferred (%s) until the resume mission leaves the trip", why);
+    }
     const int phase = g_attemptPhase.load();
     if (normalExit && restored && mapRestored && (phase == aActive || phase == aReturning)) {
         g_attempt = NativeAttempt{};
@@ -887,6 +1116,7 @@ void ToIdle(const char* why, bool normalExit = false) {
         g_practiceOwned.store(false);
     } else if (phase != aNone) AttemptQuarantine(why);
     g_et.st = rcore::kEIdle;
+    g_wavePlace = {};
     g_state.store(kIdle);
     g_replayIn.store(false);
     g_activeRow.store(-1);
@@ -895,7 +1125,9 @@ void ToIdle(const char* why, bool normalExit = false) {
     g_fightByMission = g_fightLoading = false;
     g_fightLoads = 0;
     g_fightWarp = g_warpPending = false;
+    g_trainingDestination = false; g_trainingRoute = -1;
     g_warps = 0;
+    if (g_fightRow >= 0) { g_lastFightRow = g_fightRow; g_lastFightEnd = Ms(); }
     g_fightRow = -1;
     if (g_fn.load() == kFnArmed || g_fn.load() == kFnWarped) g_fn.store(kFnIdle);
     g_gateWant.store(0);
@@ -929,14 +1161,413 @@ void ExecOpen(int row, const Snap& s) {
     ToastF(cGreen, 8000, row >= 0 ? "Boss Matches: pick '%s' in the replay list" : "Boss Matches: replay menu opened", row >= 0 ? g_rows[(size_t)row].mission : "");
 }
 
-bool ClearedNow(uint16_t id, const char** why) {
+// ---- #256 unbeaten trip guard ----
+uint8_t ClearByte(uint16_t id) {
+    uint64_t db = 0;
+    uint8_t c = 0xFF;
+    if (!Rd(G_CLEAR, db) || !db || !CallCleared(db, id, c)) return 0xFF;
+    return c;
+}
+bool VetoClear(int) {  // script thread: Mission::SetMissionClearFlag (no args; clears the RUNNING mission)
+    const uint32_t m = g_unbeaten.load();
+    uint64_t g = 0, ms = 0;
+    uint32_t run = 0;
+    if (!Rd(G_MS, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + 0x28, run)) run = g_runningMission;
+    fight::ConfirmNativeWin(run);  // outcome observation precedes (and never disables) save protection
+    if (!m || run != m) return false;
+    g_unbeatenVetoes.fetch_add(1);
+    Log("Rematch: UNBEATEN 0x%04X: the game's mission-clear call was SKIPPED (boss beaten in a Boss Match of a mission this save has not cleared; no clear/unlock/story write) (#256)", m);
+    return true;
+}
+// The mission script can finish its native actor while a generated roster still
+// has a missing member. Do not put that remaining fight into clear-gadget wait
+// mode. The native is resolved by its registered name; no mission/boss/address list.
+bool VetoRosterClearWait(int) {
+    using Pending = int (*)();
+    const auto pending = (Pending)TrainingExport("Nioh3Training_NativeRosterPending");
+    if (!pending || !pending()) return false;
+    Log("Rematch: roster still pending; ClearGadgetAccessWaitMode SKIPPED (keep remaining boss in combat)");
+    return true;
+}
+// The D2DF script's Emaki::RequestWaveBattle is skipped on that trip only. The wave list is the scroll's only enemy source and the
+// call pushes no script value, so the script sits in its next wait (wave clear or player dead). A normal start, or a save that
+// resumes into a scroll, never has the flag; the state + mission checks refuse a stale one.
+bool g_waveVetoOk = false;
+bool ScrollTrainingNow() {
+    if (!g_scrollNoWaves.load() || g_state.load() != kEmaki) return false;
+    uint64_t g = 0, ms = 0;
+    uint32_t run = 0;
+    const uint32_t scroll = rcore::ScrollMission(g_rows, g_activeRow.load());  // the running row's catalogue story_mission (was 0xCC96)
+    return scroll && Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x28, run) && run == scroll;
+}
+bool VetoWaveRequest(int) {  // script thread
+    if (!ScrollTrainingNow()) return false;
+    static std::atomic<int> logged{0};
+    if (logged.fetch_add(1) < 8) Log("Rematch: scroll Training: Emaki::RequestWaveBattle SKIPPED (no waves on this trip)");
+    return true;
+}
+// Staged invade-box waves (#88648, #88701). RequestID is a script binding: rcx at a binding's entry is the VM
+// wrapper. Push one int, call it, then restore the stack count so the interrupted native keeps its own arguments.
+// The engine native Time::DebugDispPoppingWait is not what the mission script calls (that name is a user function
+// which only yields), so the pump is Character::Create plus the wait-loop natives GetTimeStep and IsEnterPlacementBox.
+// No mission-flag writes. A row with a boss gate waits until that gate's exclusive right has been requested.
+enum { kWvOff = 0, kWvReq = 1, kWvAct = 2, kWvClr = 3, kWvDone = 4 };
+struct StagedWaves {
+    const uint16_t* id = nullptr;
+    uint16_t n = 0;
+    uint16_t index = 0;
+    uint16_t hpThou = 0;
+    uint32_t hpPlace = 0;
+    uint32_t mission = 0;
+    int final = 0;
+    volatile LONG step = kWvOff;
+    volatile LONG busy = 0;
+    volatile LONG polls = 0;
+    volatile LONG waitLogged = 0;
+    volatile LONG pushLogged = 0;
+    volatile LONG hpDone = 0;
+    volatile LONG hpTries = 0;
+    volatile LONG bossSeen = 0;   // Character::Create of hpPlace
+    volatile LONG standBox = 0;   // station box to place into; 0 = no place pending
+    int standX = 0, standY = 0, standZ = 0;
+    volatile LONG standDone = 0;  // index+1 already handled
+    uint32_t pollArg[4] = {};
+    volatile LONG pollN = 0;      // distinct IsEnterPlacementBox args logged this station
+    volatile LONG waitBoss = 0;   // one log while the place waits for the chain placement
+} g_wv;
+volatile int g_stagedFinal = 0;  // 0 = Full climb, 1 = Final wave. This session only. Not written to the save.
+struct WaveFrame {
+    uint64_t countObj = 0, values = 0, inner = 0, count = 0;
+    uint16_t base = 0;
+    bool pushed = false;
+};
+bool WavePush(uint64_t wrapper, uint32_t id, WaveFrame* f) {
+    uint64_t script = 0, cap = 0;
+    if (!f || wrapper < 0x10000 || !Rd(wrapper + 8, script) || script < 0x10000) return false;
+    if (!Rd(script + 0x18, f->values) || !Rd(script + 0x20, f->countObj) || !Rd(script + 8, f->inner)) return false;
+    if (f->values < 0x10000 || f->countObj < 0x10000 || f->inner < 0x10000) return false;
+    if (!Rd(f->countObj, f->count) || !Rd(f->countObj + 8, cap) || f->count >= cap || cap > 100000) return false;
+    if (!Rd(f->inner + 0xA6, f->base)) return false;
+    uint8_t slot[8] = {};
+    memcpy(slot, &id, 4);
+    const uint16_t typ = 1;
+    memcpy(slot + 4, &typ, 2);
+    if (!WrBytes(f->values + f->count * 8, slot, 8)) return false;
+    const uint64_t next = f->count + 1;
+    if (!WrBytes(f->countObj, &next, 8)) return false;
+    const uint16_t nb = (uint16_t)f->count;
+    if (!WrBytes(f->inner + 0xA6, &nb, 2)) {
+        WrBytes(f->countObj, &f->count, 8);
+        return false;
+    }
+    f->pushed = true;
+    return true;
+}
+void WaveRestore(const WaveFrame& f) {
+    if (!f.pushed) return;
+    WrBytes(f.inner + 0xA6, &f.base, 2);
+    WrBytes(f.countObj, &f.count, 8);
+}
+// No C++ object in this function: MSVC rejects __try where a destructor would run.
+int WaveInvoke(uintptr_t fn, uint64_t wrapper, WaveFrame* f, bool* outBool) {
+    __try {
+        ((void (*)(uint64_t))fn)(wrapper);
+        if (outBool) {
+            uint64_t now = 0;
+            uint8_t top[8] = {};
+            *outBool = false;
+            if (Rd(f->countObj, now) && now > 0 && Copy(top, f->values + (now - 1) * 8, 8)) *outBool = top[0] != 0;
+        }
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+// 1 called, 0 the stack was not ready, -1 the binding faulted. A bool result is read before the count is restored.
+int WaveCall(uint64_t wrapper, const char* site, uint32_t id, bool* outBool) {
+    const uintptr_t fn = Site(site);
+    if (!fn) return 0;
+    WaveFrame f = {};
+    if (!WavePush(wrapper, id, &f)) return 0;
+    const int rc = WaveInvoke(fn, wrapper, &f, outBool);
+    WaveRestore(f);
+    return rc;
+}
+void StagedWaveReset() {
+    g_wv.id = nullptr;
+    g_wv.n = 0;
+    g_wv.index = 0;
+    g_wv.hpThou = 0;
+    g_wv.hpPlace = 0;
+    g_wv.mission = 0;
+    g_wv.final = 0;
+    g_wv.standX = g_wv.standY = g_wv.standZ = 0;
+    InterlockedExchange(&g_wv.polls, 0);
+    InterlockedExchange(&g_wv.waitLogged, 0);
+    InterlockedExchange(&g_wv.pushLogged, 0);
+    InterlockedExchange(&g_wv.hpDone, 0);
+    InterlockedExchange(&g_wv.hpTries, 0);
+    InterlockedExchange(&g_wv.bossSeen, 0);
+    InterlockedExchange(&g_wv.standBox, 0);
+    InterlockedExchange(&g_wv.standDone, 0);
+    InterlockedExchange(&g_wv.pollN, 0);
+    InterlockedExchange(&g_wv.waitBoss, 0);
+    InterlockedExchange(&g_wv.step, kWvOff);
+}
+void StagedWaveArm(uint32_t mission) {
+    if (g_wv.step != kWvOff) return;
+    uint16_t n = 0;
+    const uint16_t* w = NativeEntryWaves(mission, &n);
+    if (!w || !n) {
+        InterlockedExchange(&g_wv.step, kWvDone);
+        return;
+    }
+    const int final = g_stagedFinal && n > 1;
+    uint16_t thou = 0;
+    uint32_t place = NativeEntryWavePlace(mission);
+    if (final) NativeEntryWaveFinal(mission, &thou, &place);
+    g_wv.id = w;
+    g_wv.n = n;
+    g_wv.index = StagedStartIndex(n, g_stagedFinal);
+    g_wv.final = final;
+    g_wv.hpThou = thou;
+    g_wv.hpPlace = place;
+    g_wv.mission = mission;
+    InterlockedExchange(&g_wv.polls, 0);
+    InterlockedExchange(&g_wv.hpDone, 0);
+    InterlockedExchange(&g_wv.hpTries, 0);
+    InterlockedExchange(&g_wv.step, kWvReq);
+    Log("Rematch: staged waves armed mission 0x%X %s %u/%u id %u hp %u/1000 place %u (request after the door right, no save writes)",
+        mission, final ? "final" : "full", (unsigned)g_wv.index + 1, n, w[g_wv.index], thou, place);
+}
+void StagedWaveWatch(const Snap& s, uint32_t mission) {
+    if (!mission || g_wv.step != kWvOff) return;
+    if (!s.msOk || !s.player || s.ms28 != mission || s.st[2] || s.st[3] || s.st[4]) return;
+    StagedWaveArm(mission);
+}
+void StagedHpTry() {
+    if (!StagedFinalHpPending(g_wv.final, g_wv.n, g_wv.index, g_wv.hpThou, g_wv.hpPlace, (int)g_wv.hpDone)) return;
+    if ((InterlockedIncrement(&g_wv.hpTries) % 15) != 1) return;
+    using SetHp = int (*)(uint32_t, int);
+    const auto set = (SetHp)TrainingExport("Nioh3Training_SetPlacementHpPct");
+    if (!set) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP not set: Training has no placement HP export");
+        return;
+    }
+    const int rc = set(g_wv.hpPlace, (int)g_wv.hpThou);
+    if (rc > 0) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP placement %u set to %u/1000 (session memory, no save)", g_wv.hpPlace, g_wv.hpThou);
+    } else if (rc < 0) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP placement %u refused (%d)", g_wv.hpPlace, rc);
+    }
+}
+int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn);
+// Wait_InvadeBox returns before RequestID, so once the wave is active the script is in IsClearID
+// and is not still polling that station box. The centre is the generated chain's PlacementBox.
+// The game thread places there once, after the chain's boss placement has been created.
+// A one-station chain is left alone. No mission-flag writes. Only when the player is more than 20 m out.
+// IsEnterPlacementBox args are logged once per station and are not the place trigger.
+void OnStagedBoxPoll(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (g_wv.n < 2 || g_wv.step != kWvClr || g_wv.pollN >= 4) return;
+    uint32_t val[4] = {};
+    uint16_t ty[4] = {};
+    const int n = LessonVmArgs(rcx, val, ty, 1);
+    if (n < 1) {
+        if (InterlockedCompareExchange(&g_wv.pollN, 4, 0) == 0)
+            Log("Rematch: staged box poll unreadable (%d) while the wave is active", n);
+        return;
+    }
+    for (LONG i = 0; i < g_wv.pollN && i < 4; ++i) if (g_wv.pollArg[i] == val[0]) return;
+    const LONG i = g_wv.pollN;
+    if (i < 0 || i >= 4) return;
+    g_wv.pollArg[i] = val[0];
+    InterlockedIncrement(&g_wv.pollN);
+    Log("Rematch: staged box poll arg %u type %u (sample %ld, not used to place)", val[0], (unsigned)ty[0], (long)i + 1);
+}
+void StagedPlaceTick(const Snap& s) {
+    const LONG box = g_wv.standBox;
+    if (!box || g_wv.n < 2 || g_wv.step != kWvClr) return;
+    if (g_wv.standDone == (LONG)g_wv.index + 1) return;
+    if (g_wv.hpPlace && !g_wv.bossSeen) {
+        if (!InterlockedExchange(&g_wv.waitBoss, 1))
+            Log("Rematch: staged stand box %ld waits for placement %u", box, g_wv.hpPlace);
+        return;
+    }
+    if (s.online || s.guest || s.st[2] || s.st[3] || s.st[4] || !s.player) return;
+    const int x = g_wv.standX, y = g_wv.standY, z = g_wv.standZ;
+    if (!g_warpOk) {
+        InterlockedExchange(&g_wv.standDone, (LONG)g_wv.index + 1);
+        InterlockedExchange(&g_wv.standBox, 0);
+        Log("Rematch: staged stand place skipped - the Player::SetPos path is off");
+        return;
+    }
+    float p[4] = {};
+    if (!PlayerPos(p)) return;
+    InterlockedExchange(&g_wv.standDone, (LONG)g_wv.index + 1);
+    InterlockedExchange(&g_wv.standBox, 0);
+    const float dx = p[0] - (float)x, dy = p[1] - (float)y, dz = p[2] - (float)z;
+    if (dx * dx + dy * dy + dz * dz < 2000.f * 2000.f) {
+        Log("Rematch: staged stand box %ld already within 20 m (%.0f %.0f %.0f); no place", box, p[0], p[1], p[2]);
+        return;
+    }
+    const int rc = CallWarp((float)x, (float)y, (float)z, 0.f);
+    float after[4] = {};
+    PlayerPos(after);
+    Log("Rematch: staged stand place box %ld -> %.0f %.0f %.0f %s (from %.0f %.0f %.0f, no flag writes)",
+        box, after[0], after[1], after[2], rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", p[0], p[1], p[2]);
+}
+void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    const LONG step = g_wv.step;
+    if (step != kWvReq && step != kWvAct && step != kWvClr) return;
+    if (g_gateWant.load() && !g_gateReq) {
+        if (!InterlockedExchange(&g_wv.waitLogged, 1)) Log("Rematch: staged wave waiting for the door right");
+        return;
+    }
+    if (InterlockedExchange(&g_wv.busy, 1)) return;
+    __try {
+        if (g_wv.index >= g_wv.n || !g_wv.id) {
+            g_wv.step = kWvDone;
+        } else {
+            const uint32_t id = g_wv.id[g_wv.index];
+            if (step == kWvReq) {
+                const int rc = WaveCall(rcx, "WaveBattle::RequestID", id, nullptr);
+                if (rc < 0) {
+                    g_wv.step = kWvDone;
+                    Log("Rematch: staged wave RequestID %u faulted; chain stopped", id);
+                } else if (rc > 0) {
+                    g_wv.step = kWvAct;
+                    InterlockedExchange(&g_wv.polls, 0);
+                    Log("Rematch: staged wave RequestID %u (%u/%u)", id, (unsigned)g_wv.index + 1, g_wv.n);
+                } else if (!InterlockedExchange(&g_wv.pushLogged, 1)) {
+                    Log("Rematch: staged wave RequestID %u stack not ready", id);
+                }
+            } else {
+                bool on = false;
+                const char* site = step == kWvAct ? "WaveBattle::IsActiveID" : "WaveBattle::IsClearID";
+                const int rc = WaveCall(rcx, site, id, &on);
+                if (rc < 0) {
+                    g_wv.step = kWvDone;
+                    Log("Rematch: staged wave %s %u faulted; chain stopped", site, id);
+                } else if (rc > 0 && on) {
+                    if (step == kWvAct) {
+                        g_wv.step = kWvClr;
+                        Log("Rematch: staged wave %u active", id);
+                        uint32_t stand = 0;
+                        int sx = 0, sy = 0, sz = 0;
+                        if (g_wv.n > 1 && NativeEntryWaveStand(g_wv.mission, g_wv.index, &stand, &sx, &sy, &sz)) {
+                            g_wv.standX = sx;
+                            g_wv.standY = sy;
+                            g_wv.standZ = sz;
+                            InterlockedExchange(&g_wv.standBox, (LONG)stand);
+                            Log("Rematch: staged stand armed box %u at %d %d %d (place after placement %u exists)", stand, sx, sy, sz, g_wv.hpPlace);
+                        }
+                    } else {
+                        Log("Rematch: staged wave %u clear", id);
+                        g_wv.index++;
+                        InterlockedExchange(&g_wv.polls, 0);
+                        InterlockedExchange(&g_wv.pushLogged, 0);
+                        InterlockedExchange(&g_wv.standBox, 0);
+                        InterlockedExchange(&g_wv.pollN, 0);
+                        InterlockedExchange(&g_wv.waitBoss, 0);
+                        g_wv.step = g_wv.index < g_wv.n ? (LONG)kWvReq : (LONG)kWvDone;
+                    }
+                } else if (step == kWvAct) {
+                    const LONG n = InterlockedIncrement(&g_wv.polls);
+                    if (n == 30 || n == 90 || n == 180) {
+                        const int again = WaveCall(rcx, "WaveBattle::RequestID", id, nullptr);
+                        Log("Rematch: staged wave RequestID %u retry %ld (%s)", id, n, again > 0 ? "called" : again < 0 ? "fault" : "stack not ready");
+                        if (again < 0) g_wv.step = kWvDone;
+                    }
+                }
+            }
+            if (g_wv.step == kWvAct || g_wv.step == kWvClr) StagedHpTry();
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_wv.step = kWvDone;
+        Log("Rematch: staged wave hook faulted; chain stopped");
+    }
+    InterlockedExchange(&g_wv.busy, 0);
+}
+void InstallClearGuard() {
+    const char* why = nullptr;
+    g_waveVetoOk = InstallVeto("Emaki::RequestWaveBattle", &VetoWaveRequest, &why);
+    Log("Rematch: scroll Training wave guard %s%s", g_waveVetoOk ? "installed" : "NOT installed: ", g_waveVetoOk ? "" : (why ? why : "?"));
+    const char* pumps[] = {"Character::Create", "Time::GetTimeStep", "Player::IsEnterPlacementBox"};
+    int stagedOk = 0;
+    for (const char* pump : pumps) {
+        why = nullptr;
+        if (InstallEntry(pump, &OnStagedWave, &why)) ++stagedOk;
+        else Log("Rematch: staged wave pump %s NOT installed: %s", pump, why ? why : "?");
+    }
+    Log("Rematch: staged wave pumps %d/3", stagedOk);
+    why = nullptr;
+    if (!InstallEntry("Player::IsEnterPlacementBox", &OnStagedBoxPoll, &why))
+        Log("Rematch: staged box poll log NOT installed: %s", why ? why : "?");
+    why = nullptr;
+    g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
+    Log("Rematch: IgnoreProgress %s; clear guard %s%s%s", g_cfg.ignoreProgress ? "ON (unbeaten bosses can be fought)" : "off",
+        g_clearGuardOk ? "installed" : "NOT installed - ", g_clearGuardOk ? "" : (why ? why : "?"), g_clearGuardOk ? "" : " (unbeaten rows stay refused)");
+}
+void UnbeatenArm(uint16_t id, const char* row) {
+    g_unbeatenClear0 = ClearByte(id);
+    g_unbeatenSeen.store(0);
+    g_unbeatenVetoes.store(0);
+    g_unbeatenAt = Ms();
+    g_unbeaten.store(id);
+    Log("Rematch: UNBEATEN 0x%04X (%s) armed: clear byte now 0x%02X; the game's clear call is skipped while this mission runs", id, row, g_unbeatenClear0);
+}
+void UnbeatenTick(const Snap& s, ULONGLONG t) {
+    if (s.msOk) g_runningMission = s.ms28;
+    const uint32_t m = g_unbeaten.load();
+    if (!m) return;
+    if (s.msOk && s.ms28 == m) {
+        if (!g_unbeatenSeen.exchange(1)) Log("Rematch: UNBEATEN 0x%04X: the mission is running (guard active)", m);
+        return;
+    }
+    const bool left = g_unbeatenSeen.load() && s.msOk && s.ms28 != m;
+    const bool never = !g_unbeatenSeen.load() && t - g_unbeatenAt > 180000 &&
+        s.msOk && s.queueOk && !s.st[2] && g_attemptPhase.load() == aNone;  // never expire protection during an owned/uncertain native load
+    if (!left && !never) return;
+    const uint8_t c = ClearByte((uint16_t)m);
+    g_unbeaten.store(0);
+    Log("Rematch: UNBEATEN 0x%04X disarmed (%s): %d clear call(s) skipped; clear byte before 0x%02X after 0x%02X -> %s", m,
+        left ? "left the mission" : "mission never loaded", g_unbeatenVetoes.load(), g_unbeatenClear0, c,
+        c == 0xFF ? "unreadable" : (c & 1) == (g_unbeatenClear0 & 1) ? "save progress unchanged" : "WARNING the clear changed");
+}
+
+bool ClearedNow(uint16_t id, const char** why, bool bossMatch = false) {
+    // Scroll rows have no replay mission id. Zero is also the field's ms28;
+    // it must never be treated as an active unbeaten replay or passed to the DB.
+    if (!id) {
+        g_bypassId = 0;
+        *why = "row has no replay mission id (Picture Scrolls use scroll entry)";
+        return false;
+    }
     uint64_t db = 0;
     uint8_t c = 0;
     if (!Rd(G_CLEAR, db) || !db || !CallCleared(db, id, c)) {
         *why = "clear db not readable";
         return false;
     }
+    g_bypassId = 0;
     if (!(c & 1)) {
+        if (bossMatch || g_cfg.ignoreProgress) {
+            if (!g_clearGuardOk) {
+                *why = "Unbeaten entry requires the clear guard (Mission::SetMissionClearFlag veto) is not installed - refused so the save cannot change";
+                return false;
+            }
+            const Snap s = ReadSnap();
+            if (s.msOk && s.ms28 == id) {
+                *why = "you are playing this unbeaten mission right now - beat it normally first";
+                return false;
+            }
+            Log("Rematch: mission 0x%04X not cleared on this journey - protected Boss Match/dev entry; the game's clear call is skipped for this trip (#256)", id);
+            g_bypassId = id;
+            return true;
+        }
         *why = "mission not cleared on this journey (the game's replay only offers cleared missions)";
         return false;
     }
@@ -962,11 +1593,23 @@ void TrainingPreload() {
     if (fn && now - last > 15000) { last = now; fn(); }
 }
 
+// Cancel Training's pending auto-enter on every refusal/uncertain queue result.
+// Older Training builds have no callback and preserve their existing behavior.
+struct TrainingEntryAdmission {
+    uint32_t mission; bool accepted = false;
+    ~TrainingEntryAdmission() {
+        using Fn = void (*)(uint32_t, int);
+        const auto fn = (Fn)TrainingExport("Nioh3Training_NativeEntryResult");
+        if (fn) fn(mission, accepted ? 1 : 0);
+    }
+};
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
+    const bool arenaOnly = g_arenaOnlyRow.exchange(-1) == row && fight && warp;  // #107514: consumed by this request only
     const Row& r = g_rows[(size_t)row];
+    TrainingEntryAdmission entryAdmission{r.missionId};
     const char* why = nullptr;
     const uint32_t start = fight ? r.fightStart : 0;
     if (fight) {
@@ -978,12 +1621,17 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
             return Refuse(!g_cfg.fightWarp ? "the arena warp is off ([Rematch] FightNowWarp = 0)" : !g_warpOk ? g_warpWhy : "no arena position for this boss yet");
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
-    if (!ClearedNow(r.missionId, &why)) return Refuse(why);
+    if (!ClearedNow(r.missionId, &why, fight && warp)) return Refuse(why);
+    if (fight) {  // #107514: Training's next Fight now entry is arena-only (no boss wait, no fallback) or a normal fight
+        if (const auto ao = (void (*)(int))TrainingExport("Nioh3Training_SetArenaOnlyNext")) ao(arenaOnly ? 1 : 0);
+        else if (arenaOnly) return Refuse("Train in this arena needs Nioh3Training with SetArenaOnlyNext");
+    }
     if (fight && warp && !g_noSwap) {  // swapped in place: no queue slot, no cover, nothing armed (the add-on keeps the native request for every other case)
         using FightNowFn = int (*)(uint32_t);
         static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
         if (swap && swap(r.missionId)) {
             Log("Rematch: F %s: arena swap in place by Nioh3Training (no mission load)", r.id);
+            ResumeArm(s.ms28, s.ms28, t, true);
             g_swappedInPlace.store(true);
             Result("started %s (fight now, in place)", r.id);
             ToastF(cGreen, 6000, "Boss Matches: into the fight with %s...", r.name);
@@ -1007,6 +1655,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
             "spawn %.0f %.0f %.0f yaw %.0f, confidence %s; queue slot %d free",
             r.id, r.missionId, slot, start, r.fightKind, r.fightDist, r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.fightConf, freeSlot);
     AttemptBegin(r.missionId, start, slot, row, freeSlot, t, s, before);
+    // Arm before the request can execute any native script, including an uncertain admission.
+    if (fight && g_bypassId == r.missionId) UnbeatenArm(r.missionId, r.id);
     const int callResult = CallRequestById(r.missionId, slot, start);
     if (callResult != 0) {
         AttemptMatch(nullptr, false, false);
@@ -1031,21 +1681,34 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         uint32_t sp = 0;
         memcpy(&sp, q + 0xC, 4);
         Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
+        entryAdmission.accepted = true;
+        const auto owns = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        g_trainingDestination = warp && owns && owns(r.missionId) != 0;
+        g_trainingRoute = -1;
+        if (g_trainingDestination) Log("Rematch: F %s: destination owner=Training; BR spawn override, warp, rewarp and nudge disabled", r.id);
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
         g_fightByMission = g_fightLoading = false;
         g_fightLoads = 0;
         g_fightRow = row;
-        g_fightWarp = warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
+        g_fightArenaOnly = arenaOnly;
+        g_fightWarp = !g_trainingDestination && warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
         g_gateSeen.store(false);
         g_gateSlot.store(-1);
         g_gateChecks.store(0);
         g_gateReq = false;
         g_gateDue = 0;
-        g_gateWant.store(warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
-        if (g_gateWant.load())
-            Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, r.gateId, r.gateKind);
+        g_trGateArmed = false;
+        // #71926: door-waiting boss scripts (WaitWarpStart) never create the boss without this right, and it moves nothing, so it stays on when Training owns the destination.
+        g_gateWant.store(rcore::ArenaOnlyGate(arenaOnly, EntryGateChoice(r.missionId, r.placement, r.gateId, r.GateDoor(), r.atFight, g_trainingDestination, warp, g_gateOk)));
+        if (arenaOnly) Log("Rematch: F %s: Train in this arena - boss gate not requested (the boss start waits on it), no waves, no boss", r.id);
+        if (g_gateWant.load()) {
+            Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, g_gateWant.load(), g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement) ? "script WaitWarpStart" : r.gateKind);
+            // #88516: tell Training a door-waiting script owns this boss, so idle same-character bodies are not taken as it.
+            if (g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement))
+                if (const auto pend = (void (*)(uint32_t))TrainingExport("Nioh3Training_NativeGatePending")) pend(r.missionId);
+        }
         g_warpPending = false;
         g_warps = 0;
         g_fn.store(warp ? kFnArmed : kFnIdle);
@@ -1131,13 +1794,110 @@ void ExecPractice(int row, const Snap& s, ULONGLONG t) {
     if (g_attempt.sequence != previous && g_attemptPhase.load() != aNone) g_practiceOwned.store(true);
 }
 
-void ExecEmaki(int row, ULONGLONG t) {
+// #75963 DEV control for the Picture Scroll wave. Off unless the pipe command scrollctl sets it; not for release.
+std::atomic<int> g_scNoRedirect{0}, g_scLevel{0}, g_scB0f{0};
+std::atomic<int> g_scStart0{0};  // #76364 DEV: request the redirected record with start 0, as the game does
+std::atomic<int> g_scSeedPick{1};  // #77650 DEV default: E rows seed-pick and skip the map rewrite. noseedpick stores 0.
+std::atomic<int> g_scUseItem{0};  // #76364 DEV: a chosen record starts from the held scroll instead of ref -1
+std::atomic<bool> g_scGive{false};
+std::atomic<uint32_t> g_scGiveId{0x1E82}, g_scGiveSeed{0}, g_scGiveLevel{0}, g_scGiveB0f{0};
+// The game's own add path: 54CCD0 builds the 0xE8 record, 54D324 adds it (same calls as Item::AddItemNoNotice 23A0C64).
+void ExecScrollGive() {
+    alignas(16) uint8_t desc[0x200] = {}, out[0x200] = {};
+    uint64_t inv = 0;
+    const uint16_t id = (uint16_t)g_scGiveId.load();
+    if (!g_img.base || !Rd(G_INV, inv) || !inv) { Log("Rematch: scrollctl give: inventory not ready"); return; }
+    const int before = CountScrollItems();
+    const uint32_t seed = g_scGiveSeed.load();
+    const uint16_t lv = (uint16_t)g_scGiveLevel.load();
+    const uint8_t b0f = (uint8_t)g_scGiveB0f.load();
+    int rc = 0;
+    __try {
+        ((void* (*)(void*, uint32_t, uint32_t))(g_img.base + Grva(0x54CCD0)))(desc, id, 1);
+        memcpy(desc + 0x20, &seed, 4);
+        memcpy(desc + 0x12, &lv, 2);
+        desc[0x0F] = b0f;
+        ((void* (*)(uint64_t, void*, void*, uint64_t, uint64_t))(g_img.base + Grva(0x54D324)))(inv, out, desc, 0, 1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        rc = 1;
+    }
+    Scroll sc;
+    const bool found = FindScroll(sc);
+    Log("Rematch: scrollctl give id %04X seed %u level %u b0f %u: rc %d, scroll items %d -> %d, found %d idx %d ref %016llX", id, seed, lv, b0f, rc, before,
+        CountScrollItems(), found ? 1 : 0, found ? sc.idx : -1, found ? (unsigned long long)sc.ref : 0ULL);
+}
+// #77374 DEV: the game's own key -> byte draw (10DBED0 calls these two with the key's first dword). No patch involved.
+int ScrollDrawByte(uint32_t seed) {
+    if (!F_EMAKIREQ || F_EMAKIREQ - g_img.base != 0x10DBED0) return -2;  // only on the build these RVAs were read from
+    __try {
+        const uint8_t tier = ((uint8_t (*)(uint64_t, uint32_t))(g_img.base + 0x102BB60))(0, seed);
+        return ((uint8_t (*)(uint64_t, uint32_t, uint32_t))(g_img.base + 0x102B840))(0, seed, tier);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+// first seed for every byte, one scan per process; logged so the reachable records are on record
+int32_t g_scSeedOf[256];
+bool g_scSeedScanned = false;
+void ScrollSeedScan() {
+    if (g_scSeedScanned) return;
+    g_scSeedScanned = true;
+    memset(g_scSeedOf, 0xFF, sizeof(g_scSeedOf));
+    const ULONGLONG t0 = GetTickCount64();
+    int hits = 0, bad = 0;
+    for (uint32_t seed = 1; seed <= 20000 && GetTickCount64() - t0 < 1500; ++seed) {
+        const int b = ScrollDrawByte(seed);
+        if (b < 0) { ++bad; break; }
+        if (g_scSeedOf[b] < 0) { g_scSeedOf[b] = (int32_t)seed; ++hits; Log("Rematch: seed %u draws byte %02X", seed, b); }
+    }
+    Log("Rematch: seed scan: %d different bytes, seed 1 -> %d, %d failed, %llu ms", hits, ScrollDrawByte(1), bad, GetTickCount64() - t0);
+}
+
+// #78735: a scroll row is Boss Rematch's own trip, so it asks Training for the same loading screen as a boss row.
+bool g_scrollCover = false;
+ULONGLONG g_scrollCoverAt = 0, g_scrollCoverIn = 0;
+void ScrollCoverSet(const char* name, int on) {
+    using Fn = int (*)(const char*, int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_ScrollCover")) f(name, on);
+}
+void ScrollCoverOn(const char* name, ULONGLONG t) {
+    g_scrollCover = true; g_scrollCoverAt = t; g_scrollCoverIn = 0;
+    ScrollCoverSet(name, 1);
+}
+int g_emakiNoteRow = -1;
+
+void ExecEmaki(int row, ULONGLONG t, bool noWaves = false) {
+    g_scrollNoWaves.store(false);  // every request decides for itself; only the Training one sets it, below
+    if (noWaves && !g_waveVetoOk) return Refuse("Training at a Picture Scroll needs the wave guard, it did not install");
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_emakiOk) return Refuse(g_emakiWhy);
+    // A chosen record must not touch the save. The clear guard vetoes SetMissionClearFlag of the
+    // mission that is running. That veto takes no mission id.
+    if (row >= 0 && !g_clearGuardOk) return Refuse("Picture Scroll needs the clear guard so the save cannot change");
+    const uint32_t scrollMission = rcore::ScrollMission(g_rows, row);
+    if (!scrollMission) return Refuse("scroll catalogue has no story mission");
     Scroll sc;
-    if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
+    if (row < 0 || g_scUseItem.load()) {
+        if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
+    } else {
+        // No inventory item. Ref -1 is the game's own no-item path: MissionLoadStep 223B180 then keeps the key itself (+0x344 = 1), and
+        // the unique-enemy flag readers E537A0 / E5D8E0 skip the inventory. Any other ref is treated as an item: 107B060 inserts an
+        // unknown ref into the inventory's ref map with index 0, so ref 0 tied the scroll to whatever sits in inventory slot 0.
+        memset(sc.key, 0, sizeof(sc.key));
+        sc.idx = -1;
+        sc.itemId = 0;
+        sc.ref = ~0ULL;
+        sc.key[0] = 1;
+        sc.key[7] = 1;
+        sc.key[8] = 0;
+        const uint16_t ctlLevel = (uint16_t)g_scLevel.load();
+        memcpy(sc.key + 4, &ctlLevel, 2);
+        sc.key[6] = (uint8_t)g_scB0f.load();
+        g_q6Count = CountScrollItems();
+        Log("Rematch: Q6 scroll-item count %d at request (mode 0, no item index)", g_q6Count);
+    }
     EmakiTab tab;
     if (!ReadEmakiTab(tab)) return Refuse("Picture Scroll table not readable");
     uint8_t before[3 * 0x58];
@@ -1151,17 +1911,43 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (freeSlot < 0) return Refuse("mission queue full");
     const Snap current = ReadSnap();
     if (const char* why = NativeGate(current)) return Refuse(why);
-    if (row >= 0) {
+    uint32_t start = 0;
+    const bool seedPick = row >= 0 && g_scSeedPick.load() != 0;
+    if (seedPick) {
+        ScrollSeedScan();
+        const uint32_t want = (uint32_t)g_rows[(size_t)row].emakiIndex;
+        int key = -1;
+        for (int i = 0; i < tab.n && key < 0; ++i) {
+            uint8_t e[8] = {};
+            if (Copy(e, tab.vb + (uint64_t)i * 8, 8) && e[0] != tab.emptyKey) {
+                uint32_t idx = 0;
+                memcpy(&idx, e + 4, 4);
+                if (idx == want) key = e[0];
+            }
+        }
+        if (key < 0 || g_scSeedOf[key] < 0) {
+            Log("Rematch: seed pick %s: record %u key %d has no seed", g_rows[(size_t)row].id, want, key);
+            return Refuse("no key seed reaches this scroll record");
+        }
+        memcpy(sc.key, &g_scSeedOf[key], 4);
+        Log("Rematch: seed pick %s: record %u key %02X seed %d", g_rows[(size_t)row].id, want, key, g_scSeedOf[key]);
+    }
+    if (row >= 0 && !seedPick && !g_scNoRedirect.load()) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
+        if (!ReadEmakiStart(tab, (uint32_t)r.emakiIndex, start)) return Refuse("this scroll record has no start point");
         if (!rcore::MapRedirect(g_map, (uint8_t*)tab.vb, tab.n, tab.emptyKey, (uint32_t)r.emakiIndex, tab.count, &WrGuard, &MapReadGuard))
             return Refuse("could not redirect the scroll map");
-        Log("Rematch: E1 %s: %d map entries -> record %d (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
+        Log("Rematch: E1 %s: %d map entries -> record %d start %u (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, start,
+            rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
     }
+    if (g_scStart0.load()) start = 0;
     char kb[40];
     Hex(kb, sizeof(kb), (uint64_t)sc.key, 12);
-    AttemptBegin(0xCC96, 0, 0, row, freeSlot, t, current, before, true);
-    const int rc = CallEmakiRequest(sc.ref, sc.key);
+    AttemptBegin(scrollMission, start, 0, row, freeSlot, t, current, before, true);
+    g_emakiNoteRow = row;
+    const int rc = CallEmakiRequest(sc.ref, sc.key, start);
+    g_emakiNoteRow = -1;
     uint8_t after[3 * 0x58] = {};
     const bool readable = rc == 0 && Copy(after, G_QUEUE, sizeof(after));
     const bool matched = AttemptMatch(after, readable, rc == 0, sc.ref, sc.key);
@@ -1169,20 +1955,30 @@ void ExecEmaki(int row, ULONGLONG t) {
         MapRestoreNow("uncertain scroll request");
         return Refuse("native scroll request outcome uncertain; restart game");
     }
+    const uint8_t queuedRegion = after[freeSlot * 0x58 + 8];
+    uint32_t queuedStart = 0;
+    memcpy(&queuedStart, after + freeSlot * 0x58 + 0xC, 4);
+    Log("Rematch: E queue slot %d: region %02X start %u%s", freeSlot, queuedRegion, queuedStart,
+        queuedRegion ? "" : " - WARNING: region 00 means the record lookup missed");
+    if (row >= 0) UnbeatenArm((uint16_t)scrollMission, g_rows[(size_t)row].id);
     g_state.store(kEmaki);
     g_activeRow.store(row);
     g_eRow = row;
     g_eByteSeen = 0;
     g_et.st = rcore::kEArmed;
     g_et.armedAt = t;
-    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], 0, params) queued 0xCC96", row >= 0 ? g_rows[(size_t)row].id : "(game's pick)",
-        (unsigned long long)sc.ref, kb, sc.itemId, sc.idx);
-    Result("started %s (picture scroll)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
-    ToastF(cGreen, 8000, "Boss Matches: Picture Scroll %s", row >= 0 ? g_rows[(size_t)row].name : "(game's pick)");
+    g_wavePlace = {};
+    g_scrollNoWaves.store(noWaves && row >= 0);
+    if (row >= 0) ScrollCoverOn(g_rows[(size_t)row].name, t);
+    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0x%X",
+        row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start, scrollMission);
+    Result("started %s (%s)", row >= 0 ? g_rows[(size_t)row].id : "game's pick", g_scrollNoWaves.load() ? "training, no waves" : "waves");
+    ToastF(cGreen, 8000, "%s", row >= 0 ? g_rows[(size_t)row].name : "Picture Scroll: the game's pick");
 }
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
 void DoWarp(const Snap& s, ULONGLONG t) {
+    if (g_trainingDestination) return;
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (s.ms28 != g_fightMission) return;  // a different mission cannot supply fight/position evidence
     if (g_fightRow < 0) return;
@@ -1268,8 +2064,28 @@ void DoWarp(const Snap& s, ULONGLONG t) {
 void FnVerify(const Snap& s, ULONGLONG t) {
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (s.ms28 != g_fightMission) return;  // replay exit settles later; never act on the destination mission
+    if (g_trainingDestination) {
+        const auto routeFn = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        const int route = routeFn ? routeFn(g_fightMission) : 0;
+        if (route != g_trainingRoute) {
+            g_trainingRoute = route;
+            const char* label = route == 1 ? "native pending" : route == 2 ? "native" : route == 3 ? "fallback pending" : route == 4 ? "fallback" : route == 5 ? "failed" : route == 6 ? "arena only (no boss)" : "ended";
+            const char* id = g_fightRow >= 0 ? g_rows[(size_t)g_fightRow].id : "?";
+            Log("Rematch: F %s: route=%s (Training owns destination; BR warps=%d)", id, label, g_warps);
+            Result("fight now %s: route=%s", id, label);
+            if (route == 2 || route == 4 || route == 6) g_fn.store(kFnPass);
+            else if (rcore::FnFailOnRoute(route, g_fn.load() == kFnPass)) g_fn.store(kFnFail);
+        }
+        return; // never fall through to global fight-count PASS or BR rewarp/nudge
+    }
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
+    if (g_fightArenaOnly) {  // #107514: in the arena with no boss is the goal: no fight deadline, no nudge, no rewarp
+        g_fn.store(kFnPass);
+        Log("Rematch: F %s: Train in this arena - in the arena after warp #%d, no boss requested", r.id, g_warps);
+        Result("train in arena %s: in the arena, no boss", r.id);
+        return;
+    }
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
     g_fnLastT = t;
     if (fight::g_fights > g_fnFights0) {
@@ -1296,7 +2112,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         Result("fight now FAIL %s: no fight in time (warps=%d)", r.id, g_warps);
         return;
     }
-    if (s.ms14 == g_fightStart && !g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > 10000 && !fight::g_active) {
+    if (s.ms14 == g_fightStart && !g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > (ULONGLONG)g_cfg.fightNudgeMs && !fight::g_active) {  // #70586: was a fixed 10 s, most of a real load's 20 s
         float p[4] = {};
         if (PlayerPos(p)) {
             float dx = p[0] - r.boss[0], dz = p[2] - r.boss[2];
@@ -1308,7 +2124,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
                 const float yaw = atan2f(r.boss[0] - x, r.boss[2] - z) * 57.2957795f;
                 const int rc = g_warpOk ? CallWarp(x, y, z, yaw) : 9;
                 ++g_warps;
-                Log("Rematch: F %s: no fight 10 s after the landing at %.1f m from the boss (a duel starts inside 8 m) - %s to 4 m in front of it", r.id,
+                Log("Rematch: F %s: no fight %.1f s after the landing at %.1f m from the boss (a duel starts inside 8 m) - %s to 4 m in front of it", r.id, (double)(t - g_fnFirst) / 1000.0,
                     d / 100.0f, rc == 0 ? "warped" : "warp FAILED");
             }
         }
@@ -1334,6 +2150,18 @@ void FnVerify(const Snap& s, ULONGLONG t) {
 void GateTick(const Snap& s, ULONGLONG t) {
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     const uint32_t want = g_gateWant.load();
+    if (g_trainingDestination && want) {
+        const auto routeFn = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        // #88390: route 2 (native alive) can be an idle same-character body (RB24D 574946); a gate the script itself waits on
+        // (RightsCheck sees its key) is still requested then. Fallback / failed / unowned routes keep the door shut.
+        const int route = routeFn ? routeFn(g_fightMission) : 0;
+        if (route != 1 && !(route == 2 && g_fightRow >= 0 && NativeEntryGateFind(g_fightMission, g_rows[(size_t)g_fightRow].placement))) { g_gateWant.store(0); return; }
+        if (!g_trGateArmed) {
+            if (s.st[2] || s.st[3] || s.st[4] || !s.player || s.ms28 != g_fightMission) return;
+            g_trGateArmed = true;
+            g_gateDue = t + 5000;  // after Training's own move (3 s settle)
+        }
+    }
     if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
     if (s.st[2] || s.st[3] || s.st[4] || !s.player || fight::g_active) {
         static ULONGLONG last = 0;
@@ -1351,7 +2179,7 @@ void GateTick(const Snap& s, ULONGLONG t) {
             g_gateWant.store(0);
             Log("Rematch: F %s: the boss start never waited for gate %u in 30 s of play (%u exclusive-right checks seen) - not requesting", r.id, want,
                 g_gateChecks.load());
-            if (g_fn.load() == kFnArmed || (g_fn.load() == kFnWarped && !g_fightWarp)) {
+            if (!g_trainingDestination && (g_fn.load() == kFnArmed || (g_fn.load() == kFnWarped && !g_fightWarp))) {
                 g_fn.store(kFnFail);
                 Result("fight now FAIL %s: boss start not waiting for gate %u", r.id, want);
             }
@@ -1372,6 +2200,11 @@ void GateTick(const Snap& s, ULONGLONG t) {
     }
     Log("Rematch: F %s: requested the boss gate's exclusive right (slot %d, key %s) as the %s would -> %s", r.id, slot, hb,
         r.GateDoor() ? "boss door" : "arena box", rc ? "EXCEPTION" : "ok");
+    if (g_trainingDestination) {
+        const auto opened = (void (*)(uint32_t))TrainingExport("Nioh3Training_NativeGateOpened");
+        if (!rc && opened) opened(g_fightMission);
+        return;
+    }
     if (g_fn.load() == kFnArmed) {
         g_fn.store(kFnWarped);
         g_fnFirst = g_fnLastT = t;
@@ -1396,6 +2229,21 @@ int CallReturn() {
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
+    {   // #79802/#79884: Return to Title never reaches the exit branches below (they need a player), so 'rematch active' outlived the title.
+        // At the title the game manager pointer is null (pc2: state held 2.5 min with player=0 loading=0), so gm is not required.
+        // gm readable: no player and no load for 20 s. gm null (load flag unreadable): 90 s, longer than any load seen (73.7 s).
+        static ULONGLONG titleSince = 0;
+        if (g_state.load() != kIdle && !s.player && !s.st[2]) {
+            if (!titleSince) titleSince = t;
+            else if (t - titleSince > (s.gm ? 20000u : 90000u)) {
+                titleSince = 0;
+                Log("Rematch: no player and no load for %u s (Return to Title) - idle", s.gm ? 20u : 90u);
+                Result("exited %s (title)", RowName(g_activeRow.load()));
+                ToIdle("returned to title", true);  // normal exit: restores run, a clean active/returning phase clears (a quarantine here would block every later attempt)
+                return;
+            }
+        } else titleSince = 0;
+    }
     if (!s.gm) { g_loadDoneAt = 0; g_exitSince = 0; return; }  // an unreadable stop block is not a load-down edge
     const int st = g_state.load();
     if (st == kMenuOpen) {
@@ -1440,7 +2288,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_loadDoneAt = 0;
         } else if (g_loadSeen && s.gm && s.player && s.msOk && !s.st[3] && !s.st[4]) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
-            else if (t - g_loadDoneAt > (g_tf.on ? 1000u : 3000u)) {  // #12444 teleport: 1 s settle instead of 3 s
+            else if (t - g_loadDoneAt > (g_fight.load() ? (ULONGLONG)g_cfg.fightSettleMs : g_tf.on ? 1000u : 3000u)) {  // #12444 teleport: 1 s settle instead of 3 s; #70586 every Fight now: FightSettleMs
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start (the load itself ended %.1f s after it)", s.ms14,
@@ -1486,14 +2334,15 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (s.st[2] && !g_fightLoading) {
             ++g_fightLoads;
             Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
-            if (fight::g_active) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
-                InterlockedExchange(&fight::g_active, 0);
+            if (fight::g_active || fight::BossModeOpen()) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
+                fight::CloseBossMode("F load inside the mission");
                 Log("Rematch: F load during a boss fight (death / retry) - fight flag cleared so the warp re-enters the arena");
                 if (g_gateWant.load()) {  // the boss script restarts and waits for the gate again: re-arm the gate request after the warp
                     g_gateReq = false;
                     g_gateSeen.store(false);
                     g_gateDue = 0;
                 }
+                StagedWaveReset();  // the script restarts; the next idle arms Full or Final again
             }
         }
         if (!s.st[2] && g_fightLoading && g_fightWarp && !(g_gateReq && g_fn.load() == kFnWarped)) {  // a reload (death / retry) ended: back into the arena; never during a gate intro
@@ -1502,6 +2351,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             if (g_gateWant.load() && !g_gateDue) g_gateDue = t + 4500 + 2500;  // retry: request the gate right again after the warp
         }
         g_fightLoading = s.st[2] != 0;
+        StagedWaveWatch(s, g_fightMission);
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
         GateTick(s, t);
         FnVerify(s, t);
@@ -1526,6 +2376,280 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
     }
 }
 
+// #77250: one line per record at charMgr+0x2BD0. Word 0 of each 0x14 slot is a generated placement
+// (3900 and up), the key the wave manager uses for woke/dead. The enemy id is slot+4. The catalogue
+// star and name match that id. Kind byte +0x1A stays off this line: DataDb+0xA88 is the emaki table,
+// and this log does not walk an uncounted 0x1C def array. The line stays under 120 characters.
+static void LogEmakiRecords(uint64_t vb, uint32_t waves, uint64_t mb, uint64_t me) {
+    if (!vb || !waves) return;
+    const uint32_t nRec = waves > 8 ? 8u : waves;
+    const uint32_t members = (me >= mb && mb) ? (uint32_t)((me - mb) / 0xC) : 0;
+    for (uint32_t i = 0; i < nRec; ++i) {
+        uint64_t eb = 0, ee = 0;
+        int32_t d20 = 0;
+        char line[120];
+        if (!Rd(vb + (uint64_t)i * 0x28, eb) || !Rd(vb + (uint64_t)i * 0x28 + 8, ee) || ee < eb) {
+            Log("Rematch: rec %u unreadable", i);
+            continue;
+        }
+        const uint32_t nEn = (uint32_t)((ee - eb) / 0x14);
+        int n = snprintf(line, sizeof(line), "Rematch: rec %u n=%u", i, nEn);
+        if (n < 0) continue;
+        if (n >= (int)sizeof(line)) n = (int)sizeof(line) - 1;
+        if (Rd(vb + (uint64_t)i * 0x28 + 0x20, d20)) {
+            char bit[24];
+            snprintf(bit, sizeof(bit), " d20=%d", d20);
+            if (n + (int)strlen(bit) < (int)sizeof(line) - 1) n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", bit);
+        }
+        uint32_t shown = 0;
+        const uint32_t cap = nEn > 12 ? 12u : nEn;
+        for (uint32_t q = 0; q < cap; ++q) {
+            uint32_t place = 0, eid = 0;
+            if (!Rd(eb + (uint64_t)q * 0x14, place) || !Rd(eb + (uint64_t)q * 0x14 + 4, eid)) break;
+            const char* name = nullptr;
+            bool boss = false;
+            for (size_t r = 0; r < g_rows.size(); ++r) {
+                if (!g_rows[r].placement || g_rows[r].placement != eid) continue;
+                boss = true;
+                if (g_rows[r].name[0]) name = g_rows[r].name;
+                break;
+            }
+            int woke = -1, dead = -1;
+            const uint32_t mCap = members > 16 ? 16u : members;
+            for (uint32_t m = 0; m < mCap; ++m) {
+                uint32_t mid = 0;
+                uint8_t w = 0, d = 0;
+                if (!Rd(mb + (uint64_t)m * 0xC, mid) || mid != place) continue;
+                Rd(mb + (uint64_t)m * 0xC + 9, w);
+                Rd(mb + (uint64_t)m * 0xC + 10, d);
+                woke = w;
+                dead = d;
+                break;
+            }
+            char nm[9] = "";
+            if (name) {
+                size_t k = 0;
+                for (; name[k] && k < 8; ++k) nm[k] = (name[k] >= 0x20 && name[k] < 0x7F && name[k] != '%') ? name[k] : '?';
+                nm[k] = 0;
+            }
+            char piece[48];
+            if (nm[0] && woke >= 0) snprintf(piece, sizeof(piece), " %u:%s%s p%u w%dd%d", eid, nm, boss ? "*" : "", place, woke, dead);
+            else if (nm[0]) snprintf(piece, sizeof(piece), " %u:%s%s p%u", eid, nm, boss ? "*" : "", place);
+            else if (woke >= 0) snprintf(piece, sizeof(piece), " %u p%u w%dd%d", eid, place, woke, dead);
+            else snprintf(piece, sizeof(piece), " %u p%u", eid, place);
+            if (n + (int)strlen(piece) >= (int)sizeof(line) - 8) break;
+            n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", piece);
+            ++shown;
+        }
+        const uint32_t left = nEn > shown ? nEn - shown : 0;
+        if (left && n < (int)sizeof(line) - 6) n += snprintf(line + n, sizeof(line) - (size_t)n, " +%u", left);
+        if (waves > nRec && i + 1 == nRec && n < (int)sizeof(line) - 6)
+            snprintf(line + n, sizeof(line) - (size_t)n, " +rec");
+        Log("%s", line);
+    }
+}
+
+// Diagnostic for the Picture Scroll wave (#75727). Logs only when a value changes. The wave manager global 45BAC40 has no site of its own,
+// so it is taken relative to the mission queue, same image. Word 0 is the active wave id (90EABC), 0xFFFF = the scroll's wave.
+void LogEmakiWave() {
+    uint64_t a = 0, ch = 0, vb = 0, ve = 0, mgr = 0, ref = 0;
+    if (!G_QUEUE || !Rd(G_CH, a) || !a || !Rd(a, ch) || !ch) return;
+    Rd(ch + 0x2BD0, vb);
+    Rd(ch + 0x2BD8, ve);
+    Rd(ch + 0x2AA8, ref);
+    uint8_t tier = 0, byte = 0, mode = 0, noItem = 0;
+    Rd(ch + 0x2BEE, tier);
+    Rd(ch + 0x2BEF, byte);
+    Rd(ch + 0x2BF4, mode);
+    Rd(ch + 0x2BA4, noItem);
+    uint16_t active = 0;
+    const bool mgrOk = Rd(G_QUEUE - 0x17E0, mgr) && mgr && Rd(mgr, active);
+    const uint32_t waves = ve >= vb ? (uint32_t)((ve - vb) / 0x28) : 0;
+    uint32_t enemies = 0;
+    for (uint32_t i = 0; i < waves && i < 8; ++i) {
+        uint64_t eb = 0, ee = 0;
+        if (Rd(vb + i * 0x28, eb) && Rd(vb + i * 0x28 + 8, ee) && ee >= eb) enemies += (uint32_t)((ee - eb) / 0x14);
+    }
+    // #75963: why the listed enemies do not appear. Manager: +2 wave no, +0x10 state (1 wait, 2 wake, 3 fight), +0x14 timer, +0x28 pause, members +0x38 (12 B: id, delay, wave, woken, dead).
+    {
+        static ULONGLONG lastFull = 0;
+        static uint64_t lastSig = 0;
+        const ULONGLONG now = GetTickCount64();
+        uint8_t waveNo = 0, pause = 0, ready = 0;
+        int32_t st = 0;
+        float timer = 0;
+        uint64_t mb = 0, me = 0, etab = 0, arr = 0, cnt = 0;
+        if (mgrOk) { Rd(mgr + 2, waveNo); Rd(mgr + 0x10, st); Rd(mgr + 0x14, timer); Rd(mgr + 0x28, pause); Rd(mgr + 0x38, mb); Rd(mgr + 0x40, me); }
+        Rd(ch + 0x2679, ready);
+        Rd(ch + 0x48, etab);
+        if (etab) { Rd(etab, arr); Rd(etab + 8, cnt); }
+        const uint32_t members = me >= mb && mb ? (uint32_t)((me - mb) / 0xC) : 0;
+        uint64_t sig = ((uint64_t)st << 40) ^ ((uint64_t)waveNo << 32) ^ ((uint64_t)pause << 24) ^ ((uint64_t)members << 8) ^ ready ^ ((uint64_t)active << 48);
+        char ents[8][200] = {};
+        for (uint32_t i = 0; i < members && i < 8; ++i) {
+            uint32_t id = 0, delay = 0;
+            uint8_t wn = 0, woke = 0, dead = 0;
+            const uint64_t m = mb + i * 0xC;
+            Rd(m, id); Rd(m + 4, delay); Rd(m + 8, wn); Rd(m + 9, woke); Rd(m + 10, dead);
+            uint64_t e = 0;
+            for (uint64_t k = 0; arr && k < cnt && k < 4096; ++k) {
+                uint32_t kid = 0;
+                if (Rd(arr + k * 0x10, kid) && kid == id) { Rd(arr + k * 0x10 + 8, e); break; }
+            }
+            int32_t eSt = 0, eMis = 0, e80 = 0, e88 = 0;
+            uint8_t da = 0, db = 0, e0 = 0, ee = 0, f0 = 0, f4 = 0, f8 = 0;
+            uint64_t actor = 0, d18 = 0, d70 = 0;
+            if (e) { Rd(e, actor); Rd(e + 0x18, d18); Rd(e + 0x24, eMis); Rd(e + 0x50, eSt); Rd(e + 0x70, d70); Rd(e + 0x80, e80); Rd(e + 0x88, e88); Rd(e + 0xDA, da); Rd(e + 0xDB, db); Rd(e + 0xE0, e0); Rd(e + 0xEE, ee); Rd(e + 0xF0, f0); Rd(e + 0xF4, f4); Rd(e + 0xF8, f8); }
+            sig ^= ((uint64_t)eSt << (i * 3)) ^ ((uint64_t)woke << (i + 16)) ^ ((uint64_t)(actor != 0) << (i + 24)) ^ ((uint64_t)da << (i + 32)) ^ ((uint64_t)dead << (i + 40));
+            snprintf(ents[i], sizeof(ents[i]), "id %u delay %u wave %u woke %u dead %u entry %d actor %d st %d mis %X e80 %d e88 %d da %u db %u e0 %u ee %u f0 %u f4 %u f8 %u d18 %d d70 %d", id, delay, wn, woke, dead, e ? 1 : 0, actor ? 1 : 0, eSt, eMis, e80, e88, da, db, e0, ee, f0, f4, f8, d18 ? 1 : 0, d70 ? 1 : 0);
+        }
+        if (sig != lastSig || now - lastFull > 10000) {
+            lastSig = sig;
+            lastFull = now;
+            uint32_t lvA = 0, lvB = 0;
+            uint64_t ms = 0;
+            int32_t curm[3] = {};
+            Rd(ch + 0x2BF8, lvA); Rd(ch + 0x2BFC, lvB);
+            if (Rd(g_img.base + Grva(0x4751848) + 8, ms) && ms) { Rd(ms, curm[0]); Rd(ms + 4, curm[1]); Rd(ms + 8, curm[2]); }
+            Log("Rematch: wave probe: state %d wave %u timer %.1f pause %u ready %u members %u, level %u/%u, current %X %X %X", st, waveNo, timer, pause, ready, members, lvA, lvB, curm[0], curm[1], curm[2]);
+            for (uint32_t i = 0; i < members && i < 8; ++i) Log("Rematch: wave member %u: %s", i, ents[i]);
+            static uint32_t listSig = 0;
+            if (listSig != (uint32_t)(vb ^ waves)) {
+                listSig = (uint32_t)(vb ^ waves);
+                {
+                    EmakiTab et;
+                    int rec = -1;
+                    if (ReadEmakiTab(et)) for (int k = 0; k < et.n; ++k) {
+                        uint8_t kb = 0; uint32_t ki = 0;
+                        if (Rd(et.vb + (uint64_t)k * 8, kb) && kb == byte && Rd(et.vb + (uint64_t)k * 8 + 4, ki)) { rec = (int)ki; break; }
+                    }
+                    if (rec >= 0 && (uint32_t)rec < et.count) {
+                        const uint64_t R = et.B + 8 + (uint64_t)rec * 0x34;
+                        uint32_t st0 = 0, gad = 0, box = 0; float wp[4] = {};
+                        Rd(R + 0xC, st0); Rd(R + 0x10, gad); Rd(R + 0x14, box); Copy(wp, R + 0x1C, sizeof(wp));
+                        Log("Rematch: wave record %d (byte %02X): start %u gadget %u box %u warp %.0f %.0f %.0f", rec, byte, st0, gad, box, wp[0], wp[1], wp[2]);
+                    }
+                }
+                LogEmakiRecords(vb, waves, mb, me);
+            }
+        }
+    }
+    static uint64_t last = 0;
+    const uint64_t cur = ((uint64_t)waves << 48) ^ ((uint64_t)enemies << 32) ^ ((uint64_t)active << 16) ^ ((uint64_t)noItem << 8) ^ (mgrOk ? 1 : 0);
+    if (cur == last) return;
+    last = cur;
+    Log("Rematch: scroll wave: list %u waves %u enemies, active wave %04X (manager %s), tier %02X byte %02X, mode %u, no-item %u, ref %016llX",
+        waves, enemies, active, mgrOk ? "ok" : "none", tier, byte, mode, noItem, (unsigned long long)ref);
+}
+
+bool WaveManagerState(int32_t* st) {
+    uint64_t mgr = 0;
+    if (!G_QUEUE || !st || !Rd(G_QUEUE - 0x17E0, mgr) || !mgr) return false;
+    return Rd(mgr + 0x10, *st);
+}
+bool WaveRunIsOver(int32_t st) {
+    uint64_t mgr = 0, mb = 0, me = 0;
+    uint8_t waveNo = 0;
+    if (!G_QUEUE || !Rd(G_QUEUE - 0x17E0, mgr) || !mgr) return false;
+    if (!Rd(mgr + 2, waveNo) || !Rd(mgr + 0x38, mb) || !Rd(mgr + 0x40, me)) return false;
+    const uint32_t members = me >= mb && mb ? (uint32_t)((me - mb) / 0xC) : 0;
+    return rcore::WaveRunOver(st, waveNo, members);
+}
+bool LiveRecordWarp(float wp[4]) {
+    uint64_t a = 0, ch = 0;
+    if (!Rd(G_CH, a) || !a || !Rd(a, ch) || !ch) return false;
+    uint8_t byte = 0;
+    if (!Rd(ch + 0x2BEF, byte)) return false;
+    EmakiTab et;
+    if (!ReadEmakiTab(et)) return false;
+    int rec = -1;
+    for (int k = 0; k < et.n; ++k) {
+        uint8_t kb = 0;
+        uint32_t ki = 0;
+        if (Rd(et.vb + (uint64_t)k * 8, kb) && kb == byte && Rd(et.vb + (uint64_t)k * 8 + 4, ki)) { rec = (int)ki; break; }
+    }
+    if (rec < 0 || (uint32_t)rec >= et.count) return false;
+    return Copy(wp, et.B + 8 + (uint64_t)rec * 0x34 + 0x1C, 16);
+}
+// After the scroll mission is in: warp to the live record point, then the shared offsets, until wave state is 3.
+// A later return to state 1 is the clear. This does not arm BossBattleMode or a boss bar.
+void WavePlaceTick(const Snap& s, ULONGLONG t) {
+    if (s.st[2] || !s.player || g_wavePlace.cleared) return;
+    int32_t st = 0;
+    const bool ok = WaveManagerState(&st);
+    const char* id = g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "waves";
+    if (g_wavePlace.seenFight) {
+        if (ok && WaveRunIsOver(st)) {
+            g_wavePlace.cleared = 1;
+            Log("Rematch: waves clear %s: state back to 1, fight ended (no boss bar)", id);
+            Result("waves clear %s (state 1)", id);
+        }
+        return;
+    }
+    if (ok && st == 3) {
+        g_wavePlace.seenFight = 1;
+        Log("Rematch: waves fight %s: state 3 at step %d (no boss bar)", id, g_wavePlace.offset);
+        Result("waves fighting %s (state 3, step %d)", id, g_wavePlace.offset);
+        return;
+    }
+    // #78985: under the loading screen the known offset goes first and the walk is quick; a menu row never moves the player once the screen is gone.
+    const int wakeStep = g_eRow >= 0 ? rcore::WaveWakeStep(g_rows[(size_t)g_eRow]) : 0;
+    const uint64_t dwellMs = g_eRow >= 0 ? rcore::kWaveDwellCoverMs : rcore::kWaveDwellMs;
+    const bool dwell = g_wavePlace.step >= 0 && t >= g_wavePlace.at && t - g_wavePlace.at >= dwellMs;
+    const bool training = g_scrollNoWaves.load();
+    const int dec = rcore::WaveNudgeDecide(g_wavePlace.step, ok ? st : 0, dwell, rcore::WaveTryCount(training, wakeStep));
+    if (dec == 0 || dec == 2) return;
+    if (dec == 1 && g_eRow >= 0 && !g_scrollCover && g_wavePlace.step >= 0) {
+        if (!g_wavePlace.loggedStop) {
+            g_wavePlace.loggedStop = 1;
+            Log("Rematch: waves %s: loading screen is gone with no wave, walk stopped at try %d, the player keeps control", id, g_wavePlace.step);
+        }
+        return;
+    }
+    if (dec == 3) {
+        if (!g_wavePlace.exhausted) {
+            g_wavePlace.exhausted = 1;
+            if (training) {
+                Log("Rematch: scroll Training %s: in the arena, no waves (state %d)", id, ok ? st : -1);
+                Result("training no waves %s (state %d)", id, ok ? st : -1);
+            } else {
+                Log("Rematch: waves %s: state stayed %d after the shared offsets", id, ok ? st : -1);
+                Result("waves not started %s (state %d)", id, ok ? st : -1);
+            }
+        }
+        return;
+    }
+    if (!g_wavePlace.have) {
+        float live[4] = {};
+        if (LiveRecordWarp(live)) {
+            memcpy(g_wavePlace.base, live, sizeof live);
+            g_wavePlace.have = true;
+            Log("Rematch: waves %s: record warp %.0f %.0f %.0f", id, live[0], live[1], live[2]);
+        } else if (g_eRow >= 0 && (g_rows[(size_t)g_eRow].warp[0] != 0.f || g_rows[(size_t)g_eRow].warp[2] != 0.f)) {
+            memcpy(g_wavePlace.base, g_rows[(size_t)g_eRow].warp, sizeof g_wavePlace.base);
+            g_wavePlace.have = true;
+            Log("Rematch: waves %s: catalogue warp %.0f %.0f %.0f", id, g_wavePlace.base[0], g_wavePlace.base[1], g_wavePlace.base[2]);
+        } else {
+            if (!g_wavePlace.loggedWait) {
+                g_wavePlace.loggedWait = 1;
+                Log("Rematch: waves %s: record warp not readable yet", id);
+            }
+            return;
+        }
+    }
+    const int next = g_wavePlace.step + 1;
+    const int offset = rcore::WaveTryOffset(training, wakeStep, next);
+    const rcore::WaveNudge n = rcore::WaveNudgeAt(offset);
+    const float x = g_wavePlace.base[0] + n.dx;
+    const float y = g_wavePlace.base[1] + n.dy;
+    const float z = g_wavePlace.base[2] + n.dz;
+    const int rc = CallWarp(x, y, z, g_wavePlace.base[3]);
+    g_wavePlace.step = next;
+    g_wavePlace.offset = offset;
+    g_wavePlace.at = t;
+    Log("Rematch: waves %s: warp step %d -> %.0f %.0f %.0f (%s, try %d, known step %d)", id, offset, x, y, z, rc == 0 ? "ok" : rc == 1 ? "no player" : "exception", next, wakeStep);
+}
+
 void TrackEmaki(const Snap& s, ULONGLONG t) {
     if (g_state.load() != kEmaki) return;
     if (!s.gm || !s.msOk || !s.emakiOk || s.st[3] || s.st[4]) { g_et.zeroSince = 0; return; }
@@ -1544,26 +2668,48 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         Log("Rematch: IN Picture Scroll mission (emaki byte %02X)%s", g_eByteSeen, g_map.active ? " - redirect live until the mission ends" : "");
         Result("in mission %s (emaki byte %02X)", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick", g_eByteSeen);
     } else if (ev == 2) {
+        if (g_eRow >= 0) {
+            const int after = CountScrollItems();
+            Log("Rematch: Q6 scroll-item count %d after exit (was %d at request)", after, g_q6Count);
+        }
         Log("Rematch: Picture Scroll mission ended");
         Result("exited %s", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick");
         ToIdle("picture scroll exit", true);
     } else if (ev == 3) {
-        Log("Rematch: the Picture Scroll never loaded within 30 s - restored");
-        ToIdle("armed timeout");
-        Refuse("the Picture Scroll did not start (timeout, restored)");
+        const bool leave = s.st[2] && s.ms28 && g_attemptPhase.load() != aQuarantined && g_attemptPhase.load() != aReturning;
+        Log("Rematch: the Picture Scroll never loaded in time%s", leave ? " - return queued, the game reads it only after the load ends" : " - restored");
+        if (leave) {
+            AttemptReturning(s);
+            const int rc = CallReturn();
+            g_attempt.returnCompleted = rc == 0;
+            Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14,
+                rc ? "EXCEPTION" : "requested");
+            ToIdle(rc ? "armed timeout return failed" : "armed timeout", rc == 0);
+        } else {
+            ToIdle("armed timeout");
+        }
+        Refuse("the Picture Scroll did not start (timeout, restored). If the loading screen stays, restart the game");
     }
+    if (g_state.load() == kEmaki && g_et.st == rcore::kEIn) WavePlaceTick(s, t);
 }
 
 // ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
 // Proton and any device without the pipe). Per row: wait until idle in the field for 8 s -> fight -> PASS / FAIL (the Fight now
-// verification) -> 4 s -> leave the mission (MissionRequestReturn) -> next. Log lines 'SELFTEST ...'; never runs online.
+// verification; E0 uses native scroll entry and first active wave) -> SelfTestHoldMs (default 4000) -> leave the mission -> next.
+// SelfTestPlaceAt (three numbers, empty = off): 3 s after a PASS, one Player::SetPos warp. No mission-flag writes.
+// Log lines 'SELFTEST ...'; never runs online.
 struct SelfTest {
     std::vector<int> rows;
     size_t next = 0;
     int phase = 0;  // 0 wait idle, 1 started, 2 result seen -> exit, 3 left, 4 done
     ULONGLONG since = 0, idleSince = 0;
     int pass = 0, fail = 0, skip = 0;
+    int holdMs = 4000;  // [Rematch] SelfTestHoldMs; missing or negative stays today's 4 s
     bool exitSent = false;
+    bool placeOn = false;  // [Rematch] SelfTestPlaceAt parsed as x y z
+    bool placed = false;
+    bool lastOk = false;
+    float place[3] = {};
     char table[600] = "";
 } g_st;
 void SelfTestTick(const Snap& s, ULONGLONG t) {
@@ -1573,6 +2719,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     if (st.phase == 0) {
         if (st.next >= st.rows.size()) {
             st.phase = 4;
+            StagedWaveReset();
             Log("Rematch: SELFTEST DONE pass=%d fail=%d skip=%d:%s", st.pass, st.fail, st.skip, st.table);
             ToastF(cCyan, 15000, "Boss Matches self-test: %d pass, %d fail, %d skip (see the log)", st.pass, st.fail, st.skip);
             return;
@@ -1587,7 +2734,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         const int row = st.rows[st.next];
         const Row& r = g_rows[(size_t)row];
         const char* why = nullptr;
-        if (!ClearedNow(r.missionId, &why)) {
+        const bool scroll = r.route == rcore::kE;
+        if (!scroll && !ClearedNow(r.missionId, &why)) {
             Log("Rematch: SELFTEST %s SKIP: %s", r.id, why);
             const size_t k = strlen(st.table);
             snprintf(st.table + k, sizeof(st.table) - k, " %s=skip", r.id);
@@ -1596,8 +2744,9 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
             st.idleSince = 0;
             return;
         }
-        Log("Rematch: SELFTEST %s (%zu/%zu): Fight now", r.id, st.next + 1, st.rows.size());
-        Post(kReqFight, row, "self-test");
+        StagedWaveReset();
+        Log("Rematch: SELFTEST %s (%zu/%zu): %s", r.id, st.next + 1, st.rows.size(), scroll ? "Picture Scroll (first wave)" : "Fight now");
+        Post(scroll ? kReqEmaki : kReqFight, row, "self-test");
         st.phase = 1;
         st.since = t;
         return;
@@ -1605,10 +2754,21 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     const Row& r = g_rows[(size_t)st.rows[st.next]];
     if (st.phase == 1) {
         const int fn = g_fn.load();
-        const bool over = fn == kFnPass || fn == kFnFail;
-        const bool gaveUp = (stt == kIdle && t - st.since > 15000 && fn != kFnWarped && fn != kFnArmed) || t - st.since > 300000;
+        const bool scroll = r.route == rcore::kE;
+        // ExecEmaki resets seenFight for each accepted request. A prior replay's
+        // g_fn PASS/FAIL is not scroll evidence; require this row's owned scroll.
+        const bool wave = scroll && stt == kEmaki && g_eRow == st.rows[st.next] &&
+            g_et.st == rcore::kEIn && s.msOk && r.storyMission && s.ms28 == r.storyMission &&
+            s.emakiOk && s.emaki && !s.st[2] &&
+            s.player && !s.online && !s.guest && !g_scrollNoWaves.load() &&
+            AttemptEffectsAllowed() && g_wavePlace.seenFight;
+        if (!scroll) StagedWaveWatch(s, r.missionId);
+        const bool over = scroll ? wave : (fn == kFnPass || fn == kFnFail);
+        const bool gaveUp = (stt == kIdle && t - st.since > 15000 &&
+            (scroll || (fn != kFnWarped && fn != kFnArmed))) || t - st.since > 300000;
         if (!over && !gaveUp) return;
-        const bool ok = fn == kFnPass;
+        const bool ok = scroll ? wave : fn == kFnPass;
+        if (ok && scroll) Log("Rematch: SELFTEST %s first wave active (native wave state 3 observed); leaving without waiting for a clear", r.id);
         float p[4] = {};
         PlayerPos(p);
         Log("Rematch: SELFTEST %s %s (%.1f s after the request, %d warp%s, spawn %s, player %.0f %.0f %.0f)", r.id, ok ? "PASS" : "FAIL",
@@ -1617,12 +2777,37 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         snprintf(st.table + k, sizeof(st.table) - k, " %s=%s", r.id, ok ? "PASS" : "FAIL");
         (ok ? st.pass : st.fail)++;
         st.exitSent = false;
+        st.lastOk = ok;
+        st.placed = false;
         st.phase = stt == kIdle ? 3 : 2;
         st.since = t;
         return;
     }
     if (st.phase == 2) {
-        if (t - st.since < 4000) return;
+        // Test-only. One warp, 3 s after PASS, while the hold is still counting. Loading waits. A FAIL never moves.
+        // A mission with staged invade waves is not placed: the script thread requests those waves instead.
+        uint16_t waveN = 0;
+        const bool staged = NativeEntryWaves(r.missionId, &waveN) && waveN;
+        if (st.placeOn && staged && !st.placed) {
+            st.placed = true;
+            Log("Rematch: SELFTEST place skipped - staged waves run on the script thread");
+        }
+        if (!staged && st.placeOn && st.lastOk && !st.placed && t - st.since >= 3000 && !(s.st[2] || s.st[3] || s.st[4] || !s.player)) {
+            st.placed = true;
+            if (!g_warpOk) {
+                Log("Rematch: SELFTEST place skipped - the Player::SetPos path is off");
+            } else {
+                float before[4] = {}, after[4] = {};
+                PlayerPos(before);
+                const int rc = CallWarp(st.place[0], st.place[1], st.place[2], 0.f);
+                PlayerPos(after);
+                Log("Rematch: SELFTEST place %.0f %.0f %.0f -> %s (step %d); player %.0f %.0f %.0f -> %.0f %.0f %.0f",
+                    st.place[0], st.place[1], st.place[2], rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", g_warpStep,
+                    before[0], before[1], before[2], after[0], after[1], after[2]);
+            }
+        }
+        const ULONGLONG hold = (ULONGLONG)st.holdMs;
+        if (t - st.since < hold) return;
         if (stt == kIdle) {
             st.phase = 3;
             st.since = t;
@@ -1631,9 +2816,9 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         if (!st.exitSent) {
             st.exitSent = true;
             Post(kReqExit, -1, "self-test");
-        } else if (t - st.since > 120000) {  // never left: try again
+        } else if (t - st.since > 120000) {  // never left: try again; stamp so this hold is already elapsed
             Post(kReqExit, -1, "self-test (again)");
-            st.since = t - 4000;
+            st.since = t - hold;
         }
         return;
     }
@@ -1646,6 +2831,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
 
 // game thread, every tick while a spawn override is armed / applied
 void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
+    if (g_trainingDestination) return;
     if (!AttemptEffectsAllowed()) return;
     if (g_sp.st >= 3) return;  // no automatic mutation/reapply during recovery
     if (!g_sp.st || g_fightRow < 0 || !g_fight.load()) return;
@@ -1802,6 +2988,7 @@ void CoverTick(const Snap& s, ULONGLONG) {
         Log("Rematch: cover token=%llu attempt=%llu event=existing_actor mission=0x%X start=%u actor=%u",g_cover.token,g_cover.attempt,s.ms28,s.ms14,g_cover.observedPlacement);
 }
 void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*) {
+    if (g_wv.hpPlace && (uint32_t)placement == g_wv.hpPlace) InterlockedExchange(&g_wv.bossSeen, 1);
     CoverLock lock;if(!lock.held)return;
     const Snap s=ReadSnap();
     if(s.msOk&&s.ms14==g_cover.start){
@@ -1874,15 +3061,297 @@ void TfTick(const Snap& s, ULONGLONG t) {
     }
 }
 
+uint32_t NativeGateMission() {
+    using Fn = uint32_t (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_NativeGateMission");
+    return f ? f() : 0;
+}
+// #78735: the scroll's end object asks the same 'end the mission' box. While our Waves row runs, our gate owns it.
+bool WavesGateNow() {
+    const int row = g_activeRow.load();
+    if (g_state.load() != kEmaki || g_et.st != rcore::kEIn || row < 0 || (size_t)row >= g_rows.size() || !rcore::WavesRow(g_rows[(size_t)row])) return false;
+    const Snap s = ReadSnap();
+    const uint32_t scroll = rcore::ScrollMission(g_rows, row);  // the row's catalogue story_mission (was 0xCC96)
+    return s.msOk && scroll && s.ms28 == scroll;
+}
+// #121854 (human v1.8.24): the won native attempt retired at the gate (#80065, so a new Fight now is accepted) left g_activeRow -1,
+// so the gate page's Fight again refused 'native boss row is no longer owned' and only Return worked. The retired win keeps owning
+// that gate's Fight again while the pump is idle, in the same mission, with no newer attempt (any AttemptBegin / AttemptReturning
+// bumps g_attemptSequence) and no load since. Same rule for every boss.
+std::atomic<int> g_retiredRow{-1};
+std::atomic<uint32_t> g_retiredMission{0};
+std::atomic<uint64_t> g_retiredSequence{0};
+int RetiredGateRow(const Snap& s) {
+    const int row = g_retiredRow.load();
+    if (row < 0 || (size_t)row >= g_rows.size() || g_retiredSequence.load() != g_attemptSequence) return -1;
+    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_activeRow.load() >= 0) return -1;
+    if (!s.msOk || !s.ms28 || s.ms28 != g_retiredMission.load()) return -1;
+    return row;
+}
+void RetireWonAttempt() {
+    const int row = g_attempt.row;
+    const uint32_t mission = g_attempt.mission;
+    Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
+    ToIdle("won native attempt settled at the gate", true);
+    if (g_attemptPhase.load() != aNone || row < 0) return;  // quarantined or no row: the gate offers no Fight again
+    g_retiredMission.store(mission);
+    g_retiredSequence.store(g_attemptSequence);
+    g_retiredRow.store(row);
+    Log("Rematch: the retired win keeps the gate's Fight again for row %d (mission 0x%X)", row, mission);
+}
+int NativeGateRow() {
+    if (WavesGateNow()) return g_activeRow.load();
+    const uint32_t mission = NativeGateMission();
+    if (!mission) return -1;
+    const int row = g_activeRow.load();
+    if (row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission) return row;
+    const int won = RetiredGateRow(ReadSnap());
+    return won >= 0 && g_rows[(size_t)won].missionId == mission ? won : -1;
+}
+// The game thread revalidates a queued native Fight again: the open attempt, or the won one retired at this gate (#121854).
+bool NativeAgainOwned(int row, const Snap& s) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (RetiredGateRow(s) != row && (g_attemptPhase.load() != aActive || g_attempt.row != row || g_attempt.mission != s.ms28)) return false;
+    if (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission()) return false;
+    return true;
+}
+void ScrollCoverTick(const Snap& s, ULONGLONG t) {
+    if (!g_scrollCover) return;
+    // Fight again (pc2 #78852): the screen stays up for the trip home, then ExecEmaki restarts it for the trip back.
+    if (g_nativeAgainRow >= 0 || g_req.load()) { g_scrollCoverIn = 0; return; }
+    const bool in = g_et.st == rcore::kEIn && !s.st[2] && s.player;
+    if (!in) g_scrollCoverIn = 0;
+    else if (!g_scrollCoverIn) g_scrollCoverIn = t;
+    const int done = rcore::ScrollCoverDone(g_state.load() == kEmaki, in, g_wavePlace.seenFight != 0, g_wavePlace.exhausted != 0, g_scrollCoverIn ? t - g_scrollCoverIn : 0);
+    if (!done) return;
+    g_scrollCover = false;
+    ScrollCoverSet(nullptr, 0);
+    Log("Rematch: scroll cover off (+%llu ms, %s)", (unsigned long long)(t - g_scrollCoverAt),
+        done == 1 ? "trip ended" : done == 2 ? "waves running" : done == 3 ? "walk found no wave" : "safety timeout, no wave");
+}
+// #100232 (RE notes/retry-home-leg-100093.md): native gate 'Fight again' = MissionRequestReturn (home stage, 45-61 s of a 77-124 s
+// retry on PC2, file #7507) and then a fresh Fight now. The loader has no same-mission guard and the game's own reload
+// (MissionStartFromSave 0x2237244) re-requests the running mission by id, so the Fight now request can go out at once from the arena.
+// Opt-in ([Rematch] FightAgainDirect = 1). Waves rows keep the scroll path. kFadStarted: the direct request (or an in-place swap) started.
+// kFadFallback: nothing was changed beyond a normal idle restore, and the caller takes the old Return-then-Fight-now path.
+// kFadRefused: stopped with exactly one message already posted; the caller must not fall back (review #101032 notes 1 and 2).
+enum FadResult { kFadFallback, kFadStarted, kFadRefused };
+FadResult FightAgainDirect(int row, const Snap& s, ULONGLONG t) {
+    if (!g_cfg.fightAgainDirect || row < 0 || (size_t)row >= g_rows.size() || rcore::WavesRow(g_rows[(size_t)row])) return kFadFallback;
+    if (g_attemptPhase.load() != aActive) return kFadFallback;
+    ToIdle("fight again direct: retire the won/lost attempt", true);
+    // #101032 note 1: a failed spawn/map restore quarantines the attempt. Quarantine forbids any automatic recovery return, so never
+    // fall back to AttemptReturning/MissionRequestReturn from here.
+    if (g_attemptPhase.load() == aQuarantined) {
+        Log("Rematch: Fight again direct %s: attempt quarantined while retiring; no return", g_rows[(size_t)row].id);
+        Refuse("native request uncertain; no automatic recovery return");
+        return kFadRefused;
+    }
+    if (g_attemptPhase.load() != aNone) { Log("Rematch: Fight again direct %s: attempt did not retire cleanly; using the return path", g_rows[(size_t)row].id); return kFadFallback; }
+    // #100425 live: Gates() refuses 'in a boss fight' (fight::g_active), which is the normal state at a Fight again (the same boss is
+    // still up or just beaten). That check is last before the idle-state check (idle after ToIdle), so it is accepted here; every
+    // earlier gate (loading, queue busy, scroll) still sends the retry down the return path.
+    // #100792 (PC2 #100780, 0/2 direct): the Fight again click comes from our pause-menu Return page, which pauses the game
+    // (st[3]|st[4]); the menu path already passed ExitGate, so this is the menu side (uiSide = true), as every other menu action.
+    const bool paused = (s.st[3] | s.st[4]) != 0;
+    if (const char* why = Gates(s, true)) {
+        if (strcmp(why, "in a boss fight") != 0) { Log("Rematch: Fight again direct %s: gate '%s'; using the return path", g_rows[(size_t)row].id, why); return kFadFallback; }
+        Log("Rematch: Fight again direct %s: boss fight still flagged active - expected at a retry, continuing", g_rows[(size_t)row].id);
+    }
+    Log("Rematch: Fight again direct %s: gates passed (menu side; game %s by our menu; not loading, queue free, no scroll, idle, frame tick live)",
+        g_rows[(size_t)row].id, paused ? "paused" : "not paused");
+    // #100425 (deepseek/4 note D/462, notes/load-fix-99501.md L1): what the stock Return leg does that a direct ById skips. Logged per retry.
+    {
+        const Row& r = g_rows[(size_t)row];
+        uint64_t g = 0, ms = 0;
+        uint8_t b10 = 0, b11 = 0, b18 = 0, b19 = 0;
+        uint32_t mode = 0;
+        const bool rd = Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x10, b10) && Rd(ms + 0x11, b11) && Rd(ms + 0x18, b18) &&
+                        Rd(ms + 0x19, b19) && Rd(ms + 0x24, mode);
+        // 0x223B3F8 mode-1 step: MissionMgr slot mission == 0x497 -> 0x2186C60(Mgr, 0x4B0) + 0x1D112E0 + 0x22181B4 (story hand-off, not a boss row).
+        const bool step497 = s.ms28 == 0x497 || r.missionId == 0x497;
+        // MissionRequestReturn routes slot 0xC0 with params+0xD != 0 to 0x3D08A; our params {101 1000000 10100 0 0 0} have +0xD = 0.
+        // 0x21DDBCC warps in place (0x215FDE4) when +0x19 == 0xC0, +0x18 == +0x10 and +0x11 == 0xC0.
+        const bool inPlace = rd && b19 == 0xC0 && b18 == b10 && b11 == 0xC0;
+        Log("Rematch: Fight again direct %s: L1 check: mission state %s (mode +24h %u, slot +10h %02X, +11h %02X, return tuple +18h %02X +19h %02X); "
+            "catalogue id 0x%X %s running 0x%X (remap 1C17BE4 %s); params +0Dh 0 -> no 3D08A route; mode-1 step 497 (2186C60 Mgr,4B0) would run: %s; "
+            "mode-1 MissionLoadStep 1C03A180 skipped (body unknown, not called); 21DDBCC warp-in-place (215FDE4) would apply: %s",
+            r.id, rd ? "read" : "NOT readable", mode, b10, b11, b18, b19, r.missionId, r.missionId == s.ms28 ? "==" : "!=", s.ms28,
+            r.missionId == s.ms28 ? "already applied by the game for this load" : "differs - the catalogue id is requested as Fight now does", step497 ? "YES" : "no",
+            inPlace ? "yes (not used in this build)" : "no");
+        if (step497) { Log("Rematch: Fight again direct %s: mission 0x497 needs the mode-1 hand-off; using the return path", r.id); return kFadFallback; }
+    }
+    // #101099 (PC2 #101089: R3513/R7B35/R4D8E gate armed, never requested): the boss mode never ended before this same-mission reload, so
+    // the stale flag made GateTick wait forever ('boss fight still flagged active') and the WaitWarpStart boss never spawned. A reload during a
+    // fight is exactly the death/retry case in the mission tracker, which clears the flag the same way; the new boss mode sets it again.
+    if (InterlockedCompareExchange(&fight::g_active, 0, 0) || fight::BossModeOpen()) {
+        fight::CloseBossMode("Fight again direct reload");
+        Log("Rematch: Fight again direct %s: boss fight flag cleared for the reload (as a death / retry does), so the boss gate is requested again", g_rows[(size_t)row].id);
+    }
+    const uint64_t seq0 = g_attemptSequence;
+    Log("Rematch: Fight again direct %s: MissionRequestById for mission 0x%X from mission 0x%X (retry point %u), no MissionRequestReturn home leg",
+        g_rows[(size_t)row].id, g_rows[(size_t)row].missionId, s.ms28, s.ms14);
+    ExecDirect(row, s, t, true, true);
+    const bool started = g_swappedInPlace.load() || (g_state.load() != kIdle && g_attemptSequence != seq0);
+    // #101032 note 2: ExecDirect already posted its refusal (one message). Do not add a return leg and a second 'exit requested'.
+    if (!started) Log("Rematch: Fight again direct %s: request refused; no return leg", g_rows[(size_t)row].id);
+    return started ? kFadStarted : kFadRefused;
+}
+void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
+    if (g_nativeAgainRow < 0) return;
+    // Ally #105245: the 120 s limit counted from the Fight again press, but a slow device spent ~2 min on the
+    // return trip home itself, so every retry was cancelled while still loading. The idle limit now counts from
+    // the last tick on which the return was still in progress (load, gates, pending request); a hard cap from
+    // the press still ends a real hang.
+    static constexpr ULONGLONG kIdleMs = 120000, kHardCapMs = 600000;
+    static ULONGLONG busyAt = 0, busyFor = 0;
+    if (busyFor != g_nativeAgainAt) { busyFor = g_nativeAgainAt; busyAt = g_nativeAgainAt; }
+    const bool timedOut = t - busyAt > kIdleMs || t - g_nativeAgainAt > kHardCapMs;
+    if (g_requestEpoch.load() != g_nativeAgainEpoch || g_attemptSequence != g_nativeAgainSequence ||
+        g_attemptPhase.load() == aQuarantined || timedOut || SessionGate(s)) {
+        if (timedOut)
+            Log("Rematch: native gate retry cancelled: timeout (%llu ms since the return was last busy, %llu ms since the press)",
+                (unsigned long long)(t - busyAt), (unsigned long long)(t - g_nativeAgainAt));
+        else
+            Log("Rematch: native gate retry cancelled (new action, changed attempt, session loss or timeout)");
+        g_nativeAgainRow = -1; return;
+    }
+    // Never overlap the old return, restored placement transaction, or any new request.
+    // Crash #78: the boss request went out 1.3 s after the home load ended. The new load tore down home
+    // resources that worker jobs were still stage-polling (ResourceIsReady 1A6030, handler +20h = 0, AV).
+    // A player cannot ask that fast, so wait until home has been clear of every gate for a settle window.
+    static constexpr ULONGLONG kSettleMs = 5000;
+    // Ally RC2 #105680/#105916: 'home is up' twice ~10.7 s apart = the window really restarted (a gate closed inside it), not a
+    // duplicate line. The interruption is now logged with its reason so a device log shows which gate re-closed.
+    // #106167 (Ally #106152): 'mission queue busy' is our own 10 s cooldown after any queue change (ReadSnap queueBusy), not a home
+    // change: loading, pause and no-player are checked before it in Gates(). Inside an open window it no longer restarts the 5 s
+    // settle; the clock keeps running and the boss request waits until the queue is free. Every other gate (or one hidden behind the
+    // queue reason) still restarts the full wait. Same rule for every boss.
+    static ULONGLONG clearSince = 0, clearFor = 0, windowsFor = 0, coolAt = 0, busySince = 0;
+    static bool clear = false;
+    static int windows = 0;
+    if (windowsFor != g_nativeAgainAt) { windowsFor = g_nativeAgainAt; windows = 0; coolAt = 0; busySince = 0; }
+    const char* busy = g_attemptPhase.load() != aNone ? "native attempt still open"
+                       : g_state.load() != kIdle      ? "rematch active"
+                       : g_req.load()                 ? "request queued"
+                       : g_pend                       ? "request pending"
+                                                      : Gates(s, false);
+    const bool open = clear && clearFor == g_nativeAgainAt;
+    if (busy && open && !strcmp(busy, "mission queue busy")) {
+        Snap rest = s;
+        rest.queueBusy = false;
+        if (const char* other = Gates(rest, false)) busy = other;  // a gate behind the queue reason is a real interruption
+        else {
+            busyAt = t;
+            if (!coolAt) {
+                coolAt = t;
+                Log("Rematch: native gate retry: mission queue cooldown %llu ms into settle window %d; the settle keeps counting, the boss request waits for the queue",
+                    (unsigned long long)(t - clearSince), windows);
+            }
+            return;
+        }
+    }
+    if (busy) {
+        if (open)
+            Log("Rematch: native gate retry: settle interrupted after %llu ms (%s); the %llu ms wait restarts once home is clear again",
+                (unsigned long long)(t - clearSince), busy, (unsigned long long)kSettleMs);
+        if (open || !busySince) busySince = t;
+        clear = false; coolAt = 0;
+        busyAt = t;  // still returning: refresh the idle limit
+        return;
+    }
+    if (coolAt && open) {
+        Log("Rematch: native gate retry: mission queue free after %llu ms of cooldown; window %d has settled %llu ms",
+            (unsigned long long)(t - coolAt), windows, (unsigned long long)(t - clearSince));
+        coolAt = 0;
+    }
+    if (!open) {
+        const ULONGLONG busyMs = busySince ? t - busySince : 0;
+        clear = true; clearFor = g_nativeAgainAt; clearSince = t; ++windows; busySince = 0; coolAt = 0;
+        if (windows > 1)
+            Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request (window %d, %llu ms after the press, home was busy %llu ms)",
+                (unsigned long long)kSettleMs, windows, (unsigned long long)(t - g_nativeAgainAt), (unsigned long long)busyMs);
+        else
+            Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request (window %d, %llu ms after the press)",
+                (unsigned long long)kSettleMs, windows, (unsigned long long)(t - g_nativeAgainAt));
+        return;
+    }
+    if (t - clearSince < kSettleMs) return;
+    clear = false;
+    const int row = g_nativeAgainRow; g_nativeAgainRow = -1;
+    Post(rcore::WavesRow(g_rows[(size_t)row]) ? kReqEmaki : kReqFight, row, "native gate after completed return");
+}
+
+void ExecField(int row, const Snap& s) {
+    if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].OpenWorld()) {
+        Refuse("not an open-world boss");
+        return;
+    }
+    const Row& r = g_rows[(size_t)row];
+    using Fn = int (*)(float, float, float, float, uint32_t);
+    const auto arrive = (Fn)TrainingExport("Nioh3Training_FieldArrive");
+    if (!arrive) {
+        Refuse("Training field arrive is missing");
+        return;
+    }
+    // #89181: Training warps, holds the player until the destination cell has its collision mark, then summons.
+    const int rc = arrive(r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.summonChr);
+    Log("Rematch: open world %s region 0x%X running 0x%X placement %u chr %u arrive %d (no flag writes)",
+        r.id, r.missionId, s.ms28, r.placement, r.summonChr, rc);
+    if (r.missionId && s.msOk && s.ms28 && r.missionId != s.ms28)
+        Log("Rematch: open world region mismatch: spawn mission 0x%X, running 0x%X", r.missionId, s.ms28);
+    if (!rc) Refuse("field arrive busy");
+    else Result("open world travelling");
+}
+
 void AutoMovesTick();  // pc2 #23907, end of file
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     { static ULONGLONG nx; if (t >= nx) { nx = t + 1000; AutoMovesTick(); } }
     Snap s = ReadSnap();
+    UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
-    if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("standalone return observed", true);
+    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) RetireWonAttempt();
+    if (s.st[2] && g_retiredRow.load() >= 0) g_retiredRow.store(-1);  // a load (return, reload, new mission) ends the retired gate
+    if (g_resume.armed.load()) {
+        const bool sess = g_resume.inPlace.load() && (TrainingOwnsFight() || fight::g_active || g_fight.load() || g_swappedInPlace.load());
+        g_resume.session.store(sess ? 1 : 0);
+        uint32_t live = 0;
+        const bool ok = ReadLiveMission(live);
+        const int act = rcore::ResumeHold(true, g_resume.trip.load(), g_resume.source.load(), live, ok, s.st[2] != 0, sess,
+                                           g_resume.entered.load() != 0);
+        if (act == 1) {
+            g_resume.entered.store(1);
+            g_resume.homeSince = 0;
+        } else if (act == 2 && s.player && !s.st[3] && !s.st[4]) {
+            if (!g_resume.homeSince) g_resume.homeSince = t;
+            else if (t - g_resume.homeSince >= 1000) {
+                const int held = g_resume.skipped.exchange(0);
+                const uint32_t trip = g_resume.trip.load();
+                g_resume.armed.store(0);
+                g_resume.session.store(0);
+                Log("Rematch: resume home. Held %d save(s) for trip 0x%X; native autosave now (mission 0x%X)", held, trip, live);
+                if (g_autoSave) g_autoSave();
+                else Log("Rematch: resume home autosave was not installed");
+            }
+        } else if (act == 0 && !g_resume.entered.load() && g_resume.armedAt && t - g_resume.armedAt > 20000) {
+            g_resume.armed.store(0);
+            Log("Rematch: resume hold dropped. The trip never became the resume mission");
+        }
+    }
+    if (g_resume.deferMap.load()) {
+        uint32_t live = 0;
+        const bool ok = ReadLiveMission(live);
+        const bool still = g_resume.armed.load() && rcore::ResumeBlocksWrite(true, g_resume.trip.load(), g_resume.source.load(), live, ok,
+                                                                              g_resume.session.load() != 0);
+        if (!still || (g_resume.deferAt && t - g_resume.deferAt > 8000)) {
+            MapRestoreNow(still ? "resume hold 8 s" : "resume mission left the trip");
+            g_resume.deferMap.store(0);
+        }
+    }
+    if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("native return landing observed", true);
     if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
     if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
@@ -1924,14 +3393,19 @@ void Tick() {
     // gate would stay set for the rest of the session (self-test 2026-10-09 21:14). A mission change ends any fight.
     {
         static uint32_t lastMission = 0;
+        static rcore::StaleBossModeClose g_staleBossMode;  // #107117 / #107156: Leave Boss Match closes the boss mode after the win window
         if (s.msOk && s.ms28 != lastMission) {
-            if (fight::g_active && lastMission) {
+            if (rcore::StaleBossModeOnMissionChange(fight::g_active != 0, fight::BossModeOpen(), lastMission)) {  // #107117: Leave Boss Match
                 InterlockedExchange(&fight::g_active, 0);
-                Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared", lastMission, s.ms28);
+                if (fight::BossModeOpen()) g_staleBossMode.Arm(t, fight::g_fights);  // #107156: open state closes after the win window
+                Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared%s", lastMission,
+                    s.ms28, fight::BossModeOpen() ? "; boss mode closes in 20 s unless BossBattleModeEnd" : "");
             }
             if (s.ms28) g_staleBbm.store(false);  // user 20261018: a mission runs: not the no-boss arena mode
             lastMission = s.ms28;
         }
+        if (g_staleBossMode.Due(t, fight::g_fights, fight::BossModeOpen()))
+            fight::CloseBossMode("mission changed, no BossBattleModeEnd within 20 s");
     }
     if (s.queueOk && s.qHash != g_qHash) {
         if (g_qHash) g_qChangedAt.store(t);
@@ -1954,19 +3428,50 @@ void Tick() {
     if (g_pend) {
         const uint32_t kind = g_pend & 0xFF;
         const int row = (int)(g_pend >> 8) - 1;
-        if (kind == kReqExit || kind == kReqPracticeExit) {
-            g_pend = 0;
-            if (!g_exitOk) Refuse(g_exitWhy);
-            else if (kind == kReqPracticeExit && PracticeReturnGate(s)) Refuse(PracticeReturnGate(s));
-            else if (const char* why = ExitGate(s)) Refuse(why);
-            else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
-            else {
+        if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {
+            const char* why = nullptr;
+            if (kind == kReqNativeAgain && !NativeAgainOwned(row, s))
+                why = "native gate no longer owns this fight";
+            else if (!g_exitOk) why = g_exitWhy;
+            else if (kind == kReqPracticeExit) why = PracticeReturnGate(s);
+            else if (const char* exitWhy = ExitGate(s)) why = exitWhy;
+            else why = AttemptReturnGate();
+            // A stuck scroll load never settles. Send the return now. Any other "loading" or
+            // "not settled" exit stays queued: the pipe already said queued, and dropping it
+            // left the next row "still pending" after a 0.6-11 s boss-intro load.
+            const bool scrollStuck = why && ScrollLoadStuck(s) && !strcmp(why, "native replay has not settled");
+            const bool hold = why && !scrollStuck && (!strcmp(why, "loading") || !strcmp(why, "native replay has not settled"));
+            if (hold && t - g_pendAt < 20000) {
+                static ULONGLONG holdLog = 0;
+                if (!holdLog || t - holdLog >= 2000) {
+                    holdLog = t;
+                    Log("Rematch: exit held (%s); it stays queued until the mission can leave", why);
+                }
+            } else if (why && !scrollStuck) {
+                g_pend = 0;
+                Refuse(hold ? "exit stayed queued 20 s and the mission was still loading or not settled" : why);
+            } else {
+                g_pend = 0;
+                const FadResult fad = kind == kReqNativeAgain && !scrollStuck ? FightAgainDirect(row, s, t) : kFadFallback;
+                if (fad == kFadStarted) {
+                    Result("fight again requested directly");
+                } else if (fad == kFadRefused) {
+                    // one message already posted by FightAgainDirect / ExecDirect
+                } else {
                 AttemptReturning(s);
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
                 if (rc) AttemptQuarantine("return call exception");
+                if (!rc && kind == kReqNativeAgain) {
+                    g_nativeAgainRow = row; g_nativeAgainAt = t;
+                    g_nativeAgainSequence = g_attemptSequence; g_nativeAgainEpoch = g_requestEpoch.load();
+                    if (rcore::WavesRow(g_rows[(size_t)row])) ScrollCoverOn(g_rows[(size_t)row].name, t);
+                    Log("Rematch: native gate retry waits for return cleanup (%s)", g_rows[(size_t)row].id);
+                }
+                if (scrollStuck) Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Result(rc ? "exit failed" : "exit requested");
+                }
             }
         } else if (kind == kReqAbort) {
             g_pend = 0;
@@ -1978,7 +3483,9 @@ void Tick() {
                 ToIdle("abort");
             }
         } else if (const char* why = Gates(s, false)) {
-            if (t - g_pendAt > 5000) {
+            // The queue stays busy for 10 s after a return. Five seconds is not enough to start the next scroll.
+            const ULONGLONG limit = !strcmp(why, "mission queue busy") ? 12000 : 5000;
+            if (t - g_pendAt > limit) {
                 g_pend = 0;
                 Refuse(why);
             }
@@ -1988,8 +3495,10 @@ void Tick() {
             else if (kind == kReqFight) ExecDirect(row, s, t, true, true);
             else if (kind == kReqShrine) ExecDirect(row, s, t, true, false);
             else if (kind == kReqTeleport) { g_noSwap = true; ExecDirect(row, s, t, true, true); g_noSwap = false; }
+            else if (kind == kReqField) ExecField(row, s);
             else if (kind == kReqPractice) ExecPractice(row, s, t);
             else if (kind == kReqEmaki) ExecEmaki(row, t);
+            else if (kind == kReqEmakiTrain) ExecEmaki(row, t, true);
             else if (kind == kReqScroll) ExecEmaki(-1, t);
             else ExecOpen(row, s);
         }
@@ -1997,7 +3506,12 @@ void Tick() {
     TrackReplay(s, t);
     TfTick(s, t);
     SelfTestTick(s, t);
+    StagedPlaceTick(s);
+    ScrollCoverTick(s, t);
+    if (g_state.load() == kEmaki) LogEmakiWave();
+    if (g_scGive.exchange(false)) ExecScrollGive();
     TrackEmaki(s, t);
+    NativeGateRetryTick(s, t);
     CoverTick(s,t);
 }
 
@@ -2020,6 +3534,88 @@ std::wstring Beside(const wchar_t* key, const wchar_t* def) {
 }
 
 std::wstring ArenaPath() { return Beside(L"Arenas", L"Nioh3BossRematch_arenas.tsv"); }
+
+// Script-native args, same layout as bosslog ReadVmArgs. POD only: this runs before the original, and it does not change the game.
+int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn) {
+    __try {
+        const uint64_t vm = *(const uint64_t*)(ctx + 8);
+        const uint64_t x = *(const uint64_t*)(vm + 8);
+        const int nargs = *(const uint16_t*)(x + 0xA6);
+        const uint64_t stk = *(const uint64_t*)(vm + 0x20);
+        const int top = *(const uint16_t*)stk;
+        const uint64_t arr = *(const uint64_t*)(vm + 0x18);
+        if (nargs > 32 || top < nargs) return -1;
+        const int base = top - nargs;
+        for (int i = 0; i < nargs && i < maxn; ++i) {
+            val[i] = *(const uint32_t*)(arr + (uint64_t)(base + i) * 8);
+            ty[i] = *(const uint16_t*)(arr + (uint64_t)(base + i) * 8 + 4);
+        }
+        return nargs;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+
+// Lesson dojos (novice, and Fuku adept): the mission script keeps the teacher dormant until Character::IsDeathGroupEnemy
+// is true for the current lesson group. The first check on a waves row is the fight start. It does not kill, warp, or write temp/mission state.
+void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (!g_fight.load() || fight::g_active) return;
+    uint32_t val[1] = {};
+    uint16_t ty[1] = {};
+    if (LessonVmArgs(ctx, val, ty, 1) < 1) return;
+    static uint32_t seen[8];
+    static int nseen = 0;
+    static int started = 0;
+    static ULONGLONG attempt = 0;
+    if (g_fnFirst != attempt) { attempt = g_fnFirst; nseen = 0; started = 0; }
+    for (int i = 0; i < nseen; ++i) if (seen[i] == val[0]) return;
+    if (nseen < 8) seen[nseen++] = val[0];
+    const int fr = g_fightRow;
+    const Row* row = (fr >= 0 && (size_t)fr < g_rows.size()) ? &g_rows[(size_t)fr] : nullptr;
+    const char* id = row ? row->id : "";
+    Log("Rematch: lesson group %u checked, teacher fight not started%s%s", val[0], id[0] ? " - Fight now row " : "", id);
+    if (!row || !rcore::WavesFightStarts(row->fightSignal, false, started != 0)) return;
+    started = 1;
+    Log("Rematch: waves fight start %s group %u", id, val[0]);
+    using Fn = void (*)(int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_WavesFight")) f(1);
+}
+
+// #106000 white dot: UI::SetCompassDestination(Index) is the script native that puts the white dot on the compass (lesson end,
+// clear gadget spot). Log-only and universal: the target comes from the game's own call, so no row needs a stored point. The
+// test harness walks to the newest 'white dot' line. The last three float args are x y z (the Index form has one more arg first).
+// #106298: not gated on g_fight. The lesson-end dot comes after the win retires the attempt (15 ms later on RA0A1), so the line
+// names the attempt's row for 120 s after it ended; later dots log with no row. Deduped per point, so a per-frame call logs once.
+static constexpr ULONGLONG kDotAfterMs = 120000;
+static void LogWhiteDot(uint64_t ctx, const char* form) {
+    uint32_t val[6] = {};
+    uint16_t ty[6] = {};
+    const int n = LessonVmArgs(ctx, val, ty, 6);
+    if (n < 3 || n > 6) return;
+    float xyz[3];
+    for (int i = 0; i < 3; ++i) {
+        if (ty[n - 3 + i] != 2) return;  // 2 = float in the VM slot (bosslog 0x13BDB0)
+        memcpy(&xyz[i], &val[n - 3 + i], 4);
+    }
+    static float last[3];
+    static ULONGLONG attempt = 0;
+    if (g_fnFirst == attempt && fabsf(last[0] - xyz[0]) < 1.f && fabsf(last[1] - xyz[1]) < 1.f && fabsf(last[2] - xyz[2]) < 1.f) return;
+    attempt = g_fnFirst;
+    memcpy(last, xyz, sizeof(last));
+    float cur[4] = {};
+    const bool ok = PlayerPos(cur);
+    const float dx = xyz[0] - cur[0], dz = xyz[2] - cur[2];
+    const bool after = g_fightRow < 0 && g_lastFightRow >= 0 && Ms() - g_lastFightEnd < kDotAfterMs;
+    const int fr = g_fightRow >= 0 ? g_fightRow : (after ? g_lastFightRow : -1);
+    const char* id = (fr >= 0 && (size_t)fr < g_rows.size()) ? g_rows[(size_t)fr].id : "";
+    if (ok)
+        Log("Rematch: white dot %.0f %.0f %.0f (%s) - player %.0f %.0f %.0f, %.1f m flat%s%s", xyz[0], xyz[1], xyz[2], form, cur[0], cur[1], cur[2],
+            sqrtf(dx * dx + dz * dz) / 100.f, id[0] ? " - Fight now row " : "", id);
+    else
+        Log("Rematch: white dot %.0f %.0f %.0f (%s) - player position unknown%s%s", xyz[0], xyz[1], xyz[2], form, id[0] ? " - Fight now row " : "", id);
+}
+void HkDotIndex(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) { LogWhiteDot(ctx, "SetCompassDestinationIndex"); }
+void HkDot(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) { LogWhiteDot(ctx, "SetCompassDestination"); }
 
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
@@ -2103,16 +3699,23 @@ const char* CanStart(int row, uint32_t& kind) {
     kind = kReqOpen;
     return nullptr;
 }
-// Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate
+// Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate.
+// A row with no placement takes the mission start from the catalogue (#89329). It does not borrow Training's arena table.
 const char* CanFight(int row) {
     const Row& r = g_rows[(size_t)row];
     if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
     if (!g_fnowOk) return g_fnowWhy;
+    if (r.route == rcore::kE) {
+        if (!g_emakiOk) return g_emakiWhy;
+        if (r.emakiIndex < 0) return "this scroll row has no record";
+        return nullptr;
+    }
     if (r.route != rcore::kR && r.route != rcore::kH && r.route != rcore::kD) return "Fight now is for replayable missions only";
     if (!r.fightStart) return "no start point next to this boss in the catalogue (use the replay)";
     return nullptr;
 }
 const char* CanShrine(int row) {
+    if (g_rows[(size_t)row].route == rcore::kE) return "a Picture Scroll has no shrine; Fight now starts this record";
     if (const char* w = CanFight(row)) return w;
     if (g_rows[(size_t)row].atFight) return "no separate shrine: this mission starts at the fight";
     return nullptr;
@@ -2134,10 +3737,15 @@ enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
 int g_uiBoss = -1;
+int g_listStop = 0;  // 0 = All. Stays until the game restarts (pc2 #74482). Closing the menu does not put it back on All.
+int g_trainStop = 0;  // #79069: the Training lists have their own filter, same stops as Boss Matches
+rcore::ListCycle g_listCycle;
 uint32_t g_pageGen0 = 0;
-char g_msg[160] = "";
+char g_msg[256] = "";  // pc #99125: 160 cut the RB24D confirm + WARNING text
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
+constexpr int kItListFilter = -68;  // human #73240: All / Multi / era / Scrolls. Not a catalogue index, not a Fight now id.
+constexpr int kItStagedStart = -58;  // #88778: Full climb / Final wave. Session only. Not a catalogue index.
 constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
 constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
 // user #6618: summoned-boss death toggles at the top of the root page (Nioh3Training [Summon] keys, live + saved to its ini)
@@ -2199,6 +3807,14 @@ constexpr int kItTrainHere = 0x80000, kItTrainHereEnd = 0x90000;
 // user 20261018: a save made inside a Fight-now arena loads IN the arena with no mission and a native BossBattleMode with no boss (no exit, no travel).
 // 'Leave arena' = Nioh3Training_LeaveArena (ends the session + native boss mode, returns to the stored spot if any) + our fight flag cleared.
 constexpr int kItLeaveArena = -49;
+bool RowStaged(int row, uint16_t* n, uint16_t* thou, uint32_t* place) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    uint16_t nn = 0;
+    if (!NativeEntryWaves(g_rows[(size_t)row].missionId, &nn) || nn < 2) return false;
+    if (n) *n = nn;
+    if (thou || place) NativeEntryWaveFinal(g_rows[(size_t)row].missionId, thou, place);
+    return true;
+}
 bool LeaveArenaOffered() { return (fight::g_active || g_staleBbm.load()) && !ReadSnap().ms28 && TrainingExport("Nioh3Training_LeaveArena"); }
 int LeaveArena(const char* src) {
     using Fn = int (*)();
@@ -2222,6 +3838,7 @@ bool BossFightItemsAvailable() {
 }
 int GateMode() {  // 0 = unknown / no session (old 2-option page), 1 = Boss Rematch fight, 2 = Training
     using Fn = int (*)();
+    if (NativeGateMission() || WavesGateNow()) return 1;
     const auto f = (Fn)TrainingExport("Nioh3Training_SessionMode");
     return f ? f() : 0;
 }
@@ -2314,7 +3931,11 @@ void AutoMovesSync(uint32_t chr) {
     const auto f = (Fn)TrainingExport("Nioh3Training_AutoMoves");
     if (!f) return;
     static AmMove buf[AM_MAXMOVES];
-    const int n = f(chr, buf, AM_MAXMOVES, (int)sizeof(AmMove));
+    int n = f(chr, buf, AM_MAXMOVES, (int)sizeof(AmMove));
+    if (n < 0) {  // human #126342: an older Training serves the 124-byte record (no proj): read that, unpack in place from the end, proj 0
+        n = f(chr, buf, AM_MAXMOVES, AM_ABI_124);  // fits: AM_MAXMOVES x 124 < sizeof buf
+        for (int i = n - 1; i >= 0; --i) { AmMove m; memcpy(&m, (const uint8_t*)buf + (size_t)i * AM_ABI_124, AM_ABI_124); m.proj = 0; buf[i] = m; }
+    }
     if (n > 0) { const int add = N3CatMerge(chr, buf, n, SlotBossName(chr)); Log("Rematch: AUTOMOVES chr %u: Boss moves page from game data (%d moves, %d new rows)", chr, n, add); }
     else if (n < 0) Log("Rematch: AUTOMOVES chr %u: Nioh3Training.asi move data layout differs (update both mods)", chr);
 }
@@ -2363,10 +3984,13 @@ void RepeatWhat(const N3Move& m, char* b, size_t n) {
 void MoveTypeTag(const N3Move& m, char* b, size_t n) {
     const int c = N3MoveCat(&m);
     if (c == kMcGrab) { snprintf(b, n, "Grab"); return; }
+    // human #126342: 'Projectile' (shockwave, thrown object, spawned blast) instead of Attack / Unblockable / Wind-up / Link; the row stays one
+    // line (58 columns), so an unblockable one keeps 'Unblockable<n>' in its left id and says 'unblockable' in the footer.
+    if (N3MoveProj(&m) && c != kMcTwitch && c != kMcMovement && c != kMcKiBreak && c != kMcUnsorted) { snprintf(b, n, "Projectile"); return; }
     if (c == kMcGreat) { snprintf(b, n, "Unblockable"); return; }  // its hit count is in the footer (the row stays one line)
     if (m.kind == 'S') { snprintf(b, n, "Wind-up"); return; }
     if (m.kind == 'L') { snprintf(b, n, "Link"); return; }
-    if (N3MoveHitCat(c) || c == kMcHitUnknown || c == kMcAttack || c == kMcUnnamedAtk) { snprintf(b, n, "Attack"); return; }
+    if (N3MoveHitCat(c) || c == kMcHit0 || c == kMcHitUnknown || c == kMcAttack || c == kMcUnnamedAtk) { snprintf(b, n, "Attack"); return; }
     snprintf(b, n, "%s", m.kind == 'T' ? "Twitch" : m.kind == 'M' ? "Movement" : m.kind == 'I' ? "Idle" : c == kMcKiBreak ? "Ki break" : "Other");
 }
 const char* MoveKindName(char k) {  // user #13786: N3Move.kind from tools/rematch/actlog_moves.py
@@ -2380,7 +4004,11 @@ const char* MoveName(const N3Move& m) {
            m.kind == 'M' ? "Step / turn" : "Unlabelled action";
 }
 bool g_showTwitch = false;  // user #13786: session only, default hidden
-bool MoveListed(const N3Move& m) { return g_showTwitch || N3MoveProtected(m.id) || !N3MoveTwitch(&m) || MoveAllowed(m) == 0 || MoveRepeating(m); }
+// Display only. Idle / initialization (ids 0 and 2) stays allowed; it is not a row, even with show-twitch on.
+bool MoveListed(const N3Move& m) {
+    if (N3MoveProtected(m.id)) return false;
+    return g_showTwitch || !N3MoveTwitch(&m) || MoveAllowed(m) == 0 || MoveRepeating(m);
+}
 // user #14291: moves of boss chr in group c; off = how many are OFF, rpt = the repeating move if it is in this group
 int MoveCatCount(uint32_t chr, int c, int* off = nullptr, const N3Move** rpt = nullptr) {
     int n = 0;
@@ -2388,7 +4016,7 @@ int MoveCatCount(uint32_t chr, int c, int* off = nullptr, const N3Move** rpt = n
     if (rpt) *rpt = nullptr;
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
         const N3Move& m = kN3Moves[i];
-        if (m.chr != chr || N3MoveCat(&m) != c) continue;
+        if (m.chr != chr || N3MoveCat(&m) != c || N3MoveProtected(m.id)) continue;  // hidden idle row is not a listed move
         ++n;
         if (off && MoveAllowed(m) == 0) ++*off;
         if (rpt && MoveRepeating(m)) *rpt = &m;
@@ -2610,33 +4238,168 @@ void NoFinToggle(int dir) {
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
+static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
-constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
+// One sentence for the list footer, the Fight now footer, and the post-cover toast. The catalogue lesson column
+// is the script scan (IsDeathGroupEnemy reached, BossBattleMode never called). The list draws before that script runs.
+static const char kLessonLine[] = "Lesson: defeat the waves, then follow the white dot and hold RB";
+// human #94922: a catalogue warning (known live problem) goes in front of that row's footer. Data-driven, any row.
+static void WarnFooter(char* footer, size_t nf, int row) {
+    if (!footer || !nf || row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].warning[0]) return;
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "WARNING: %s %s", g_rows[(size_t)row].warning, footer);
+    snprintf(footer, nf, "%s", tmp);
+}
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
+constexpr int kItTeleport = 0x40000;
+constexpr int kItArenaTrain = 0x48000;  // human #107514: kItArenaTrain + row = "Train in this arena" (no waves, no boss) on the Boss Match row page  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
+// Free gap above the live catalogue [kItMoveBase, kItMoveBase+N3CAT_CAP) and below Teleport.
+// 0x30000 == kItMoveBase, so this row was move 0 ("Idle / initialization").
+constexpr int kItBossTrainHere = 0x38000;
+static_assert(N3CAT_CAP <= kItBossTrainHere - kItMoveBase, "Train here overlaps the move catalogue cap");
+static_assert(kItBossTrainHere + kMaxRows <= kItTeleport, "Train here rows reach Teleport");
+static_assert(kItBossTrainHere > kItShrine + kMaxRows, "Train here overlaps Shrine");
+static_assert(kItArenaTrain >= kItTeleport + kMaxRows && kItArenaTrain + kMaxRows <= kItSummonA, "Train in this arena overlaps Teleport / Summon");
+static_assert(kItFight == 0x10000, "Fight now id base matches FightNowItemId");
 
-int Items(int* out, int cap) {
+// ---- #79069 favorites: Left / Right on a row (no new button, works on every menu input). The file is ours, beside the mod; the game save is never touched. ----
+constexpr char kFavBoss = 'B', kFavTrain = 'T';
+SRWLOCK g_favLock = SRWLOCK_INIT;
+std::set<std::string> g_favs;
+bool g_favLoaded = false;
+std::wstring FavPath() { return std::wstring(ModDir()) + L"Nioh3BossRematch_favorites.txt"; }
+void FavEnsureLoaded() {
+    AcquireSRWLockExclusive(&g_favLock);
+    if (!g_favLoaded) {
+        g_favLoaded = true;
+        std::string text;
+        if (ReadText(FavPath(), text)) rcore::FavParse(text, g_favs);
+        Log("Rematch: favorites loaded (%d)", (int)g_favs.size());
+    }
+    ReleaseSRWLockExclusive(&g_favLock);
+}
+bool FavHas(char list, const char* id) {
+    FavEnsureLoaded();
+    AcquireSRWLockShared(&g_favLock);
+    const bool has = g_favs.count(rcore::FavKey(list, id)) != 0;
+    ReleaseSRWLockShared(&g_favLock);
+    return has;
+}
+bool FavWriteFile(const std::string& text) {  // the complete file or the old one: a temp file, then an atomic replace
+    const std::wstring path = FavPath(), tmp = path + L".tmp";
+    HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    DWORD wrote = 0;
+    const bool ok = text.empty() || (WriteFile(h, text.data(), (DWORD)text.size(), &wrote, nullptr) && wrote == text.size());
+    CloseHandle(h);
+    if (!ok || !MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { DeleteFileW(tmp.c_str()); return false; }
+    return true;
+}
+bool FavSet(char list, const char* id, bool on) {
+    FavEnsureLoaded();
+    AcquireSRWLockExclusive(&g_favLock);
+    if (on) g_favs.insert(rcore::FavKey(list, id)); else g_favs.erase(rcore::FavKey(list, id));
+    const std::string text = rcore::FavText(g_favs);
+    ReleaseSRWLockExclusive(&g_favLock);
+    const bool saved = FavWriteFile(text);
+    Log("Rematch: favorite %c %s %s (%s)", list, id, on ? "on" : "off", saved ? "saved" : "SAVE FAILED");
+    return saved;
+}
+bool IsTrainListPage() { return g_uiPages.page == uTrainHere || g_uiPages.page == uTraining; }
+int& ListStopRef() { return IsTrainListPage() ? g_trainStop : g_listStop; }
+char ListFavKind() { return IsTrainListPage() ? kFavTrain : kFavBoss; }
+void EnsureListCycle() {
+    rcore::BuildListCycle(g_rows, g_listCycle, g_cfg.showAll, !IsTrainListPage());
+    const int n = g_listCycle.Stops();
+    int& stop = ListStopRef();
+    if (stop < 0 || stop >= n) stop = 0;
+}
+const char* ListFilterLabel() {
+    EnsureListCycle();
+    return g_listCycle.Label(ListStopRef());
+}
+bool RowInCurrentList(const Row& r) {
+    const int stop = ListStopRef();
+    return rcore::RowInListStop(r, g_listCycle, stop, g_listCycle.Kind(stop) == 4 && FavHas(ListFavKind(), r.id));
+}
+// The catalogue row of a list item on the current page, -1 for anything else.
+int FavRowOfItem(int item) {
+    const int p = g_uiPages.page;
+    const int row = (p == uRematch || p == uBosses) && item >= 0 && item < kItFight ? item
+                  : p == uTrainHere && item >= kItTrainHere && item < kItTrainHere + kMaxRows ? item - kItTrainHere
+                  : p == uTraining && item >= kItTeleport && item < kItTeleport + kMaxRows ? item - kItTeleport : -1;
+    return row >= 0 && (size_t)row < g_rows.size() ? row : -1;
+}
+const char* FavMark(int row) { return row >= 0 && (size_t)row < g_rows.size() && FavHas(ListFavKind(), g_rows[(size_t)row].id) ? "* " : ""; }
+bool FavChange(int item, int dir) {  // true = this was a list row. Right marks, Left unmarks.
+    const int row = FavRowOfItem(item);
+    if (row < 0 || !dir) return false;
+    const Row& r = g_rows[(size_t)row];
+    if (!rcore::FavIdOk(r.id)) { snprintf(g_msg, sizeof g_msg, "This row has no id, so it cannot be a favorite."); return true; }
+    const bool on = dir > 0;
+    g_confirm = -9;
+    if (FavHas(ListFavKind(), r.id) == on) { g_msg[0] = 0; return true; }
+    const bool saved = FavSet(ListFavKind(), r.id, on);
+    if (!saved) snprintf(g_msg, sizeof g_msg, "Favorite changed for now, but the file could not be saved.");
+    else snprintf(g_msg, sizeof g_msg, on ? "%s is a favorite." : "%s removed from favorites.", r.name);
+    return true;
+}
+// The Training rows of an end gate: the active bosses page (stance = training mode), summon. Training gate and scroll gate share this.
+template <class Add> void AddGateTrainingRows(Add&& add) {
+    if (PracticeToolsAvailable()) add(kItRootTools);
+    if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
+}
+
+int ItemsBase(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
+    // Collect all eligible rows before capacity truncation, then keep original order within each favorite group.
+    auto addFavoritesFirst = [&](std::vector<int>& items) {
+        rcore::FavoritesFirst(items, [&](int item) {
+            const int row = FavRowOfItem(item);
+            return row >= 0 && FavHas(ListFavKind(), g_rows[(size_t)row].id);
+        });
+        for (int item : items) add(item);
+    };
+    // Same order the Boss Match list already used. The filter hides rows; it does not renumber them.
+    auto addBossList = [&]() {
+        EnsureListCycle();
+        add(kItListFilter);
+        std::vector<int> rows;
+        // human #95418: ONE alphabetical run. It used to be three runs (beaten / unbeaten / refused), each sorted by itself, so a
+        // row whose status put it in a later run (Saito Fuku (Veteran)) landed after the Z names of the earlier run.
+        for (size_t i = 0; i < g_rows.size(); ++i) {
+            const Row& r = g_rows[i];
+            const uint8_t st = g_status[i].load();
+            const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
+            if (grp == 1 && !g_cfg.showAll) continue;
+            if (grp == 2 && !g_cfg.showAll) continue;
+            if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
+            if (!RowInCurrentList(r)) continue;
+            rows.push_back((int)i);
+        }
+        rcore::SortItemsByName(rows, 0, 0, g_rows);
+        addFavoritesFirst(rows);
+    };
     if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
         add(kItRootRematch);
         add(kItRootTraining);
+        add(kItPlayerOpen);
         add(kItClose);
         return n;
     }
     if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here / arena / Training Bosses / Summon a boss here / Boss Matches
         if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: the hosted menu opens here, never on uRoot (the row was unreachable)
-        const bool inArena = InTrainingArena();  // user #14333 / #14336 item 8: no 'Train here' / 'Train in a boss arena' while already in one
+        const bool scrollTraining = ScrollTrainingNow() && WavesGateNow();
+        const bool inArena = InTrainingArena() || scrollTraining;  // user #14333 / #14336 item 8: no 'Train here' / 'Train in a boss arena' while already in one
         if (!inArena && TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
         if (!inArena) add(kItArenas);
-        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
         PstAddHubRows(add);  // Time of day / Weather / Freeze / Reset fight
-#if BR_SOULCORE
-        SctAddHubRow(add);  // human #58117: Soul core tuning (not in the release build)
-#endif  // BR_SOULCORE
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
+        if (scrollTraining) add(kItReturnHome);  // #79069: no wave clear means no end object, so this is the way out. Not the first row: it leaves at one press.
         add(kItBack);
         return n;
     }
@@ -2644,6 +4407,9 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
 #if BR_SOULCORE
         add(kItScForms);  // human #61869: Soul core transformations ON / OFF
+        SctAddCoreRows(add);  // human #81220: per-core transformation ON / OFF
+        ScEqAddRows(add);  // human #129277: Equip core slot / Equip core
+        SctAddHubRow(add); // Player > Soul core tuning
 #endif  // BR_SOULCORE
         PstAddPlayerRows(add);  // user #22389
         add(kItBack);
@@ -2658,10 +4424,16 @@ int Items(int* out, int cap) {
         add(kItBack);
         return n;
     }
-    if (g_uiPages.page == uTrainHere) {  // user #13223: every boss with a mission id, beaten first
-        for (int pass = 0; pass < 2; ++pass)
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && (g_status[i].load() == 2 ? 0 : 1) == pass) add(kItTrainHere + (int)i);
+    if (g_uiPages.page == uTrainHere) {  // user #13223: every boss with a mission id, beaten first. Waves rows have no mission id.
+        EnsureListCycle();
+        std::vector<int> rows;
+        add(kItListFilter);  // #79069
+        for (size_t i = 0; i < g_rows.size(); ++i) {  // human #95418: one alphabetical run, not beaten / unbeaten runs
+            if (!RowInCurrentList(g_rows[i])) continue;
+            if (rcore::WavesRow(g_rows[i]) || (g_rows[i].missionId && g_rows[i].route != rcore::kE)) rows.push_back(kItTrainHere + (int)i);
+        }
+        rcore::SortItemsByName(rows, 0, kItTrainHere, g_rows);
+        addFavoritesFirst(rows);
         add(kItBack);
         return n;
     }
@@ -2679,6 +4451,8 @@ int Items(int* out, int cap) {
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; }
         add(kItBossStance);
         if (TrainingExport("Nioh3Training_SetSlotAggro")) add(kItBossAggro);
+        if (TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578
+        if (TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         if (TrainingExport("Nioh3Training_SetRepeatGapChr")) add(kItBossGap);
         if (TrainingExport("Nioh3Training_ResetSlotPos")) add(kItBossReset);
         if (BvAvailable()) add(kItBvOpenBase + g_bossSlot);
@@ -2692,14 +4466,20 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uTraining) {  // user #13197: arena rows only (details in the footer)
         // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (fast load)
-        if (g_live.load())
-            for (int pass = 0; pass < 2; ++pass)
-                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
-                    const Row& r = g_rows[i];
-                    if (r.route == rcore::kX || !r.fightStart) continue;
-                    if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
-                    add(kItTeleport + (int)i);
-                }
+        if (g_live.load()) {
+            EnsureListCycle();
+            std::vector<int> rows;
+            add(kItListFilter);  // #79069
+            for (size_t i = 0; i < g_rows.size(); ++i) {  // human #95418: one alphabetical run
+                const Row& r = g_rows[i];
+                if (!RowInCurrentList(r)) continue;
+                if (rcore::WavesRow(r)) { rows.push_back(kItTeleport + (int)i); continue; }
+                if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
+                rows.push_back(kItTeleport + (int)i);
+            }
+            rcore::SortItemsByName(rows, 0, kItTeleport, g_rows);
+            addFavoritesFirst(rows);
+        }
         add(kItBack);
         return n;
     }
@@ -2708,10 +4488,14 @@ int Items(int* out, int cap) {
             // user #22984: only catalogue rows Training resolves to one boss (multi-boss rows: their bosses are roster rows), then the roster
             using CanFn = int (*)(uint32_t);
             const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
+            // human #95418: catalogue rows and roster-only bosses in one case-insensitive A-Z list (by the shown name)
+            std::vector<std::pair<std::string, int>> sm;
+            for (size_t i = 0; i < g_rows.size(); ++i)
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (!can || can(g_rows[i].missionId))) sm.emplace_back(g_rows[i].name, kItSummonA + (int)i);
             const int nr = RosterCount();
-            for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster && n < cap; ++i) add(kItSummonRoster + i);
+            for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster; ++i) { char nm[64] = ""; RosterEntry(i, nm, sizeof nm); sm.emplace_back(nm, kItSummonRoster + i); }
+            std::stable_sort(sm.begin(), sm.end(), [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) { return rcore::CaseLess(a.first.c_str(), b.first.c_str()); });
+            for (size_t k = 0; k < sm.size() && n < cap; ++k) add(sm[k].second);
         }
         add(kItBack);
         return n;
@@ -2719,19 +4503,11 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
         AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
+        // pc #99495: but while a Boss Match (or our Picture Scroll) runs, its 'Leave' row is here too: after a win the game hides
+        // 'Return from Mission', and Training > Active bosses was the only way out. Same item, same exit path. Not the first row.
+        if (NativeGateMission() || WavesGateNow()) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
-        if (g_live.load())
-            for (int pass = 0; pass < 3; ++pass)
-                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
-                    const Row& r = g_rows[i];
-                    const uint8_t st = g_status[i].load();
-                    const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
-                    if (grp != pass) continue;
-                    if (grp == 1 && !g_cfg.showAll) continue;
-                    if (grp == 2 && !g_cfg.showAll) continue;
-                    if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-                    add((int)i);
-                }
+        if (g_live.load()) addBossList();
         // #14336 item 10: legacy / developer rows only with [Rematch] ShowUnverified = 1
         if (g_cfg.showUnverified) {
             if (g_live.load()) add(kItPractice);
@@ -2746,6 +4522,8 @@ int Items(int* out, int cap) {
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
         // #14336 item 2: stance / gap / aggro / reset / repeat rows live on the Boss X page only. user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
+        if (chr && TrainingExport("Nioh3Training_SetRepeatLast")) add(kItBossLast);  // human #68578: also for a Boss Match / Practice boss (no Boss X page)
+        if (chr && TrainingExport("Nioh3Training_SetRepeatFlow")) add(kItRepFlow);  // human #122193
         for (int c : kMcOrder) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);  // user #22349
         add(kItBack);
         return n;
@@ -2762,7 +4540,7 @@ int Items(int* out, int cap) {
         for (int pass = 0; pass < 2; ++pass)
             for (int i = 0; i < N3_MOVE_COUNT; ++i) {
                 const N3Move& m = kN3Moves[i];
-                if (m.chr != chr || N3MoveCat(&m) != g_moveCat) continue;
+                if (m.chr != chr || N3MoveCat(&m) != g_moveCat || N3MoveProtected(m.id)) continue;
                 if ((N3KiNote(m.chr, m.id) ? 0 : 1) != pass) continue;
                 add(kItMoveBase + i);
             }
@@ -2770,14 +4548,23 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uGate) {
+        if (WavesGateNow()) {  // a scroll has no boss rules: same fight, or leave. #79069: and the Training rows, the arena is empty now
+            if (!g_scrollNoWaves.load()) add(kItFightAgain);
+            AddGateTrainingRows(add);
+            add(kItReturnHome); add(kItBack); add(kItClose);
+            return n;
+        }
+        if (rcore::ArenaOnlyGatePage(g_fight.load(), g_fightArenaOnly, NativeGateMission())) {  // #107683: pause > Return on a 'Train in this arena' trip
+            AddGateTrainingRows(add);
+            add(kItReturnHome); add(kItBack); add(kItClose);
+            return n;
+        }
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
         if (mode == 2) {  // Training (#14336 item 11): short list, everything else is one level down in Training Bosses
-            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
-            if (PracticeToolsAvailable()) add(kItRootTools);
+            AddGateTrainingRows(add);
         } else if (mode == 1) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
-            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
         }
         if (LeaveArenaOffered()) add(kItLeaveArena);
         add(kItReturnHome);
@@ -2804,25 +4591,28 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uActions) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
+            if (RowStaged(g_uiBoss, nullptr, nullptr, nullptr)) add(kItStagedStart);
             add(kItFight + g_uiBoss);
+            add(kItArenaTrain + g_uiBoss);  // human #107514
+            add(kItBossTrainHere + g_uiBoss);
             add(kItShrine + g_uiBoss);  // user #13164: teleport moved to Training (arenas), summon to Summon Boss
         }
         add(kItBack);
         return n;
     }
-    // beaten / startable first, then the rest, then X
-    for (int pass = 0; pass < 3; ++pass)
-        for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
-            const Row& r = g_rows[i];
-            const uint8_t st = g_status[i].load();
-            const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
-            if (grp != pass) continue;
-            if (grp == 1 && !g_cfg.showAll) continue;
-            if (grp == 2 && !g_cfg.showAll) continue;
-            if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-            add((int)i);
-        }
+    // beaten / startable first, then the rest, then X (Boss Matches browse page)
+    addBossList();
     add(kItBack);
+    return n;
+}
+
+#include "page_defaults_menu.h"
+int Items(int* out, int cap) {
+    int n = ItemsBase(out, cap);
+    if (PageHasDefaults(g_uiPages.page) && cap >= 2 && n > 0 && out[n-1] == kItBack) {
+        if (n < cap) { out[n-1] = kItPageDefaults; out[n++] = kItBack; }
+        else { out[n-2] = kItPageDefaults; }
+    }
     return n;
 }
 
@@ -2839,6 +4629,25 @@ void AutoMovesTick() {
 }
 
 }  // namespace
+
+// #79955: called by the UI worker every ~33 ms, outside the game's frame pump (which may not run at the title).
+void TitleWatchdog() {
+    static rcore::TitleWatch w;
+    static ULONGLONG nextAt = 0;
+    const ULONGLONG t = Ms();
+    if (t < nextAt) return;
+    nextAt = t + 250;
+    if (g_state.load() == kIdle) { w.since = 0; return; }
+    const Snap s = ReadSnap();
+    // v3 (#80182): the mission field is stale at the title (still the last mission), so it is not used; an unreadable game state counts as loading
+    if (w.StepSnap(true, s.player, s.gm != 0, s.st[2] != 0, t)) {
+        Log("Rematch: no player, no load and no mission for 20 s (Return to Title) - idle");
+        Result("exited %s (title)", RowName(g_activeRow.load()));
+        ToIdle("returned to title", true);  // normal exit: restores run, a clean active/returning phase clears (a quarantine here would block every later attempt)
+    }
+}
+
+uint32_t RematchScrollMission() { return rcore::ScrollMission(g_rows, g_emakiNoteRow); }
 
 bool CoverSnapshot(CoverInfo& out) {
     CoverLock lock;if(!lock.held)return false;
@@ -2894,11 +4703,22 @@ bool Prepare() {
     g_cfg.directStart = IniInt(L"Rematch", L"DirectStart", 0) != 0;
     g_cfg.showAll = IniInt(L"Rematch", L"ShowAll", 1) != 0;
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
+    g_cfg.ignoreProgress = IniInt(L"Rematch", L"IgnoreProgress", IniInt(L"Dev", L"IgnoreProgress", 0)) != 0;  // #256 ([Dev] = old #255 name)
+    InstallClearGuard();
+    {
+        const char* why = nullptr;
+        const bool ok = InstallVeto("Mission::ClearGadgetAccessWaitMode", &VetoRosterClearWait, &why);
+        Log("Rematch: remaining-roster combat guard %s%s", ok ? "installed" : "NOT installed: ", ok ? "" : (why ? why : "?"));
+    }
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
     g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
+    g_cfg.fightAgainDirect = IniInt(L"Rematch", L"FightAgainDirect", 0) != 0;
+    Log("Rematch: FightAgainDirect = %d (1 = native gate Fight again requests the boss mission straight away, no trip home; #100232)", g_cfg.fightAgainDirect ? 1 : 0);
+    g_cfg.fightSettleMs = IniInt(L"Rematch", L"FightSettleMs", 1000);  // #70586: load end -> "landed" for Fight now (was 3000)
+    g_cfg.fightNudgeMs = IniInt(L"Rematch", L"FightNudgeMs", 1000);  // #70586: landed -> warp beside the boss when no fight began and it is out of duel range (was 10000)
     wchar_t stw[512] = {};
     GetPrivateProfileStringW(L"Rematch", L"SelfTest", L"", stw, 512, ini);
     const char* why = nullptr;
@@ -2936,7 +4756,52 @@ bool Prepare() {
         if (!InstallCallRetarget("call:RightsCheck", (void*)&RightsCheckHook, &orig, &g_gateWhy)) g_gateOk = false;
         else g_rightsCheckOrig = (RightsCheckFn)orig;
     }
+    {
+        const char* bagWhy = nullptr;
+        if (!GroupOk("BAG", &bagWhy)) {
+            Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
+        } else {
+            if (!InstallCallRetarget("call:ScrollReturnReady", (void*)&ScrollReturnReadyHook, (void**)&g_scrollReadyOrig, &bagWhy))
+                Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
+        }
+    }
     if (g_exitOk) F_REQRETURN = Site("fn:MissionRequestReturn");
+    {
+        auto installWrite = [&](uint32_t rva, uint32_t callee, void* fn, void** orig, const char* name) {
+            uint8_t* p = (uint8_t*)(g_img.base + rva);
+            uint8_t b[5] = {};
+            if (!Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
+                Log("Rematch: resume hold did not install %s (call site +%X is not a call)", name, rva);
+                return;
+            }
+            int32_t rel = 0;
+            memcpy(&rel, b + 1, 4);
+            const uintptr_t dest = (uintptr_t)(p + 5 + rel);
+            if (dest != g_img.base + callee) {
+                Log("Rematch: resume hold did not install %s (call +%X target is +%llX)", name, rva,
+                    (unsigned long long)(dest - g_img.base));
+                return;
+            }
+            const char* why = nullptr;
+            if (!InstallCallRetargetAt(p, name, fn, orig, &why))
+                Log("Rematch: resume hold did not install %s (%s)", name, why ? why : "?");
+        };
+        void* saveOrig = nullptr;
+        void* backupOrig = nullptr;
+        installWrite(0x5B6F37, 0x5B7BB4, (void*)&ResumeSaveWrite, &saveOrig, "SaveFileWriteAtomic");
+        installWrite(0x1FDF2D0, 0x1FD9A48, (void*)&ResumeBackupWrite, &backupOrig, "BackupBinWrite");
+        void* backupOrig2 = nullptr;
+        installWrite(0x1FDF62A, 0x1FD9A48, (void*)&ResumeBackupWrite, &backupOrig2, "BackupBinWrite2");
+        g_saveWrite = (SaveWriteFn)saveOrig;
+        g_backupWrite = (BackupWriteFn)(backupOrig ? backupOrig : backupOrig2);
+        uint8_t head[4] = {};
+        uint8_t* autosave = (uint8_t*)(g_img.base + 0x5B635C);
+        if (Copy(head, (uint64_t)autosave, 4) && head[0] == 0x48 && head[1] == 0x83 && head[2] == 0xEC && head[3] == 0x28)
+            g_autoSave = (AutosaveFn)autosave;
+        else Log("Rematch: resume hold has no autosave (prologue mismatch at +5B635C)");
+        if (!g_saveWrite || !g_backupWrite) Log("Rematch: resume hold is incomplete (a save writer was not hooked)");
+        else Log("Rematch: resume hold on. A trip save waits until the resume mission is home");
+    }
     if (g_emakiOk) {
         F_EMAKIREQ = Site("fn:EmakiMissionRequest");
         G_INV = Site("g:Inventory");
@@ -2965,19 +4830,43 @@ bool Prepare() {
     Log("Startup: registering Rematch FIGHT callbacks");
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
+    OnEntry("IsDeathGroupEnemy", &HkLesson);  // log-only: which lesson group the script is still waiting on
+    OnEntry("UI::SetCompassDestinationIndex", &HkDotIndex);  // log-only #106000: the white dot the test walks to
+    OnEntry("UI::SetCompassDestination", &HkDot);
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
+        int hold = IniInt(L"Rematch", L"SelfTestHoldMs", 4000);
+        if (hold < 0) hold = 4000;
+        g_st.holdMs = hold;
+        wchar_t pw[160] = {};
+        GetPrivateProfileStringW(L"Rematch", L"SelfTestPlaceAt", L"", pw, 160, ini);
+        char p8[160] = {};
+        WideCharToMultiByte(CP_ACP, 0, pw, -1, p8, (int)sizeof(p8), nullptr, nullptr);
+        float px = 0, py = 0, pz = 0;
+        if (sscanf_s(p8, "%f %f %f", &px, &py, &pz) == 3) {
+            g_st.placeOn = true;
+            g_st.place[0] = px;
+            g_st.place[1] = py;
+            g_st.place[2] = pz;
+            Log("Rematch: SELFTEST place armed: %.0f %.0f %.0f, 3 s after a PASS (Player::SetPos, no flag writes)", px, py, pz);
+        } else if (pw[0]) {
+            Log("Rematch: SELFTEST place OFF - SelfTestPlaceAt needs x y z");
+        }
         char st8[512] = {};
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
         if (!_stricmp(st8, "arena")) {
             for (size_t i = 0; i < g_rows.size(); ++i)
-                if (g_rows[i].FightNowReady() && g_rows[i].route != rcore::kX) g_st.rows.push_back((int)i);
+                if ((g_rows[i].FightNowReady() || g_rows[i].route == rcore::kE) && g_rows[i].route != rcore::kX) g_st.rows.push_back((int)i);
         } else {
             char* ctx = nullptr;
             for (char* tok = strtok_s(st8, ", ", &ctx); tok; tok = strtok_s(nullptr, ", ", &ctx))
                 for (size_t i = 0; i < g_rows.size(); ++i)
                     if (!_stricmp(g_rows[i].id, tok)) g_st.rows.push_back((int)i);
         }
-        Log("Rematch: SELFTEST armed: %zu rows (%ls); starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw);
+        Log("Rematch: SELFTEST armed: %zu rows (%ls); hold %d ms; starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw, g_st.holdMs);
+    }
+    if (IniInt(L"Rematch", L"SelfTestStagedFinal", 0)) {
+        g_stagedFinal = 1;
+        Log("Rematch: staged start Final from SelfTestStagedFinal (session only, before the wave arm, no save write)");
     }
     Log("Startup: installing Rematch FIGHT group");
     if (!InstallGroup("FIGHT", &why)) {
@@ -3047,12 +4936,49 @@ void SaveUiSettings() {
         g_configSaveError.store(GetLastError()); g_configSaveState.store(3); delete job;
     }
 }
+void CycleListFilter(int dir) {
+    static int before[kMaxRows + 4];
+    const int n0 = Items(before, kMaxRows + 4);
+    int anchor = kItListFilter;
+    if (g_sel >= 0 && g_sel < n0) anchor = before[g_sel];
+    EnsureListCycle();
+    const int nstop = g_listCycle.Stops();
+    if (nstop < 1) return;
+    int& stop = ListStopRef();
+    stop += dir < 0 ? -1 : 1;
+    if (stop >= nstop) stop = 0;
+    if (stop < 0) stop = nstop - 1;
+    const int n1 = Items(before, kMaxRows + 4);
+    g_sel = rcore::KeepVisibleSel(before, n1, g_sel, anchor);
+    g_confirm = -9;
+    g_msg[0] = 0;
+    Log("Rematch: boss list filter -> %s", ListFilterLabel());
+}
+uint64_t NavNowMs() { return GetTickCount64(); }
 void UiChange(int dir) {
     static int items[kMaxRows + 4];
     const int n = Items(items, kMaxRows + 4);
     if (!n || g_sel < 0) return;  // #38077: the two top rows (Mod menu / Close) have no Left / Right
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
+    static rcore::FavHoldGuard favHold;  // #89941: a held Left must not walk down the Favorites list removing each row
+    const uint64_t now = NavNowMs();
+    if (dir && favHold.Swallow(now, item)) return;
+    if (item == kItListFilter) { CycleListFilter(dir); return; }
+    if (item == kItStagedStart) {
+        g_stagedFinal = dir == 0 ? !g_stagedFinal : dir > 0;
+        g_msg[0] = 0;
+        Log("Rematch: staged start -> %s", g_stagedFinal ? "final" : "full");
+        return;
+    }
+    if (item == kItPageDefaults) return; // action: A only
+    if (FavChange(item, dir)) {
+        const int count = Items(items, kMaxRows + 4);
+        g_sel = rcore::KeepVisibleSel(items, count, g_sel, item); // follow the same row after promotion/demotion
+        if (g_sel < 0 || g_sel >= count || items[g_sel] != item)  // the row left this list: guard the row the cursor landed on
+            favHold.Lock(now, count > 0 ? items[g_sel < 0 ? 0 : (g_sel >= count ? count - 1 : g_sel)] : 0);
+        return;
+    }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
@@ -3062,6 +4988,8 @@ void UiChange(int dir) {
     if (item == kItBossStance) { BossStanceSet(dir); return; }  // user #14309: per boss
     if (item == kItBossAggro) { BossAggroSet(dir); return; }
     if (item == kItBossGap) { BossGapStep(dir); return; }
+    if (item == kItBossLast) { RepeatLastStep(MoveBoss(), dir); return; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return; }  // human #122193
     if (item == kItStanceTimer) {  // user #14313: 1..10 s
         if (dir) { g_stSec = g_stSec + (dir > 0 ? 1 : -1); g_stSec = g_stSec < 1 ? 1 : g_stSec > 10 ? 10 : g_stSec; g_msg[0] = 0; }
         return;
@@ -3090,25 +5018,55 @@ void UiChange(int dir) {
     }
 }
 
+// #79226: what each hosted tab (1 = Boss Matches, 2 = Practice, 3 = Player) looked like when it was left, so LB / RB back to it restores the
+// page trail, the row, the boss and the list filters. Saved at the top of every UiOpen (the previous session's state is still intact).
+struct TabMemo { bool valid = false; menu_nav::Trail<> pages; int sel = 0, uiBoss = -1, bossSlot = -1, listStop = 0, trainStop = 0; };
+TabMemo g_tabMemo[4];
+int TabOfPages(const menu_nav::Trail<>& t) {
+    const int base = t.depth ? t.pages[0] : t.page;
+    return base == uRematch ? 1 : base == uPracticeHub ? 2 : base == uPlayer ? 3 : 0;
+}
+void RememberTab() {
+    const int tab = TabOfPages(g_uiPages);
+    if (!tab) return;
+    TabMemo& m = g_tabMemo[tab];
+    m.valid = true; m.pages = g_uiPages; m.sel = g_sel; m.uiBoss = g_uiBoss; m.bossSlot = g_bossSlot;
+    m.listStop = g_listStop; m.trainStop = g_trainStop;
+}
 void UiOpen() {
+    RememberTab();
     g_hostMenuReq = false;
     g_uiPages.Reset();
     g_uiBoss = -1;
     g_bossSlot = -1;
-    g_sel = 0;
+    g_sel = 0;  // pc2 #74482: g_listStop stays across a close. It is 0 only when the game starts.
     g_confirm = -9;
     g_msg[0] = 0;
     g_pageGen0 = g_scanGen.load();
     if (g_live.load()) g_wantScan.store(true);
 }
+bool WavesGateLive() { return WavesGateNow(); }
 void UiGatePage() {  // user #13529: the gate page is a base page (no add-on root behind it): Back returns to the host's first page
     UiOpen();
     g_uiPages.page = uGate;
     g_sel = 0;
 }
-void UiOpenAt(int which) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
+void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) / Player (3) as the base page; Back at it closes to the host menu
+    const int keep = g_listStop;
+    const int page = g_uiPages.page;
     UiOpen();
-    g_uiPages.page = which == 1 ? uRematch : uPracticeHub;
+    if (page != 0) g_listStop = keep;  // leaving and returning to the Boss tab keeps All / Multi / era / Scrolls
+    g_uiPages.page = which == 1 ? uRematch : which == 3 ? uPlayer : uPracticeHub;
+    if (resume && which >= 1 && which <= 3 && g_tabMemo[which].valid) {
+        const TabMemo& m = g_tabMemo[which];
+        g_uiPages = m.pages; g_sel = m.sel; g_uiBoss = m.uiBoss; g_bossSlot = m.bossSlot;
+        g_listStop = m.listStop; g_trainStop = m.trainStop;
+    }
+    // human #122092: the menu shortcut during Training opens Practice; with a live Training boss it lands inside Active bosses (Back = the Practice page).
+    if (which == 2 && !resume && g_uiPages.page == uPracticeHub && PracticeToolsAvailable() && SpawnedCount() > 0) {
+        g_uiPages.Enter(uTools, 0); g_sel = 0;
+        Log("Rematch: menu opened on Active bosses (%d boss%s live, #122092)", SpawnedCount(), SpawnedCount() == 1 ? "" : "es");
+    }
 }
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
@@ -3122,9 +5080,160 @@ void UiMove(int dir) {
 // #38077: hosted 'Mod menu' row pressed: the host leaves this page for its own first page (sticky until reopened)
 bool UiTakeHostMenu() { const bool r = g_hostMenuReq; return r; }
 void UiClearHostMenu() { g_hostMenuReq = false; }
-// #38216: a boss not beaten on this journey cannot be replayed (a real mission would write progress to the save). With [Rematch] AnyBoss = 1
-// its Fight now / arena rows start a Practice boss right here instead (Nioh3Training_TrainHere: a no-load summon, no mission, no save write).
-bool AnyBossOk(int row) { return g_cfg.anyBoss && row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId && TrainingExport("Nioh3Training_TrainHere"); }
+// Native route readiness and protection, not save progress, decide the action.
+bool TrainHereOk(int row) { return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId && TrainingExport("Nioh3Training_TrainHere"); }
+const char* CanMatchArena(int row) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return "boss row unavailable";
+    if (const char* why = CanArena(row)) return why;
+    if (g_status[(size_t)row].load() != 2 && !g_clearGuardOk) return "progress protection unavailable";
+    return nullptr;
+}
+// Training's TrainHere and arena load both need a boss mission id. A Picture Scroll has none
+// (every record shares 0xCC96), so a picked Waves row uses the scroll Fight now already on this branch.
+bool StartScrollRecord(int row, int item, bool training) {
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    if (row < 0 || (size_t)row >= g_rows.size() || g_rows[(size_t)row].route != rcore::kE) return false;
+    if (const char* why = CanFight(row)) { snprintf(g_msg, sizeof(g_msg), "%s", why); return false; }
+    if (training && !g_waveVetoOk) { snprintf(g_msg, sizeof(g_msg), "Training here needs the wave guard, and it did not install. Fight now still works."); return false; }
+    if (g_confirm != item) {
+        g_confirm = item;
+        snprintf(g_msg, sizeof(g_msg), training ? "Train at %s? No waves, no item used. A confirm / B back." : "Start %s? No item used. A confirm / B back.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    Post(training ? kReqEmakiTrain : kReqEmaki, row, "the menu");
+    ToastF(cWhite, 6000, training ? "Training: %s, no waves..." : "%s...", g_rows[(size_t)row].name);
+    return true;
+}
+bool ActBossRoute(int item) {
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    static bool confirmedTrain = false;
+    const bool tele = item >= kItTeleport;
+    const bool train = item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows;
+    const bool arena = item < kItShrine || tele;
+    const int row = item - (tele ? kItTeleport : train ? kItBossTrainHere : arena ? kItFight : kItShrine);
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (g_rows[(size_t)row].route == rcore::kE) {
+        if ((tele || train) && rcore::WavesRow(g_rows[(size_t)row])) return StartScrollRecord(row, item, true);
+        snprintf(g_msg, sizeof(g_msg), "A Picture Scroll has no boss arena.");
+        return false;
+    }
+    const char* unavailable = train ? nullptr : arena ? CanMatchArena(row) : CanShrine(row);
+    const bool trainFallback = arena && unavailable && TrainHereOk(row);
+    if (train || trainFallback) {
+        if (!TrainHereOk(row)) { snprintf(g_msg, sizeof(g_msg), "Training is unavailable for this boss."); return false; }
+        if (g_confirm != item || !confirmedTrain) {
+            g_confirm = item; confirmedTrain = true;
+            snprintf(g_msg, sizeof(g_msg), "%sTrain against %s here? A confirm / B back.", trainFallback ? "Arena route unavailable. " : "", g_rows[(size_t)row].name);
+            return false;
+        }
+        g_confirm = -9;
+        using Fn = int (*)(uint32_t);
+        const int rc = ((Fn)TrainingExport("Nioh3Training_TrainHere"))(g_rows[(size_t)row].missionId);
+        if (!rc) { snprintf(g_msg, sizeof(g_msg), "Busy (a summon or load is running): try again in a moment."); return false; }
+        ToastF(cGreen, 5000, "Training: %s here...", g_rows[(size_t)row].name);
+        return true;
+    }
+    if (!arena && g_status[(size_t)row].load() != 2) {
+        snprintf(g_msg, sizeof(g_msg), "Use Fight now for an unbeaten boss; shrine replay requires a cleared mission."); return false;
+    }
+    if (unavailable) { snprintf(g_msg, sizeof(g_msg), "%s", unavailable); return false; }
+    if (g_confirm != item || confirmedTrain) {
+        g_confirm = item; confirmedTrain = false;
+        snprintf(g_msg, sizeof(g_msg), tele ? "Train in %s's arena? A confirm / B back. Solo only." : arena ? "Fight %s now in its arena? A confirm / B back. Solo only." : "Start at the shrine before %s? A confirm / B back. Solo only.", g_rows[(size_t)row].name);
+        if (g_rows[(size_t)row].warning[0]) {  // human #94922: say the known problem before the player confirms
+            const size_t used = strlen(g_msg);
+            snprintf(g_msg + used, sizeof(g_msg) - used, " WARNING: %s", g_rows[(size_t)row].warning);
+        }
+        return false;
+    }
+    g_confirm = -9;
+    if (arena && !tele && g_hostedUiAction && !TrainingSwapAvailable()) {
+        BeginHostedFight(row, nullptr, g_msg, sizeof(g_msg));
+        return false;
+    }
+    if (arena) SetPracticeNext(tele ? 1 : 0);
+    g_arenaOnlyRow.store(-1);
+    Post(arena ? kReqFight : kReqShrine, row, "the menu");
+    ToastF(cWhite, 6000, arena ? "Boss Matches: into the fight with %s..." : "Boss Matches: to the shrine before %s...", g_rows[(size_t)row].name);
+    return true;
+}
+int ArenaTrainRoute(int row) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return rcore::kAtNone;
+    const Row& r = g_rows[(size_t)row];
+    return rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+}
+const char* ArenaTrainWhy(int row) {  // nullptr = offered now
+    const int route = ArenaTrainRoute(row);
+    if (route == rcore::kAtNone) {
+        if (row < 0 || (size_t)row >= g_rows.size()) return "no arena route for this row";
+        const Row& r = g_rows[(size_t)row];
+        const int no = rcore::ArenaTrainNoWhy(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+        return no == rcore::kAtNoGate ? "this boss starts with the mission (no gate to hold), so it would spawn"
+             : no == rcore::kAtNoBox ? "this boss starts when you step into its arena (a trigger box, no door to hold), so it would spawn"
+             : no == rcore::kAtNoArena ? "no known spot inside this arena yet (the trip would stop outside the boss door)"
+                                       : "no arena route for this row";
+    }
+    if (route == rcore::kAtScroll) return g_waveVetoOk ? CanFight(row) : "the wave guard did not install";
+    return CanMatchArena(row);
+}
+// human #107514: the row's arena, no waves, no boss, no Dojo bosses; Training's menu summons as usual
+bool ActArenaTrain(int item) {
+    const int row = item - kItArenaTrain;
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (ArenaTrainRoute(row) == rcore::kAtScroll) return StartScrollRecord(row, item, true);  // proven no-waves trip (#79507)
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    if (const char* why = ArenaTrainWhy(row)) { snprintf(g_msg, sizeof(g_msg), "Train in this arena unavailable: %s.", why); return false; }
+    if (g_confirm != item) {
+        g_confirm = item;
+        snprintf(g_msg, sizeof(g_msg), "Train in %s's arena? No boss, no waves. A confirm / B back. Solo only.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    SetPracticeNext(0);
+    g_arenaOnlyRow.store(row);
+    Post(kReqFight, row, "the menu (train in this arena)");
+    ToastF(cWhite, 6000, "Training: to %s's arena, no boss...", g_rows[(size_t)row].name);
+    return true;
+}
+bool ScrollRowItem(int item, int& row, int& kind) {
+    if (item >= kItFight && item < kItFight + kMaxRows) { row = item - kItFight; kind = 0; return true; }
+    if (item >= kItShrine && item < kItShrine + kMaxRows) { row = item - kItShrine; kind = 1; return true; }
+    if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) { row = item - kItBossTrainHere; kind = 2; return true; }
+    return false;
+}
+bool ActScrollFight(int item) {
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    int row = -1, kind = 0;
+    if (!ScrollRowItem(item, row, kind) || row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (kind != 0) {
+        if (kind == 2 && rcore::WavesRow(g_rows[(size_t)row])) return StartScrollRecord(row, item, true);
+        snprintf(g_msg, sizeof(g_msg), "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
+        return false;
+    }
+    return StartScrollRecord(row, item, false);
+}
+bool ActOpenWorld(int row) {
+    if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].OpenWorld()) {
+        snprintf(g_msg, sizeof g_msg, "This boss has no field spawn.");
+        return false;
+    }
+    const char* why = Gates(ReadSnap(), true);
+    if (why) { snprintf(g_msg, sizeof g_msg, "Not now: %s.", why); return false; }
+    if (!TrainingExport("Nioh3Training_FieldArrive")) {
+        snprintf(g_msg, sizeof g_msg, "Training field arrive is missing.");
+        return false;
+    }
+    if (g_confirm != row) {
+        g_confirm = row;
+        snprintf(g_msg, sizeof g_msg, "Teleport to %s and summon it beside you? No save writes. A confirm / B back.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    Post(kReqField, row, "the menu");
+    ToastF(cWhite, 6000, "Open world: %s...", g_rows[(size_t)row].name);
+    return true;
+}
 bool UiAct() {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -3138,6 +5247,8 @@ bool UiAct() {
     if (g_sel >= n) g_sel = n - 1;
     const int item = it[g_sel];
     if (item == kItClose) return true;
+    if (item == kItPageDefaults) { g_confirm = -9; ResetPageDefaults(); return false; }
+    if (item == kItStagedStart) { UiChange(0); return false; }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
@@ -3155,6 +5266,8 @@ bool UiAct() {
     if (item == kItBossStance) { BossStanceSet(0); return false; }
     if (item == kItBossAggro) { BossAggroSet(0); return false; }
     if (item == kItBossGap) { BossGapStep(0); return false; }
+    if (item == kItBossLast) { RepeatLastStep(MoveBoss(), 1); return false; }  // human #68578
+    if (item == kItRepFlow) { RepFlowToggle(); return false; }  // human #122193
     if (item == kItBossReset) { BossResetPos(); return false; }
     if (item == kItBossRemove) { if (BossRemove()) { g_msg[0] = 0; g_uiPages.Back(g_sel); } return false; }
     if (item == kItStanceTimer) return StanceTimerAct();  // user #14313: arming closes the menu (get ready)
@@ -3184,7 +5297,12 @@ bool UiAct() {
     }
     if (item >= kItTrainHere && item < kItTrainHereEnd) {  // user #13223: Practice > Training here
         const int row = item - kItTrainHere;
-        if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].missionId) { snprintf(g_msg, sizeof g_msg, "No boss mission id for this row."); return false; }
+        if (row < 0 || (size_t)row >= g_rows.size()) return false;
+        if (rcore::WavesRow(g_rows[(size_t)row])) return StartScrollRecord(row, item, true);
+        if (!g_rows[(size_t)row].missionId || g_rows[(size_t)row].route == rcore::kE) {
+            snprintf(g_msg, sizeof g_msg, "A Picture Scroll has no Training arena.");
+            return false;
+        }
         using Fn = int (*)(uint32_t);
         const auto f = (Fn)TrainingExport("Nioh3Training_TrainHere");
         const int rc = f ? f(g_rows[(size_t)row].missionId) : 0;
@@ -3246,6 +5364,15 @@ bool UiAct() {
         ToastF(cWhite, 6000, "Boss Matches: boss mode ended. Open the map and travel to a shrine.");
         return true;
     }
+    if (item == kItReturnHome && (NativeGateMission() || WavesGateNow())) {
+        const Snap s = ReadSnap();
+        const char* why = !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+        Post(kReqExit, -1, "native Proceed gate");
+        ToastF(cWhite, 5000, "Boss Matches: leaving the mission...");
+        return true;
+    }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -3254,6 +5381,16 @@ bool UiAct() {
         if (rc == -1) { snprintf(g_msg, sizeof(g_msg), "Already returning..."); return false; }
         if (rc == 0) { snprintf(g_msg, sizeof(g_msg), "Nothing to return from: no Fight now arena swap since the game started (or you are already back)."); return false; }
         ToastF(cWhite, 5000, rc == 1 ? "Boss Matches: back to where you were..." : "Boss Matches: arena session ended (no stored spot to return to).");
+        return true;
+    }
+    if (item == kItFightAgain && (NativeGateMission() || WavesGateNow())) {
+        const int row = NativeGateRow();
+        const Snap s = ReadSnap();
+        const char* why = row < 0 ? "native boss row is no longer owned" : !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+        Post(kReqNativeAgain, row, "native Proceed gate");
+        ToastF(cWhite, 5000, g_cfg.fightAgainDirect && !rcore::WavesRow(g_rows[(size_t)row]) ? "Boss Matches: starting the same fight..." : "Boss Matches: returning, then starting the same fight...");
         return true;
     }
     if (item == kItFightAgain) {
@@ -3277,6 +5414,10 @@ bool UiAct() {
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
+    if (item == kItListFilter) { CycleListFilter(0); return false; }
+    if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight &&
+        (size_t)item < g_rows.size() && g_rows[(size_t)item].OpenWorld())
+        return ActOpenWorld(item);
     if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
@@ -3339,51 +5480,13 @@ bool UiAct() {
         Post(kReqScroll, -1, "the menu");
         return true;
     }
-    if (item >= kItFight) {
-        const bool tele = item >= kItTeleport;
-        const bool arena = item < kItShrine || tele;
-        const int row = item - (tele ? kItTeleport : arena ? kItFight : kItShrine);
-        if (g_status[(size_t)row].load() != 2) {
-            if (arena && AnyBossOk(row)) {  // #38216: not beaten -> Practice boss right here, nothing of the save is touched
-                if (g_confirm != item) { g_confirm = item; snprintf(g_msg, sizeof(g_msg), "Boss not cleared: train against %s here without mission progress? A: confirm / B: back.", g_rows[(size_t)row].name); return false; }
-                g_confirm = -9;
-                using Fn = int (*)(uint32_t);
-                const int rc = ((Fn)TrainingExport("Nioh3Training_TrainHere"))(g_rows[(size_t)row].missionId);
-                Log("Rematch: menu '%s' not beaten -> Practice here %s -> %d (#38216)", tele ? "Teleport" : "Fight now", g_rows[(size_t)row].id, rc);
-                if (!rc) { snprintf(g_msg, sizeof(g_msg), "Busy (a summon or load is running): try again in a moment."); return false; }
-                ToastF(cGreen, 5000, "Training: %s here (no mission progress)...", g_rows[(size_t)row].name);
-                return true;
-            }
-            snprintf(g_msg, sizeof(g_msg), "Not beaten on this journey: Fight now only replays bosses you have beaten.");
-            return false;
-        }
-        if (const char* w = arena ? CanArena(row) : CanShrine(row)) {
-            snprintf(g_msg, sizeof(g_msg), "%s", w);
-            return false;
-        }
-        if (g_confirm != item) {
-            g_confirm = item;
-            const Row& r = g_rows[(size_t)row];
-            if (tele)
-                snprintf(g_msg, sizeof(g_msg), "Enter the %s arena and summon its boss (idle)? A confirm / B back. Solo only.", r.name);
-            else if (arena)
-                snprintf(g_msg, sizeof(g_msg), "Fight %s now, inside the arena? A confirm / B back. Solo only.", r.name);
-            else
-                snprintf(g_msg, sizeof(g_msg), "Start at the %s %d m before %s? A confirm / B back. Solo only.", r.fightKind, r.fightDist, r.name);
-            return false;
-        }
-        g_confirm = -9;
-        // Nioh3Training loaded: the hosted Fight now takes the same path as the overlay (kReqFight -> ExecDirect ->
-        // Nioh3Training_FightNow in-place swap with its own fade). The cover waits for a native mission load the swap never does.
-        if(arena && !tele && g_hostedUiAction && !TrainingSwapAvailable()) {
-            BeginHostedFight(row,nullptr,g_msg,sizeof(g_msg));
-            return false; // keep the menu until the renderer presents its cover
-        }
-        if (arena) SetPracticeNext(tele ? 1 : 0);  // user #13223: Practice arena sessions retry in place; Boss Rematch Fight now keeps AutoRetryOnDeath
-        Post(arena ? kReqFight : kReqShrine, row, "the menu");  // #13167: Training arena = Fight now (Nioh3Training session, boss summoned in idle stance)
-        ToastF(cWhite, 6000, arena ? "Boss Matches: into the fight with %s..." : "Boss Matches: to the shrine before %s...", g_rows[(size_t)row].name);
-        return true;
+    if (item >= kItArenaTrain && item < kItArenaTrain + kMaxRows) return ActArenaTrain(item);
+    {
+        int srow = -1, skind = 0;
+        if (ScrollRowItem(item, srow, skind) && srow >= 0 && (size_t)srow < g_rows.size() && g_rows[(size_t)srow].route == rcore::kE)
+            return ActScrollFight(item);
     }
+    if (item >= kItFight) return ActBossRoute(item);
     uint32_t kind = 0;
     if (const char* w = CanStart(item, kind)) {
         snprintf(g_msg, sizeof(g_msg), "%s", w);
@@ -3418,7 +5521,7 @@ const char* PageTitle(const char* movesTitle) {
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Yamagata mission replay"
-         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings - Training / Boss Matches" : p == uBossVitals ? BvTitle() :
+         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings" : p == uBossVitals ? BvTitle() :
 #if BR_SOULCORE
         p == uSoulTune ? "Soul core tuning - LEFT form (live, saved)" :
 #endif  // BR_SOULCORE
@@ -3427,21 +5530,23 @@ const char* PageTitle(const char* movesTitle) {
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
 const char* ItemGroup(int item) {
+    if (item == kItPageDefaults) return "Page defaults";
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
-    if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
+    if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
+    if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
 #if BR_SOULCORE
-        item == kItScForms ? "Soul cores" :
+        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) ? "Soul cores" :
 #endif  // BR_SOULCORE
         nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
-    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
+    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
     if (p == uSummon) return item >= kItSummonA && item < kItSummonRosterEnd ? "Add a boss (Training / Boss Matches)" : nullptr;
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
+    if (p == uActions && item == kItStagedStart) return "This boss";
     if (p == uMoveCat) return IsSeqItem(item) ? "Move chains (A: repeat on/off)" : IsMoveItem(item) ? "A: repeat | Left: block move | Right: allow move" : nullptr;
     return nullptr;
 }
@@ -3479,7 +5584,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
     }
     add(cCyan, false, "%s (" ADDON_VERSION ") - %s", PageTitle(movesTitle), st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
-                                                                                  : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
+                                                                                  : st == kEmaki ? (g_scrollNoWaves.load() ? "active: training (no waves)" : "active: waves") : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
     if (g_sel >= n) g_sel = n ? n - 1 : 0;
@@ -3487,7 +5592,6 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     // #38077: every page starts with 'Mod menu' (jump to the top-level page) and 'Close' (close the menu)
     add(g_sel == -2 ? cWhite : cGray, g_sel == -2, "%s Mod menu   A: open", g_sel == -2 ? ">" : " ");
     add(g_sel == -1 ? cWhite : cGray, g_sel == -1, "%s Close   A: close the mod menu", g_sel == -1 ? ">" : " ");
-    const bool scanned = g_scanGen.load() != g_pageGen0;
     const bool grouped = ItemGroup(it[0]) != nullptr || (n > 1 && ItemGroup(it[1]) != nullptr);
     // user #13529: every page shows its Back row. A long list (arenas, boss moves) scrolled the last row (Back) off the panel, so the Back row is
     // pinned below the scrolled window; the list window covers the other rows. Up from the top row still wraps to it.
@@ -3505,6 +5609,18 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (const char* grp = ItemGroup(it[i])) {  // section header (not selectable): "-- Name --"
             if (grp != lastGroup && k < cap - 2) add(cCyan, false, "-- %s --", grp);
             lastGroup = grp;
+        }
+        if (it[i] == kItPageDefaults) { add(sel ? cWhite : cGray, sel, "%s Reset to defaults   A: reset this page", mk); continue; }
+        if (it[i] == kItStagedStart) {
+            uint16_t thou = 0;
+            RowStaged(g_uiBoss, nullptr, &thou, nullptr);
+            char hp[40] = "";
+            if (g_stagedFinal && thou) {
+                if (thou % 10 == 0) snprintf(hp, sizeof hp, " (%u%% health)", thou / 10u);
+                else snprintf(hp, sizeof hp, " (%u.%u%% health)", thou / 10u, thou % 10u);
+            }
+            add(sel ? cWhite : cGray, sel, "%s Staged start: %s%s   A / Left / Right", mk, g_stagedFinal ? "Final wave" : "Full climb", hp);
+            continue;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
         if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
@@ -3528,6 +5644,18 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (it[i] == kItBossAggro) {
             const int v = BossAggroGet();
             add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Follow and target me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        } else if (it[i] == kItBossLast) {  // human #68578: 'Repeat last move: Last move (0x4E21 Overhead slash)   A / Left / Right'
+            const uint32_t lchr = MoveBoss(); uint32_t ids[3] = {0};
+            const int have = LastMovesGet(lchr, ids, 3), v = RepeatLastGet(lchr);
+            static const char* kLm[] = {"Off", "Last move", "Last 2 moves", "Last 3 moves"};
+            char lcap[96];
+            if (!have) snprintf(lcap, sizeof lcap, "(no attack seen yet)");
+            else if (v >= 2) snprintf(lcap, sizeof lcap, "(%s ... %s)", LastMoveText(lchr, ids[v - 1]), LastMoveText(lchr, ids[0]));
+            else snprintf(lcap, sizeof lcap, "(last: %s)", LastMoveText(lchr, ids[0]));
+            add(sel ? cWhite : v ? cYellow : have ? cGray : cDim, sel, "%s Repeat last move: %-12s %.60s   A / Left / Right", mk, kLm[v < 0 ? 0 : v > 3 ? 3 : v], lcap);
+        } else if (it[i] == kItRepFlow) {  // human #122193
+            const int v = RepFlowGet();
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Between repeated moves: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "Flow (chain like the boss)" : "Pause (back to idle)");
         } else if (it[i] == kItBossGap) {
             const int v = BossGapGet();
             char val[24];
@@ -3597,6 +5725,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : !ok || *why ? cDim : cGray, sel, "%s %-24s %s   A / Left / Right%s", mk,
                 it[i] == kItDeathCut ? "Boss death animation:" : it[i] == kItDeathBlow ? "Require final blow:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF", why);
         }
+        else if (it[i] == kItReturnHome && WavesGateNow()) {
+            add(sel ? cWhite : cGreen, sel, "%s Leave Picture Scroll", mk);
+        }
+        else if (it[i] == kItReturnHome && NativeGateMission()) {
+            add(sel ? cWhite : cGreen, sel, "%s Leave Boss Match", mk);
+        }
         else if (it[i] == kItReturnHome) {
             const int f = ReturnInfo();
             const bool can = f > 0 && (f & (1 | 8)) != 0;
@@ -3631,7 +5765,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : v < 0 || *why ? cDim : cGreen, sel, "%s %-24s %-7s   Left / Right%s", mk,
                 it[i] == kItFinT ? "Final-blow timeout:" : "Zero-HP combo timeout:", val, why);
         }
-        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk, GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
+        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk,
+            (NativeGateMission() || WavesGateNow()) ? "Fight again (reloads the mission, same fight)" :
+            GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
         else if (it[i] == kItFightOpts) add(sel ? cWhite : cGray, sel, "%s Death and loot rules   A: open", mk);  // user #13265
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Boss moves and hit counts   A: open", mk);
         else if (it[i] == kItMovesA || it[i] == kItMovesB) {
@@ -3663,7 +5799,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
-            add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
+            add(sel ? cWhite : g_rows[(size_t)row].warning[0] ? cOrange : (g_status[(size_t)row].load() == 2 || TrainHereOk(row) || rcore::WavesRow(g_rows[(size_t)row])) ? cGreen : cGray, sel, "%s %s%s%s", mk, FavMark(row), g_rows[(size_t)row].name, g_rows[(size_t)row].warning[0] ? "  (known bug)" : "");  // human #94915: fightable = lit, not save progress
         }
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
         else if (it[i] == kItRootTools) { const int nb = SpawnedCount(); add(sel ? cWhite : nb ? cGreen : cGray, sel, "%s Active bosses (%d boss%s)   A: open", mk, nb, nb == 1 ? "" : "es"); }
@@ -3716,6 +5852,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Repeat delay: %-7s   Left / Right", mk, val);
         }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Startup settings   A: open", mk);
+        else if (it[i] == kItListFilter) add(sel ? cWhite : cGray, sel, "%s List: %s   A / Left / Right", mk, ListFilterLabel());
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Matches: browse bosses   A / Enter opens", mk);
         else if (it[i] == kItPractice) add(sel ? cWhite : cGray, sel, "%s Yamagata mission replay   A: open", mk);
         else if (it[i] == kItPracticeStart) add(sel ? cWhite : cGray, sel, "%s Replay from the boss shrine", mk);
@@ -3725,44 +5862,67 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open Battle Scroll replays", mk);
         else if (it[i] == kItScroll) add(sel ? cWhite : cGray, sel, "%s Play first owned Picture Scroll", mk);
         else if (it[i] == kItAbort) add(cYellow, sel, "%s Cancel pending replay", mk);
-        else if (it[i] >= kItTeleport) {
+        else if (it[i] >= kItArenaTrain && it[i] < kItArenaTrain + kMaxRows) {
+            const char* why = ArenaTrainWhy(it[i] - kItArenaTrain);
+            add(sel ? cWhite : why ? cDim : cGreen, sel, "%s    Train in this arena (no boss, no waves)", mk);
+        } else if (it[i] >= kItTeleport) {
             const int row = it[i] - kItTeleport;
-            const char* why = CanArena(row);
-            const uint8_t stt = g_status[(size_t)row].load();
-            if (g_uiPages.page == uTraining)  // user #13164: Training arena list (details in the footer)
-                add(sel ? cWhite : (stt != 2 && !AnyBossOk(row)) || (stt == 2 && why) ? cDim : cGreen, sel, "%s Arena: %s", mk, g_rows[(size_t)row].name /* ally #89: full name, the host panel word-wraps (58 cols) */);
-            else if (stt != 2) add(sel ? cWhite : cDim, sel, AnyBossOk(row) ? "%s    Train here (boss not cleared; no mission progress)" : "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
-            else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - %s", mk, why);
-            else add(sel ? cWhite : cGreen, sel, "%s    Train in this arena (boss starts standing still)", mk);
+            if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
+                add(sel ? cWhite : cGreen, sel, "%s %s%s", mk, FavMark(row), g_rows[(size_t)row].name);
+            } else {
+            const char* why = CanMatchArena(row);
+            if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s %sTrain here (arena unavailable)", mk, FavMark(row));
+            else if (why) add(sel ? cWhite : cDim, sel, "%s %sArena unavailable: %s", mk, FavMark(row), why);
+            else add(sel ? cWhite : cGreen, sel, "%s %sTrain in arena: %s", mk, FavMark(row), g_rows[(size_t)row].name);
+            }
+        } else if (it[i] >= kItBossTrainHere && it[i] < kItBossTrainHere + kMaxRows) {
+            const int row = it[i] - kItBossTrainHere;
+            if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
+                add(sel ? cWhite : cGreen, sel, "%s    Train here (no waves)", mk);
+            else if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
+                add(sel ? cWhite : cDim, sel, "%s    Train here does not pick this scroll", mk);
+            else add(sel ? cWhite : TrainHereOk(row) ? cGreen : cDim, sel, "%s    Train here", mk);
         } else if (it[i] >= kItShrine) {
-            const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
-            const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
-            const char* why = CanShrine(it[i] - kItShrine);
+            const int srow = it[i] - kItShrine;
+            const Row& r = g_rows[(size_t)srow];
+            if (r.route == rcore::kE) {
+                const char* why = CanShrine(srow);
+                add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - %s", mk, why ? why : "a Picture Scroll has no shrine");
+            } else {
+            const uint8_t stt = g_status[(size_t)srow].load();
+            const char* why = CanShrine(srow);
             const uint32_t c = stt == 2 && !why ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
             if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : c, sel, "%s    Shrine before the boss   - %s", mk, why);
             else add(sel ? cWhite : c, sel, "%s    Shrine before the boss   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
+            }
         } else if (it[i] >= kItFight) {
             const int row = it[i] - kItFight;
-            const Row& r = g_rows[(size_t)row];
-            const uint8_t stt = g_status[(size_t)row].load();
-            const char* why = CanArena(row);
-            const char* action = "Fight now";
-            const char* conf = r.atFight ? r.fightConf : r.arenaConf;
-            const uint32_t c = why || stt != 2 ? cDim : (!strcmp(conf, "high") || !strcmp(conf, "captured")) ? cGreen : !strcmp(conf, "medium") ? cYellow : cOrange;
-            if (stt != 2 && AnyBossOk(row)) add(sel ? cWhite : cGreen, sel, "%s    Train here (boss not cleared; no mission progress)", mk);
-            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    %s   - not beaten on this journey", mk, action);
-            else if (why) add(sel ? cWhite : c, sel, "%s    %s   - %s", mk, action, why);
-            else add(sel ? cWhite : c, sel, "%s    %s   %s   [%s]", mk, action, r.atFight ? "the mission starts at the fight" : "warp into the trigger", conf);
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE) {
+                const char* why = CanFight(row);
+                if (why) add(sel ? cWhite : cDim, sel, "%s    Fight now - %s", mk, why);
+                else add(sel ? cWhite : cGreen, sel, "%s    Fight now (this scroll's waves)", mk);
+            } else {
+            const char* why = CanMatchArena(row);
+            if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s    Train here (arena unavailable)", mk);
+            else if (why) add(sel ? cWhite : cDim, sel, "%s    Fight now - %s", mk, why);
+            else add(sel ? cWhite : cGreen, sel, "%s    %s", mk,
+                     (size_t)row < g_rows.size() && g_rows[(size_t)row].lesson ? "Fight now (lesson)" : "Fight now (boss arena)");
+            }
         } else {
             const Row& r = g_rows[(size_t)it[i]];
-            const uint8_t stt = g_status[(size_t)it[i]].load();
-            const char* status = r.route == rcore::kX ? "-" : r.route == rcore::kE ? "" : !scanned ? "?" : stt == 2 ? "Replay" : stt == 1 ? (AnyBossOk(it[i]) ? "Train here" : "Not cleared") : "error";
-            const uint32_t c = r.route == rcore::kX ? cDim : (r.route != rcore::kE && stt != 2 && !AnyBossOk(it[i])) ? cDim : !r.Verified() ? cGray : cGreen;
-            if (g_uiPages.page == uActions)
-                add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
+            if (r.OpenWorld()) {
+                add(sel ? cWhite : cGreen, sel, "%s %s%-40.40s %-10.10s %-11.11s %-14.14s", mk, FavMark(it[i]), r.name, r.region, "Summon", "Open world");
+                continue;
+            }
+            const char* routeWhy = CanMatchArena(it[i]);
+            const char* status = r.warning[0] ? "Known bug" : r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
+            const uint32_t c = r.warning[0] ? cOrange : !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
+            // human #78402: a scroll row is its own full label; the boss columns cut the enemy name and add 'Waves unverified'.
+            if (g_uiPages.page != uActions && rcore::WavesRow(r)) { add(sel ? cWhite : cGreen, sel, "%s %s%s", mk, FavMark(it[i]), r.name); continue; }
+            if (g_uiPages.page == uActions) add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
             else
-                add(sel ? cWhite : c, sel, "%s %-40.40s %-10.10s %-10.10s %-14.14s %s", mk, r.name, r.region, status, rcore::RouteName(r.route),
+                add(sel ? cWhite : c, sel, "%s %s%-40.40s %-10.10s %-11.11s %-14.14s %s", mk, FavMark(it[i]), r.name, r.region, status, rcore::RouteName(r.route),
                     r.route == rcore::kX ? "" : r.Verified() ? "" : "unverified");
         }
     }
@@ -3770,7 +5930,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (footer && nf) {
         footer[0] = 0;
         const int item = g_sel < 0 ? kItClose : n ? it[g_sel] : kItOpen;
-        if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        if (item == kItPageDefaults) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Restore this page to shipped defaults. Other pages stay unchanged; startup settings apply after restart.");
+        else if (item == kItStagedStart) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Full climb plays every staged wave in order. Final wave requests only the last one and sets that boss's health to the script's pre-final fraction for this session. Nothing is written to the save.");
+        else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
         else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
@@ -3780,6 +5942,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItStanceTimer) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training and spawned Boss Matches: switch all active bosses after 1-10 seconds. If any boss is waiting, all will fight; otherwise all will wait. A starts or cancels.");
         else if (item == kItBossStance) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss only: Stand still waits between repeats. Fight normally uses its own attacks. A toggles; Left fights; Right waits.");
         else if (item == kItBossAggro) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: this boss targets you and approaches within 5 m before repeating a move. Also saves the default for newly added bosses.");
+        else if (item == kItBossLast) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Let the boss do the attack you want, pause, then pick Last move (or Last 2 / Last 3): the boss keeps repeating it, with Repeat delay after each round.");
+        else if (item == kItRepFlow) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Last 2 / 3 moves: Flow chains them like the boss's own combos (Stand still too, once the boss has chained that move itself); Pause plays each one out to idle.");
         else if (item == kItBossGap) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Delay after this boss repeats a move or chain. Left / Right changes it by 0.25 s. Saved for this boss type.");
         else if (item == kItBossReset) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts this boss back where it first appeared, facing you.");
         else if (item == kItBossRemove) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: removes this boss (and its health bar). The other bosses stay.");
@@ -3843,7 +6007,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItBossSumm) {
             snprintf(footer, nf, "Add bosses beside you without loading an arena. They wait during Training; otherwise they fight normally. Change Behavior under Active bosses.");
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training only: start with this boss here. Active bosses controls behavior and repeats. Return to where I was ends the session.");
+            const int row = item - kItTrainHere;
+            if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll arena, no waves: summon bosses or practice here. A: start / Right: favorite / Left: unfavorite / B: back.");
+            else snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training only: start with this boss here. Active bosses controls behavior and repeats. Right: favorite / Left: unfavorite.");
         } else if (item == kItRootTools) {
             snprintf(footer, nf, "Active bosses in Training and spawned Boss Matches. Open a boss to change its behavior, health, Ki, or moves. Add or remove bosses here.");
         } else if (item == kItFightOpts) {  // user #13265
@@ -3856,7 +6023,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const auto& m = kN3Moves[item - kItMoveBase];
             char tag[32];
             N3MoveHitTag(&m, tag, sizeof tag);
-            snprintf(footer, nf, "0x%04X  %.60s%s%s. A: repeat | Left: block | Right: allow.", m.id, MoveName(m), tag[0] ? ", " : "", tag);
+            snprintf(footer, nf, "0x%04X  %.60s%s%s.%s A: repeat | Left: block | Right: allow.", m.id, MoveName(m), tag[0] ? ", " : "", tag,
+                     N3MoveProj(&m) ? " Projectile. " N3_PROJ_HELP : "");  // human #126342
         } else if (item == kItMoves || g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves grouped by hit count and type. A toggles repeat; Left blocks a move; Right allows it. Hit labels describe available data, not guaranteed damage taken.");
         } else if (item <= kItSettingBase) {
@@ -3867,23 +6035,47 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item <= kItGroupBase) snprintf(footer, nf, "Startup preferences. Every change is saved at once and applies after a game restart.");
-        else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then Fight now or Shrine before the boss. Existing unlock and solo checks apply.");
+        else if (item == kItListFilter && g_listCycle.Kind(ListStopRef()) == 6) snprintf(footer, nf, "Not recently confirmed: no recorded working live entry for this boss on its current path. Not your beaten / unbeaten progress.");
+        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, Dojos,%s Scrolls, and Favorites. Right on a row marks a favorite, Left unmarks it.", ListFilterLabel(), IsTrainListPage() ? "" : " Not recently confirmed,");
+        else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss: Fight now in its arena, or Train here. Beaten and unbeaten bosses use the same guarded route.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
         else if (item == kItDeathBlow) snprintf(footer, nf, "Training / spawned Boss Matches: ON requires a final blow at zero HP; OFF kills at zero HP. No grapple overrides this rule. Saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "Training / spawned Boss Matches: drop boss loot and Amrita, with one final blow. No first-clear rewards. Boss Matches start this OFF; you can enable it during the match.");
+        else if (item == kItReturnHome && WavesGateNow()) snprintf(footer, nf, "Leaves the Picture Scroll for the shrine.");
+        else if (item == kItReturnHome && NativeGateMission()) snprintf(footer, nf, "Return to where you entered this Boss Match.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the arena session (boss removed) and puts you back where you stood before it started, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItAutoRetry) snprintf(footer, nf, "Training and arena Boss Matches retry in place after defeat. Auto retry is always enabled.");
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
         else if (item == kItFinT) snprintf(footer, nf, "Death animation / Boss loot: kill when the first final-blow animation ends, or after this timeout. Left / Right: 0.5 s. Saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "With No grapple ON, a zero-HP boss dies after this long without a hit. Left / Right: 0.1 s. Shared by Training and spawned Boss Matches. Saved.");
+        else if (item == kItFightAgain && (NativeGateMission() || WavesGateNow())) snprintf(footer, nf, "Leaves and reloads the mission, then starts the same fight. B / Close keeps you at the gate.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close the mod menu and return to the game.");
-        else if (item >= kItTeleport) {
-            const char* why = CanArena(item - kItTeleport);
-            if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, AnyBossOk(item - kItTeleport) ? "Boss not cleared: A starts Training with this boss here, without mission progress. B: back." : "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
-            else if (why) snprintf(footer, nf, "%s. B back.", why);
-            else snprintf(footer, nf, "Training only: move to this arena with its boss standing still. Moving between worlds may take longer. A: start / B: back.");
+        else if (item >= kItArenaTrain && item < kItArenaTrain + kMaxRows) {
+            const int row = item - kItArenaTrain;
+            const char* why = ArenaTrainWhy(row);
+            if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+            else if (why) snprintf(footer, nf, "Train in this arena unavailable: %s. B: back.", why);
+            else snprintf(footer, nf, "Loads this row's arena with no waves and no boss; summon from the Training menu. A: start / B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);
+        } else if (item >= kItTeleport) {
+            const int row = item - kItTeleport;
+            if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll arena, no waves: summon bosses or practice here. A: start / Right: favorite / Left: unfavorite / B: back.");
+            } else {
+            const char* why = CanMatchArena(row);
+            if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here / B: back." : "%s. B: back.", why);
+            else snprintf(footer, nf, "Train in this boss arena, including unbeaten bosses. Solo and progress guards apply. A: start / Right: favorite / Left: unfavorite / B: back.");
+            }
+        } else if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) {
+            const int row = item - kItBossTrainHere;
+            if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll arena, no waves: summon bosses or practice here. A: start / B: back.");
+            else if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
+                snprintf(footer, nf, "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
+            else snprintf(footer, nf, TrainHereOk(row) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);  // regression #94992: Train here shows the row warning too
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);
@@ -3891,15 +6083,27 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else snprintf(footer, nf, "%s: starts the mission at start point %u (%s, %d m from the boss, %s confidence). A start, B back.",
                      r.mission[0] ? r.mission : r.name, r.fightStart, r.fightKind, r.fightDist, r.fightConf);
         } else if (item >= kItFight) {
-            const Row& r = g_rows[(size_t)(item - kItFight)];
-            const char* why = CanArena(item - kItFight);
-            if (why) snprintf(footer, nf, "%s. B back.", why);
-            else if (r.atFight) snprintf(footer, nf, "%s: the mission's only start point is at the fight (%d m). A start, B back.", r.mission[0] ? r.mission : r.name, r.fightDist);
-            else snprintf(footer, nf, "%s: start point %u, then a warp to %.0f %.0f %.0f inside the arena trigger (%s). A start, B back.",
-                          r.mission[0] ? r.mission : r.name, r.fightStart, r.arena[0], r.arena[1], r.arena[2], r.arenaSrc);
+            const int row = item - kItFight;
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE) {
+                const char* why = CanFight(row);
+                if (why) snprintf(footer, nf, "%s. B: back.", why);
+                else snprintf(footer, nf, "This scroll's own waves. No Picture Scroll item is used. A: start / B: back.");
+            } else {
+            const char* why = CanMatchArena(row);
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].lesson)
+                snprintf(footer, nf, "%s. A: start / B: back.", kLessonLine);
+            else if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here, or choose Train here below. B: back." : "%s. B: back.", why);
+            else snprintf(footer, nf, "Fight this boss in its arena, beaten or unbeaten. Solo and progress guards apply. Train here is a separate Practice option. A: start / B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);
+            }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
+            if (r.OpenWorld()) snprintf(footer, nf, "Teleport to this boss's field spawn and summon it beside you. No save writes.");
+            else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.lesson) snprintf(footer, nf, "%s", kLessonLine);
+            else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.route == rcore::kE)
+                snprintf(footer, nf, "%s: A opens the wave fight. Not a boss. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name);
+            else if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name, g_sel + 1, n - 1);
+            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) WarnFooter(footer, nf, item);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");
@@ -4094,6 +6298,40 @@ void SpiritChr(uint64_t mgr, uint64_t& inst, uint64_t& chr, uint64_t& state) {
 void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
     sscanf_s(line, "%31s %63s", cmd, (unsigned)sizeof(cmd), arg, (unsigned)sizeof(arg));
+    if (!strcmp(cmd, "scrollctl")) {  // #75963 DEV: scrollctl give <hexid> <seed> <level> <b0f> | item | level <n> | b0f <n> | redirect <0|1> | state
+        char a[32] = {};
+        unsigned v1 = 0, v2 = 0, v3 = 0, v4 = 0;
+        const char* rest = strstr(line, "scrollctl") + 9;  // the whole line: arg holds only the first word
+        const int na = sscanf(rest, "%31s %x %u %u %u", a, &v1, &v2, &v3, &v4);
+        if (na >= 1 && !strcmp(a, "give")) {
+            if (na >= 2) g_scGiveId.store(v1);
+            g_scGiveSeed.store(na >= 3 ? v2 : 1);
+            g_scGiveLevel.store(na >= 4 ? v3 : 0);
+            g_scGiveB0f.store(na >= 5 ? v4 : 0);
+            g_scGive.store(true);
+        } else if (na >= 1 && !strcmp(a, "item")) Post(kReqScroll, -1, "scrollctl");
+        else if (na >= 1 && !strcmp(a, "useitem")) g_scUseItem.store(1);
+        else if (na >= 1 && !strcmp(a, "noitem")) g_scUseItem.store(0);
+        else if (na >= 1 && !strcmp(a, "start0")) g_scStart0.store(1);
+        else if (na >= 1 && !strcmp(a, "startrow")) g_scStart0.store(0);
+        else if (na >= 1 && !strcmp(a, "seedpick")) g_scSeedPick.store(1);
+        else if (na >= 1 && !strcmp(a, "noseedpick")) g_scSeedPick.store(0);
+        else if (na >= 2 && !strcmp(a, "keybyte")) {  // #77334 DEV: write the record's real key to charMgr +0x2BEF, redirect stays on
+            uint64_t kbA = 0, kbC = 0;
+            uint8_t kbOld = 0, kbNew = (uint8_t)v1;
+            const bool kbOk = Rd(G_CH, kbA) && kbA && Rd(kbA, kbC) && kbC && Rd(kbC + 0x2BEF, kbOld) && WrBytes(kbC + 0x2BEF, &kbNew, 1);
+            Log("Rematch: scrollctl keybyte %02X -> %02X: %s", kbOld, kbNew, kbOk ? "written" : "FAILED");
+        }
+        else if (na >= 1 && (!strcmp(a, "level") || !strcmp(a, "b0f") || !strcmp(a, "redirect"))) {
+            unsigned d = 0;
+            sscanf(rest, "%*s %u", &d);
+            if (!strcmp(a, "level")) g_scLevel.store((int)d);
+            else if (!strcmp(a, "b0f")) g_scB0f.store((int)d);
+            else g_scNoRedirect.store(d ? 0 : 1);
+        }
+        snprintf(reply, n, "scrollctl level %d b0f %d redirect %d items %d", g_scLevel.load(), g_scB0f.load(), g_scNoRedirect.load() ? 0 : 1, CountScrollItems());
+        return;
+    }
     if (!strcmp(cmd, "ping")) {
         snprintf(reply, n, "pong Nioh3BossRematch %s live=%d", ADDON_VERSION, g_live.load());
         return;
@@ -4458,6 +6696,17 @@ void Command(const char* line, char* reply, size_t n) {
         snprintf(reply, n, "queued");
         return;
     }
+    if (!strcmp(cmd, "again")) {  // #100425 test hook: the gate page's 'Fight again' item (same checks as UiAct), for timed retry runs
+        if (!NativeGateMission() && !WavesGateNow()) { snprintf(reply, n, "refused: no native gate mission"); return; }
+        const int row = NativeGateRow();
+        const Snap s = ReadSnap();
+        const char* why = row < 0 ? "native boss row is no longer owned" : !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(reply, n, "refused: %s", why); return; }
+        Post(kReqNativeAgain, row, "pipe again");
+        snprintf(reply, n, "queued %s", g_rows[(size_t)row].id);
+        return;
+    }
     if (!strcmp(cmd, "abort")) {
         Post(kReqAbort, -1, "pipe");
         snprintf(reply, n, "queued");
@@ -4472,12 +6721,27 @@ void Command(const char* line, char* reply, size_t n) {
         const bool arena = !strcmp(cmd, "fight");
         for (size_t i = 0; i < g_rows.size(); ++i)
             if (!strcmp(g_rows[i].id, arg)) {
-                if (const char* w = arena ? CanArena((int)i) : CanFight((int)i)) {
+                // A scroll has no arena: its Fight now is the record start, same as the menu (ActScrollFight).
+                const bool scroll = arena && g_rows[i].route == rcore::kE;
+                if (const char* w = arena && !scroll ? CanArena((int)i) : CanFight((int)i)) {
                     snprintf(reply, n, "refused %s", w);
                     return;
                 }
-                Post(arena ? kReqFight : kReqShrine, (int)i, "pipe");
+                Post(scroll ? kReqEmaki : arena ? kReqFight : kReqShrine, (int)i, "pipe");
                 snprintf(reply, n, "queued %s %s start=%u", g_rows[i].id, cmd, g_rows[i].fightStart);
+                return;
+            }
+        snprintf(reply, n, "error no row %s", arg);
+        return;
+    }
+    if (!strcmp(cmd, "trainscroll")) {  // trainscroll <id>: #79069 same request as the Training rows, for live tests
+        for (size_t i = 0; i < g_rows.size(); ++i)
+            if (!strcmp(g_rows[i].id, arg)) {
+                if (!rcore::WavesRow(g_rows[i])) { snprintf(reply, n, "refused not a Waves row"); return; }
+                if (!g_waveVetoOk) { snprintf(reply, n, "refused wave guard not installed"); return; }
+                if (const char* w = CanFight((int)i)) { snprintf(reply, n, "refused %s", w); return; }
+                Post(kReqEmakiTrain, (int)i, "pipe");
+                snprintf(reply, n, "queued %s trainscroll", g_rows[i].id);
                 return;
             }
         snprintf(reply, n, "error no row %s", arg);
@@ -4502,6 +6766,40 @@ void Command(const char* line, char* reply, size_t n) {
 }
 
 bool PlayerExists() { return PlayerChar() != 0; }
+void NoteNativeWin() {  // any thread; the boss-mode end or mission clear of the running fight
+    if (g_attemptPhase.load() == aActive) g_attemptWonSeq.store(g_attempt.sequence);
+}
+void NoteWavesEnd() {  // BossBattleModeEnd with no BossBattleMode open, on the Fight now waves row
+    if (!g_fight.load()) return;
+    const int fr = g_fightRow;
+    if (fr < 0 || (size_t)fr >= g_rows.size()) return;
+    const Row& r = g_rows[(size_t)fr];
+    if (!rcore::WavesUnmatchedEndWins(r.fightSignal, false)) return;
+    if (g_attempt.mission && r.missionId && g_attempt.mission != r.missionId) return;
+    Log("Rematch: waves win %s (BossBattleModeEnd, no BossBattleMode)", r.id);
+    using Fn = void (*)(int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_WavesFight")) f(2);
+}
+
+int FightLogMode() {
+    if (g_practiceOwned.load()) return 2;             // Practice
+    if (g_replayIn.load() || g_fight.load()) return 1;  // Boss Match
+    return 3;                                         // story / field boss
+}
+const char* FightLogId() {
+    if (FightLogMode() == 3 || g_fightRow < 0 || (size_t)g_fightRow >= g_rows.size()) return "";
+    return g_rows[(size_t)g_fightRow].id;
+}
+const char* FightLogName() {
+    const char* n = RowName(g_fightRow);
+    return n ? n : "";
+}
+const char* NameForPlacement(uint32_t id) {
+    if (!id) return "";
+    for (size_t i = 0; i < g_rows.size(); ++i)
+        if (g_rows[i].placement == id && g_rows[i].name[0]) return g_rows[i].name;
+    return "";
+}
 
 }  // namespace rematch
 }  // namespace addon
@@ -4511,4 +6809,13 @@ bool PlayerExists() { return PlayerChar() != 0; }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_InMatch() {
     namespace r = addon::rematch;
     return r::g_replayIn.load() || r::g_fight.load() || r::g_practiceOwned.load() ? 1 : 0;
+}
+
+// Training calls this once the Fight now cover has actually ended. 1 only for a lesson row: one closed-menu toast.
+extern "C" __declspec(dllexport) int Nioh3BossRematch_LessonNote() {
+    namespace r = addon::rematch;
+    if (r::g_fightRow < 0 || (size_t)r::g_fightRow >= r::g_rows.size() || !r::g_rows[(size_t)r::g_fightRow].lesson)
+        return 0;
+    r::ToastF(r::cWhite, 8000, "%s", r::kLessonLine);
+    return 1;
 }

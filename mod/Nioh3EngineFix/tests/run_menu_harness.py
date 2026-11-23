@@ -8,7 +8,7 @@ REPO = ROOT.parent.parent
 OUT = ROOT / "build" / "menutest"
 OUT.mkdir(parents=True, exist_ok=True)
 setup = next((p for p in (REPO / "tools/msvc/setup_x64.bat",
-    pathlib.Path(r"C:\nioh3-engine\tools\msvc\setup_x64.bat")) if p.exists()), None)
+    pathlib.Path(r"D:/nioh3-wt/rc-187/tools/msvc/setup_x64.bat")) if p.exists()), None)
 for source in (ROOT / "tests/menu_harness.cpp", REPO / "mod/Nioh3BossRematch/tests/ui_harness.cpp"):
     exe = OUT / (source.stem + ".exe")
     cmd = (f'cl /nologo /O2 /MT /Gy /EHsc /std:c++17 /W4 /permissive- /DUNICODE /D_UNICODE '

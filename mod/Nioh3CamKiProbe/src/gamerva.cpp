@@ -132,7 +132,9 @@ uint32_t ResolveOne(int i) {
     Pat p;
     if (!Parse(d.pattern, p)) return 0;
     const uint8_t* hit = nullptr;
-    if (Scan(p, &hit) != 1) return 0;
+    const int n = Scan(p, &hit);
+    SwitchToThread();  // #77: a whole-exe scan per entry; let the game's threads run between scans (4-core PCs)
+    if (n != 1) return 0;
     const uintptr_t site = (uintptr_t)hit + d.offset;
     if (d.kind == rvas::kCode) return (uint32_t)(site - g_base);
     int32_t disp = 0;

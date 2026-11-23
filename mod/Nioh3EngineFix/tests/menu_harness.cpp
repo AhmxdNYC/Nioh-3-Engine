@@ -68,6 +68,11 @@ int BarriersIni() { return 0; }
 bool Rewrite(int) { return false; }
 void SetBatching(bool) {}
 void SetRewrite(int, bool) {}
+int g_vrsSupportStub = 0, g_vrsBootStub = 0, g_vrsLiveCalls = 0; bool g_vrsTrackStub = false; vrsmenu::Values g_vrsLiveStub;
+int VrsSupport() { return g_vrsSupportStub; }
+int VrsBootMode() { return g_vrsBootStub; }
+bool VrsBootTracking() { return g_vrsTrackStub; }
+void VrsSetLive(const vrsmenu::Values& v) { ++g_vrsLiveCalls; g_vrsLiveStub = v; }
 }
 namespace crashreport {  // #38437 / #43461: the Report row opens the folder and the website
 int g_snapshots = 0, g_urlOpens = 0, g_folderOpens = 0;
@@ -78,6 +83,22 @@ bool ReportOpenWanted() { return false; }
 bool CopyReportUrl() { return true; }
 void OpenReportUrl() { ++g_urlOpens; }
 void OpenReportFolder(const char* path) { ++g_folderOpens; snprintf(g_folderPath, sizeof g_folderPath, "%s", path ? path : ""); }
+}
+namespace reportsend {  // #64882: the Report box hands its text here
+int g_sends = 0;
+std::string g_lastText, g_lastVia;
+State g_st = State::Idle;
+bool Send(const char* t, const char* via, char* msg, size_t cap) {
+    if (!t || !*t) { snprintf(msg, cap, "Type what went wrong first."); return false; }
+    ++g_sends; g_lastText = t; g_lastVia = via ? via : ""; g_st = State::Sent; return true;
+}
+State Status(char* m, size_t c) { if (m && c) snprintf(m, c, "%s", g_st == State::Sent ? "Sent. Thank you!" : ""); return g_st; }
+void ClearStatus() { g_st = State::Idle; }
+const char* Endpoint() { return "https://example.invalid/api/report"; }
+void NoteInput(const char*, const char*) {}
+bool SteamEnabled() { return false; }
+bool SteamShow(const char*, unsigned) { return false; }
+int SteamPoll(char*, size_t) { return 0; }
 }
 namespace extraperf {
 bool Available(int) { return false; }
@@ -90,6 +111,22 @@ void SetLevel(int, int) {}
 const char* PresetName(int) { return "OFF"; }
 void ApplyPreset(int) {}
 int MatchPreset() { return 0; }
+int RdPct() { return 0; }
+float RdMul() { return 1.f; }
+void SetRdPct(int) {}
+void StepRd(int) {}
+bool RdAvailable() { return false; }
+int SharpLevel() { return 0; }
+void SetSharpLevel(int) {}
+const char* SharpName(int) { return "OFF"; }
+bool SharpAvailable() { return false; }
+}
+namespace inputlog {  // input ring: not under test here
+void ObservePad(int, unsigned, int, int, int, int, int, int) {}
+void ObserveKey(const char*, int, int) {}
+void ObserveKeyboard(const unsigned char*, int) {}
+void ObserveMouse(unsigned, int) {}
+void NoteMenu(const char*, const char*, const char*, const char*, const char*) {}
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
@@ -109,13 +146,16 @@ namespace host_fixture {
 namespace mb = rematch_menu_bridge;
 mb::Snapshot view{};
 uint32_t posted = 999;
+int postedDown = 0;
 uint64_t coveredToken=0;
 int Covered(uint64_t,uint64_t token){coveredToken=token;return mb::Accepted;}
-bool closeBusy = false;
+bool closeBusy = false; int busyPosts = 0;
 int Attach(uint64_t, uint64_t*) { return mb::Accepted; }
 int Detach(uint64_t) { return mb::Accepted; }
 int Post(uint64_t, uint64_t, uint32_t action) {
     if (closeBusy && action == mb::CloseMenu) return mb::Busy;
+    if (busyPosts > 0 && action != mb::CloseMenu) { --busyPosts; return mb::Busy; }  // worker mid-tick holds the bridge lock
+    if (action == mb::Down) ++postedDown;
     posted = action; return mb::Accepted;
 }
 int Copy(uint64_t, mb::Snapshot* out, uint32_t) { *out = view; return mb::Accepted; }
@@ -230,18 +270,18 @@ int main() {
     Change(kPageRow + pDisplay, 0);
     {
         const int n = PageRows(rows, true);
-        CHECK(g_pages.page == pDisplay && n == 12 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+        CHECK(g_pages.page == pDisplay && n == 13 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
               rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow &&
-              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kBackRow);
+              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kResetPageRow && rows[12] == kBackRow);
     }
     {   // 'Game HUD >' page: master Hide game HUD on top, then every per-element row once (hudhide::kElems), then Back
         const int saved = g_pages.page;
         g_pages.page = pOvHud;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 1 + hudhide::kElemN + 1 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
+        CHECK(n == 3 + 1 + hudhide::kElemN + 2 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
         for (int e = 0; e < hudhide::kElemN; ++e) {
             int seen = 0;
-            for (int r = 4; r < n - 1; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
+            for (int r = 4; r < n - 2; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
             CHECK(seen == 1);
         }
         g_pages.page = saved;
@@ -267,12 +307,16 @@ int main() {
     };
     CHECK(has(pOvController, kSettingRow + pad) && has(pOvController, kSettingRow + padColor) && has(pOvController, kSettingRow + style));
     CHECK(!has(pOvController, kSettingRow + inp) && has(pOvInput, kSettingRow + inp) && has(pOvInput, kSettingRow + inpRows) && !has(pOvInput, kSettingRow + pad));
+    {  // #98294: the pad debug row must be reachable in layout 0 (Input display page), where its lines are drawn
+        const int dbg = cfgIndex("PadDebug");
+        CHECK(dbg >= 0 && has(pOvInput, kSettingRow + dbg) && !has(pOvController, kSettingRow + dbg) && PadDebugSettingRow() == kSettingRow + dbg);
+    }
     // Frame meter page: meter, Ki window and every Training toggle row
     {
         g_pages.page = pOvFrameMeter;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 5 + kPsToggleN + 2 && rows[3] == kFrameMeterRow && rows[4] == kFrameMeterStyleRow && rows[5] == kFrameMeterSizeRow && rows[6] == kPsAllRowsRow && rows[7] == kKiWindowRow && rows[8] == kPsRowFirst &&
-              rows[15] == kPsAllKeysRow && rows[16] == kPsRowFirst + 7 && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
+        CHECK(n == 3 + 5 + kPsToggleN + 3 && rows[3] == kFrameMeterRow && rows[4] == kFrameMeterStyleRow && rows[5] == kFrameMeterSizeRow && rows[6] == kPsAllRowsRow && rows[7] == kKiWindowRow && rows[8] == kPsRowFirst &&
+              rows[15] == kPsAllKeysRow && rows[16] == kPsRowFirst + 7 && rows[n - 3] == kPsRowFirst + kPsToggleN - 1);
     }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
@@ -282,6 +326,44 @@ int main() {
     Change(kFrameMeterSizeRow,1);CHECK(g_psv[34]==2);
     Change(kFrameMeterSizeRow,0);CHECK(g_psv[34]==0);
     Change(kFrameMeterSizeRow,-1);CHECK(g_psv[34]==0);
+    // #79098 Variable rate shading page: reachable, one row per value, nothing moves until a row is touched, reset works.
+    {
+        const int savedPage = g_pages.page, savedDepth = g_pages.depth, savedSel = g_sel;
+        const bool dirtyWas = g_dirty, editedWas = g_vrsEdited;
+        CHECK(has(pSGpu, kVrs) && !has(pSGpu, kVrsPageRow) && !has(pExtra, kVrsPageRow) && !has(pDisplay, kVrsPageRow));  // #79450 one switch, no values page
+        CHECK(std::string(PageName(pVrsTune)) == "Variable rate shading");
+        g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
+        gpuopt::g_vrsSupportStub = -1; Change(kVrsPageRow, 0); CHECK(g_pages.page != pVrsTune);  // no hardware VRS: page stays shut
+        gpuopt::g_vrsSupportStub = 1; g_dirty = false;
+        Change(kVrsPageRow, 0); CHECK(g_pages.page == pVrsTune);
+        CHECK(!g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // opening the page changes nothing
+        int r[kMenuRowCap]; int rn = PageRows(r, true);
+        CHECK(!g_vrsAdvanced && rn == 3 + 2 + 2 && r[3] == kVrsRowFirst + vrsmenu::kRowLevel && r[4] == kVrsRowFirst + vrsmenu::kRowAdvanced && r[rn - 1] == kBackRow);  // #79382 simple page: level + advanced only
+        Change(kVrsRowFirst + vrsmenu::kRowLevel, 1); CHECK(vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelMedium && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 0 && gpuopt::g_vrsLiveStub.layouts == 7 && g_bootVrs);
+        Change(kVrsRowFirst + vrsmenu::kRowLevel, -1); CHECK(g_vrsVals.mode == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
+        g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
+        Change(kVrsRowFirst + vrsmenu::kRowAdvanced, 0); CHECK(g_vrsAdvanced && !g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // showing rows is not an edit
+        rn = PageRows(r, true);
+        CHECK(rn == 3 + vrsmenu::kRowN + 1 && r[3] == kVrsRowFirst && r[3 + vrsmenu::kRowReset] == kVrsRowFirst + vrsmenu::kRowReset && r[rn - 1] == kBackRow);
+        CHECK(g_sel == kVrsRowFirst);
+        Change(kVrsRowFirst + vrsmenu::kRowReset, 1); CHECK(!g_vrsEdited && gpuopt::g_vrsLiveCalls == 0);  // reset takes A only
+        Change(kVrsRowFirst + vrsmenu::kRowMode, -1); CHECK(g_vrsVals.mode == 0 && !g_vrsEdited);  // already at the end: no change, no save
+        Change(kVrsRowFirst + vrsmenu::kRowRate, 1);
+        CHECK(g_vrsVals.rate == 1 && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1);
+        Change(kVrsRowFirst + vrsmenu::kRowMode, 1); CHECK(g_vrsVals.mode == 1 && g_bootVrs && gpuopt::g_vrsLiveStub.mode == 1);
+        Change(kVrsRowFirst + vrsmenu::kRowSkip, 1); CHECK(!g_vrsVals.skip && !gpuopt::g_vrsLiveStub.skip);
+        Change(kVrsRowFirst + vrsmenu::kRowWide, 1); CHECK(g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.wide == 6);
+        Change(kVrsRowFirst + vrsmenu::kRowReset, 0);
+        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && g_vrsVals.wide == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0 && gpuopt::g_vrsLiveStub.wide == 0);
+        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 1 && g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.mode == 1 && gpuopt::g_vrsLiveStub.wide == 6);  // #121288 ON = 2x2 + glitter guard
+        Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
+        Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);
+        g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; g_vrsVals.layouts = 5; g_pages.page = savedPage; Change(kVrsPageRow, 0); CHECK(g_vrsAdvanced);  // saved Custom values open with their rows showing
+        g_vrsAdvanced = false;
+        g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsPresetOn = false; g_vrsEdited = editedWas; g_dirty = dirtyWas;
+        gpuopt::g_vrsSupportStub = 0; gpuopt::g_vrsLiveCalls = 0;
+        g_pages.page = savedPage; g_pages.depth = savedDepth; g_sel = savedSel;
+    }
     // Style is persistent, directional, append-only, and unavailable on an older Training module.
     CHECK(has(pOvFrameMeter,kFrameMeterStyleRow) && !has(pDisplay,kFrameMeterStyleRow));
     CHECK(kFrameMeterStyleWhat==33 && g_psv[33]==0);
@@ -380,7 +462,7 @@ int main() {
         osd::drawnTexts.clear();
         CHECK(DrawImpl(1920, 1080) > 0);
         bool need = false;
-        for (const auto& t : osd::drawnTexts) need |= t == "needs CamKiProbe add-on";
+        for (const auto& t : osd::drawnTexts) need |= t.find("CamKiProbe.asi not loa") != std::string::npos;
         CHECK(need);
         g_camProbePresentForTest = 1;
         wchar_t temp[MAX_PATH], folder[MAX_PATH];
@@ -435,12 +517,17 @@ int main() {
     {
         g_pages.page = pSettings;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 1 + 4 + 2 && rows[3] == kEpPre && rows[4] == kPageRow + pSCpu && rows[5] == kPageRow + pSGpu && rows[6] == kPageRow + pSGame && rows[7] == kPageRow + pFrameGen && rows[8] == kSave && rows[9] == kBackRow);
+        CHECK(n == 3 + 1 + 4 + 3 && rows[3] == kEpPre && rows[4] == kPageRow + pSCpu && rows[5] == kPageRow + pSGpu && rows[6] == kPageRow + pSGame && rows[7] == kPageRow + pFrameGen && rows[8] == kSave && rows[9] == kResetPageRow && rows[10] == kBackRow);
         CHECK(!has(pSettings, kFps) && !has(pSettings, kXTS) && !has(pSettings, kAutoCont) && !has(pSettings, kLat));
     }
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
     CHECK(has(pSettings, kEpPre) && !has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ !has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA) && has(pSGpu, kEp0));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
+    {  // #121260: Held attack fix (General.HoldKeyGap) is reachable in layout 0 on Settings > Game only
+        int hkg = -1;
+        for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].section, "General") && !strcmp(kConfigSettings[i].key, "HoldKeyGap")) hkg = i;
+        CHECK(hkg >= 0 && has(pSGame, kSettingRow + hkg) && !has(pSCpu, kSettingRow + hkg) && !has(pSGpu, kSettingRow + hkg));
+    }
     CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
     // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
     g_pages.Reset();
@@ -455,12 +542,75 @@ int main() {
     Move(-1);
     CHECK(g_sel == kBackRow);
     Move(1);
-    Change(kReportRow, 0);  // #38437: Report row writes one snapshot and keeps the page
+    {   // #64882: the Report row opens the text box. Keyboard: WM_CHAR text, Backspace, Down to Send, Enter sends.
+        const bool wasOpen = g_open != 0; const bool wasCfg = g_configured; g_configured = true;
+        g_open = 1;
+        g_okFromPad = false;
+        Change(kReportRow, 0);
+        CHECK(rbox::g_on && g_rbOn && rbox::g_focus == rbox::fText && !strcmp(rbox::g_via, "keyboard"));
+        auto msgOf = [](UINT m, WPARAM w) { tagMSG x{}; x.message = m; x.wParam = w; return x; };
+        for (const char* c = "hi!"; *c; ++c) { tagMSG x = msgOf(WM_CHAR, (WPARAM)*c); CHECK(SwallowMessage(&x)); }
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_BACK); CHECK(SwallowMessage(&x)); }
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_RETURN); CHECK(SwallowMessage(&x)); }  // Enter in the box = new line
+        { tagMSG x = msgOf(WM_CHAR, (WPARAM)'x'); CHECK(SwallowMessage(&x)); }
+        CHECK(!strcmp(rbox::g_text, "hi\nx"));
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_DOWN); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(rbox::g_focus == rbox::fSend);
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_RETURN); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(reportsend::g_sends == 1 && reportsend::g_lastText == "hi\nx" && reportsend::g_lastVia == "keyboard");
+        rbox::Handle(0, 0, 0, Now());  // the Sent state clears the box
+        CHECK(rbox::g_len == 0 && rbox::g_on);
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_ESCAPE); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(!rbox::g_on);
+        // controller: A on the box opens the key grid (no Steam here); D-pad + A types, X space, RB done, A sends
+        g_rbOn = 0;
+        g_okFromPad = true;
+        Change(kReportRow, 0);
+        CHECK(rbox::g_on && !strcmp(rbox::g_via, "pad"));
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(rbox::g_grid && rbox::g_focus == rbox::fGrid);
+        rbox::Handle(N_DOWN, N_DOWN, 0, Now());   // row 1: q w e ...
+        rbox::Handle(N_OK, N_OK, 0, Now());       // q
+        rbox::Handle(N_RIGHT, N_RIGHT, 0, Now());
+        rbox::Handle(N_OK, N_OK, 0, Now());       // w
+        rbox::Handle(N_X, N_X, 0, Now());         // space
+        rbox::Handle(N_CLOSE, N_CLOSE, 0, Now()); // Y: caps
+        rbox::Handle(N_OK, N_OK, 0, Now());       // W
+        rbox::Handle(N_BACK, N_BACK, 0, Now());   // B: delete
+        rbox::Handle(N_OK, N_OK, 0, Now());       // W
+        CHECK(!strcmp(rbox::g_text, "qw W"));
+        rbox::Handle(N_TAB_NEXT, N_TAB_NEXT, 0, Now());
+        CHECK(!rbox::g_grid && rbox::g_focus == rbox::fSend);
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(reportsend::g_sends == 2 && reportsend::g_lastText == "qw W" && reportsend::g_lastVia == "pad");
+        rbox::Handle(N_BACK, N_BACK, 0, Now());   // B on a row: cancel
+        CHECK(!rbox::g_on);
+        // empty text: Send refuses with a hint, nothing sent
+        Change(kReportRow, 0);
+        rbox::g_focus = rbox::fSend;
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(reportsend::g_sends == 2 && strstr(rbox::g_hint, "Type what"));
+        rbox::CloseBox("harness");
+        g_rbOn = 0;
+        g_open = wasOpen ? 1 : 0; g_configured = wasCfg;
+    }
+    auto reportWebsite = [&]() -> int {  // the box's last row is the old Report row action
+        Change(kReportRow, 0);
+        rbox::g_focus = rbox::fWeb;
+        rbox::Handle(N_OK, 0, 0, Now());
+        CHECK(!rbox::g_on);
+        g_rbOn = 0;
+        return 0;
+    };
+    if (reportWebsite()) return 1;  // #38437: writes one snapshot and keeps the page
     CHECK(crashreport::g_snapshots == 1 && crashreport::g_urlOpens == 1 && crashreport::g_folderOpens == 1
         && strstr(crashreport::g_folderPath, "stub-report.txt") && g_pages.page == pSettings
         && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
     updatecheck::wine = true;
-    Change(kReportRow, 0);
+    if (reportWebsite()) return 1;
     CHECK(crashreport::g_snapshots == 2 && crashreport::g_urlOpens == 2 && crashreport::g_folderOpens == 1
         && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "Wine"));
     updatecheck::wine = false;
@@ -477,8 +627,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 12 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
-          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kSaveFilesRow && rows[9] == kUpdatePageRow && rows[10] == kReverseModsRow && rows[11] == kClose);
+    CHECK(bossN == 13 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPlayerRow && rows[6] == kPageRow + pDisplay &&
+          rows[7] == kPageRow + pCamera && rows[8] == kPageRow + pSettings && rows[9] == kSaveFilesRow && rows[10] == kUpdatePageRow && rows[11] == kReverseModsRow && rows[12] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -549,13 +699,31 @@ int main() {
     st.Gamepad.wButtons = XINPUT_GAMEPAD_A;
     PadFeed(2, &st, false);
     CHECK(st.Gamepad.wButtons == XINPUT_GAMEPAD_A);
+    {   // held D-pad Down in the mod menu: edge, then repeats (400 ms, then 90 ms) - 1.1 s must move the selection several times
+        Open("held pad");
+        XINPUT_STATE hs = {};
+        PadFeed(2, &hs, false);  // release the opening latch
+        int moves = 0, last = g_sel;
+        const ULONGLONG t0 = Now();
+        while (Now() - t0 < 1100) {
+            hs.Gamepad.wButtons = XINPUT_GAMEPAD_DPAD_DOWN;
+            PadFeed(2, &hs, false);
+            OnPresentImpl();
+            if (g_sel != last) { ++moves; last = g_sel; }
+            Sleep(15);
+        }
+        CHECK(moves >= 6 && moves <= 12);  // 1 edge + ~7 repeats
+        hs.Gamepad.wButtons = 0; PadFeed(2, &hs, false); OnPresentImpl();
+        const int atRelease = g_sel; Sleep(300); OnPresentImpl(); CHECK(g_sel == atRelease);  // release stops it
+        Close("held pad");
+    }
     // All catalog keys are reachable exactly once through their section pages.
     int seen[kConfigN] = {};
     for (int i = 0; i < kConfigN; ++i) g_configValues.values[(size_t)i] = {kConfigSettings[i].initial, false};
     for (int group = 0; group < kConfigGroupN; ++group) {
         g_pages.page = pCfgFirst + group;
         n = PageRows(rows, true);
-        CHECK(n > 2 && rows[n - 2] == kSave && rows[n - 1] == kBackRow);
+        CHECK(n > 2 && rows[n - 3] == kSave && rows[n - 2] == kResetPageRow && rows[n - 1] == kBackRow);
         for (int i = 0; i < n; ++i)
             if (rows[i] >= kSettingRow) ++seen[rows[i] - kSettingRow];
     }
@@ -618,7 +786,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==10 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kSaveFilesRow && rows[7]==kUpdatePageRow && rows[8]==kReverseModsRow && rows[9]==kClose);
+    CHECK(g_pages.page==pRoot && n==11 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kPlayerRow && rows[7]==kSaveFilesRow && rows[8]==kUpdatePageRow && rows[9]==kReverseModsRow && rows[10]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly
@@ -633,6 +801,42 @@ int main() {
     hf::Complete(false); hf::closeBusy=true; OnPresentImpl();
     CHECK(!g_open && !g_rematchPage && g_rematchClosePending);
     hf::closeBusy=false; OnPresentImpl(); CHECK(!g_rematchClosePending && hf::posted==rmb::CloseMenu);
+    {   // held D-pad Down on the hosted Boss Match page repeats the Down action (it used to post one per press)
+        Open("held pad rematch"); Change(kRematchRow,0); hf::Complete(true); g_pressed=0; OnPresentImpl();
+        CHECK(g_rematchOpened && !g_rematchAwait);
+        XINPUT_STATE hs = {};
+        PadFeed(2, &hs, false);
+        hf::postedDown = 0;
+        const ULONGLONG t0 = Now();
+        while (Now() - t0 < 1100) {
+            hs.Gamepad.wButtons = XINPUT_GAMEPAD_DPAD_DOWN;
+            PadFeed(2, &hs, false);
+            hf::view.workerTickMs = Now();
+            if (g_rematchAwait) { hf::Complete(true); g_rematchAwait = false; }  // the worker answers each action
+            OnPresentImpl();
+            Sleep(15);
+        }
+        CHECK(hf::postedDown >= 6 && hf::postedDown <= 12);
+        hs.Gamepad.wButtons = 0; PadFeed(2, &hs, false);
+        hf::Complete(false); g_rematchAwait = false; OnPresentImpl();
+        if (g_open) Close("held pad rematch");
+        g_rematchPage = false; g_rematchOpened = false;
+    }
+    {   // a press the worker refused (lock held mid-tick -> Busy) is sent again on the next frames instead of being lost
+        Open("busy retry"); Change(kRematchRow,0); hf::Complete(true); g_pressed=0; OnPresentImpl();
+        CHECK(g_rematchOpened && !g_rematchAwait);
+        hf::posted = 999; hf::busyPosts = 2; hf::view.workerTickMs = Now();
+        g_pressed = N_DOWN; OnPresentImpl(); g_pressed = 0;
+        CHECK(hf::posted == 999 && !g_rematchAwait);
+        hf::view.workerTickMs = Now(); OnPresentImpl(); hf::view.workerTickMs = Now(); OnPresentImpl();
+        CHECK(hf::posted == rmb::Down && g_rematchAwait && hf::busyPosts == 0);
+        hf::Complete(true); OnPresentImpl(); hf::posted = 999;
+        hf::busyPosts = 100; g_pressed = N_DOWN; OnPresentImpl(); g_pressed = 0; Sleep(450); hf::view.workerTickMs = Now(); OnPresentImpl();
+        hf::busyPosts = 0; hf::view.workerTickMs = Now(); OnPresentImpl(); CHECK(hf::posted == 999);  // expired after 400 ms: no late ghost press
+        hf::Complete(false); g_rematchAwait = false; OnPresentImpl();
+        if (g_open) Close("busy retry");
+        g_rematchPage = false; g_rematchOpened = false;
+    }
     Open("frozen worker"); Change(kRematchRow,0); hf::Complete(true); OnPresentImpl();
     hf::view.workerTickMs=Now()-2000; OnPresentImpl(); CHECK(!g_open && !g_rematchPage);
     hf::Complete(false); Open("pending timeout"); Change(kRematchRow,0);
@@ -672,6 +876,7 @@ int main() {
     g_coverArmedAt=armedBefore;g_disabled=1;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);g_disabled=0;
     CoverPresented(ticket,1,0);CHECK(hf::coveredToken==42 && CoverCaptures(Now()));
     CHECK(!menu::CoverTipAllowed()); // AwaitPresent is never load-tip permission
+    menu::g_entryTip=1;CHECK(menu::CoverTipAllowed());menu::g_entryTip=0;CHECK(!menu::CoverTipAllowed()); // Training entry screen, no rematch lease
     hf::view.coverPhase=3;hf::view.workerTickMs=Now();OnPresentImpl();
     CHECK(!menu::CoverTipAllowed()); // require covered successful Present of Loading
     CoverPresented(ticket,1,0);CHECK(menu::CoverTipAllowed());

@@ -44,6 +44,9 @@ static void* Hook(uintptr_t rva, int ncopy, void* detour) { (void)rva; (void)nco
 #define MV_FORCE(st, id) (assert((st) == CTRL), forced_id = (uint32_t)(id), ++forced_n, act = (uint32_t)(id))
 static void AgSeqFace(uint64_t st);
 #define MV_PREFORCE(st) (++faces, AgSeqFace(st))
+#define HOOK_SET(dst,rva,n,detour) (dst = (void*)Hook(rva,n,detour))
+static uint32_t g_slot_native[N3T_SLOTS];
+static int NativeSlotsActive(void) { return 0; }
 #include "../src/move_toggle.h"
 static int BhAiOn(uint64_t a) { assert(a == actor); return ai_on; }
 static int IhAlive(uint64_t a) { return a == actor; }

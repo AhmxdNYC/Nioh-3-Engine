@@ -16,7 +16,9 @@ def function(signature):
     return text[begin:end]
 attempt = text[text.index('enum AttemptPhase'):text.index('// Unknown session reads')]
 snapshot = text[text.index('struct Snap {'):text.index('Snap ReadSnap()')]
-exit_dispatch = text[text.index('            if (!g_exitOk) Refuse(g_exitWhy);'):text.index('        } else if (kind == kReqAbort)')]
+exit_start = text.index('        if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {'+chr(10))
+exit_start = text.index(chr(10), exit_start) + 1  # the production return dispatch: gate choice, 20 s hold, Refuse or the guarded return call
+exit_dispatch = text[exit_start:text.index('        } else if (kind == kReqAbort)', exit_start)]
 tick_observation = function('void Tick()').split('    SpawnTick(s, t, loadEnded);')[0].replace('void Tick()', 'bool ObserveTick()') + '\n    return loadEnded;\n}'
 code = r"""
 #include <atomic>
@@ -48,7 +50,7 @@ bool g_live=true,g_exitOk=true;
 const char* g_exitWhy="exit unavailable";
 constexpr int kIdle=0;
 std::atomic<int> g_state{kIdle};
-namespace fight { bool g_active=false; void ForceEnd(const char*) { g_active=false; } }
+namespace fight { bool g_active=false; void ForceEnd(const char*) { g_active=false; } } void* TrainingExport(const char*) { return nullptr; }
 void AutoMovesTick() {}
 bool TrainingOwnsFight() { return false; }
 std::atomic<bool> g_staleBbm{false};
@@ -56,9 +58,17 @@ void Log(const char*,...);
 @SNAPSHOT@
 @ATTEMPT@
 bool XwPending() { return false; }  // Nioh3Training absent
+// Newer production state the slices below read: no scroll trip, no in-place swap, no map to restore in this fixture.
+bool ScrollLoadStuck(const Snap&) { return false; }
+bool MapRestoreNow(const char*) { return true; }
+std::atomic<bool> g_fight{false},g_swappedInPlace{false};
+constexpr uint32_t kReqNativeAgain=12;
 void CoverTick(const Snap&, ULONGLONG) {}
+void UnbeatenTick(const Snap&, ULONGLONG) {} // save veto tested by test_fight_result.py
 @FUNCTIONS@
 void ToIdle(const char*,bool=false) {}
+std::atomic<int> g_activeRow{-1};  // #121854: the retired native win keeps its gate's Fight again
+@RETIRED@
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;
 float g_posAtLoad[4]{},g_posLive[4]{};
 ULONGLONG g_loadRiseAt=0;
@@ -68,14 +78,25 @@ int nativeReturns=0;
 const char* refusal=nullptr;
 void Refuse(const char* reason) { refusal=reason; }
 int CallReturn() { ++nativeReturns; return 0; }
+enum FadResult { kFadFallback, kFadStarted, kFadRefused };
+FadResult FightAgainDirect(int,const Snap&,ULONGLONG) { return kFadFallback; }  // #100232 opt-in, default off: return path covered here
 void Log(const char*,...) {}
 void Result(const char*,...) {}
 // This suite exercises the existing generic return dispatch; actual practice
 // ownership paths are executed by test_native_attempt.py.
 constexpr uint32_t kReqPracticeExit=10;
 uint32_t kind=8;
+uint32_t g_pend=0; ULONGLONG g_pendAt=0, exitNow=40000;  // exitNow - g_pendAt >= 20 s: a 'loading' hold has run out and refuses (the old gate refused at once)
+std::vector<rcore::Row> g_rows;
+bool WavesGateNow() { return false; }
+uint32_t NativeGateMission() { return 0; }
+@RETIRED_GATE@
+void ScrollCoverOn(const char*,ULONGLONG) {}
+std::atomic<uint64_t> g_requestEpoch{0};
+uint64_t g_nativeAgainSequence=0,g_nativeAgainEpoch=0; int g_nativeAgainRow=-1; ULONGLONG g_nativeAgainAt=0;
 const char* PracticeReturnGate(const Snap&) { return "not a practice fixture"; }
 void ExitDispatch(const Snap& s) {
+    const ULONGLONG t=exitNow; const int row=-1;
 @EXIT@
 }
 void seed() {
@@ -145,8 +166,8 @@ int main() {
     printf("%d actual-source admission checks PASS (%zu snapshot reads faulted)\n",checks,addresses.size());
 }
 """.replace('@SNAPSHOT@',snapshot).replace('@FUNCTIONS@','\n'.join(function(sig) for sig in (
-    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
-setup=Path(r'C:/nioh3-engine/tools/msvc/setup_x64.bat')
+    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt).replace('@RETIRED@',text[text.index('std::atomic<int> g_retiredRow'):text.index('int RetiredGateRow(')]+'int RetiredGateRow(const Snap&);\n'+function('void RetireWonAttempt(')).replace('@RETIRED_GATE@',function('int RetiredGateRow(')+'\n'+function('bool NativeAgainOwned('))
+setup=Path(os.environ.get('N3_MSVC_SETUP', r'C:/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
     source.write_text(code)
@@ -157,7 +178,11 @@ with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     print(result.stdout.strip()); assert result.returncode==0,result.stderr
 for name in ('DoWarp','FnVerify','GateTick'):
     body=function('void '+name+'(')
-    assert body[body.index('{')+1:].lstrip().startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name
+    prefix=body[body.index('{')+1:].lstrip()
+    if name=='DoWarp':  # GateTick handles the Training destination itself (after the guard, inside its want branch)
+        assert prefix.startswith('if (g_trainingDestination) return;'),name
+        prefix=prefix.split('\n',1)[1].lstrip()
+    assert prefix.startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name
 spawn=function('void SpawnTick(')
 assert spawn.index('if (NativeGate(s)) return;') < spawn.index('SpawnApply(')
 assert spawn.index('SpawnRestore("online")') < spawn.index('if (NativeGate(s)) return;')

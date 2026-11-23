@@ -1,4 +1,4 @@
-// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
+﻿// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
 //
 // Input
 //   * Controller: the game reads its pads through XInputGetState in its import table (XINPUT1_4 ordinal 2, IAT slot
@@ -36,6 +36,9 @@
 
 #include "extraperf.h"
 #include "gpuopt.h"
+#include "vrs_menu.h"
+#include "extraperf_menu.h"
+#include "inputlog.h"
 #include "menu.h"
 #include "menu_mode.h"
 #include "updatecheck.h"
@@ -44,8 +47,15 @@
 #include "../../menu_navigation.h"
 #include "osd.h"
 #include "crashreport.h"
+#include "reportsend.h"
 #include "menu_style.h"
+#include "pad_family.h"
+#include "padcard.h"
+#include "btnstyle_migrate.h"
 #include "padviz.h"
+static_assert(padcard::kDeadL == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && padcard::kDeadR == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+              "padcard drift deadzones must match XInput");  // #106253
+#include "paddebug.h"
 #include "inputhist.h"
 #include "hudhide.h"
 #include "../../rematch_menu_bridge.h"
@@ -120,7 +130,7 @@ volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
 enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256, N_HOME = 512,
-                  N_TAB_PREV = 1024, N_TAB_NEXT = 2048 };  // #44232: pad bumpers switch tabs; keyboard PgUp / PgDn still jump rows
+                  N_TAB_PREV = 1024, N_TAB_NEXT = 2048, N_X = 4096 };  // N_X: pad X, only the Report box key grid reads it  // #44232: pad bumpers switch tabs; keyboard PgUp / PgDn still jump rows
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
@@ -140,6 +150,32 @@ const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},  
 volatile LONG g_open = 0;
 void SyncFreeze();  // holds / releases the 58B stop request so it follows g_open (defined with the engine reads)
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
+volatile LONG g_padPressed = 0;       // the controller part of g_pressed (Report box: pad -> key grid / Steam keyboard)
+volatile LONG g_rbOn = 0;             // mirror of rbox::g_on for the input feeds (defined before the box code)
+volatile LONG g_rbKeyMsg = 0;         // a key message reached SwallowMessage this session (keyboard text works)
+// #106087: key-down edges seen by the game's message hook (SwallowMessage), latched until the next KeyFeed. A tap shorter than the
+// gap between two keyboard reads (Ally: taps under ~100 ms) is up again at both reads and would be lost; KeyFeed counts a latched
+// edge as a press only when the key is neither down now nor was down at the previous read (else the read's own edge counts it).
+// Guard against a late-pumped message: a latched edge older than the last read that saw that key down was already counted there.
+volatile LONG g_keyMsgEdge = 0;
+volatile LONG g_keyMsgAt[16] = {};    // message time (GetTickCount ms) of the latest key-down per K_* bit
+uint32_t g_keySeenDownAt[16] = {};    // KeyFeed: low 32 bits of the time of the last read with that key down (KeyFeed thread only)
+inline int KeyBitIndex(uint32_t bit) { unsigned long i = 0; _BitScanForward(&i, bit); return (int)(i & 15); }
+inline void LatchKeyMsg(UINT msg, WPARAM wp, LPARAM lp, DWORD time) {
+    if (msg != WM_KEYDOWN && msg != WM_SYSKEYDOWN) return;
+    if (lp & (1LL << 30)) return;  // auto-repeat: the key was already down
+    const UINT vk = (UINT)wp;
+    uint32_t bit = 0;
+    if (g_cfg.vk && vk == g_cfg.vk) bit = K_TOGGLE;
+    else if (vk == VK_RETURN) bit = (lp & (1LL << 24)) ? K_NPENTER : K_ENTER;
+    else
+        for (const NavKey& k : kNavKeys)
+            if (k.vk == vk) { bit = k.bit; break; }
+    if (!bit) return;
+    InterlockedExchange(&g_keyMsgAt[KeyBitIndex(bit)], (LONG)time);
+    InterlockedOr(&g_keyMsgEdge, (LONG)bit);
+}
+bool g_okFromPad = false;             // the A / Enter being handled now came from a controller
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
 volatile LONG g_toggleSrc = 0;        // 1 key, 2 pad
@@ -170,8 +206,63 @@ struct PadSlot {
     bool passHold = false;  // the press turned out to be a hold: the game sees it from now on
     volatile bool latch = false;  // keep the pad neutral for the game until every button is released
     WORD maskHeld = 0;            // #9909: buttons masked by MaskGameButtons that are still held: stay hidden after the lease until released
+    uint32_t modalSnap = 0;       // UO #14: bits held when the input modality switched to keyboard; inert for the menu until released
 };
 PadSlot g_pad[4];
+// UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
+// hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
+// scripted pad or keys (they ride on the game's reads; vpad.cpp InputVirtual tells which read carried them). They still drive
+// the menu, they just never flip the modality. At the switch to keyboard every pad button / stick direction / trigger held right
+// then is snapshotted into PadSlot::modalSnap, a release latch like PadSlot::latch: those bits give no menu press, repeat or
+// held state until each one is released, so going back to the pad never fires a phantom A / Down from a button merely still held.
+enum : LONG { MOD_PAD = 0, MOD_KEY = 1 };
+volatile LONG g_modality = MOD_PAD;
+volatile LONG g_modalitySwitches = 0;
+bool (*volatile g_inputVirtual)(int dev, unsigned idx) = nullptr;  // vpad.cpp: dev 0 = pad slot idx, 1 = keyboard
+volatile LONG g_virtLogged = 0;    // #105941: one 'VPad input: modality locked' line per session
+volatile LONG g_modalityLogged = 0; // #105941: flip log lines written (capped; flips need a real device change, so they are rare)
+bool InputTrusted(int dev, unsigned idx, bool own) {  // own polls read the hardware directly (VPad is only in the game's import)
+    auto f = g_inputVirtual;
+    if (own || !f || !f(dev, idx)) return true;
+    if (!InterlockedExchange(&g_virtLogged, 1))
+        MLOG("VPad input: modality locked - virtual %s%u drives the menu but never switches input modality", dev ? "keyboard" : "pad slot ", dev ? 0u : idx);
+    return false;
+}
+const char* KeyBitName(uint32_t k) {  // first pressed menu key, for the modality log
+    static const struct { uint32_t bit; const char* name; } kN[] = {{K_TOGGLE, "menu key"}, {K_ESC, "Esc"}, {K_UP, "Up"}, {K_DOWN, "Down"},
+        {K_LEFT, "Left"}, {K_RIGHT, "Right"}, {K_ENTER, "Enter"}, {K_NPENTER, "Num Enter"}, {K_BACKSP, "Backspace"}, {K_PAGEUP, "PgUp"},
+        {K_PAGEDOWN, "PgDn"}};
+    for (const auto& n : kN)
+        if (k & n.bit) return n.name;
+    return "key";
+}
+bool ModalityLogSlot() {  // true while under the cap; the line at the cap says the rest are not logged
+    const LONG n = InterlockedIncrement(&g_modalityLogged);
+    if (n == 200) MLOG("input modality: 200 switches logged, further switches are not logged this session");
+    return n < 200;
+}
+// #105887: KeyFeed (DirectInput thread / Present own poll) and PadFeed (XInput thread / Present own poll) may run on different
+// threads. g_modalLock serialises the snapshot here against PadFeed's prev / modalSnap read-modify-write, so a release is never
+// lost and the snapshot never reads a half-updated slot. Held for a few bit ops only; no calls, no C++ objects (PadFeed is __try).
+SRWLOCK g_modalLock = SRWLOCK_INIT;
+void ModalityToKey(uint32_t keys, bool own) {
+    if (g_modality == MOD_KEY) return;
+    AcquireSRWLockExclusive(&g_modalLock);
+    const bool sw = g_modality != MOD_KEY;  // re-check under the lock: two key threads snapshot once
+    if (sw) {
+        for (PadSlot& s : g_pad) s.modalSnap = s.prev;  // snapshot once, at the switch; a later key press does not widen it
+        InterlockedExchange(&g_modality, MOD_KEY);
+    }
+    ReleaseSRWLockExclusive(&g_modalLock);
+    if (!sw) return;
+    InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality pad->key (%s, %s)", KeyBitName(keys), own ? "own keyboard poll" : "game keyboard read");
+}
+void ModalityToPad(DWORD idx, uint32_t bits, bool own) {
+    if (InterlockedExchange(&g_modality, MOD_PAD) == MOD_PAD) return;  // exchange: two pad threads flip (and log) once
+    InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality key->pad (pad slot %lu, buttons %06X, %s)", idx, bits, own ? "own pad poll" : "game pad read");
+}
 uint32_t g_keyPrev = 0;
 // Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
 int g_escTaps = 0;
@@ -194,6 +285,7 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & XINPUT_GAMEPAD_BACK) n |= N_HOME;  // user #44181: View / Create returns to the first page; Start no longer does
     if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_TAB_PREV;
     if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_TAB_NEXT;
+    if (raw & XINPUT_GAMEPAD_X) n |= N_X;
     return n;
 }
 uint32_t KeyNav(uint32_t k) {
@@ -229,6 +321,9 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
     padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
+    padcard::Feed(idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, t);  // UO #8 status card, raw, read-only
+    paddebug::Record(idx, st->dwPacketNumber, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, own, t);  // #97485 raw, read-only
+    inputlog::ObservePad((int)idx, g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
     const uint32_t prev = s.prev;
     uint32_t raw = g.wButtons;
     if (g.sThumbLY > ((prev & B_SU) ? 12000 : 20000)) raw |= B_SU;  // hysteresis: no edge flicker at the threshold
@@ -237,18 +332,24 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g.sThumbLX > ((prev & B_SR) ? 12000 : 20000)) raw |= B_SR;
     if (g.bLeftTrigger > 30) raw |= B_LT;
     if (g.bRightTrigger > 30) raw |= B_RT;
+    AcquireSRWLockExclusive(&g_modalLock);         // #105887: vs ModalityToKey on the keyboard thread
     s.prev = raw;
-    const uint32_t pressed = raw & ~prev;
-    g_padHeld[idx] = (LONG)raw;
+    s.modalSnap &= raw;                            // UO #14: a released snapshot bit is live again
+    const uint32_t live = raw & ~s.modalSnap;      // what the menu may act on (gestures and the game side still see raw)
+    ReleaseSRWLockExclusive(&g_modalLock);
+    const uint32_t pressed = live & ~prev;
+    g_padHeld[idx] = (LONG)live;
+    if (pressed && InputTrusted(0, idx, own)) ModalityToPad(idx, pressed, own);
     g_padHeldAt[idx] = (LONG64)t;
     if(g_coverToken.load()) {
         if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
-        if(!own && CoverCaptures(t)){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
+        const bool cov = !own && CoverCaptures(t); if (!own) paddebug::RecordBlock(cov ? paddebug::kMenuOpen : 0u);
+        if(cov){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
         else if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
         return; // cover cancellation/staleness must not leave normal menu latches capturing
     }
 
-    if (g_disabled) return;
+    if (g_disabled) { if (!own) paddebug::RecordBlock(0u); return; }  // #97559: a disabled menu hides nothing; clear stale bits
     ForceCloseIfDead(t);
     const bool alive = Alive(t, 1000);
     // open/close gesture
@@ -312,20 +413,23 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         }
     }
     if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
-    if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
+    if (g_open) { InterlockedOr(&g_pressed, (LONG)PadNav(pressed)); InterlockedOr(&g_padPressed, (LONG)PadNav(pressed)); }
     if (own) return;
+    uint32_t dbgBlock = tapModified ? (uint32_t)paddebug::kTapSwallow : 0u;  // #97485
     if (tapModified) st->dwPacketNumber += 0x40000000u;
     {   // #9324 lease; #9909: a masked button held when the lease ends stays hidden until released (unmasking a held A = a fresh press for the game)
         WORD mk;
         if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil) { mk = (WORD)g_gameMask; s.maskHeld = (WORD)(g.wButtons & mk); }
         else { s.maskHeld = (WORD)(s.maskHeld & g.wButtons); mk = s.maskHeld; }
-        if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; }
+        if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; dbgBlock |= paddebug::kMaskLease; }
     }
     bool blank = g_open != 0;
+    if (blank) dbgBlock |= paddebug::kMenuOpen;
     if (s.latch) {
         if ((raw & ~B_STICKS) == 0) s.latch = false;
-        else blank = true;
+        else { blank = true; dbgBlock |= paddebug::kLatch; }
     }
+    paddebug::RecordBlock(dbgBlock);
     if (blank) {
         st->dwPacketNumber += 0x40000000u;  // the neutral state gets its own packet numbers (games may cache by packet)
         const SHORT rx = g.sThumbRX, ry = g.sThumbRY;
@@ -352,8 +456,32 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_cfg.dik && (keys[g_cfg.dik] & 0x80)) raw |= K_TOGGLE;
     for (const NavKey& k : kNavKeys)
         if (keys[k.dik] & 0x80) raw |= k.bit;
-    const uint32_t pressed = raw & ~g_keyPrev;
+    // #106087: + taps that went down and up between two reads (message-hook edges, see LatchKeyMsg)
+    uint32_t tapped = (uint32_t)InterlockedExchange(&g_keyMsgEdge, 0) & ~raw & ~g_keyPrev;
+    for (uint32_t b = tapped; b; b &= b - 1) {
+        const int i = KeyBitIndex(b & (0u - b));
+        if ((int32_t)((uint32_t)g_keyMsgAt[i] - g_keySeenDownAt[i]) <= 0) tapped &= ~(1u << i);  // that press was seen by a read
+    }
+    for (uint32_t b = raw; b; b &= b - 1) g_keySeenDownAt[KeyBitIndex(b & (0u - b))] = (uint32_t)t;
+    const uint32_t pressed = (raw & ~g_keyPrev) | tapped;
+    const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
+    if (pressed && InputTrusted(1, 0, own)) ModalityToKey(pressed, own);  // UO #14; the press itself still acts below (#105941)
+    {
+        const bool nav = g_open != 0;
+        struct Hk { uint32_t bit; const char* name; int allow; };
+        const Hk hks[] = {
+            {K_TOGGLE, g_cfg.keyName[0] ? g_cfg.keyName : "menu", 1},
+            {K_ESC, "esc", 1},
+            {K_UP, "up", nav}, {K_DOWN, "down", nav}, {K_LEFT, "left", nav}, {K_RIGHT, "right", nav},
+            {K_ENTER, "enter", nav}, {K_NPENTER, "enter", nav}, {K_BACKSP, "back", nav},
+        };
+        for (const Hk& k : hks) {
+            if (!k.allow) continue;
+            if (pressed & k.bit) inputlog::ObserveKey(k.name, 1, 1);
+            if (released & k.bit) inputlog::ObserveKey(k.name, 0, 1);
+        }
+    }
     g_keyHeld = (LONG)raw;
     g_keyHeldAt = (LONG64)t;
     if(g_coverToken.load()) {
@@ -366,7 +494,13 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_disabled) return;
     ForceCloseIfDead(t);
     if ((pressed & K_TOGGLE) && Alive(t, 1000)) Request(t, 1);
-    if (g_open) InterlockedOr(&g_pressed, (LONG)KeyNav(pressed));
+    if (g_open) {
+        // Report box: typed keys come as window messages (SwallowMessage). The DirectInput edges only drive the box when this
+        // session never delivered a key message (fallback), and Backspace there is never "back".
+        uint32_t kp = pressed;
+        if (g_rbOn) kp = g_rbKeyMsg ? 0u : (kp & ~(uint32_t)K_BACKSP);
+        InterlockedOr(&g_pressed, (LONG)KeyNav(kp));
+    }
     InterlockedAnd(&g_keyLatch, (LONG)raw);  // released keys leave the latch
     // Escape x3 opens the menu. The first presses are held back from the game for TapGapMs; a lone press (or two) is replayed
     // to it afterwards as one short press; a press that is still held after the gap is a real hold and passes at once.
@@ -412,6 +546,7 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (escHide) keys[g_cfg.escDik] = 0;
     else if (escSynth) keys[g_cfg.escDik] = 0x80;
     if (g_cfg.dik) keys[g_cfg.dik] = 0;  // the menu key belongs to the mod
+    if (g_open && g_rbOn) { memset(keys, 0, 256); return; }  // the Report box owns the whole keyboard while it is open
     const uint32_t hide = (g_open ? K_NAV : 0u) | (uint32_t)g_keyLatch;
     if (hide)
         for (const NavKey& k : kNavKeys)
@@ -447,6 +582,28 @@ GetDeviceState_t g_gdsW = nullptr, g_gdsA = nullptr;
 thread_local int t_diDepth = 0;
 bool (*volatile g_keyFilter)(uint8_t*, bool) = nullptr;  // vpad.cpp (VirtualPad): virtual keys, real keys hidden while unfocused
 
+// #118266: gameplay input for reports. keys = the state the game is about to read (after the mod's masking); mouse buttons
+// are polled here once per keyboard read, only while a window of this process has focus. Nothing while the menu is open.
+void GameInputLogSafe(const uint8_t* keys) {
+    __try {
+        const int menuOpen = (g_open || g_rbOn) ? 1 : 0;
+        DWORD pid = 0;
+        HWND fg = GetForegroundWindow();
+        if (fg) GetWindowThreadProcessId(fg, &pid);
+        const bool focused = pid == GetCurrentProcessId();
+        // #118418: keys typed in other windows (passwords) never enter the report: unfocused = same as menu open.
+        inputlog::ObserveKeyboard(keys, (menuOpen || !focused) ? 1 : 0);
+        unsigned mb = 0;
+        if (focused) {
+            const int vks[5] = {VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2};
+            for (int i = 0; i < 5; ++i)
+                if (GetAsyncKeyState(vks[i]) & 0x8000) mb |= 1u << i;
+        }
+        inputlog::ObserveMouse(mb, menuOpen);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
     HRESULT hr = orig(self, cb, data);
@@ -457,6 +614,7 @@ HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
+        GameInputLogSafe(static_cast<uint8_t*>(data));
     }
     return hr;
 }
@@ -690,16 +848,21 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
+          kEp10, kEp11,  // #67772 XFOGS / XSSR (extraperf kFogScale / kSsr)
+          kRd,  // #67225 Render distance. Not an extraperf::Opt (presets must not move it).
+          kSharp,  // #67772 FSR sharpness (XSHARP). Not an extraperf::Opt either (Extreme + sharpen).
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
-          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kCount };
+          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kFwp, kSave, kClose, kVrs, kCount };
 #include "settings_catalog.h"
+#include "menu_shipped_defaults.h"
+#include "../../Nioh3Training/src/practice_stats.h"
 #include "menu_pages.h"
 menu_nav::Trail<> g_pages;
 ULONGLONG g_rep[4] = {};  // repeats never carry into a different page
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
+static_assert(kEp11 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
-bool IsEp(int id) { return id >= kEp0 && id <= kEp9; }  // one Extra performance option each (level row)
+bool IsEp(int id) { return id >= kEp0 && id <= kEp11; }  // one Extra performance option each (level row)
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
                                              L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
@@ -778,8 +941,8 @@ const ItemDef kItems[kCount] = {
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
     {"Drop read->read barriers", "(R1 gpu)", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare.", "Judge with screenshots. Applies now."},
     // 1.7.59 Extra performance (changes the look): extraperf.h; gains = notes\extra-performance-settings.md (pc2 RX 6650 XT 1080p / Ally)
-    {"Preset", "(XPRE)", "Off = every look row at the game value. Optimized with effect visuals = clouds, GI, shadow distance and detail only. Optimized = those plus coarser fog, ambient occlusion off and blur off. Custom = the XCLD-style rows were set by hand.",
-     "Changes the look. Applies now. Left/Right picks the next preset. The CPU / GPU / Game groups stay under this row."},
+    {"Preset", "(XPRE)", "Off = every look row at the game value. Optimized with effect visuals = clouds, GI, shadow distance and detail only. Optimized = those plus coarser fog, ambient occlusion off and blur off. Extreme = lower picture quality for more fps (lower render size). Works with VRS; VRS changes need a restart. Extreme HQ = full render size, only GI / fog / clouds / reflections / shadow filtering cheaper. Custom = rows set by hand.",
+     "Changes the look. Restart after changing presets for full effect (render scale and half-rate passes). Left/Right picks the next preset. The CPU / GPU / Game groups stay under this row."},
     {"Cloud quality", "(XCLD)", "Fewer ray-march steps for the volumetric clouds (game: up to 256 per pixel).",
      "Blockier / noisier cloud edges. Applies now. PC RX 9070 (GPU-bound): no gain; Ally: untested."},
     {"Volumetric fog detail", "(XFOG)", "Coarser fog light grid than the game's lowest (LIGHT = 80x32); 'off' = VOLUMETRIC LIGHTEST.",
@@ -800,6 +963,14 @@ const ItemDef kItems[kCount] = {
      "Flatter contact shadows. Applies now. PC +1.8 %."},
     {"Camera effects off", "(XPOST)", "1 = motion blur + depth of field off, 2 = also bloom off (the game's own OFF values).",
      "No blur / no glow around lights. Applies now. PC GPU -2.8 % (fps noisy)."},
+    {"Volumetric fog grid scale", "(XFOGS)", "The fog light grid at 75 % / 50 % of the game's cells per axis (not used while XFOG is set).",
+     "Slightly softer fog shafts and glow. Applies now. Part of Extreme HQ. Not measured yet."},
+    {"Reflections at half size", "(XSSR)", "Screen-space reflections traced at half size (the game's SSR STANDARD path); 2 also halves the ray steps.",
+     "Softer reflections on wet / shiny surfaces. Applies now. Part of Extreme HQ. Not measured yet."},
+    {"Render distance", "(RenderDistance)", "How far entities and grass are drawn (1.00 = the game). Lower hides distant detail. Characters keep the game distance.",
+     "Pop-in closer to the camera. Applies now. Separate from the presets. Estimate 0.3-1 ms on the Ally, not measured in game yet."},
+    {"Upscaler sharpening", "(XSHARP)", "FSR 3 sharpening strength (RCAS), overriding the game's FSR sharpness. Game = your FSR setting.",
+     "Crisper image, more shimmer at high values. Applies now. Only with the game's FSR upscaler. Separate from the presets (use with Extreme)."},
     {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
     {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
@@ -819,8 +990,10 @@ const ItemDef kItems[kCount] = {
     {"Freeze game while menu is open", "(FreezeGame)", "Stops game time like the game's pause menu while any mod menu page is open; closing the menu resumes it. Overlays keep drawing.", "Picture unchanged. Applies now. Released on close, hide and unload."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
+    {"Frame wait parks instead of spinning", "(FWP)", "The render thread sleeps on a timer while it waits for the frame, instead of spinning a core. Experimental.", "Picture unchanged. Applies at the next launch. Lowers CPU use where the frame wait spins; fps gain unproven."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
+    {"World shading", "(VRS)", "Whole-frame 2x2 shading with the glitter guard: see-through effects and overlays stay full detail. More fps, slightly softer picture.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
@@ -833,8 +1006,9 @@ const OrderEnt kOrder[] = {
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
-    {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
-    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
+    {kVrs, "Extra performance (changes the look)"}, {kEpPre, nullptr}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
+    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr}, {kEp10, nullptr},
+    {kEp11, nullptr}, {kRd, nullptr}, {kSharp, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -845,7 +1019,7 @@ const OrderEnt kOrder[] = {
     {kXFOGT, nullptr}, {kXCLDR, nullptr}, {kXRTP, "Experimental (CPU scheduling, A/B live)"}, {kXPCM, nullptr},
     {kGR2a, "Experimental (GPU, Proton)"}, {kGR2b, nullptr}, {kGR1, nullptr},
     {kXTS, "Diagnostics / logging"}, {kXWS, nullptr},
-    {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr},
+    {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr}, {kFwp, nullptr},
     {kSave, "Save & exit"}, {kClose, nullptr},
 };
 constexpr int kOrderN = (int)(sizeof(kOrder) / sizeof(kOrder[0]));
@@ -859,7 +1033,12 @@ int OrderPos(int id) {
 int g_sel = kPage;  // two-page menu (Layout=0) opens on the page switcher; grouped opens reset this
 int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
-int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
+bool g_bootVrs = false, g_vrsEdited = false;
+vrsmenu::Values g_vrsVals;   // #79098: what the page shows and Save writes
+bool g_vrsAdvanced = false;  // #79382 the raw rows stay hidden unless asked for, or the saved values are not a level
+bool g_vrsPresetOn = false;  // the ON row's preset is the last edit, so Save also writes its motion key
+int g_selectedEpPreset = -1;  // Only explicit preset picks change the startup half-rate choice.
+int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0, g_bootFwp = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
 bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
 int g_latBoot = 0;
@@ -883,7 +1062,7 @@ bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
 
 // Page 2 is only the rows whose text says the picture can change. Everything else stays on page 1.
 bool LookChanging(int id) {
-    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
+    return id == kVrs || id == kEpPre || IsEp(id) || id == kRd || id == kSharp || id == kFg || id == kFgState || id == kUpscaler ||
            id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
 }
 bool OnPage(int id) {
@@ -1019,6 +1198,21 @@ void ChangeSky(int id, int dir) {
     char text[32]; SkyValueText(id, value, text, sizeof(text));
     snprintf(g_skyNote, sizeof(g_skyNote), "%s: %s. Saved.", id == kTimeOfDayRow ? "Time of day" : "Weather", text);
 }
+// human #128100: 'Player log' row = Nioh3Training [Record] PlayerLog + PlayerClock together (Nioh3Training_PlayerLogGet / _PlayerLogSet).
+char g_plogNote[200] = "";
+int PlayerLogGet() {
+    const HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    const auto f = m ? reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3Training_PlayerLogGet")) : nullptr;
+    return f ? f() : -1;
+}
+void ChangePlayerLog(int dir) {  // A flips, Right = ON, Left = OFF
+    const HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    const auto f = m ? reinterpret_cast<int (*)(int)>(GetProcAddress(m, "Nioh3Training_PlayerLogSet")) : nullptr;
+    const int v = f ? f(dir > 0 ? 1 : dir < 0 ? 0 : -1) : -1;
+    if (v < 0) snprintf(g_plogNote, sizeof(g_plogNote), "Needs Nioh3Training.asi v1.8.36 or newer, loaded into the game.");
+    else snprintf(g_plogNote, sizeof(g_plogNote), v ? "Player log ON: writing Nioh3PlayerLog.txt in the game folder now. Saved." : "Player log OFF. Saved.");
+    if (g_log) g_log("MENU: Player log -> %d (#128100)", v);
+}
 void ChangePs(int index) {
     ResolveFrameMeter();
     const PsToggle& t = kPsToggles[index];
@@ -1129,14 +1323,23 @@ int HideHudSettingRow() {  // #44871: Display Overlays row for [Menu] HideGameHu
     for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "HideGameHud")) return kSettingRow + i;
     return -1;
 }
-bool IsInputDisplayKey(const char* key) { return key && strncmp(key, "InputDisplay", 12) == 0; }
+bool IsInputDisplayKey(const char* key) { return key && (strncmp(key, "InputDisplay", 12) == 0 || strcmp(key, "PadDebug") == 0); }  // #98294 pad debug lives on Input display
+int PadDebugSettingRow() {
+    for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "PadDebug")) return kSettingRow + i;
+    return -1;
+}
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
+// #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
+bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
+// #121260: the held attack fix row also lives on Settings > Game in layout 0, where the General catalog page is not reachable
+bool IsGameFixKey(const char* section, const char* key) { return section && key && strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0; }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
+    if (id == kRd || id == kSharp) return pSGpu;  // #67225 / #67772: with the other look rows, not on the camera page
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
-    if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
+    if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine || id == kFwp) return (id == kL1Wine || id == kFwp) ? pSCpu : -1;
     const int sp = SettingsPage(id);
     if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
     if (sp == pCpu || sp == pScheduling || sp == pSafe) return pSCpu;
@@ -1147,6 +1350,14 @@ std::string g_saveName;int g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
+    if (g_pages.page == pVrsTune) {
+        add(kVrsRowFirst + vrsmenu::kRowLevel);
+        add(kVrsRowFirst + vrsmenu::kRowAdvanced);
+        if (g_vrsAdvanced) for (int i = vrsmenu::kRowAdvanced + 1; i < vrsmenu::kRowReset; ++i) add(kVrsRowFirst + i);
+        add(kVrsRowFirst + vrsmenu::kRowReset);
+        add(kBackRow);
+        return n;
+    }
     if(g_pages.page==pSaveFiles||g_pages.page==pSaveActions){
         if(savefiles::Pending())add(kSaveCancelRow);
         else if(savefiles::Allowed()){
@@ -1169,7 +1380,17 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pSCpu || pg == pSGpu || pg == pSGame || pg == pFrameGen) {
             for (const auto& row : kOrder)
-                if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+                if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
+                    add(row.id);
+                    // #79450 no values page: the switch alone, On = All + 2x2 with characters and skinned models sharp
+                }
+            if (pg == pSCpu)
+                for (int i = 0; i < kConfigN; ++i)
+                    if (!strcmp(kConfigSettings[i].section, "Patches") && IsLoadFixKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            if (pg == pSGame)
+                for (int i = 0; i < kConfigN; ++i)
+                    if (IsGameFixKey(kConfigSettings[i].section, kConfigSettings[i].key)) add(kSettingRow + i);
+            if (pg == pSGame) add(kPlayerLogRow);  // human #128100
             add(kBackRow);
             return n;
         }
@@ -1222,7 +1443,7 @@ int PageRowsBody(int* out, bool selectable) {
             add(kBackRow);
             return n;
         }
-        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); add(kPlayerRow); }
         add(kPageRow + pDisplay);
         add(kPageRow + pCamera);
         add(kPageRow + pSettings);
@@ -1232,7 +1453,7 @@ int PageRowsBody(int* out, bool selectable) {
     const int page = g_pages.page;
     if (page == pRoot) {
         add(kPageRow + pSettings);  // user #13223: Settings / Boss Rematch / Practice (+ Close)
-        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); add(kPlayerRow); }
     }
     else if (page == pSettings) {
         for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
@@ -1255,7 +1476,10 @@ int PageRowsBody(int* out, bool selectable) {
         add(kSave);
     }
     for (const auto& row : kOrder)
-        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
+            add(row.id);
+            // #79450 the shading values page is no longer listed; its code stays for ini-tuned dev runs
+        }
     if (page == pDisplay) { add(kTimeOfDayRow); add(kWeatherRow); }
     // All settings deliberately has exactly the original traversal order, so
     // keyed test sequences can enter it without acquiring an extra Back row.
@@ -1264,11 +1488,23 @@ int PageRowsBody(int* out, bool selectable) {
 }
 
 // #38077/#38437: every page starts with 'Mod menu' (top-level page), 'Close' (close the menu) and 'Report', then its own rows.
+bool ResettableRow(int id);
+void ResetCurrentPage();
 int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
+    bool reset = false, ownReset = false;
+    for (int i = 3; i < n; ++i) {
+        reset |= ResettableRow(out[i]);
+        ownReset |= out[i] == kCamRowFirst + kCamReset || out[i] == kVrsRowFirst + vrsmenu::kRowReset;
+    }
+    if (g_pages.page != pRoot && reset && !ownReset) {
+        const bool back = n > 3 && (out[n - 1] == kBackRow || out[n - 1] == kClose);
+        if (back) out[n] = out[n - 1];
+        out[back ? n - 1 : n] = kResetPageRow; ++n;
+    }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
@@ -1279,6 +1515,7 @@ int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSessi
 
 void EnterPage(int page) {
     if (!g_pages.Enter(page, g_sel)) return;
+    inputlog::NoteMenu("page", PageName(page), "", "", "");
     int rows[kMenuRowCap];
     const int n = PageRows(rows, true);
     g_sel = page == pAll ? kClose : FirstOwnRow(rows, n);
@@ -1286,6 +1523,7 @@ void EnterPage(int page) {
 }
 
 bool Available(int id) {
+    if (id == kVrs) return gpuopt::VrsSupport() == 1;
     switch (id) {
         case kVrr: return g_host.vrrEnable != nullptr;
         case kW3: return g_host.w3Enable != nullptr;
@@ -1296,6 +1534,8 @@ bool Available(int id) {
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
         case kEpPre: return extraperf::AnyAvailable();
+        case kRd: return extraperf::RdAvailable();
+        case kSharp: return extraperf::SharpAvailable();
         case kFg: return g_host.knownBuild && g_host.base;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1311,9 +1551,23 @@ constexpr uint32_t cWhite = 0xFFFFFFFF, cGray = 0xFFB4B4B4, cDim = 0xFF8C8C8C, c
                    cHighlight = 0xE0703818, cRule = 0xC05AC8F0;
 
 const char* NaText(int id) {
-    if (id == kL1 && g_host.l1 == FixState::WineSkipped) return "off (Proton)";
-    if (id == kF1 && g_host.f1 == FixState::WineSkipped) return "off (Proton)";
-    return "not installed";
+    if (id == kVrs) return gpuopt::VrsSupport() == 0 ? "unavailable: waiting for renderer" : "unavailable: hardware VRS unsupported";
+    if ((id == kL1 && g_host.l1 == FixState::WineSkipped) || (id == kF1 && g_host.f1 == FixState::WineSkipped))
+        return "off on Linux/Proton";
+    if (id == kW3Mode && !g_host.wine) return "Windows uses the normal wait";
+    if (id == kFg) return g_host.knownBuild ? "frame generation is changed in the game's Options" : "this game version is not supported";
+    if (id == kGpu || id == kGR2a || id == kGR2b || id == kGR1) {
+        if (!g_host.wine && id != kGpu) return "off on Windows";
+        const gpuopt::State s = gpuopt::GetState();
+        if (s == gpuopt::State::Waiting) return "waiting for the renderer";
+        if (s == gpuopt::State::Failed) return "GPU hook failed - see the log";
+        return "GPU hook is off in the settings file";
+    }
+    if (id == kRd) return "render-distance hook was not found - see the log";
+    if (id == kEpPre || IsEp(id) || id == kSharp) return "extra-performance hook was not found - see the log";
+    if (id == kAutoCont) return "tip-page hook was not found - see the log";
+    if (!g_host.knownBuild) return "this game version is not supported";
+    return "hook was not found - see the log";
 }
 
 bool LiveBool(int id) {
@@ -1429,6 +1683,11 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = cDim;
         return;
     }
+    if (id == kVrs) {
+        snprintf(buf, n, "%s (%s)", g_bootVrs ? "ON" : "OFF", vrsmenu::RowEffect(vrsmenu::kRowMode, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking()) == vrsmenu::kLive ? "live" : "next launch");
+        color = g_bootVrs ? cGreen : cGray;
+        return;
+    }
     if (IsEp(id)) {  // 1.7.59 Extra performance level rows
         const int e = id - kEp0, l = extraperf::Level(e);
         snprintf(buf, n, "%s", extraperf::LevelName(e, l));
@@ -1439,6 +1698,17 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         const int m = extraperf::MatchPreset();
         snprintf(buf, n, "%s", extraperf::PresetName(m));
         color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        return;
+    }
+    if (id == kRd) {
+        snprintf(buf, n, "%.2f", extraperf::RdMul());
+        color = extraperf::RdPct() >= 100 ? cGray : cCyan;
+        return;
+    }
+    if (id == kSharp) {
+        const int l = extraperf::SharpLevel();
+        snprintf(buf, n, "%s", extraperf::SharpName(l));
+        color = l ? cCyan : cGray;
         return;
     }
     osd::OverlaySettings& o = osd::Overlay();
@@ -1498,6 +1768,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         case kP12: boot(g_bootP12 != 0, g_bootP12 != g_host.p12); break;
         case kL1Wine: boot(g_bootL1Wine != 0, g_bootL1Wine != g_host.l1OnWine); break;
         case kFgWine: boot(g_bootFgWine != 0, g_bootFgWine != g_host.fgOnWine); break;
+        case kFwp: boot(g_bootFwp != 0, g_bootFwp != g_host.fwp); break;
         default: break;
     }
 }
@@ -1545,7 +1816,10 @@ void StartSave() {
     if (Available(kVrr)) add(L"Patches", L"VRR", b(LiveBool(kVrr)));
     if (Available(kW3)) add(L"Patches", L"W3", b(LiveBool(kW3)));
     if (Visible(kW3Mode) && Available(kW3Mode)) add(L"Patches", L"W3WineSleep", b(LiveBool(kW3Mode)));
-    if (Available(kR1)) add(L"Tuning", L"R1_TimeoutMs", std::to_wstring(*g_host.r1Timeout));
+    if (Available(kR1)) {
+        add(L"Tuning", L"R1_TimeoutMs", std::to_wstring(*g_host.r1Timeout));
+        add(L"Patches", L"R1", *g_host.r1Timeout ? L"1" : L"0");  // 0 still installs the hook next launch
+    }
     if (Available(kL1)) add(L"Patches", L"L1", b(LiveBool(kL1)));
     if (Available(kF1)) add(L"Patches", L"FG", b(LiveBool(kF1)));
     if (Available(kWk)) add(L"Patches", L"WK", b(LiveBool(kWk)));
@@ -1560,13 +1834,25 @@ void StartSave() {
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
     }
-    if (extraperf::AnyAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
-        for (int e = 0; e < extraperf::kNumOpts; ++e) {
-            wchar_t k[16];
-            swprintf(k, 16, L"%hs", extraperf::Key(e));
-            add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+    if (extraperf::AnyAvailable() || extraperf::RdAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
+        if (extraperf::AnyAvailable()) {
+            for (int e = 0; e < extraperf::kNumOpts; ++e) {
+                wchar_t k[16];
+                swprintf(k, 16, L"%hs", extraperf::Key(e));
+                add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+            }
+            const int half = epmenu::HalfForSave(g_selectedEpPreset,
+                (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", -1, g_ini.c_str()),
+                (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, g_ini.c_str()),
+                GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, g_ini.c_str()) == 1);
+            add(L"ExtraPerf", L"XHALF", std::to_wstring(half));
+            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::ResLevel()));
+            add(L"ExtraPerf", L"Preset", L"0");
         }
-        add(L"ExtraPerf", L"Preset", L"0");
+        wchar_t rd[16];
+        swprintf(rd, 16, L"%.2f", (double)extraperf::RdMul());
+        add(L"ExtraPerf", L"RenderDistance", rd);
+        if (extraperf::AnyAvailable()) add(L"ExtraPerf", L"XSHARP", std::to_wstring(extraperf::SharpLevel()));  // #67772
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -1576,8 +1862,10 @@ void StartSave() {
         add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
     }
     add(L"Latency", L"MaxFrameLatency", osd::Overlay().maxLatencyAuto && osd::Overlay().maxLatency == g_latBoot ? std::wstring(L"-1") : std::to_wstring(osd::Overlay().maxLatency));
+    if (g_vrsEdited) { if (g_vrsPresetOn) vrsmenu::Save(true, add); else vrsmenu::SaveValues(g_vrsVals, add); }
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
+    add(L"Patches", L"FWP", std::to_wstring(g_bootFwp));  // keeps 2 (measure-only) unless toggled
     if (g_host.wine) {
         add(L"Patches", L"L1OnWine", b(g_bootL1Wine != 0));
         add(L"Patches", L"FGOnWine", b(g_bootFgWine != 0));
@@ -1617,10 +1905,52 @@ void StartSave() {
     }
 }
 
+// ---- UO #10: glyph set from the connected pad ---------------------------------------------------------------------------
+// [Menu] ButtonStyle Auto (default) picks Xbox / PlayStation / Nintendo from the vendor id of the HID joysticks / gamepads
+// (pad_family.h); Xbox / PlayStation / Nintendo in the ini is an override. Checked on the first frame and at every menu open
+// (a few user32 calls, no memory scan), so a pad swapped while the menu is closed shows its glyphs at the next open.
+int g_btnStyleIni = pad_family::kAuto;
+volatile LONG g_btnStyleChecked = 0;
+int (*g_enumPads)(padcard::PadId* out, int cap) = nullptr;  // tests: fake vendor / product ids
+int EnumPads(padcard::PadId* out, int cap) {  // also feeds the UO #8 status card
+    if (g_enumPads) return g_enumPads(out, cap);
+    RAWINPUTDEVICELIST list[64];
+    UINT n = 64;
+    n = GetRawInputDeviceList(list, &n, sizeof(RAWINPUTDEVICELIST));
+    if (n == (UINT)-1) return 0;
+    int k = 0;
+    for (UINT i = 0; i < n && k < cap; ++i) {
+        if (list[i].dwType != RIM_TYPEHID) continue;
+        RID_DEVICE_INFO info{};
+        info.cbSize = sizeof(info);
+        UINT sz = sizeof(info);
+        if (GetRawInputDeviceInfoW(list[i].hDevice, RIDI_DEVICEINFO, &info, &sz) == (UINT)-1) continue;
+        if (info.hid.usUsagePage != 1 || (info.hid.usUsage != 4 && info.hid.usUsage != 5)) continue;  // generic desktop joystick / gamepad
+        out[k].vid = (uint16_t)info.hid.dwVendorId;
+        out[k++].pid = (uint16_t)info.hid.dwProductId;
+    }
+    return k;
+}
+const char* StyleName(int s) { return s == pad_family::kPlayStation ? "PlayStation" : s == pad_family::kNintendo ? "Nintendo" : "Xbox"; }
+void RefreshButtonStyle() {
+    padcard::PadId pads[16];
+    uint16_t vids[16];
+    const int n = g_btnStyleIni >= 0 ? 0 : EnumPads(pads, 16);
+    for (int i = 0; i < n; ++i) vids[i] = pads[i].vid;
+    const int s = pad_family::Effective(g_btnStyleIni, vids, n);
+    const bool first = !InterlockedExchange(&g_btnStyleChecked, 1);
+    if (first || s != menu_style::g_btnStyle) {
+        if (g_btnStyleIni >= 0) MLOG("button style %s (ini override)", StyleName(s));
+        else MLOG("button style %s (auto: %d pad(s)%s%04X)", StyleName(s), n, n ? ", first vid " : "", n ? vids[0] : 0);
+    }
+    menu_style::g_btnStyle = s;
+}
+
 // ---- open / close / change ---------------------------------------------------------------------------------------------
 const char* SrcName(LONG src) { return src == 1 ? g_cfg.keyName : src == 2 ? "controller gesture" : src == 3 ? "Esc x3" : "?"; }
 
 void Open(const char* how) {
+    RefreshButtonStyle();  // UO #10
     InterlockedExchange(&g_pressed, 0);
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
@@ -1630,8 +1960,10 @@ void Open(const char* how) {
     g_sel = g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay);
     for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
+    inputlog::NoteMenu("open", PageName(g_pages.page), "", "", "");
 }
 
+void CloseReportBoxOnMenuClose();
 void Close(const char* how) {
     CloseRematchHostPage();
     for (PadSlot& s : g_pad) s.latch = true;
@@ -1641,8 +1973,13 @@ void Close(const char* how) {
     MessageBeep(MB_ICONASTERISK);
     const bool autoSave = g_dirty && !g_ini.empty();
     MLOG("closed (%s)%s", how, autoSave ? " - auto-saving the changed settings to the ini" : "");
+    inputlog::NoteMenu("close", "", "", "", "");
     if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
+    CloseReportBoxOnMenuClose();
 }
+
+#include "menu_reportbox.h"
+void CloseReportBoxOnMenuClose() { rbox::CloseBox("menu closed"); g_rbOn = 0; }
 
 void LaunchUpdatePage() {
     if (updatecheck::RunningUnderWine()) {
@@ -1740,10 +2077,9 @@ void SyncConfigFromLive(int id) {
 }
 char g_configReply[256] = "";
 int g_configReplyRow = -1;
-void ChangeConfig(int index, int dir) {
+void ApplyConfigValue(int index) {
     if (index < 0 || index >= kConfigN) return;
     const auto& d = kConfigSettings[index];
-    if (!g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
     const auto& v = g_configValues.values[(size_t)index].text;
     g_configReplyRow = index;
     snprintf(g_configReply, sizeof(g_configReply), "Next launch: save to ini, then restart the game.");
@@ -1756,7 +2092,8 @@ void ChangeConfig(int index, int dir) {
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
         if (!strcmp(d.key, "ButtonStyle")) {
-            menu_style::g_btnStyle = _stricmp(v.c_str(), "PlayStation") == 0 ? 1 : 0;
+            g_btnStyleIni = pad_family::ParseStyle(v.c_str());  // UO #10: Auto or an override
+            RefreshButtonStyle();
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplay")) {
             padviz::g_on = atoi(v.c_str()) ? 1 : 0;
@@ -1780,13 +2117,17 @@ void ChangeConfig(int index, int dir) {
         } else if (!strcmp(d.key, "InputDisplayRows")) {
             inputhist::g_rows = std::clamp((int)std::lround(atof(v.c_str())), inputhist::kMinRows, inputhist::kMaxRows);
             snprintf(g_configReply, sizeof(g_configReply), "Input display rows apply now. Save to keep it.");
+        } else if (!strcmp(d.key, "PadDebug")) {  // #97559 catalog row for the #97485 debug lines
+            paddebug::g_store.blocked.store(0u, std::memory_order_relaxed);  // no stale reason from before the toggle
+            paddebug::g_on = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), paddebug::g_on ? "Pad debug on (Input display page). Save to keep it." : "Pad debug off. Save to keep it.");
         } else if (!strcmp(d.key, "HideGameHud")) {
             hudhide::g_want = atoi(v.c_str()) ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), hudhide::g_bad ? "Hide game HUD is not available on this game version." : hudhide::g_want ? "Game HUD hidden. Save to keep it." : "Game HUD shown. Save to keep it.");
         } else if (hudhide::ElemIndex(d.key) >= 0) {  // #44877
             const int on = atoi(v.c_str()) ? 1 : 0;
             hudhide::g_elemOn[hudhide::ElemIndex(d.key)] = on;
-            snprintf(g_configReply, sizeof(g_configReply), hudhide::g_idsBad ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
+            snprintf(g_configReply, sizeof(g_configReply), (hudhide::g_idsBad || !hudhide::ElementAvailable(hudhide::ElemIndex(d.key))) ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -1804,10 +2145,22 @@ void ChangeConfig(int index, int dir) {
     MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
 }
 
+void ChangeConfig(int index, int dir) {
+    if (index < 0 || index >= kConfigN || !g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
+    ApplyConfigValue(index);
+}
+
 // Real camera offsets are applied by CamKiProbe 1.0.21; no stick simulation.
 bool CamProbeLoaded() {
     if (g_camProbePresentForTest >= 0) return g_camProbePresentForTest != 0;
     return GetModuleHandleW(L"Nioh3CamKiProbe.asi") != nullptr;
+}
+// Linux/Proton: the add-on installs its hooks only once a player is in the world (1.8.4, pad-list crash at boot); 0 until then.
+// Older add-ons have no export and count as on.
+bool CamProbeProtonOff() {
+    HMODULE m = GetModuleHandleW(L"Nioh3CamKiProbe.asi");
+    auto active = m ? reinterpret_cast<int(__cdecl*)()>(GetProcAddress(m, "Nioh3CamKiProbeActive")) : nullptr;
+    return active && active() == 0;
 }
 // Nonzero distance/lens settings use calibrated references, not live per-scene defaults.
 // Zero always removes the key, releasing the camera to the native game calculation.
@@ -1879,8 +2232,19 @@ void ChangeCamera(int which, int dir) {
     CamWriteIni();
 }
 
+// #79098: value writes only, safe on this thread. The file write waits for the menu's normal background save.
+void VrsValuesChanged() {
+    g_bootVrs = g_vrsVals.mode != 0;
+    g_vrsEdited = true;
+    g_dirty = true;
+    gpuopt::VrsSetLive(g_vrsVals);
+}
+#include "menu_defaults_impl.h"
+
 // dir: -1 left, +1 right, 0 = A / Enter
+bool g_resumeHosted = false;  // #79226: set by SwitchTab while it opens a hosted tab
 void Change(int id, int dir) {
+    if (id == kResetPageRow || id == kCamRowFirst + kCamReset) { if (!dir) ResetCurrentPage(); return; }
     if(id==kSaveFilesRow){
         if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){
             g_saveConfirm=0;g_saveName.clear();if(!savefiles::Pending())savefiles::RefreshSlots();EnterPage(pSaveFiles);
@@ -1910,12 +2274,13 @@ void Change(int id, int dir) {
         }else{g_saveConfirm=id;g_saveConfirmAt=now;}
         return;
     }
-    if (id == kRematchRow || id == kPracticeRow) {
+    if (id == kRematchRow || id == kPracticeRow || id == kPlayerRow) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
-            (PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
+            ((g_resumeHosted && PostRematchAction(id == kPlayerRow ? rmb::ResumePlayer : id == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice)) ||
+             PostRematchAction(id == kPlayerRow ? rmb::OpenPlayer : id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
             g_rematchPage = true; g_rematchOpened = false; g_hostTab = id;
-            g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
+            if (id != kPlayerRow) g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
             for (auto& repeat : g_rep) repeat = 0;
         }
         return;
@@ -1927,13 +2292,24 @@ void Change(int id, int dir) {
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
     if (id == kUpdatePageRow) { if (dir == 0) LaunchUpdatePage(); return; }
     if (id == kReverseModsRow) { if (dir == 0) DoReverseMods(Now()); return; }
-    if (id == kReportRow) { if (dir == 0) DoReport(); return; }
+    if (id == kReportRow) { if (dir == 0) { rbox::OpenBox(g_okFromPad); g_rbOn = 1; } return; }  // #64882: the text box; its last row is the old DoReport
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
+    if (id == kPlayerLogRow) { ChangePlayerLog(dir); return; }
+    if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
+    if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
+        if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
+        if (vrsmenu::Step(g_vrsVals, id - kVrsRowFirst, dir)) { g_vrsPresetOn = false; VrsValuesChanged(); }
+        return;
+    }
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
         if (id != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
             snprintf(g_camNote, sizeof(g_camNote), "Needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded, so this row does nothing.");
+            return;
+        }
+        if (id != kCamRowFirst + kCamReset && CamProbeProtonOff()) {
+            snprintf(g_camNote, sizeof(g_camNote), "Linux/Proton: the camera turns on once you are in the world (or OnProton=2 in Nioh3CamKiProbe.ini switched it off).");
             return;
         }
         ChangeCamera(id - kCamRowFirst, dir);
@@ -1980,7 +2356,18 @@ void Change(int id, int dir) {
     } else if (id == kEpPre) {  // next / previous preset, applied at once
         int m = extraperf::MatchPreset();
         if (m < 0) m = 0;
-        extraperf::ApplyPreset((m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets);
+        g_selectedEpPreset = (m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets;
+        extraperf::ApplyPreset(g_selectedEpPreset);
+    } else if (id == kVrs) {
+        g_vrsPresetOn = !g_bootVrs;
+        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 1; g_vrsVals.wide = 6; }  // #121288 tested 2x2 + glitter guard
+        else g_vrsVals.mode = 0;
+        VrsValuesChanged();
+    } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.
+        extraperf::StepRd(dir);
+    } else if (id == kSharp) {  // #67772: Left/Right step, A cycles (wraps to the game's value)
+        const int l = extraperf::SharpLevel(), nl = extraperf::kSharpLevels;
+        extraperf::SetSharpLevel(dir == 0 ? (l + 1) % nl : std::clamp(l + dir, 0, nl - 1));
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
     } else if (id == kGR2a || id == kGR2b || id == kGR1) {
@@ -2038,6 +2425,7 @@ void Change(int id, int dir) {
         case kP12: g_bootP12 = !g_bootP12; break;
         case kL1Wine: g_bootL1Wine = !g_bootL1Wine; break;
         case kFgWine: g_bootFgWine = !g_bootFgWine; break;
+        case kFwp: g_bootFwp = g_bootFwp ? 0 : 1; break;
         default: return;
     }
     SyncConfigFromLive(id);
@@ -2069,7 +2457,7 @@ void MovePage(int dir) {
 // user #44232: while the menu is open LB / RB step through the first page's destinations ("tabs"), in the order that page lists
 // them (Boss Matches, Practice, Display Overlays, Camera settings, Settings, Save files - whatever is shown this session). From the
 // first page itself RB goes to the first tab and LB to the last; the ends wrap. View / Create returns to the first page (TryPadHome).
-bool IsTabRow(int id) { return id == kRematchRow || id == kPracticeRow || id == kSaveFilesRow || (id >= kPageRow && id < kBackRow); }
+bool IsTabRow(int id) { return id == kRematchRow || id == kPracticeRow || id == kPlayerRow || id == kSaveFilesRow || (id >= kPageRow && id < kBackRow); }
 int TabRows(int* out) {
     const int page = g_pages.page;
     g_pages.page = pRoot;  // PageRows describes the current page; borrow the first page's list (Present thread only)
@@ -2078,7 +2466,7 @@ int TabRows(int* out) {
     g_pages.page = page;
     int k = 0;
     for (int i = 0; i < n; ++i)
-        if (IsTabRow(rows[i])) out[k++] = rows[i];
+        if (IsTabRow(rows[i]) && (rows[i] != kSaveFilesRow || savefiles::Pending() || savefiles::Allowed())) out[k++] = rows[i];  // #79548: Saves is on the strip only while its page can stay open (the page is closed again while save actions are locked: fight, home)
     return k;
 }
 // the tab the player is in: the hosted page's tab, else the first-page row the page trail started from (0 = on the first page)
@@ -2089,12 +2477,13 @@ int CurrentTab() {
     return top == pSaveFiles || top == pSaveActions ? kSaveFilesRow : kPageRow + top;
 }
 const char* TabName(int id) {
-    return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Practice" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
+    return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Training" : id == kPlayerRow ? "Player" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
 }
 // #44353: the tab bar row at the top of every page: Home (the first page) then the LB / RB order, short names
 const char* TabShort(int id) {
     if (!id) return "Home";
     if (id == kRematchRow) return "Boss";
+    if (id == kPlayerRow) return "Player";
     if (id == kPracticeRow) return "Training";  // the first page names this row Training
     if (id == kSaveFilesRow) return "Saves";
     const int pg = id - kPageRow;
@@ -2125,36 +2514,54 @@ void DrawTabBar(float x, float y, int cols, float cw, float lineH, float sc, flo
     }
     if (moreR) osd::DrawText(x + (float)(cols - 1) * cw, y, ">", ms::Fade(cDim, a), sc);
 }
+// #79226: LB / RB walk one loop: Home, then the tab row's tabs, then Home again (LB the same loop backwards). A tab that cannot open
+// right now (add-on busy, save files locked) is skipped in the same direction, so the tab lit is always the tab shown.
 void SwitchTab(int dir) {
-    int tabs[kMenuRowCap];
-    const int n = TabRows(tabs);
-    if (!n) return;
+    int tabs[kMenuRowCap + 1];
+    tabs[0] = 0;
+    const int n = 1 + TabRows(tabs + 1);
+    if (n <= 1) return;
     const int cur = CurrentTab();
-    int pos = -1;
+    int pos = 0;
     for (int i = 0; i < n; ++i) if (tabs[i] == cur) pos = i;
-    const int next = tabs[pos < 0 ? (dir > 0 ? 0 : n - 1) : menu_nav::Wrap(pos, dir, n)];
-    if (next == cur) return;
-    for (auto& repeat : g_rep) repeat = 0;
-    const bool hosted = next == kRematchRow || next == kPracticeRow;
-    if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
-        if (PostRematchAction(next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice)) {
+    for (int step = 0; step < n - 1; ++step) {
+        pos = menu_nav::Wrap(pos, dir, n);
+        const int next = tabs[pos];
+        if (next == CurrentTab()) return;
+        const bool hosted = next == kRematchRow || next == kPracticeRow || next == kPlayerRow;
+        if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
+            const bool ok = PostRematchAction(next == kPlayerRow ? rmb::ResumePlayer : next == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice) ||
+                            PostRematchAction(next == kPlayerRow ? rmb::OpenPlayer : next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice);
+            if (!ok) continue;
+            for (auto& repeat : g_rep) repeat = 0;
             g_rematchOpened = false; g_hostTab = next;
-            g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
+            if (next != kPlayerRow) g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
             MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
+            return;
         }
+        if (g_rematchPage) CloseRematchHostPage();
+        g_pages.Reset();
+        for (auto& repeat : g_rep) repeat = 0;
+        if (!next) {
+            g_sel = TopLevelSel();
+            MLOG("tab %s: Home", dir > 0 ? "RB" : "LB");
+            return;
+        }
+        g_sel = next;
+        g_resumeHosted = true;  // returning to a hosted tab restores its page, row and filter
+        Change(next, 0);
+        g_resumeHosted = false;
+        if (CurrentTab() != next) { g_sel = TopLevelSel(); continue; }  // did not open: try the next tab
+        MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
         return;
     }
-    if (g_rematchPage) CloseRematchHostPage();
-    g_pages.Reset();
-    g_sel = next;  // stays on the first page with this tab selected when the tab cannot open (add-on busy, save files locked)
-    Change(next, 0);
-    MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
 }
 
 // ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------
 // One request at a time: the caller posts it (state 1), the Present thread takes it (2), runs it and marks it done (3).
 struct RemoteReq {
     char key[48];
+    char text[200];
     int set, value, rc;
     char reply[200];
 };
@@ -2204,6 +2611,14 @@ bool RemoteValue(int id, int& v) {
         v = extraperf::MatchPreset();  // -1 = custom
         return true;
     }
+    if (id == kRd) {
+        v = extraperf::RdPct();  // 50..100; 50 is distance 0.50
+        return true;
+    }
+    if (id == kSharp) {
+        v = extraperf::SharpLevel();  // 0 game, 1..5 = 0.0 .. 1.0
+        return true;
+    }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
         case kR1: v = (int)*g_host.r1Timeout; return true;
@@ -2216,10 +2631,12 @@ bool RemoteValue(int id, int& v) {
         case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
         case kHint: v = g_cfg.pauseHint; return true;
         case kFreeze: v = g_cfg.freezeGame; return true;
+        case kVrs: v = g_bootVrs ? 1 : 0; return true;
         case kWorkerCap: v = g_bootWorkerCap; return true;
         case kP12: v = g_bootP12; return true;
         case kL1Wine: v = g_bootL1Wine; return true;
         case kFgWine: v = g_bootFgWine; return true;
+        case kFwp: v = g_bootFwp; return true;
         default: return false;
     }
 }
@@ -2231,6 +2648,26 @@ void LogItem(int id) {
 }
 void RunRemote(RemoteReq& q) {
     q.rc = -1;
+    if (!_stricmp(q.key, "HideHudIds")) {
+        if (q.set) {
+            char numeric[24];
+            snprintf(numeric, sizeof(numeric), "%d", q.value);
+            const char* ids = q.text[0] ? q.text : numeric;
+            if (!hudhide::SetIdsLive(ids)) {
+                snprintf(q.reply, sizeof(q.reply), "invalid HUD IDs: use comma-separated 0..255 or none; previous mask preserved");
+                return;
+            }
+            hudhide::SyncIds(); // apply before acknowledging; this runs on Present
+            if (g_log) g_log("HUD raw IDs -> %s (redirected=%d unavailable=%d)", ids,
+                hudhide::g_redirected, hudhide::g_idsBad);
+        }
+        const auto* m = hudhide::g_extra;
+        snprintf(q.reply, sizeof(q.reply), "HideHudIds mask=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X (%s; named toggles unchanged)",
+            m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7],
+            hudhide::g_idsBad ? "unavailable" : hudhide::g_redirected ? "redirected" : "off");
+        q.rc = hudhide::g_idsBad ? -1 : 0;
+        return;
+    }
     for (int i = 0; i < kConfigN; ++i) {  // catalog Choice rows live-applied by the menu (e.g. HideGameHud, HideHud*): 'menu set <key> 0|1'
         const auto& d = kConfigSettings[i];
         if (_stricmp(d.key, q.key) || d.apply != setting_ui::Apply::MenuLive || d.kind != setting_ui::Kind::Choice) continue;
@@ -2251,7 +2688,7 @@ void RunRemote(RemoteReq& q) {
     int cur = 0;
     if (!Visible(id) || ReadOnly(id) || !Available(id) || !RemoteValue(id, cur)) {
         snprintf(q.reply, sizeof(q.reply), "'%s' (%s) is %s", q.key, kItems[id].plain,
-                 !Visible(id) || !Available(id) ? "not installed / not shown this session" : "not settable remotely");
+                 !Available(id) ? NaText(id) : !Visible(id) ? "not shown this session" : "not settable remotely");
         return;
     }
     if (q.set) {
@@ -2282,8 +2719,19 @@ void RunRemote(RemoteReq& q) {
                 g_dirty = true;
                 LogItem(id);
                 break;
-            case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato
-                extraperf::ApplyPreset(std::clamp(q.value, 0, extraperf::kNumPresets - 1));
+            case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato, 3 Risky, 4 Extreme, 5 Extreme HQ (#67772)
+                g_selectedEpPreset = std::clamp(q.value, 0, extraperf::kNumPresets - 1);
+                extraperf::ApplyPreset(g_selectedEpPreset);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kRd:  // 50..100 percent. 50 = half distance. Snapped to 5.
+                extraperf::SetRdPct(q.value);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kSharp:  // #67772: 0 game, 1..5 = FSR sharpness 0.0 / 0.25 / 0.5 / 0.75 / 1.0
+                extraperf::SetSharpLevel(q.value);
                 g_dirty = true;
                 LogItem(id);
                 break;
@@ -2406,7 +2854,8 @@ bool ForegroundIsGame() {
 
 void OwnPolling(ULONGLONG t) {
     // controller: only when the game's own XInputGetState calls are not reaching us
-    if (g_xiOwn && t - (ULONGLONG)g_lastPadFeed > 500 && t - g_lastOwnPad >= 16) {
+    // open menu: take over after 100 ms, not 500 - g_padHeld goes stale after 300 ms, before the 400 ms first repeat, so a held pad never repeated while the game was not polling
+    if (g_xiOwn && t - (ULONGLONG)g_lastPadFeed > (g_open ? 100u : 500u) && t - g_lastOwnPad >= 16) {
         if (!g_loggedPadFallback) {
             g_loggedPadFallback = true;
             MLOG("controller: %s - polling XInput ourselves (the game will also see menu button presses)",
@@ -2547,9 +2996,91 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
     Close("Y / Triangle");return true;
 }
 
+void RowLabel(int id, char* out, int cap) {
+    if (!out || cap < 1) return;
+    if (id >= 0 && id < kCount) snprintf(out, (size_t)cap, "%s", kItems[id].plain);
+    else if (id == kBackRow) snprintf(out, (size_t)cap, "Back");
+    else if (id == kModMenuRow) snprintf(out, (size_t)cap, "Mod menu");
+    else if (id == kCloseTopRow) snprintf(out, (size_t)cap, "Close");
+    else if (id == kReportRow) snprintf(out, (size_t)cap, "Report");
+    else if (id == kRematchRow) snprintf(out, (size_t)cap, "Boss Matches");
+    else if (id == kPracticeRow) snprintf(out, (size_t)cap, "Training");
+    else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
+    else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
+    else if (id == kPlayerLogRow) snprintf(out, (size_t)cap, "Player log");
+    else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
+    else snprintf(out, (size_t)cap, "row");
+}
+
+void ChangeLogged(int id, int dir) {
+    char oldv[48], newv[48], lab[64];
+    uint32_t vc = 0;
+    Value(id, oldv, sizeof oldv, vc);
+    Change(id, dir);
+    Value(id, newv, sizeof newv, vc);
+    if (strcmp(oldv, newv) == 0) return;
+    RowLabel(id, lab, (int)sizeof lab);
+    inputlog::NoteMenu("value", PageName(g_pages.page), lab, oldv, newv);
+}
+
+void NoteSelection() {
+    static int prev = -99999;
+    static int host = 0;
+    const int nowHost = g_rematchPage ? (g_hostTab == kPlayerRow ? 3 : g_hostTab == kPracticeRow ? 2 : 1) : 0;
+    if (nowHost != host) {
+        host = nowHost;
+        if (nowHost) inputlog::NoteMenu("page", nowHost == 3 ? "Player" : nowHost == 2 ? "Training" : "Boss Matches", "", "", "");
+    }
+    if (!g_open) { prev = -99999; return; }
+    if (g_sel == prev) return;
+    prev = g_sel;
+    char lab[64];
+    RowLabel(g_sel, lab, (int)sizeof lab);
+    inputlog::NoteMenu("row", PageName(g_pages.page), lab, "", "");
+}
+
+// Up/Down/Left/Right: the edge, then (held pad / key) the first repeat after 400 ms and every 90 ms. Shared by the mod menu and the
+// hosted Boss Match pages. Returns the directions to act on now.
+static const uint32_t kNavDirs[4] = {N_UP, N_DOWN, N_LEFT, N_RIGHT};
+uint32_t NavRepeat(uint32_t pressed, ULONGLONG t) {
+    uint32_t held = 0;
+    for (int i = 0; i < 4; ++i)
+        if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
+    if (t - (ULONGLONG)g_keyHeldAt < 300) held |= KeyNav((uint32_t)g_keyHeld);
+    // Scrolling owns the vertical axis for the whole hold, not just its repeat frames.
+    // Staggered diagonal holds otherwise interleave Left/Right edits between Up/Down
+    // repeats (e.g. marking every boss passed). Clear those repeat timers below too,
+    // so releasing vertical does not turn the remaining horizontal hold into an edit.
+    if ((pressed | held) & (N_UP | N_DOWN)) {
+        pressed &= ~(N_LEFT | N_RIGHT);
+        held &= ~(N_LEFT | N_RIGHT);
+    }
+    uint32_t acts = 0;
+    for (int d = 0; d < 4; ++d) {
+        if (pressed & kNavDirs[d]) {
+            acts |= kNavDirs[d];
+            g_rep[d] = t + 400;  // first repeat after 400 ms, then every 90 ms
+        } else if ((held & kNavDirs[d]) && g_rep[d] && t >= g_rep[d]) {
+            acts |= kNavDirs[d];
+            g_rep[d] = t + 90;
+        } else if (!(held & kNavDirs[d])) {
+            g_rep[d] = 0;
+        }
+    }
+    return acts;
+}
+
 void OnPresentImpl() {
+    if (!g_btnStyleChecked) RefreshButtonStyle();  // UO #10: first frame, pad glyphs for the overlays too
     hudhide::Sync();
     hudhide::SyncIds();
+    static bool hudLogged = false;
+    if (!hudLogged) {
+        hudLogged = true;
+        if (g_log) g_log("HUD patterns: master=%p call=%p target=%p weaponsId=%u soulCoresId=%u",
+            hudhide::g_master, hudhide::g_call, hudhide::g_target,
+            (unsigned)hudhide::g_weaponsId, (unsigned)hudhide::g_soulCoresId);
+    }
     savefiles::Poll();
     if(savefiles::TakeMenuCloseRequest()&&g_open)Close("live title reset");
     if((g_pages.page==pSaveFiles||g_pages.page==pSaveActions)&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
@@ -2595,11 +3126,31 @@ void OnPresentImpl() {
         else { Open(SrcName(src)); OpenModePage(rematchReady); }
     }
     if (!g_open) {
+        NoteSelection();
         InterlockedExchange(&g_pressed, 0);
+        InterlockedExchange(&g_padPressed, 0);
         g_rep[0] = g_rep[1] = g_rep[2] = g_rep[3] = 0;
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    const uint32_t padPressed = (uint32_t)InterlockedExchange(&g_padPressed, 0) & pressed;
+    g_okFromPad = (padPressed & N_OK) != 0;
+    if (rbox::g_on) {  // #64882 Report box: owns every edge while open (nothing typed goes to the input ring)
+        uint32_t heldNow = 0;
+        for (int i = 0; i < 4; ++i)
+            if (t - (ULONGLONG)g_padHeldAt[i] < 300) heldNow |= PadNav((uint32_t)g_padHeld[i]);
+        if (!g_rbKeyMsg && t - (ULONGLONG)g_keyHeldAt < 300) heldNow |= KeyNav((uint32_t)g_keyHeld);
+        rbox::Handle(pressed, padPressed, heldNow, t);
+        g_rbOn = rbox::g_on;
+        return;
+    }
+    if (pressed) {  // menu navigation edges for the report input ring (design notes/auto-report.md "Input ring")
+        static const struct { uint32_t bit; const char* name; } kNames[] = {{N_UP, "up"}, {N_DOWN, "down"}, {N_LEFT, "left"}, {N_RIGHT, "right"},
+            {N_OK, "ok"}, {N_BACK, "back"}, {N_PAGEUP, "pgup"}, {N_PAGEDOWN, "pgdn"}, {N_CLOSE, "close"}, {N_HOME, "home"},
+            {N_TAB_PREV, "tab_prev"}, {N_TAB_NEXT, "tab_next"}, {N_X, "x"}};
+        for (const auto& k : kNames)
+            if (pressed & k.bit) reportsend::NoteInput((padPressed & k.bit) ? "pad" : "key", k.name);
+    }
     if (TryPadHome(pressed)) return;
     if (TryPadClose(pressed,t)) return;
     if (g_rematchPage) {
@@ -2627,16 +3178,18 @@ void OnPresentImpl() {
         // One normalized edge per frame; Back wins, then paging/navigation.
         // The addon worker rechecks the displayed generation before dispatch.
         // #44232: bumpers switch tabs, except inside a value editor and on the Return object's own page (that page is the whole menu).
+        const uint32_t acts = NavRepeat(pressed, t);  // held pad/key repeats here too (400 ms, then 90 ms)
         const uint32_t tab = pressed & (N_TAB_PREV | N_TAB_NEXT);
         if (pressed & N_BACK) PostRematchAction(rmb::Back);
         else if (tab) { if (tab != (N_TAB_PREV | N_TAB_NEXT) && !g_rematchFromAddon && !(g_rematchView.flags & rmb::Editing)) SwitchTab(tab == N_TAB_NEXT ? 1 : -1); }
-        else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
-        else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
-        else if (pressed & N_UP) PostRematchAction(rmb::Up);
-        else if (pressed & N_DOWN) PostRematchAction(rmb::Down);
-        else if (pressed & N_LEFT) PostRematchAction(rmb::Left);
-        else if (pressed & N_RIGHT) PostRematchAction(rmb::Right);
-        else if (pressed & N_OK) PostRematchAction(rmb::Accept);
+        else if (pressed & N_PAGEUP) PostRematchNav(rmb::PageUp);
+        else if (pressed & N_PAGEDOWN) PostRematchNav(rmb::PageDown);
+        else if (acts & N_UP) PostRematchNav(rmb::Up);
+        else if (acts & N_DOWN) PostRematchNav(rmb::Down);
+        else if (acts & N_LEFT) PostRematchNav(rmb::Left);
+        else if (acts & N_RIGHT) PostRematchNav(rmb::Right);
+        else if (pressed & N_OK) PostRematchNav(rmb::Accept);
+        else RetryRematchNav();
         return;
     }
     // Back owns a mixed input frame: cancelling a confirmation/page must never
@@ -2654,28 +3207,15 @@ void OnPresentImpl() {
         else if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEDOWN) MovePage(1);
         return;
     }
-    uint32_t held = 0;
-    for (int i = 0; i < 4; ++i)
-        if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
-    if (t - (ULONGLONG)g_keyHeldAt < 300) held |= KeyNav((uint32_t)g_keyHeld);
-    static const uint32_t dirs[4] = {N_UP, N_DOWN, N_LEFT, N_RIGHT};
+    const uint32_t acts = NavRepeat(pressed, t);
     for (int d = 0; d < 4; ++d) {
-        bool act = false;
-        if (pressed & dirs[d]) {
-            act = true;
-            g_rep[d] = t + 400;  // first repeat after 400 ms, then every 90 ms
-        } else if ((held & dirs[d]) && g_rep[d] && t >= g_rep[d]) {
-            act = true;
-            g_rep[d] = t + 90;
-        } else if (!(held & dirs[d])) {
-            g_rep[d] = 0;
-        }
-        if (!act) continue;
+        if (!(acts & kNavDirs[d])) continue;
         if (d == 0) Move(-1);
         else if (d == 1) Move(+1);
-        else Change(g_sel, d == 2 ? -1 : +1);
+        else ChangeLogged(g_sel, d == 2 ? -1 : +1);
     }
-    if (pressed & N_OK) Change(g_sel, 0);
+    if (pressed & N_OK) ChangeLogged(g_sel, 0);
+    NoteSelection();
 }
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
@@ -2877,9 +3417,15 @@ float DrawRematchHost(unsigned W, unsigned H) {
     if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
         ms::Panel(x, y0, width, line * 2.f + pad * 2.f, scale, ms::kPanelBgSide, a);
         osd::DrawText(tx, y0 + pad, "Mod menu", ms::Fade(ms::kTitleText, a), scale);
-        osd::DrawText(tx, y0 + pad + line, "Waiting for the menu worker. B: back.", ms::Fade(cGray, a), scale);
+        osd::DrawText(tx, y0 + pad + line, InputModality() == MOD_KEY ? "Waiting for the menu worker. Esc: back." : "Waiting for the menu worker. B: back.",
+                      ms::Fade(cGray, a), scale);
         return scale;
     }
+    // #106005: under the keyboard the add-on's help text (row hints, footer, toast) names keys, not pad buttons
+    const bool keyText = InputModality() == MOD_KEY;
+    const char* const toggleKey = g_cfg.vk ? g_cfg.keyName : nullptr;
+    static char footKey[sizeof(g_rematchView.footer) + 32], toastKey[sizeof(g_rematchView.toast) + 32];
+    auto keyed = [&](const char* t, char* buf, size_t bn) -> const char* { return keyText && ms::KeyText(t, buf, bn, toggleKey) ? buf : t; };
     // ---- title row "<page> (<version>) - <status>"
     char title[112] = "Mod menu", status[112] = "";
     uint32_t first = 0;
@@ -2930,6 +3476,12 @@ float DrawRematchHost(unsigned W, unsigned H) {
         const auto& row = g_rematchView.rows[i];
         hostui::Item& it = items[nItems];
         hostui::Parse(row.text, row.color | 0xFF000000u, row.selected != 0, it);
+        if (keyText) {  // after Parse: its own hint cuts ("A: open", "A / Left / Right") still see the pad words
+            char kb[sizeof it.note + 32];
+            if (ms::KeyText(it.label, kb, sizeof kb, toggleKey)) snprintf(it.label, sizeof it.label, "%s", kb);
+            if (ms::KeyText(it.value, kb, sizeof kb, toggleKey)) snprintf(it.value, sizeof it.value, "%s", kb);
+            if (ms::KeyText(it.note, kb, sizeof kb, toggleKey)) snprintf(it.note, sizeof it.note, "%s", kb);
+        }
         if (strlen(it.value) > (size_t)kCols - 8 && it.slider < 0) {  // a value that long reads better as a wrapped note line
             char nb[224];
             snprintf(nb, sizeof nb, "%s%s%s", it.value, it.note[0] ? "  " : "", it.note);
@@ -2961,9 +3513,9 @@ float DrawRematchHost(unsigned W, unsigned H) {
     }
     auto visual = [&](int from, int to) { int v = 0; for (int i = from; i < to; ++i) v += !lines[i].inl; return v; };
     const int bodyN = n, bodyV = visual(0, n);
-    if (g_rematchView.footer[0]) wrap(g_rematchView.footer, 0, kCols, kCols, cGray, -1);
+    if (g_rematchView.footer[0]) wrap(keyed(g_rematchView.footer, footKey, sizeof footKey), 0, kCols, kCols, cGray, -1);
     const int toastStart = n;
-    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
+    if (g_rematchView.toast[0]) wrap(keyed(g_rematchView.toast, toastKey, sizeof toastKey), 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
     const int tailV = n - bodyN;
     const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
     const bool tabHints = !g_rematchFromAddon;  // #44232
@@ -3052,10 +3604,20 @@ float DrawRematchHost(unsigned W, unsigned H) {
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale) - (tabHints ? line : 0.f)) * 0.5f);  // badges centred in the band (#13537)
+    if (InputModality() == MOD_KEY) {  // UO #9: keyboard modality, key caps instead of pad badges (same rows)
+        ms::HintItem keys[3];
+        int k = ms::KeyPrompts(0, nullptr, keys);
+        ms::HintRow(tx, hy, x + width - pad, keys, k, cw, line, scale, a);
+        if (tabHints) {
+            k = ms::KeyPrompts(1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+            ms::HintRow(tx, hy + line, x + width - pad, keys, k, cw, line, scale, a);
+        }
+        return scale;
+    }
     static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
     if (tabHints) {  // #44232: second prompt line, LB / RB tabs + View first page (not on the Return object's own page)
-        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
         ms::HintRow(tx, hy + line, x + width - pad, kTabs, 2, cw, line, scale, a);
     }
     return scale;
@@ -3082,7 +3644,9 @@ float DrawImpl(unsigned W, unsigned H) {
         const float offset=travel*(cycle<=1.0f?cycle:2.0f-cycle);
         osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
         osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
-        if(stage[0])osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        // #65319: the font shader sizes every stroke with the one scale this function returns. A 1.0 line under a
+        // 2.0 title draws the lower half of each glyph outside its quad, so descenders (g, y, p) are cut off.
+        if(stage[0])osd::DrawText(x,y+64.0f,stage,0xFFBBBBBB,scale);
         return scale;
     }
     if(!g_coverToken.load() && Now()<g_coverNoticeUntil && !g_open) {
@@ -3103,7 +3667,7 @@ float DrawImpl(unsigned W, unsigned H) {
         osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
         const char* stage=g_rematchView.coverPhase==1?"Preparing...":
             (g_rematchView.coverPhase==2?"Starting boss match...":"Entering boss arena...");
-        osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        osd::DrawText(x,y+64.0f,stage,0xFFBBBBBB,scale);  // #65319: same scale as the title, or descenders are clipped
         osd::DrawText(x,(float)H-50.0f,"B / Escape: show game",0xFFBBBBBB,1.0f);
         g_coverDrawnToken=g_coverToken.load();return scale;
     }
@@ -3127,6 +3691,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
 
     if (g_rematchPage) return DrawRematchHost(W, H);
+    if (rbox::g_on) return DrawReportBox(W, H);  // #64882
     // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
     // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
     Row head;
@@ -3159,9 +3724,14 @@ float DrawImpl(unsigned W, unsigned H) {
     const int pageN = PageRows(pageRows, false);
     for (int oi = 0; oi < pageN; ++oi) {
         const int id = pageRows[oi];
-        if (id == kRematchRow || id == kPracticeRow) {
+        if (id == kResetPageRow) {
             if (id == g_sel) selRow = nb;
-            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
+            put(body, nb, 128, id == g_sel ? "> Reset to defaults" : "  Reset to defaults", "", "A: reset page", cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id == kRematchRow || id == kPracticeRow || id == kPlayerRow) {
+            if (id == g_sel) selRow = nb;
+            const char* label = id == kPlayerRow ? (id == g_sel ? "> Player" : "  Player") : id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
             put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
@@ -3219,6 +3789,13 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kPlayerLogRow) {  // human #128100
+            if (id == g_sel) selRow = nb;
+            const int v = PlayerLogGet();
+            put(body, nb, 128, id == g_sel ? "> Player log" : "  Player log", "", v < 0 ? "needs Training" : v == 2 ? "MIXED" : v ? "ON" : "OFF",
+                id == g_sel ? cWhite : cGray, v == 1 ? cGreen : v == 2 ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kTimeOfDayRow || id == kWeatherRow) {
             if (id == g_sel) selRow = nb;
             const int value = PsGet(id == kTimeOfDayRow ? kTimeOfDayWhat : kWeatherWhat);
@@ -3226,6 +3803,29 @@ float DrawImpl(unsigned W, unsigned H) {
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kTimeOfDayRow ? "Time of day" : "Weather");
             SkyValueText(id, value, text, sizeof(text));
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, value > 0 ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
+        if (id == kVrsPageRow) {
+            if (id == g_sel) selRow = nb;
+            const bool ok = gpuopt::VrsSupport() >= 0;
+            put(body, nb, 128, id == g_sel ? "> Variable rate shading values" : "  Variable rate shading values", "", ok ? "open >" : "not supported",
+                id == g_sel ? cWhite : cGray, ok ? cGray : cDim, id == g_sel, false);
+            continue;
+        }
+        if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
+            if (id == g_sel) selRow = nb;
+            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Glitter guard", "Reset to defaults"};
+            const int k = id - kVrsRowFirst;
+            char lab[96], text[64];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kVrsLabels[k]);
+            const vrsmenu::Effect fx = vrsmenu::RowEffect(k, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking());
+            const char* note = fx == vrsmenu::kLive ? "live" : fx == vrsmenu::kNextLaunch ? "next launch" : "Selective only";
+            const char* value = k == vrsmenu::kRowLevel ? vrsmenu::LevelName(vrsmenu::LevelOf(g_vrsVals)) : k == vrsmenu::kRowAdvanced ? (g_vrsAdvanced ? "Shown" : "Hidden") : k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
+                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : k == vrsmenu::kRowWide ? vrsmenu::WideName(g_vrsVals.wide) : g_vrsVals.keep ? "On" : "Off";
+            if (k == vrsmenu::kRowReset) snprintf(text, sizeof(text), "A: reset (%s)", note);
+            else if (k == vrsmenu::kRowAdvanced) snprintf(text, sizeof(text), "A: %s", value);
+            else snprintf(text, sizeof(text), "< %s > %s", value, note);
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, fx == vrsmenu::kLive ? cGreen : fx == vrsmenu::kNextLaunch ? cYellow : cDim, id == g_sel, false);
             continue;
         }
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
@@ -3236,7 +3836,12 @@ float DrawImpl(unsigned W, unsigned H) {
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
             if (k != kCamReset && !CamProbeLoaded()) {
-                snprintf(text, sizeof(text), "needs CamKiProbe add-on");
+                snprintf(text, sizeof(text), "CamKiProbe.asi not loaded");
+                put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
+                continue;
+            }
+            if (k != kCamReset && CamProbeProtonOff()) {
+                snprintf(text, sizeof(text), "starts in the world (Linux)");
                 put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
                 continue;
             }
@@ -3293,7 +3898,12 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128], text[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
             // #13296: value only (ON / OFF pill for switches); how it applies is in the explanation below the list
-            snprintf(text, sizeof(text), "%.48s%s", setting_ui::Shown(d, v.text), d.kind == setting_ui::Kind::Manual ? "  (ini only)"
+            // #106442: Auto button style shows what it resolved to, e.g. "Auto (Xbox)", so the player can tell Auto from a pinned Xbox
+            char shown[64];
+            if (!strcmp(d.key, "ButtonStyle") && !_stricmp(v.text.c_str(), "Auto"))
+                snprintf(shown, sizeof(shown), "Auto (%s)", StyleName(menu_style::g_btnStyle));
+            else snprintf(shown, sizeof(shown), "%.48s", setting_ui::Shown(d, v.text));
+            snprintf(text, sizeof(text), "%s%s", shown, d.kind == setting_ui::Kind::Manual ? "  (ini only)"
                 : v.changed ? (d.apply == setting_ui::Apply::NextLaunch ? "  * restart to apply" : "  * changed") : "");
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
@@ -3335,11 +3945,17 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a snapshot, opens its folder, and opens the report website." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
-    if (g_sel == kRematchRow) {
+    if (g_sel == kResetPageRow) {
+        snprintf(what, sizeof(what), "Restore this page's editable settings to the values shipped with the mod.");
+        snprintf(effect, sizeof(effect), "%s", g_defaultsNote);
+    } else if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: replay cleared bosses in their arena or from their shrine. Death and loot rules are shared with Training.");
         snprintf(effect, sizeof(effect), "Arena matches use your death and loot rules. Mission replays keep normal rewards. Solo and cleared-boss checks still apply.");
+    } else if (g_sel == kPlayerRow) {
+        snprintf(what, sizeof(what), "Player settings: health, player stats and soul-core options.");
+        snprintf(effect, sizeof(effect), "Opens independently of Training. Each option states where it applies.");
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Training: choose a location, add bosses, and control their moves. Shared player and boss stats also affect spawned Boss Matches.");
         snprintf(effect, sizeof(effect), "Training retries in place when you die. Return to where I was ends the session. Frame meter: Display Overlays. Save manager: Mod menu at title.");
@@ -3354,7 +3970,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
-        snprintf(effect, sizeof(effect), "Opens the website. On Windows it also opens the report folder. Under Wine/Proton the folder stays closed. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
+        snprintf(effect, sizeof(effect), "A / Enter opens a text box (keyboard, controller key grid or Steam keyboard). A copy stays in Nioh3Reports beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
@@ -3371,15 +3987,42 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kPlayerLogRow) {  // human #128100
+        snprintf(what, sizeof(what), "%s", g_plogNote[0] ? g_plogNote : "Writes Nioh3PlayerLog.txt in the game folder: your button presses, moves, fps on every line, and a once-a-second game clock line that shows slow motion.");
+        snprintf(effect, sizeof(effect), "A switches; Right = ON, Left = OFF. Starts and stops at once. Off by default. Send the file with a report.");
     } else if (g_sel == kTimeOfDayRow || g_sel == kWeatherRow) {
         snprintf(what, sizeof(what), "%s", g_skyNote[0] ? g_skyNote : g_sel == kTimeOfDayRow
             ? "Set the sky time in 30-minute steps. Stock follows the area's own time."
             : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
+    } else if (g_sel == kVrsPageRow) {
+        snprintf(what, sizeof(what), "Adjust each Variable Rate Shading value. Each row says if it works now or at the next launch.");
+        snprintf(effect, sizeof(effect), "%s", gpuopt::VrsSupport() < 0 ? "This graphics card or driver has no hardware VRS." : "Changes the look. Off by default.");
+    } else if (g_sel >= kVrsRowFirst && g_sel < kVrsRowFirst + vrsmenu::kRowN) {
+        static const char* const kVrsWhat[vrsmenu::kRowN] = {
+            "Higher = more fps, softer picture. Medium: world surfaces coarse, characters sharp. High: most fps, characters soften too.",
+            "The raw values behind the level. Most players never need these. Changing one can show the level as Custom.",
+            "Off, the whole frame coarse (also menus and effects), or Selective: only safe world surfaces.",
+            "Selective: which surface shapes may go coarse, by render target count.",
+            "Selective: how coarse. 2x2 saves the most. 1x2 and 2x1 keep one direction sharp.",
+            "Selective: full rate for models that declare skinning in their vertex data.",
+            "Selective: only known world shaders may go coarse. Off lets characters go coarse too.",
+            "Whole frame 2x2 or 4x4 keeps see-through draws and screen overlays at full detail (rain, fog, the HUD). On is the tested setting. Off is plain whole-frame shading, which glitters. Selective ignores this.",
+            "Off, all surfaces, 2x2, both protections on. Saved when the menu closes."};
+        snprintf(what, sizeof(what), "%s", kVrsWhat[g_sel - kVrsRowFirst]);
+        if (g_sel == kVrsRowFirst + vrsmenu::kRowWide) {
+            snprintf(effect, sizeof(effect), "%s", vrsmenu::RowEffect(vrsmenu::kRowWide, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking()) == vrsmenu::kLive
+                ? "Applies on the next draw. Saved when the menu closes. Needs Shading mode Whole frame 2x2 or 4x4."
+                : "Saved now. Needs one restart with Shading mode Whole frame, so the draw classes are learned at startup.");
+        } else
+        snprintf(effect, sizeof(effect), "%s", !gpuopt::VrsBootMode()
+            ? "The game started with this off: it is saved now and needs one restart. After that all rows work live."
+            : gpuopt::VrsBootTracking() ? "Applies on the next draw, no restart. Saved when the menu closes."
+            : "The game started in Whole frame: Selective and its rows need one restart. Off and Whole frame work live.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
         if (g_sel != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
-            snprintf(what, sizeof(what), "This offset needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded.");
-            snprintf(effect, sizeof(effect), "needs CamKiProbe add-on");
+            snprintf(what, sizeof(what), "Nioh3CamKiProbe.asi is not loaded, so this camera row cannot move the camera.");
+            snprintf(effect, sizeof(effect), "The mod package should include Nioh3CamKiProbe.asi next to Nioh3.exe.");
         } else {
             snprintf(what, sizeof(what), "Left / Right adjusts the selected axis; A / Enter resets it. Zero uses the game camera. Return to default resets all four.");
             snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Steps: position 20, distance 60, lens 5 degrees. Left = closer / narrower; right = farther / wider.");
@@ -3411,11 +4054,9 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     if (g_sel < kCount && !Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
-            snprintf(what, sizeof(what), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
-        else if (g_sel == kFg)
-            snprintf(what, sizeof(what), "Status only: change frame generation in the game's Options.");
+            snprintf(what, sizeof(what), "Off on Linux/Proton. Turn on '%s on Proton' below, save, and restart.", g_sel == kL1 ? "L1" : "F1");
         else
-            snprintf(what, sizeof(what), "Not installed this session (off in the ini or a site was not found - see the log).");
+            snprintf(what, sizeof(what), "%s", NaText(g_sel));
         effect[0] = 0;
     }
     addT("", cWhite, true);
@@ -3428,6 +4069,29 @@ float DrawImpl(unsigned W, unsigned H) {
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
         const char* why = osd::FgReason(osd::FrameGen());
         addT(why ? why : " ", cOrange);
+    }
+    if (g_pages.page == pOvController) {  // UO #8: controller status card (which pad, does the game get XInput, stick drift)
+        static padcard::Card card;
+        static ULONGLONG nextEnum = 0;
+        if (t >= nextEnum) { nextEnum = t + 2000; card.nHid = EnumPads(card.hid, 8); }
+        padcard::Step(card, t);
+        char c1[112], c2[112];
+        padcard::Format(card, t, menu_style::g_btnStyle, c1, sizeof c1, c2, sizeof c2);
+        addT(c1, cCyan);
+        addT(c2, strstr(c2, "drift") && !strstr(c2, "no drift") ? cOrange : cCyan);
+    }
+    if (paddebug::g_on && (g_pages.page == pOvInput || g_sel == PadDebugSettingRow())) {  // #98294: pDiagnostics had no route; Input display page (layout 0) or the selected row (any layout). #97485: raw pad as the mod sees it + who hides it from the game
+        static int (*formBlock)() = nullptr;
+        static ULONGLONG nextLook = 0;
+        if (!formBlock && t >= nextLook) {
+            nextLook = t + 2000;
+            if (HMODULE m = GetModuleHandleW(L"Nioh3BossRematch.asi"))
+                formBlock = reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3BossRematch_PadBlockActive"));
+        }
+        char l1[96], l2[96];
+        paddebug::Format(paddebug::Read(), t, formBlock ? formBlock() : -1, l1, sizeof(l1), l2, sizeof(l2));
+        addT(l1, cCyan);
+        addT(l2, cCyan);
     }
     char stats[200];
     const Rates& r = g_rates;
@@ -3462,7 +4126,8 @@ float DrawImpl(unsigned W, unsigned H) {
             addT(line, cCyan);
         }
     }
-    // footer / save status
+    // footer / save status; UO #9: the two prompt rows are pad badges or key caps, by InputModality() (no toggle)
+    const bool keyMode = InputModality() == MOD_KEY;
     const LONG ss = g_saveState;
     if (ss >= 2 && !g_saveShownAt) g_saveShownAt = t;
     if (holdNote[0]) addT(holdNote, cGold);
@@ -3472,11 +4137,12 @@ float DrawImpl(unsigned W, unsigned H) {
         if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
+    } else if (keyMode) {
+        addT("\x01K", cDim);  // UO #9 key caps: Arrows / Enter / Esc
     } else {
         addT(g_cfg.layout && g_pages.depth ? "\x01P" : "\x01p", cDim);  // #13537: drawn as button badges (drawRow)
     }
-    addT("\x01T", cDim);  // #44232: LB / RB tabs + View first page, on every page
-    addT("\x01K", cDim);
+    addT(keyMode ? "\x01k" : "\x01T", cDim);  // #44232: LB / RB tabs + View first page, every page (keyboard: PgUp PgDn + menu key)
 
     // #38102/#38134: every flat page is the same fixed right-side panel as the hosted pages (58 columns, 0.66 H high); long rows are clipped
     constexpr size_t cols = 58, valueCol = 34;
@@ -3526,12 +4192,12 @@ float DrawImpl(unsigned W, unsigned H) {
         const float y = y0 + pad + line * lineH;
         if (rw.label[0] == '\x01') {  // #13537 control prompts: pad (P = back, p = close) or keyboard (K), badges + labels
             const float right = x0 + w - pad;
-            if (rw.label[1] == 'K') {
-                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}, {"F10", "Exit"}};
-                const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
-                ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
+            if (rw.label[1] == 'K' || rw.label[1] == 'k') {  // UO #9: keyboard modality, key caps instead of pad badges
+                ms::HintItem keys[3];
+                const int k = ms::KeyPrompts(rw.label[1] == 'K' ? 0 : 1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+                ms::HintRow(x0 + pad, y, right, keys, k, cw, lineH, sc, fa);
             } else if (rw.label[1] == 'T') {  // #44232: shoulder caps follow ButtonStyle (LB RB / L1 R1)
-                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
                 ms::HintRow(x0 + pad, y, right, kTabs, 2, cw, lineH, sc, fa);
             } else {
                 const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}};
@@ -3566,13 +4232,17 @@ float DrawImpl(unsigned W, unsigned H) {
                        (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
                 // Use the existing active-controller badge, including PlayStation symbols.
                 char key[2] = {rw.value[0], 0};
-                ms::Hint(vx, y, key, rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
+                const char* text = rw.value[1] ? rw.value + 3 : "";
+                // UO #9 / #105956: under the keyboard every face-button hint is a key cap (A Enter, B Esc, Y menu key); X has none
+                const char* cap = keyMode ? ms::RowKeyCap(key[0], g_cfg.vk ? g_cfg.keyName : nullptr) : key;
+                if (cap) ms::Hint(vx, y, cap, text, cw, lineH, sc, fa);
+                else if (text[0]) osd::DrawText(vx, y, text, ms::Fade(vcol, fa), sc);
             } else osd::DrawText(vx, y, rw.value, ms::Fade(vcol, fa), sc);
         }
         ++line;
     };
-    if (nt >= 3) {  // the three control lines at the bottom (pad, tabs, keys) sit in a darker footer band
-        const float fy = y0 + pad + (float)(n - 3) * lineH - 2 * sc;
+    if (nt >= 2) {  // the two control lines at the bottom (pad + tabs, or the UO #9 key caps) sit in a darker footer band
+        const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
         ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);
@@ -3643,10 +4313,25 @@ void Configure(const Host& h) {
     g_ini = h.iniPath ? h.iniPath : L"";
     savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
+    {
+        vrsmenu::Values v;
+        v.mode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_ini.c_str());
+        v.layouts = (int)GetPrivateProfileIntW(L"Perf", L"VrsLayouts", 7, g_ini.c_str());
+        v.rate = (int)GetPrivateProfileIntW(L"Perf", L"VrsRate", 0, g_ini.c_str());
+        v.skip = GetPrivateProfileIntW(L"Perf", L"VrsSkipSkinned", 1, g_ini.c_str()) != 0;
+        v.keep = GetPrivateProfileIntW(L"Perf", L"VrsKeepCharacters", 1, g_ini.c_str()) != 0;
+        v.wide = (int)GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, g_ini.c_str());
+        g_vrsVals = vrsmenu::Clamped(v);
+    }
+    g_bootVrs = g_vrsVals.mode != 0;
+    g_vrsEdited = false;
+    g_vrsPresetOn = false;
+    g_selectedEpPreset = -1;
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;
     g_bootFgWine = h.fgOnWine;
+    g_bootFwp = h.fwp;
     for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].enable ? (*h.exp[e].enable ? 1 : 0) : h.exp[e].ini;
     for (int e = 0; e < kNumExp; ++e) {
         g_expIni0[e] = g_expIni[e];
@@ -3696,8 +4381,16 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
-    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Xbox", b, 96, f);
-    menu_style::g_btnStyle = !_wcsicmp(b, L"PlayStation") ? 1 : 0;
+    if (btnstyle_migrate::Run(f)) MLOG("[Menu] ButtonStyle Xbox -> Auto (one-time migration, ButtonStyleMigrated=1)");  // #106253
+    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Auto", b, 96, f);
+    {
+        char a[16] = {};
+        WideCharToMultiByte(CP_UTF8, 0, b, -1, a, sizeof a, nullptr, nullptr);
+        a[sizeof a - 1] = 0;
+        g_btnStyleIni = pad_family::ParseStyle(a);  // UO #10: Auto (detected on the first frame / menu open) or an override
+        menu_style::g_btnStyle = g_btnStyleIni >= 0 ? g_btnStyleIni : 0;
+        InterlockedExchange(&g_btnStyleChecked, 0);
+    }
     padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
@@ -3706,6 +4399,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
+    paddebug::g_on = GetPrivateProfileIntW(L"Menu", L"PadDebug", 0, f) ? 1 : 0;  // #97485 read-only pad debug row (Input display page)
     hudhide::g_want = GetPrivateProfileIntW(L"Menu", L"HideGameHud", 0, f) ? 1 : 0;
     for (int i = 0; i < hudhide::kElemN; ++i) {  // #44877 per-element HUD hide
         wchar_t wk[64]; MultiByteToWideChar(CP_UTF8, 0, hudhide::kElems[i].key, -1, wk, 64);
@@ -3835,7 +4529,15 @@ void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int3
     const auto present=g_rematchApi.PresentCover;
     if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
 }
+volatile long g_entryTip = 0;
+// The notice buffer lives in the anonymous namespace above. This setter is the one the export can call.
+void SetCoverNotice(const char* text) {
+    if (!text || !text[0]) { g_coverNotice[0] = 0; g_coverNoticeUntil = 0; return; }
+    snprintf(g_coverNotice, sizeof g_coverNotice, "%s", text);
+    g_coverNoticeUntil = GetTickCount64() + 8000;
+}
 bool CoverTipAllowed() {
+    if (g_entryTip && Enabled()) return true; // Training's entry screen, not the saved AutoContinue switch
     if(!Enabled() || !TryAcquireSRWLockShared(&g_coverTipLock))return false;
     const auto lease=g_coverTipLease;
     ReleaseSRWLockShared(&g_coverTipLock);
@@ -3854,13 +4556,20 @@ void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state
 }
 
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
+void SetInputVirtual(bool (*query)(int dev, unsigned idx)) { g_inputVirtual = query; }
+int InputModality() { return (int)g_modality; }
 
-int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) {
+int RemoteImpl(const char* key, int set, int value, const char* text, char* reply, size_t n, unsigned timeoutMs) {
     if (!Enabled()) {
         snprintf(reply, n, "mod menu off ([Menu] Enabled = 0 or disabled this session)");
         return -1;
     }
+    if (text && strlen(text) >= sizeof(g_rem.text)) {
+        snprintf(reply, n, "HUD ID list too long; previous mask preserved");
+        return -1;
+    }
     AcquireSRWLockExclusive(&g_remLock);
+    snprintf(g_rem.text, sizeof(g_rem.text), "%s", text ? text : "");
     snprintf(g_rem.key, sizeof(g_rem.key), "%s", key ? key : "");
     g_rem.set = set;
     g_rem.value = value;
@@ -3887,6 +4596,12 @@ int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned 
     ReleaseSRWLockExclusive(&g_remLock);
     return rc;
 }
+int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) {
+    return RemoteImpl(key, set, value, nullptr, reply, n, timeoutMs);
+}
+int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs) {
+    return RemoteImpl("HideHudIds", ids != nullptr, 0, ids, reply, n, timeoutMs);
+}
 const char* OpenHint() {
     static char buf[96];
     snprintf(buf, sizeof(buf), "%s", GestureText().c_str());
@@ -3896,7 +4611,11 @@ const char* OpenHint() {
 bool SwallowMessage(const tagMSG* m) {
     if (!g_configured || !g_cfg.enabled || g_disabled || !m) return false;
     const UINT msg = m->message;
+    if (msg >= WM_KEYDOWN && msg <= WM_SYSKEYUP) g_rbKeyMsg = 1;
+    if (g_open && rbox::g_on && !g_coverToken.load() && !(g_cfg.vk && (UINT)m->wParam == g_cfg.vk && msg != WM_CHAR))
+        return rbox::OnMessage(m);  // #64882: typed text for the Report box (WM_CHAR included); the game sees no key
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
+    LatchKeyMsg(msg, m->wParam, m->lParam, m->time);  // #106087: short taps between keyboard reads
     const UINT vk = (UINT)m->wParam;
     if(g_coverToken.load()) {
         if(vk==VK_ESCAPE && (msg==WM_KEYDOWN||msg==WM_SYSKEYDOWN)){
@@ -3930,6 +4649,16 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuOpen() { return menu::g_
 extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuClose(const char* why) {
     if (why) { char b[96]; snprintf(b, sizeof b, "%s", why); if (menu::g_log) menu::g_log("MENU: close requested by an add-on: %s", b); }
     InterlockedExchange(&menu::g_extCloseReq, 1); return menu::g_open ? 1 : 0;
+}
+extern "C" __declspec(dllexport) int Nioh3EngineFix_EntryTip(int on) {
+    InterlockedExchange(&menu::g_entryTip, on ? 1 : 0);
+    return menu::Enabled() ? 1 : 0;
+}
+// One line on the game view, no black rectangle. Training calls this when a Fight now rescue gives up
+// so the loading cover can come down and the player can still read what to do. Any thread. 8 seconds.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_Note(const char* text) {
+    menu::SetCoverNotice(text);
+    return menu::Enabled() ? 1 : 0;
 }
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
     AcquireSRWLockExclusive(&menu::g_lsLock);

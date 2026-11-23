@@ -38,5 +38,7 @@ void Start(const StartInfo& info);
 volatile uint32_t* RtpSwitch();
 // One status line for the 30 s stats log ("" when RTP is not installed).
 void RtpStatusLine(char* buf, unsigned n);
+// FLP file-loader priority status for the stats log ("" when not installed / no loader thread seen).
+void FlpStatusLine(char* buf, unsigned n);
 
 }  // namespace thrsched

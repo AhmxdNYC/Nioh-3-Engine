@@ -36,8 +36,11 @@
 //      writes [GpuOpt] Barriers = 1/2.
 //   6. stats thread (every 30 s): gpuopt::StatusLine -> Log("stats/s gpuopt: ...").
 #pragma once
+#include "vrs_menu.h"
 #include <cstddef>
 #include <cstdint>
+
+struct ID3D12Device;
 
 namespace gpuopt {
 
@@ -93,6 +96,13 @@ void Start(const StartInfo& info);
 // install thread once the engine renders). Returns true when the hooks are in place.
 bool InstallNow();
 
+// Actual presenting device only; no dummy/default-adapter inference.
+void ObserveVrsDevice(ID3D12Device* device);
+int VrsSupport(); // 0 unknown, 1 supported, -1 unavailable
+bool SetVrsTuning(const char* key, const char* val, char* reply, size_t n);  // #119730 LiveCtl Tuning.VrsMode / VrsWideExclude
+int VrsBootMode();      // the mode the game started with; 0 = no VRS hooks this session
+bool VrsBootTracking(); // the game started with Selective's shader data and tracking
+void VrsSetLive(const vrsmenu::Values& v);  // no-op when VrsBootMode() is 0
 State GetState();
 const char* StateName(State s);
 void SetBatching(bool on);          // live; off = pass-through (pending batches still get emitted at their next flush)

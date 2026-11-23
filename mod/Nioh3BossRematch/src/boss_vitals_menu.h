@@ -42,8 +42,8 @@ bool BvChange(int item, int dir) {
         const int hp = item == kItBvInfHp, cur = v.cfg[hp ? 0 : 1];
         const int on = BvSet(s, hp ? BV_INF_HP : BV_INF_KI, dir ? dir > 0 : !cur);
         Log("Rematch: menu Boss %c infinite %s -> %d (#14320)", slotCh, hp ? "health" : "Ki", on);
-        if (hp) snprintf(g_msg, sizeof g_msg, on ? "Boss %c infinite health ON: its HP never stays below %d %% (Set boss HP %%). This session only." : "Boss %c infinite health OFF: it takes damage normally.", slotCh, v.cfg[2]);
-        else snprintf(g_msg, sizeof g_msg, on ? "Boss %c infinite Ki ON: its Ki never stays below %d %%, so it is not Ki broken (a break already running plays out). This session only." : "Boss %c infinite Ki OFF: normal Ki, Ki breaks happen as usual.", slotCh, v.cfg[3]);
+        if (hp) snprintf(g_msg, sizeof g_msg, on ? "Boss %c infinite health ON: hits take HP off so you see your damage, it never dies, and it refills to %d %% (Set boss HP %%) after you stop hitting. This session only." : "Boss %c infinite health OFF: it takes damage normally.", slotCh, v.cfg[2]);
+        else snprintf(g_msg, sizeof g_msg, on ? "Boss %c infinite Ki ON: hits take Ki off, it refills to %d %% after you stop hitting; small hits do not Ki break it (a break already running plays out). This session only." : "Boss %c infinite Ki OFF: normal Ki, Ki breaks happen as usual.", slotCh, v.cfg[3]);
         return true;
     }
     if (item == kItBvHpPct || item == kItBvKiPct) {
@@ -132,8 +132,8 @@ bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t
 const char* BvFooter(int item) {
     if (IsBvOpenItem(item)) return "This boss only: set or refill HP/Ki, or keep them filled. Training and spawned Boss Matches. Settings last for this session.";
     if (item == kItBvStatus) return "Current HP and Ki for this boss. Read only.";
-    if (item == kItBvInfHp) return "Keep this boss at the Set boss HP level. At 100%, damage cannot kill it. OFF allows normal damage. This session only.";
-    if (item == kItBvInfKi) return "Keep this boss at the Set boss Ki level. Existing Ki breaks finish first. OFF allows normal Ki loss and breaks. This session only.";
+    if (item == kItBvInfHp) return "Hits lower this boss HP so you see your damage, but it never dies. After you stop hitting it refills to the Set boss HP level. OFF allows normal damage. This session only.";
+    if (item == kItBvInfKi) return "Hits lower this boss Ki. After you stop hitting it refills to the Set boss Ki level; hits smaller than that level do not break it. Existing Ki breaks finish first. OFF allows normal Ki loss and breaks.";
     if (item == kItBvHpPct) return "Set this boss HP now: 1-100%. Infinite boss health also uses this as its refill level. A reapplies the value.";
     if (item == kItBvKiPct) return "Set this boss Ki: 0-100%. Zero leaves it one hit from a break. Waits for an existing break to end. Infinite boss Ki uses this refill level.";
     if (item == kItBvRefill) return "Refill this boss and set both levels to 100%. An existing Ki break finishes first.";

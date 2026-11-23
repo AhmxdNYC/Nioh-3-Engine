@@ -40,6 +40,19 @@ int main(void) {
         assert(SphReleaseWhy(SPH_TRAINING, 1000 * k, 1, 1, 0) == 0);  // never released by the repeat
     }
     assert(on == 1 && off == 1 && ai == 0 && chase == 0);
+    // #98106: session boss stance route. pc2 #98099: Train here -> Fight normally (Idle hold OFF, phase 0) -> Stand still went to the Idle hold
+    // and failed; now it is handed to the slot hold like a summoned boss.
+    assert(SessionStanceRoute(1, 1, 1, 0) == 2);   // the failing case: Stand still after Fight normally -> slot hold
+    assert(SessionStanceRoute(1, 1, 1, 1) == 2);   // Idle hold still waiting for a native idle: slot hold now
+    assert(SessionStanceRoute(1, 1, 1, 2) == 1);   // already standing still (Idle hold holds): unchanged
+    assert(SessionStanceRoute(1, 1, 0, 2) == 1);   // Fight normally on the session boss: Idle hold OFF (unchanged)
+    assert(SessionStanceRoute(1, 1, 0, 0) == 1);
+    assert(SessionStanceRoute(0, 1, 1, 0) == 0 && SessionStanceRoute(0, 1, 0, 2) == 0);  // summoned boss: slot path
+    assert(SessionStanceRoute(1, 0, 1, 0) == 0);   // no Training session: slot path
+    // after the hand-over the boss is a plain slot: Fight normally releases the slot hold, Stand still rehold works (live #98099 18:08-18:11)
+    assert(SessionStanceRoute(0, 1, 0, 0) == 0 && !strcmp(SphReleaseWhy(SPH_TRAINING, 62531, 1, 1, 1), "this boss set to Fight normally"));
+    assert(SphAiAction(0, 1) == 0);                 // first slot-hold tick: AI on -> off at once (no wait for a native idle)
+    puts("PASS: session boss Stand still (#98106) is handed to the slot hold unless the Idle hold already holds");
     puts("PASS: slot hold (#14462): a repeat keeps a summoned boss's AI held (no 'repeat move picked' release), Fight normally / session end release it, aggro walk-up switches the AI on beyond range + 1 m and off in range");
     return 0;
 }

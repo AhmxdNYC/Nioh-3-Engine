@@ -3,6 +3,10 @@
 #include <initializer_list>
 #define CHECK(x) do{++checks;if(!(x)){std::printf("FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(){using namespace transition_cover;int checks=0;Model m;
+ CHECK(sizeof g_native_branch_entrances/sizeof *g_native_branch_entrances==1);
+ CHECK(NativeBranchAlt(0x1DEA,4095000,4092708)==4097963);
+ CHECK(NativeBranchAlt(0x1DEA,4095001,4092708)==0);
+ CHECK(NativeBranchAlt(0x1111,4095000,4092708)==0);
  auto begin=[&](uint32_t mission=0x1DEA,uint32_t start=4095000){m={};return m.Begin(1,2,mission,start,4092708,1000)&&m.Presented(1,1100)&&m.Issue(2);};
  auto sample=[&](uint64_t t,bool loading=false){m.Observe(t,2,true,false,true,true,loading,true,false,true,true,true);};
  // Exact same-attempt alternate first encounter formerly timed out forever.

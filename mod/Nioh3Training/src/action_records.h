@@ -68,8 +68,11 @@ static void ArApply(const ArTable* records,AmTable* moves) {
     for(int i=0;i<moves->n;++i){
         AmMove* m=&moves->m[i];const ArRecord* r=0;
         int found=ArFind(records,m->id,m->motion,m->anim_hash,&r);
-        m->hits=0;m->record_known=0;m->zero_power=0;m->damage[0]=0;
+        // human #121846: the archive record wins where it is known (it also counts chain hits, notes/chain-hits.md); an absent or conflicting
+        // join keeps the hit count of the boss's own hitbox rows instead of blanking it (open-world Giant Toad chr 210803: 1 of 126 joined).
+        m->hits=AmRuntimeHits(m);m->record_known=0;m->zero_power=0;m->damage[0]=0;
         if(found==1){m->record_known=1;m->hits=r->hits;m->zero_power=r->zero;strcpy(m->damage,r->damage);
             if(r->hits){m->fact=1;m->attack=1;if(m->kind!='I')m->kind='A';}}
+        if(m->hits)m->nohit=0;  // human #126246: a counted move (archive chain hits) is never a known 0
     }
 }

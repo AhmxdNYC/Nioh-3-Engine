@@ -32,21 +32,28 @@ static uint32_t AmHeader(const uint8_t* d, uint32_t avail) {
 // allocation, and sub-table 0 is gone: each action's packed hitbox list became (first, count) in its action object, a contiguous range of the
 // file's hitbox rows. AmBuildImage rebuilds a minimal file image from those pieces (sub-table 0 = header words + record sizes + packed lists,
 // 1 = action rows, 2 = hitbox rows) so AmParse runs unchanged on file data and on memory data. Returns the image size, 0 if it does not fit.
-static uint32_t AmImageSize(int na, int nhb, const uint16_t* cnt) {
+// human #123773: optionally also sub-table 7 (n7 object rows of AM_OBJ bytes) and 8 (n8 object components of AM_OBJC bytes) with their sub-table 0
+// count / size words (+30 / +32 / +34 / +36), so AmObjMayHit sees the spawned objects in memory as in the file. objs = 0: none (objects "may hit").
+enum { AM_OBJ = 336, AM_OBJC = 80 };
+static uint32_t AmImageSize(int na, int nhb, const uint16_t* cnt, int n7, int n8) {
     uint32_t rec = 0; for (int r = 0; r < na; ++r) rec += 2u + 2u * cnt[r];
-    return 4 + 8 * AM_NSUB + 64 + 2u * (uint32_t)na + rec + (uint32_t)na * AM_ROW + (uint32_t)nhb * AM_HB;
+    return 4 + 8 * AM_NSUB + 64 + 2u * (uint32_t)na + rec + (uint32_t)na * AM_ROW + (uint32_t)nhb * AM_HB + (uint32_t)n7 * AM_OBJ + (uint32_t)n8 * AM_OBJC;
 }
-static uint32_t AmBuildImage(uint8_t* out, uint32_t cap, const uint8_t* rows, int na, const uint8_t* hb, int nhb, const uint16_t* first, const uint16_t* cnt) {
+static uint32_t AmBuildImage(uint8_t* out, uint32_t cap, const uint8_t* rows, int na, const uint8_t* hb, int nhb, const uint16_t* first, const uint16_t* cnt,
+                             const uint8_t* objs, int n7, const uint8_t* comps, int n8) {
     if (na <= 0 || na > AM_MAXMOVES || nhb < 0 || nhb > 0xFFFF) return 0;
-    const uint32_t size = AmImageSize(na, nhb, cnt);
+    if (!objs) n7 = n8 = 0;
+    if (n7 < 0 || n7 > 0xFFFF || n8 < 0 || n8 > 0xFFFF || (n8 && !comps)) return 0;
+    const uint32_t size = AmImageSize(na, nhb, cnt, n7, n8);
     if (size > cap) return 0;
     memset(out, 0, size);
     uint32_t rec = 0; for (int r = 0; r < na; ++r) rec += 2u + 2u * cnt[r];
-    const uint32_t len[3] = {64 + 2u * (uint32_t)na + rec, (uint32_t)na * AM_ROW, (uint32_t)nhb * AM_HB};
+    const uint32_t len[9] = {64 + 2u * (uint32_t)na + rec, (uint32_t)na * AM_ROW, (uint32_t)nhb * AM_HB, 0, 0, 0, 0, (uint32_t)n7 * AM_OBJ, (uint32_t)n8 * AM_OBJC};
     uint32_t off = 4 + 8 * AM_NSUB, v = AM_NSUB; memcpy(out, &v, 4);
-    for (int i = 0; i < AM_NSUB; ++i) { const uint32_t L = i < 3 ? len[i] : 0; memcpy(out + 4 + 8 * i, &off, 4); memcpy(out + 8 + 8 * i, &L, 4); off += L; }
+    for (int i = 0; i < AM_NSUB; ++i) { const uint32_t L = i < 9 ? len[i] : 0; memcpy(out + 4 + 8 * i, &off, 4); memcpy(out + 8 + 8 * i, &L, 4); off += L; }
     const uint32_t o0 = 4 + 8 * AM_NSUB, w1 = (uint32_t)na | (AM_ROW << 16), w2 = (uint32_t)nhb | (AM_HB << 16);
     memcpy(out + o0 + 4, &w1, 4); memcpy(out + o0 + 8, &w2, 4);
+    if (objs) { const uint16_t w[4] = {(uint16_t)n7, AM_OBJ, (uint16_t)n8, AM_OBJC}; memcpy(out + o0 + 30, w, 8); }
     uint32_t p = o0 + 64 + 2u * (uint32_t)na;
     for (int r = 0; r < na; ++r) {
         const uint16_t sz = (uint16_t)(2 + 2 * cnt[r]); memcpy(out + o0 + 64 + 2 * r, &sz, 2);
@@ -56,6 +63,8 @@ static uint32_t AmBuildImage(uint8_t* out, uint32_t cap, const uint8_t* rows, in
     }
     memcpy(out + o0 + len[0], rows, len[1]);
     if (len[2]) memcpy(out + o0 + len[0] + len[1], hb, len[2]);
+    if (len[7]) memcpy(out + o0 + len[0] + len[1] + len[2], objs, len[7]);
+    if (len[8]) memcpy(out + o0 + len[0] + len[1] + len[2] + len[7], comps, len[8]);
     return size;
 }
 
@@ -76,7 +85,9 @@ static int AmWindows(const uint8_t* d, const AmTable* t, const uint16_t* idx, in
         if (idx[i] >= nhb) continue;
         const uint32_t b = t->off[2] + (uint32_t)idx[i] * AM_HB;
         const uint16_t st = AmU16(d, b + 8), ef = AmU16(d, b + 0xA), ln = AmU16(d, b + 0xC);
-        if (st == 0xFFFF) { ++*untimed; continue; }
+        // human #123773: an untimed row fires only when something names (action, slot); one with power and element 0 deals no damage
+        // whoever fires it (the rule timed rows and spawned objects already follow), so only damaging untimed rows make the count unknown.
+        if (st == 0xFFFF) { if (AmU16(d, b + 0x10) || AmU16(d, b + 0x12)) ++*untimed; continue; }
         AmWin w = {st, (uint16_t)(ef != 0xFFFF ? ef : st + ln), AmU16(d, b + 0x10), AmU16(d, b + 0x12), AmHitGroup(d, b), idx[i], 1};
         if (w.pow || w.elem) rows[nr++] = w;
     }
@@ -102,6 +113,74 @@ static int AmWindows(const uint8_t* d, const AmTable* t, const uint16_t* idx, in
     return no;
 }
 static int AmFind(const AmTable* t, uint32_t id) { for (int i = 0; i < t->n; ++i) if (t->m[i].id == id) return i; return -1; }
+
+// human #123773: can a spawned object hit? Sub-table 7 = 336-byte object rows (action event 20000+N spawns row N), sub-table 8 = 80-byte object
+// components. Layout, checked on all 373 archive_01 action files (tools/hits/spawn_hits.c): sub-table 0 u16 +30 / +32 / +34 / +36 = count / record
+// size of sub-tables 7 / 8 (336 and 80 in every file); object +0x12 u16 action id + byte +0x15 slot (0xFF = none) = its own hitbox, the action's
+// packed hitbox list entry (2047 of 2059 resolve, 2044 of them untimed rows); +0x100 4 x u16 = child objects 20000+N (2989 / 2989 in range);
+// +0x110 6 x u16 = sub-table 8 components (0xFFFF = none, 5225 / 5225 in range). Component u16 +0x4C = type: 33 = hitbox (u16 +0x00 action,
+// u16 +0x04 slot; 140 / 140 name an action), 3 = child object (u16 +0x04 = 20000+N, 1241 / 1257). An object hits only through such a hitbox
+// (untimed rows are skipped by the action's own slot walk, RVA 0x35A3DF), so an object tree with no damaging hitbox (power / element 0 or no
+// hitbox at all) is a visual / sound object of the move, like the ambient spawns. Conservative: anything not resolved (no sub-tables 7 / 8 in
+// the image, a row / slot / component out of range, an object byte +0x14 other than 0-2, another component type naming an object or an
+// action, a cycle) counts as "may hit". Returns 1 = may hit, 0 = proven hit-free. memo: per object, 0 = not seen, 1 = busy, 2 = free, 3 = hits.
+static int AmSlotHits(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint16_t act, uint32_t slot) {
+    const int r = AmFind(t, act); const uint32_t nhb = t->len[2] / AM_HB;
+    if (r < 0 || slot >= (uint32_t)nown[r] || own[r][slot] >= nhb) return 1;  // not resolved: may hit
+    const uint32_t b = t->off[2] + (uint32_t)own[r][slot] * AM_HB;
+    return AmU16(d, b + 0x10) || AmU16(d, b + 0x12);
+}
+static int AmObjMayHit(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint32_t ev, uint8_t* memo) {
+    const uint32_t o0 = t->off[0], n7 = AmU16(d, o0 + 30), n8 = AmU16(d, o0 + 34);
+    if (AmU16(d, o0 + 32) != 336 || n7 * 336u != t->len[7] || (t->len[8] && (AmU16(d, o0 + 36) != 80 || n8 * 80u != t->len[8]))) return 1;
+    if (ev < 20000 || ev == 0xFFFF || ev - 20000 >= n7) return 1;
+    const uint32_t N = ev - 20000, b = t->off[7] + N * 336;
+    if (memo[N]) return memo[N] != 2;
+    memo[N] = 1;
+    int hit = d[b + 0x14] > 2;
+    if (!hit && d[b + 0x15] != 0xFF) hit = AmSlotHits(d, t, own, nown, AmU16(d, b + 0x12), d[b + 0x15]);
+    for (int k = 0; k < 6 && !hit; ++k) {
+        const uint16_t c = AmU16(d, b + 0x110 + 2 * k);
+        if (c == 0xFFFF) continue;
+        if (c >= n8) { hit = 1; break; }
+        const uint32_t e = t->off[8] + c * 80u; const uint16_t ty = AmU16(d, e + 0x4C);
+        if (ty == 33) hit = AmSlotHits(d, t, own, nown, AmU16(d, e), AmU16(d, e + 4));
+        else if (ty == 3) hit = AmObjMayHit(d, t, own, nown, AmU16(d, e + 4), memo);
+        else for (int z = 0; z < 0x4C && !hit; z += 2) { const uint16_t v = AmU16(d, e + z); hit = (v >= 20000 && v - 20000u < n7) || (v >= 1000 && AmFind(t, v) >= 0); }
+    }
+    for (int k = 0; k < 4 && !hit; ++k) { const uint16_t c = AmU16(d, b + 0x100 + 2 * k); if (c && c != 0xFFFF) hit = AmObjMayHit(d, t, own, nown, c, memo); }
+    memo[N] = hit ? 3 : 2;
+    return hit;
+}
+
+// human #126342: does a spawned object DEFINITELY hit? Same tree walk as AmObjMayHit (object own slot +0x12 / +0x15, type-33 components, type-3
+// and +0x100 child objects) but only a RESOLVED damaging hitbox row (power / element > 0) counts; anything unresolved counts as no proof. So a
+// tag built on it never marks a move whose objects only "may" hit. memo: per object, 0 = not seen, 1 = busy, 2 = no proof, 3 = damaging.
+static int AmSlotDmg(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint16_t act, uint32_t slot) {
+    const int r = AmFind(t, act); const uint32_t nhb = t->len[2] / AM_HB;
+    if (r < 0 || slot >= (uint32_t)nown[r] || own[r][slot] >= nhb) return 0;
+    const uint32_t b = t->off[2] + (uint32_t)own[r][slot] * AM_HB;
+    return AmU16(d, b + 0x10) || AmU16(d, b + 0x12);
+}
+static int AmObjDmg(const uint8_t* d, const AmTable* t, const uint16_t (*own)[AM_MAXROWS], const int* nown, uint32_t ev, uint8_t* memo) {
+    const uint32_t o0 = t->off[0], n7 = AmU16(d, o0 + 30), n8 = AmU16(d, o0 + 34);
+    if (AmU16(d, o0 + 32) != 336 || n7 * 336u != t->len[7] || (t->len[8] && (AmU16(d, o0 + 36) != 80 || n8 * 80u != t->len[8]))) return 0;
+    if (ev < 20000 || ev == 0xFFFF || ev - 20000 >= n7) return 0;
+    const uint32_t N = ev - 20000, b = t->off[7] + N * 336;
+    if (memo[N]) return memo[N] == 3;
+    memo[N] = 1;
+    int hit = d[b + 0x15] != 0xFF && AmSlotDmg(d, t, own, nown, AmU16(d, b + 0x12), d[b + 0x15]);
+    for (int k = 0; k < 6 && !hit; ++k) {
+        const uint16_t c = AmU16(d, b + 0x110 + 2 * k);
+        if (c == 0xFFFF || c >= n8) continue;
+        const uint32_t e = t->off[8] + c * 80u; const uint16_t ty = AmU16(d, e + 0x4C);
+        if (ty == 33) hit = AmSlotDmg(d, t, own, nown, AmU16(d, e), AmU16(d, e + 4));
+        else if (ty == 3) hit = AmObjDmg(d, t, own, nown, AmU16(d, e + 4), memo);
+    }
+    for (int k = 0; k < 4 && !hit; ++k) { const uint16_t c = AmU16(d, b + 0x100 + 2 * k); if (c && c != 0xFFFF) hit = AmObjDmg(d, t, own, nown, c, memo); }
+    memo[N] = hit ? 3 : 2;
+    return hit;
+}
 
 // human #44217: grabs. Hitbox row u16 +0x14 is the hit type: 12 on normal melee swings (4 / 5 / 7 / 16 / 17 elemental ...), 0xFFFF on grab rows.
 // A THROW is an action whose every frame-timed row (+0x08 != 0xFFFF) has type 0xFFFF and at least one deals damage (+0x10 / +0x12 > 0):
@@ -176,19 +255,56 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     }
     t->n = na;
     // a spawn at frame 0 in >= 80 % of the actions is a standing body / weapon object, not a projectile of the move (gen_boss_move_facts.py)
+    // human #123773: so is a spawn whose object tree has no damaging hitbox (AmObjMayHit): it no longer blanks the move's own hit windows.
+    // Data check (tools/hits/spawn_hits.c, 373 files): 513 attacks gain a count this way; where a same-motion sibling is counted with no spawn at
+    // all, the counts are equal in 304 / 318 pairs (95.6 %; counted-vs-counted siblings agree 91.2 %, so these spawns carry no hit). Spawns whose
+    // objects DO carry a damaging hitbox stay unknown: "own windows + one hit per object" matched the siblings in only 20 / 69 pairs.
+    // human #123773: an untimed row fires only through something that names (action id, slot): an object (sub-table 7 +0x12 / +0x15) or a hitbox
+    // component (sub-table 8 type 33, u16 +0x00 / +0x04). A damaging untimed row that nothing in the file names is a dead copy (Hino-enma 0x4E65 /
+    // 0x4E78 / 0x4E79: the untimed row duplicates a timed one; FRAMEPROBE live 1 / 1 / 1 hit = their own windows, notes/frame-probe-hino-22356.log),
+    // so it no longer blanks the count. Only when sub-tables 7 / 8 are in the image (same check as AmObjMayHit); otherwise every row may fire.
+    {
+        static uint8_t named[AM_MAXMOVES][AM_MAXROWS];
+        const uint32_t o0 = t->off[0], n7 = AmU16(d, o0 + 30), n8 = AmU16(d, o0 + 34);
+        const int ok = AmU16(d, o0 + 32) == 336 && n7 * 336u == t->len[7] && !(t->len[8] && (AmU16(d, o0 + 36) != 80 || n8 * 80u != t->len[8]));
+        if (ok) {
+            memset(named, 0, sizeof named);
+            for (uint32_t q = 0; q < n7; ++q) { const uint32_t b = t->off[7] + q * 336; const int r = AmFind(t, AmU16(d, b + 0x12)); if (r >= 0 && d[b + 0x15] < AM_MAXROWS) named[r][d[b + 0x15]] = 1; }
+            for (uint32_t c = 0; c < n8; ++c) { const uint32_t e = t->off[8] + c * 80; if (AmU16(d, e + 0x4C) != 33) continue; const int r = AmFind(t, AmU16(d, e)); const uint16_t s = AmU16(d, e + 4); if (r >= 0 && s < AM_MAXROWS) named[r][s] = 1; }
+            const uint32_t nhb = t->len[2] / AM_HB;
+            for (int r = 0; r < na; ++r) {
+                int u = 0;
+                for (int k = 0; k < nown[r]; ++k) {
+                    if (own[r][k] >= nhb) continue;  // as AmWindows
+                    const uint32_t b = t->off[2] + (uint32_t)own[r][k] * AM_HB;
+                    if (AmU16(d, b + 8) == 0xFFFF && (AmU16(d, b + 0x10) || AmU16(d, b + 0x12)) && named[r][k]) ++u;
+                }
+                t->m[r].untimed = (uint8_t)(u > 255 ? 255 : u);
+            }
+        }
+    }
+    static uint8_t memo[65536], memo2[65536]; memset(memo, 0, sizeof memo); memset(memo2, 0, sizeof memo2);
     for (int r = 0; r < na; ++r) {
-        const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW; AmMove* m = &t->m[r]; int nonamb = 0;
+        const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW; AmMove* m = &t->m[r]; int nonamb = 0, dmg = 0;
         for (int k = 0; k < 16; ++k) {
             const uint16_t ev = AmU16(d, o + 0x40 + 6 * k), fr = AmU16(d, o + 0x42 + 6 * k), ln = AmU16(d, o + 0x44 + 6 * k);
             if (ev < 20000 || ev == 0xFFFF || (ev == 0xFFFF && fr == 0 && ln == 0xFFFF)) continue;
             int amb = 0;
             if (fr == 0) { int c = 0; for (int q = 0; q < na; ++q) for (int z = 0; z < nsp[q]; ++z) c += sp[q][z] == ev; amb = c * 10 >= na * 8; }
-            if (!amb) ++nonamb;
+            if (!amb && AmObjMayHit(d, t, (const uint16_t (*)[AM_MAXROWS])own, nown, ev, memo)) ++nonamb;
+            if (!amb && AmObjDmg(d, t, (const uint16_t (*)[AM_MAXROWS])own, nown, ev, memo2)) ++dmg;
         }
         m->spawns = (uint8_t)(nonamb > 255 ? 255 : nonamb);
-        m->hits = (m->spawns || m->untimed) ? 0 : m->nwin;
+        // human #126342: the move throws / spawns something that hits (projectile, shockwave, blast): >= 1 non-ambient spawn whose object tree has
+        // a resolved damaging hitbox (AmObjDmg). Menu tag "Projectile"; a melee swing can have it too.
+        // Offline (tools/hits/coverage_survey.c, 373 archive_01 files): 346 of 8251 attacks in 80 files, all hit-count unknown, 213 with own windows too.
+        m->proj = dmg > 0;
+        m->hits = AmRuntimeHits(m);
         m->attack = m->block || m->nwin || m->great;
         m->fact = m->block || m->nrows || m->great;
+        // human #126246: an attack with no damaging own row (timed: nwin, untimed: untimed) and no spawn that may hit has no source of a hit in
+        // its data: a known 0, not unknown (Yoritomo drill pc #41677: 4E50 4E6A 4EAF 4E5B 4E65 4E81 4EB8 all landed 0). Never set with a count.
+        m->nohit = m->attack && !m->nwin && !m->untimed && !m->spawns && !m->hits;
     }
     // idle: row 0 (initialization), the action most actions end in (the idle stance) and a self-looping non-attack state that 5+ actions end in
     // (an alt idle stance). Data rule (Yoritomo / Nobuharu / Shingen: {0x0, 0x2, 0x3F1} = the IDLE set of tools/gen_boss_sequences.py).

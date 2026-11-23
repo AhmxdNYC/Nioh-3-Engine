@@ -1,6 +1,7 @@
 // pc2 #23907: the runtime move record (auto_moves.h fills it; move_catalog.h and Nioh3BossRematch read it through Nioh3Training_AutoMoves).
 #pragma once
 #include <stdint.h>
+#include <stddef.h>  // offsetof (ABI asserts)
 enum { AM_NSUB = 16, AM_ROW = 0x150, AM_HB = 192, AM_MAXMOVES = 2048, AM_MAXROWS = 64 };
 // kind: 'A' attack-like (attack block, hit window, GreatAttack or own hitbox rows; listed like kind 0 static rows), 'M' movement / other, 'I' idle.
 typedef struct {
@@ -9,9 +10,9 @@ typedef struct {
     uint8_t great;     // u16 +0x04 bit 0x2000 = GreatAttack (unblockable)
     uint8_t attack;    // block || hit window || great (the static-row rule of tools/add_static_boss_rows.py / gen_boss_move_facts.py)
     uint8_t fact;      // listed in boss_move_facts.h style: block || own hitbox rows || great
-    uint8_t hits;      // archive hit count when record_known; otherwise 0 = unknown (nwin retains old parser estimate)
+    uint8_t hits;      // archive hit count when record_known; otherwise the runtime hit windows (AmRuntimeHits), 0 = unknown
     uint8_t nwin;      // raw hit windows (before the spawn / untimed rule)
-    uint8_t nrows, untimed, spawns;  // own hitbox rows, untimed (spawned-object) rows, non-ambient spawn events
+    uint8_t nrows, untimed, spawns;  // own hitbox rows, damaging untimed (spawned-object) rows, non-ambient spawn events whose object may hit (AmObjMayHit)
     uint8_t link;      // next is a real move (not idle, not self): a sequence link, as in boss_sequences.h
     uint8_t loop;      // the next action repeats itself (looping middle part)
     char kind;
@@ -21,11 +22,24 @@ typedef struct {
     // human #44217: part of a grab (catch + throw), auto_moves.h AmGrabs. Sits in what was tail padding, so sizeof(AmMove) and the
     // Nioh3Training_AutoMoves ABI are unchanged (an older Training leaves it 0 = no grab).
     uint8_t grab;
+    // human #126246: a known 0-hit attack (auto_moves.h AmParse): no damaging hitbox row (timed or untimed) and no spawn that may hit. In the
+    // last tail-padding byte (offset 123), so sizeof(AmMove) and the ABI are unchanged; an older Training leaves it 0 = shown as today.
+    uint8_t nohit;
+    // human #126342: hits through a spawned object (projectile, shockwave, blast): auto_moves.h AmObjDmg on a non-ambient spawn. Tail padding is
+    // used up, so this grows the record 124 -> 128 bytes; Nioh3Training_AutoMoves still serves 124-byte callers (older Boss Rematch) and the
+    // new Boss Rematch falls back to 124 against an older Training (proj 0 = no tag, as today). AM_ABI_124 = that previous record size.
+    uint8_t proj;
 } AmMove;
+enum { AM_ABI_124 = 124 };
 #ifdef __cplusplus
-static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");
+static_assert(offsetof(AmMove, proj) == AM_ABI_124, "proj must follow the 124-byte record");
+static_assert(sizeof(AmMove) == 128, "AmMove ABI (Nioh3Training_AutoMoves) changed");
 #else
-_Static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");
+_Static_assert(offsetof(AmMove, proj) == AM_ABI_124, "proj must follow the 124-byte record");
+_Static_assert(sizeof(AmMove) == 128, "AmMove ABI (Nioh3Training_AutoMoves) changed");
 #endif
 typedef struct { int n; uint32_t size, off[AM_NSUB], len[AM_NSUB]; AmMove m[AM_MAXMOVES]; } AmTable;
+// human #121846 (lifts #85979): the hit count read from the action's own hitbox rows (AmWindows). Unknown (0) when a spawned object (one with a
+// damaging hitbox, or not resolvable: auto_moves.h AmObjMayHit, #123773) or an untimed row can also hit, or the action owns no timed hitbox row. Used for every action the archive records do not cover.
+static inline uint8_t AmRuntimeHits(const AmMove* m) { return (m->spawns || m->untimed) ? 0 : m->nwin; }
 

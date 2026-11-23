@@ -13,7 +13,7 @@ enum { AM_FILES = 48, AM_SPF = 8, AM_CHRS = 64 };
 typedef struct { uint64_t base; int n; AmTable* t; } AmImg;
 static AmImg g_ami[AM_FILES]; static int g_ami_n;
 static struct { uint32_t chr; int img; } g_amc[AM_CHRS]; static volatile LONG g_amc_n;  // chr -> its own file (final)
-static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nf, miss; int f[AM_SPF]; } g_ams[MAXSP];
+static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nf, miss; int f[AM_SPF]; } g_ams[META_ACTORS];
 static void N3CatMergeAuto(uint32_t chr, const AmTable* t);  // move_catalog.h: the runtime list becomes the boss's move catalogue
 static __attribute__((noinline)) int AmRd(uint64_t a, void* out, uint32_t n) { __try { memcpy(out, (const void*)a, n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 static int AmImgOf(uint64_t x) { for (int i = 0; i < g_ami_n; ++i) if (g_ami[i].base == x) return i; return -1; }
@@ -56,15 +56,29 @@ static int AmLoadImg(uint64_t P) {
         uint64_t q = 0;
         if (!hb || !Rd64(hbArr + 8u * (uint64_t)i, &q) || !q || !AmRd(q, hb + (size_t)i * AM_HB, AM_HB)) { Log("AUTOMOVES: descriptor %p: hitbox row %d unreadable", (void*)X, i); free(hb); return -1; }
     }
-    const uint32_t cap = AmImageSize(n, nhb, cnt); uint8_t* img = (uint8_t*)malloc(cap); AmTable* t = (AmTable*)malloc(sizeof(AmTable));
-    const uint32_t size = img && t ? AmBuildImage(img, cap, rows, n, hb, nhb, first, cnt) : 0;
+    // human #123773: spawned objects (sub-table 7, 336-byte rows) and their components (sub-table 8, 80-byte rows), same pointer-array + u16 count
+    // form as the rows: X +0x1A0 / +0x1A8 and +0x1B0 / +0x1B8 (found live on Yamagata 2026-11-20, every byte equals the extracted file). Each array
+    // must be contiguous at the file's record size; anything else leaves the objects out (AmObjMayHit then counts every spawn as "may hit").
+    uint8_t* ob = 0; int n7 = 0, n8 = 0; uint32_t obHash = 0;
+    {
+        uint64_t a7 = 0, a8 = 0; uint16_t c7 = 0, c8 = 0;
+        if (Rd64(X + 0x1A0, &a7) && a7 && AmRd(X + 0x1A8, &c7, 2) && Rd64(X + 0x1B0, &a8) && AmRd(X + 0x1B8, &c8, 2) && (!c8 || a8)) {
+            ob = (uint8_t*)malloc((size_t)c7 * AM_OBJ + (size_t)c8 * AM_OBJC + 1);
+            uint64_t base7 = 0, base8 = 0; int ok = ob != 0;
+            for (int i = 0; ok && i < c7; ++i) { uint64_t q = 0; ok = Rd64(a7 + 8u * (uint64_t)i, &q) && q && (i ? q == base7 + (uint64_t)i * AM_OBJ : (base7 = q, 1)) && AmRd(q, ob + (size_t)i * AM_OBJ, AM_OBJ); }
+            for (int i = 0; ok && i < c8; ++i) { uint64_t q = 0; ok = Rd64(a8 + 8u * (uint64_t)i, &q) && q && (i ? q == base8 + (uint64_t)i * AM_OBJC : (base8 = q, 1)) && AmRd(q, ob + (size_t)c7 * AM_OBJ + (size_t)i * AM_OBJC, AM_OBJC); }
+            if (ok) { n7 = c7; n8 = c8; uint32_t h = 2166136261u; for (size_t i = 0; i < (size_t)c7 * AM_OBJ + (size_t)c8 * AM_OBJC; ++i) h = (h ^ ob[i]) * 16777619u; obHash = h; } else { Log("AUTOMOVES: descriptor %p: spawned objects unreadable (%u objects, %u components): spawns count as hitting", (void*)X, c7, c8); free(ob); ob = 0; }
+        }
+    }
+    const uint32_t cap = AmImageSize(n, nhb, cnt, n7, n8); uint8_t* img = (uint8_t*)malloc(cap); AmTable* t = (AmTable*)malloc(sizeof(AmTable));
+    const uint32_t size = img && t ? AmBuildImage(img, cap, rows, n, hb, nhb, first, cnt, ob, n7, ob ? ob + (size_t)n7 * AM_OBJ : 0, n8) : 0;
     const int na = size ? AmParse(img, size, t) : 0;
-    free(img); free(hb);
+    free(img); free(hb); free(ob);
     if (na != n) { Log("AUTOMOVES: descriptor %p: rebuilt image did not parse (%d of %u actions)", (void*)X, na, n); free(t); return -1; }
     ArApply(&g_action_records, t); // archive records replace the old window estimate before any catalogue/export publication
     uint32_t pid = 0; AmRd(P, &pid, 4);
-    Log("AUTOMOVES: loaded action data %p: %u actions (objects %p stride 0x%llX, first row %p), %d hitbox rows (array %p)%s; current action 0x%X",
-        (void*)X, n, (void*)A, (unsigned long long)stride, (void*)rp[0], nhb, (void*)hbArr, odd ? " [some actions use another hitbox array: hits unknown]" : "", pid);
+    Log("AUTOMOVES: loaded action data %p: %u actions (objects %p stride 0x%llX, first row %p), %d hitbox rows (array %p), %d spawned objects, %d components (fnv %08X)%s; current action 0x%X",
+        (void*)X, n, (void*)A, (unsigned long long)stride, (void*)rp[0], nhb, (void*)hbArr, n7, n8, obHash, odd ? " [some actions use another hitbox array: hits unknown]" : "", pid);
     g_ami[g_ami_n].base = X; g_ami[g_ami_n].n = n; g_ami[g_ami_n].t = t;
     return g_ami_n++;
 }
@@ -90,10 +104,10 @@ static void AmFinal(int s, const char* why) {
         }
     }
     const AmTable* t = g_ami[best].t;
-    int atk = 0, blk = 0, great = 0, hk = 0, links = 0, seq = 0, idle = 0, mov = 0;
-    for (int i = 0; i < t->n; ++i) { atk += t->m[i].attack; blk += t->m[i].block; great += t->m[i].great; hk += t->m[i].hits > 0; links += t->m[i].link; seq += AmSeqHead(t, i); idle += t->m[i].kind == 'I'; mov += t->m[i].kind == 'M'; }
-    Log("AUTOMOVES spawn #%d chr %u: FINAL action data %p (0 = union of the files seen): %d moves (attack %d, attack block %d, unblockable %d, hit count known %d, movement %d, idle %d), "
-        "%d next links, %d sequences; %d file(s) seen [%s]", s, chr, (void*)g_ami[best].base, t->n, atk, blk, great, hk, mov, idle, links, seq, g_ams[s].nf, why);
+    int atk = 0, blk = 0, great = 0, hk = 0, links = 0, seq = 0, idle = 0, mov = 0, proj = 0;
+    for (int i = 0; i < t->n; ++i) { atk += t->m[i].attack; blk += t->m[i].block; great += t->m[i].great; hk += t->m[i].hits > 0; links += t->m[i].link; seq += AmSeqHead(t, i); idle += t->m[i].kind == 'I'; mov += t->m[i].kind == 'M'; proj += t->m[i].proj; }
+    Log("AUTOMOVES spawn #%d chr %u: FINAL action data %p (0 = union of the files seen): %d moves (attack %d, attack block %d, unblockable %d, hit count known %d, movement %d, idle %d, projectile %d), "
+        "%d next links, %d sequences; %d file(s) seen [%s]", s, chr, (void*)g_ami[best].base, t->n, atk, blk, great, hk, mov, idle, proj, links, seq, g_ams[s].nf, why);
     // the proof compares with the hand tables' ORIGINAL contents (move_catalog.h kN3MovesHand ..., apart from the live catalogue)
     if (!AmFor(chr) && AmcHasChr(chr)) { char line[1400]; AmCmp c; AmCompare(t, chr, &c); AmCmpText(&c, line, sizeof line); Log("AUTOMOVES PROOF chr %u runtime vs hand: %s", chr, line); }
     else if (!AmFor(chr)) Log("AUTOMOVES chr %u: no hand data for this boss: the move list is game data only", chr);
@@ -111,11 +125,12 @@ static void AmFinal(int s, const char* why) {
 static void AmTick(void) {
     if (!g_cfg_am) return;
     const DWORD now = GetTickCount();
-    for (int s = 0; s < MAXSP; ++s) {
-        const uint64_t a = s < g_nsp ? g_sp_actor[s] : 0;
-        if (a != g_ams[s].a || (a && g_sp_chr[s] != g_ams[s].chr)) {
+    for (int s = 0; s < META_ACTORS; ++s) {
+        uint32_t chr = 0;
+        const uint64_t a = MetadataActor(s, &chr);
+        if (a != g_ams[s].a || (a && chr != g_ams[s].chr)) {
             if (g_ams[s].a && !g_ams[s].done && g_ams[s].nf) AmFinal(s, "despawned/replaced");
-            memset(&g_ams[s], 0, sizeof g_ams[s]); g_ams[s].a = a; g_ams[s].t0 = g_ams[s].tLast = now; g_ams[s].chr = a ? g_sp_chr[s] : 0;
+            memset(&g_ams[s], 0, sizeof g_ams[s]); g_ams[s].a = a; g_ams[s].t0 = g_ams[s].tLast = now; g_ams[s].chr = a ? chr : 0;
         }
         if (!a || g_ams[s].done || now < g_ams[s].tNext) continue;
         g_ams[s].tNext = now + 250;

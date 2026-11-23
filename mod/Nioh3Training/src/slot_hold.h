@@ -30,4 +30,14 @@ static int SphChaseWanted(int wasChasing, float d, float range, int busy) {
     if (wasChasing) return d > range;
     return !busy && d > range + 100.0f;
 }
+// #98106 (pc2 #98099, TR 8306d94a): 'Boss A: Stand still' on the Training session's own boss after Fight normally went to the Idle hold, which
+// re-acquires from scratch (recorded idle 0x2 for g_tr.chr, g_bm session handle, native idle 0x2 within 20 s) and failed silently ('wait
+// failed', no IDLEHOLD line, 7 hits in 26 s). The same boss after a summon took the slot hold (AI off at once) and stood still. Route:
+// 0 = slot hold path (summoned bosses, or no Training session), 1 = the Idle hold (Fight normally, or Stand still while it already holds),
+// 2 = hand the session boss over to the slot hold (stops the Idle hold request, slot = Stand still + rehold), like a summon does.
+static int SessionStanceRoute(int sessionSlot, int trActive, int idle, int ihPhase) {
+    if (!sessionSlot || !trActive) return 0;
+    if (!idle || ihPhase == 2) return 1;
+    return 2;
+}
 #endif

@@ -33,6 +33,15 @@
    ]
   },
   {
+   "rva": "0xAF910",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 55 41 54 41 55 41 56 41 57 48 8D A8 28 FF FF FF 48 81 EC B0 01 00 00 0F 29 70 C8 45 33",
+   "offset": 0,
+   "used_in": [
+    "hazard_guard_game.h"
+   ]
+  },
+  {
    "rva": "0xD3958",
    "kind": "code",
    "pattern": "4C 8B 41 18 45 33 C9 49 8B C8 49 8B 40 08 EB 04 48 8B 40 10 44 38 48 19 75 0D 39 50 20 72 F1 4C 8B C0 48 8B",
@@ -483,6 +492,7 @@
    "offset": 0,
    "used_in": [
     "practice_stats_game.h",
+    "style_meter_game.h",
     "training.c"
    ]
   },
@@ -547,6 +557,15 @@
    "offset": 0,
    "used_in": [
     "training.c"
+   ]
+  },
+  {
+   "rva": "0x34EDF8",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 57 48 83 EC 20 40 8A FA 8B D9 E8 ?? ?? ?? ??",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
    ]
   },
   {
@@ -1055,6 +1074,7 @@
    "pattern": "48 8B C4 48 89 58 08 44 89 48 20 44 89 40 18 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A8 48 81 EC 20 01 00",
    "offset": 0,
    "used_in": [
+    "hazard_guard_game.h",
     "training.c"
    ]
   },
@@ -1682,6 +1702,51 @@
    ]
   },
   {
+   "rva": "0x215F85C",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B F1 33 DB 33 FF 44",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
+   "rva": "0x21607A4",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 57 48 83 EC 20 48 8B F9 E8 ?? ?? ?? ?? 8A D8 3C 08 74 0D 41 B0 01 8A",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
+   "rva": "0x216B9D0",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B E9 40 8A F2 33 C9 E8 ?? ?? ?? ?? 33 DB 4C 8B F0 48 85 C0 74 62 40 8A D6 48",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
+   "rva": "0x2182968",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B F1 41 8A F8 33 C9 44 8B F2",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
+   "rva": "0x2183744",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 29 8A DA 48 8B F9",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
    "rva": "0x2239600",
    "kind": "code",
    "pattern": "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1 41 8B D8 44",
@@ -1706,6 +1771,15 @@
    "offset": 0,
    "used_in": [
     "training.c"
+   ]
+  },
+  {
+   "rva": "0x2285C48",
+   "kind": "code",
+   "pattern": "48 83 EC 28 E8 ?? ?? ?? ?? A8 0B 0F",
+   "offset": 0,
+   "used_in": [
+    "soul_core_swap_game.h"
    ]
   },
   {
@@ -1832,6 +1906,7 @@
    "what": "mov rax, qword ptr [rip + 0x457387d]",
    "used_in": [
     "frame_meter_game.h",
+    "soul_core_swap_game.h",
     "training.c"
    ]
   },
@@ -1949,6 +2024,20 @@
    ]
   },
   {
+   "rva": "0x45C6F2F",
+   "kind": "global",
+   "pattern": "8A 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? 00 48",
+   "offset": 0,
+   "anchor": "0x252CEB",
+   "disp_off": 2,
+   "insn_len": 6,
+   "addend": 0,
+   "what": "mov al, byte ptr [rip + 0x437423e]",
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
    "rva": "0x45C6F38",
    "kind": "global",
    "pattern": "4C 39 3D ?? ?? ?? ?? 0F 84 ?? ?? ?? ?? 4D 85 C9 0F 84 ?? ??",
@@ -2048,6 +2137,20 @@
    ]
   },
   {
+   "rva": "0x4751530",
+   "kind": "global",
+   "pattern": "48 8B 2D ?? ?? ?? ?? 45 33 D2 45 8A",
+   "offset": 0,
+   "anchor": "0xF4520",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "mov rbp, qword ptr [rip + 0x465d009]",
+   "used_in": [
+    "soul_core_swap_game.h"
+   ]
+  },
+  {
    "rva": "0x4757710",
    "kind": "global",
    "pattern": "48 8B 0D ?? ?? ?? ?? 33 C0 48 85 C9 74 03 8B 41 18 C3 CC CC",
@@ -2073,6 +2176,7 @@
    "what": "mov rdx, qword ptr [rip + 0x4714761]",
    "used_in": [
     "frame_probe_game.h",
+    "player_log.h",
     "practice_freeze_game.h",
     "training.c"
    ]

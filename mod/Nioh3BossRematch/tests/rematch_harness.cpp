@@ -3,6 +3,7 @@
 // xmm preserved, chaining onto another module's E9 hook, the pump call retarget with chaining). Built by run_rematch_harness.py.
 #include "../src/addon.h"
 #include "../src/rematch_core.h"
+#include "../src/native_entry_gates_gen.h"
 #include "../src/sites_gen.h"
 
 #include <cstdarg>
@@ -91,8 +92,131 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    { // #83427: favorites lead each list; original order, row IDs and cursor identity survive.
+        const std::vector<int> original{4, 1, 8, 3, 9}; // existing beaten/startable/catalogue ordering
+        for (int base : {0, 0x40000, 0x50000}) {
+            std::vector<int> input;
+            for (int row : original) input.push_back(base + row);
+            const auto canonical = input;
+            rcore::FavoritesFirst(input, [](int) { return false; });
+            CHECK(input == canonical, "no favorites retains original list order");
+            rcore::FavoritesFirst(input, [](int) { return true; });
+            CHECK(input == canonical, "all favorites retains original list order");
+            auto favorite = [base](int item) { return item == base + 3 || item == base + 1; };
+            rcore::FavoritesFirst(input, favorite);
+            CHECK((input == std::vector<int>{base+1,base+3,base+4,base+8,base+9}), "stable favorite and ordinary groups");
+            CHECK(rcore::KeepVisibleSel(input.data(), (int)input.size(), 3, base+3) == 1, "promoted row keeps cursor");
+            input = canonical; // rebuild from original order when unfavoriting, not the last partition
+            rcore::FavoritesFirst(input, [base](int item) { return item == base+1; });
+            CHECK((input == std::vector<int>{base+1,base+4,base+8,base+3,base+9}), "unfavorite restores original relative order");
+            CHECK(rcore::KeepVisibleSel(input.data(), (int)input.size(), 1, base+3) == 3, "demoted row keeps cursor");
+            rcore::FavoritesFirst(input, [base](int item) { return item == base+1; });
+            CHECK((input == std::vector<int>{base+1,base+4,base+8,base+3,base+9}), "repeat partition is stable");
+        }
+        std::vector<int> empty;
+        rcore::FavoritesFirst(empty, [](int) { return true; });
+        CHECK(empty.empty(), "empty favorite list is safe");
+        std::vector<rcore::Row> catalog(4);
+        strcpy_s(catalog[0].id, "R1"); strcpy_s(catalog[1].id, "E01");
+        strcpy_s(catalog[2].id, "R2"); strcpy_s(catalog[3].id, "E02");
+        catalog[0].route=rcore::kR; catalog[2].route=rcore::kR;
+        catalog[1].route=catalog[3].route=rcore::kE;
+        rcore::ListCycle cycle; rcore::BuildListCycle(catalog,cycle);
+        std::set<std::string> favorites{"B E02", "T E01", "B R2"};
+        for(char kind : {'B','T'}) {
+            std::vector<int> scrolls;
+            for(int i=0;i<4;++i) if(rcore::RowInListStop(catalog[i],cycle,cycle.Stops()-2)) scrolls.push_back(i);
+            rcore::FavoritesFirst(scrolls,[&](int i){return favorites.count(rcore::FavKey(kind,catalog[i].id))!=0;});
+            CHECK((scrolls == (kind=='B' ? std::vector<int>{3,1} : std::vector<int>{1,3})), "scroll filter retains its own B/T favorites and excludes bosses");
+        }
+        int removed[] = {-68, 1, -5};
+        CHECK(rcore::KeepVisibleSel(removed,3,1,3)==1, "unfavorite in Favorites filter falls back to remaining row");
+        int controls[] = {-68,-5};
+        CHECK(rcore::KeepVisibleSel(controls,2,1,3)==0, "last favorite removal lands on filter safely");
+        rcore::FavHoldGuard g;
+        CHECK(!g.Swallow(1000, 7), "unlocked guard passes the first press");
+        g.Lock(1000, 7);
+        CHECK(g.Swallow(1400, 7) && g.Swallow(1490, 7) && g.Swallow(1580, 7), "#89941 held repeats after a row left the list are ignored");
+        CHECK(!g.Swallow(2200, 7), "a fresh press after the quiet gap works again");
+        CHECK(!g.Swallow(2250, 7), "an unlocked guard never swallows");
+        g.Lock(3000, 7);
+        CHECK(!g.Swallow(3100, -68), "#92504 Left/Right on another row (filter) right after a removal works");
+        CHECK(!g.Swallow(3150, 7), "moving off the landed row releases the guard");
+    }
+    {   // #79955 pc2 poll: state active, player=0 loading=0 mission=0, every 500 ms, pending native phase irrelevant: idle within 25 s
+        rcore::TitleWatch w;
+        uint64_t fired = 0;
+        for (uint64_t t = 1000; t <= 40000 && !fired; t += 500)
+            if (w.Step(true, false, false, 0, t)) fired = t - 1000;
+        CHECK(fired >= 20000 && fired <= 25000, "title exit: no player, no load, mission 0 reaches idle in 20-25 s");
+        rcore::TitleWatch l;  // a 73.7 s load: loading flag up, then player 0 with a mission id, then in game
+        bool early = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early |= l.Step(true, false, t < 70000, t < 70000 ? 0 : 0xF7F, t);
+        for (uint64_t t = 74700; t < 90000; t += 500) early |= l.Step(true, true, false, 0xF7F, t);
+        CHECK(!early, "title exit: a long load and the mission after it never go idle");
+        rcore::TitleWatch g;  // the load flag unreadable for a while but a mission id set: no exit
+        bool bad = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad |= g.Step(true, false, false, 0xF7F, t);
+        CHECK(!bad, "title exit: a nonzero mission id blocks it");
+        rcore::TitleWatch st;  // v3 (#80182): stale mission at the title (mission field ignored): idle in 20-25 s; load / unreadable never
+        uint64_t f2 = 0;
+        for (uint64_t t = 1000; t <= 40000 && !f2; t += 500)
+            if (st.StepSnap(true, false, true, false, t)) f2 = t - 1000;
+        CHECK(f2 >= 20000 && f2 <= 25000, "title exit: stale mission at the title still idles in 20-25 s");
+        rcore::TitleWatch ld; bool early2 = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early2 |= ld.StepSnap(true, false, true, true, t);
+        for (uint64_t t = 74700; t < 100000; t += 500) early2 |= ld.StepSnap(true, true, true, false, t);
+        CHECK(!early2, "title exit: a 73 s load never idles (mission field not needed)");
+        rcore::TitleWatch un; bool bad2 = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad2 |= un.StepSnap(true, false, false, false, t);
+        CHECK(!bad2, "title exit: unreadable game state never idles");
+        rcore::TitleWatch i;
+        CHECK(!i.Step(false, false, false, 0, 1000) && !i.Step(false, false, false, 0, 99000), "title exit: nothing to do while idle");
+    }
+    CHECK(rcore::ScrollCoverDone(false, false, false, false, 0) == 1, "scroll cover ends when the trip ends");
+    CHECK(rcore::ScrollCoverDone(true, false, true, false, 90000) == 0, "scroll cover stays while loading");
+    CHECK(rcore::ScrollCoverDone(true, true, true, false, 0) == 2, "scroll cover ends at the first wave");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, 8000) == 0, "scroll cover no longer gives up at 8 s (E04 showed 12 s of empty field)");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs - 1) == 0, "scroll cover waits up to the safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs) == 4, "scroll cover safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, true, 100) == 3, "scroll cover ends when the walk found no wave");
+    CHECK(rcore::ScrollCoverDone(true, true, true, true, 100) == 2, "a wave beats the finished walk");
+    {
+        auto wakeOf = [&](const char* id) { for (const rcore::Row& r : rows) if (!strcmp(r.id, id)) return rcore::WaveWakeStep(r); return -1; };  // the catalogue column wake_step
+        const char* known[] = {"E00", "E01", "E04", "E07", "E08", "E09", "E10", "E17", "E18"};
+        const int steps[] = {4, 1, 2, 9, 1, 3, 2, 1, 1};
+        for (int i = 0; i < 9; ++i) CHECK(wakeOf(known[i]) == steps[i], "row wake step from the test runs");
+        const char* still[] = {"E02", "E03", "E05", "E06", "E11", "E12", "E13", "E14", "E15", "E16", "E19"};
+        for (const char* id : still) CHECK(wakeOf(id) == 0, "row wakes at the record warp");
+        rcore::Row junk{}; junk.route = rcore::kR; junk.wakeStep = 4; rcore::Row big{}; big.route = rcore::kE; big.wakeStep = 99;
+        CHECK(rcore::WaveWakeStep(junk) == 0 && rcore::WaveWakeStep(big) == 0 && wakeOf("E20") == -1 && wakeOf("R0C12") == 0, "non-scroll rows and out-of-range steps take the plain walk");
+        CHECK(rcore::WaveNudgeAt(wakeOf("E07")).dz == -1200.f && rcore::WaveNudgeAt(wakeOf("E00")).dz == -600.f, "E07 and E00 keep the offsets that woke them");
+        CHECK(rcore::WaveWalkCount(0) == rcore::kWaveNudges && rcore::WaveWalkOffset(0, 0) == 0 && rcore::WaveWalkOffset(0, 12) == 12, "step 0 rows keep the old order");
+        CHECK(rcore::WaveWalkCount(9) == rcore::kWaveNudges + 1 && rcore::WaveWalkOffset(9, 0) == 9, "the known offset goes first");
+        bool all = true;
+        for (int i = 0; i < rcore::kWaveNudges; ++i) all = all && rcore::WaveWalkOffset(9, i + 1) == i;
+        CHECK(all, "after a miss the whole old walk still runs");
+        CHECK(rcore::WaveNudgeDecide(12, 1, true, 14) == 1 && rcore::WaveNudgeDecide(13, 1, true, 14) == 3 && rcore::WaveNudgeDecide(13, 3, true, 14) == 2, "the longer walk ends on its own count");
+        CHECK(rcore::WaveWalkCount(9) * rcore::kWaveDwellCoverMs + 8000 < rcore::kScrollCoverSafetyMs, "the whole walk fits inside the safety timeout");
+    }
+    CHECK(rcore::CloseScrollListWhenEmpty(0, 1), "empty bag closes the scroll list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(1, 1), "one scroll keeps the list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0, 0), "flag already clear stays clear");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0xFFFFFFFFu, 1), "unreadable count leaves the list");
     CHECK(n > 100, "catalogue parsed");
     CHECK(c[rcore::kE] == 20, "20 Picture Scroll rows");
+    {
+        int scrolls = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            if (rows[i].route != rcore::kE) continue;
+            ++scrolls;
+            CHECK(rows[i].storyMission == 0xCC96, "scroll story mission is the old literal");
+            CHECK(rows[i].missionId == 0, "scroll replay id stays empty");
+            CHECK(rcore::ScrollMission(rows, (int)i) == 0xCC96, "chosen scroll uses its story mission");
+        }
+        CHECK(scrolls == 20, "20 story missions read");
+        CHECK(rcore::ScrollMission(rows, -1) == 0xCC96, "game pick uses the shared scroll mission");
+    }
     CHECK(c[rcore::kH] == 3, "3 hidden duels");
     CHECK(c[rcore::kX] > 0, "X rows kept with a reason");
     bool reasons = true, eidx = true, mid = true;
@@ -104,6 +228,363 @@ int main(int argc, char** argv) {
     CHECK(reasons, "every X row has a reason");
     CHECK(eidx, "E rows have record indexes 0..19");
     CHECK(mid, "R/H/D rows have mission ids");
+    {
+        int lessons = 0;
+        bool rf5e5 = false, rd759 = false, r26f3 = false, ra0a1 = false, r2826 = false, rbab8 = false;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "R2826")) r2826 = r.lesson;
+            if (!strcmp(r.id, "RBAB8")) rbab8 = r.lesson;
+            if (!r.lesson) continue;
+            ++lessons;
+            if (!strcmp(r.id, "RF5E5")) rf5e5 = true;
+            if (!strcmp(r.id, "RD759")) rd759 = true;
+            if (!strcmp(r.id, "R26F3")) r26f3 = true;
+            if (!strcmp(r.id, "RA0A1")) ra0a1 = true;
+        }
+        printf("lessons: %d\n", lessons);
+        CHECK(lessons == 4 && rf5e5 && rd759 && r26f3 && ra0a1, "lesson column marks RF5E5 RD759 R26F3 RA0A1");
+        CHECK(!r2826 && !rbab8, "R2826 and RBAB8 are not lessons");
+        const rcore::Row *rd = nullptr, *ra = nullptr, *re = nullptr, *rf = nullptr;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "RD759")) rd = &r;
+            if (!strcmp(r.id, "RA0A1")) ra = &r;
+            if (!strcmp(r.id, "RE18C")) re = &r;
+            if (!strcmp(r.id, "RF5E5")) rf = &r;
+        }
+        CHECK(rd && rd->Waves() && rd->atFight && rd->fightStart == 5035630 && rd->waveCount >= 2 && rd->waveGroup[0] == 50301,
+              "RD759 waves: mission start 5035630, first group 50301");
+        CHECK(ra && ra->Waves() && ra->waveCount == 3 && ra->waveGroup[0] == 50701 && ra->waveGroup[2] == 50703,
+              "RA0A1 waves: groups 50701, 50702, 50703");
+        CHECK(rf && rf->Waves() && rf->fightStart == 5001735 && rf->waveGroup[0] == 50001, "RF5E5 waves: mission start 5001735, group 50001");
+        CHECK(re && !re->Waves() && !strcmp(re->fightSignal, "boss") && re->fightStart == 5044637 && !re->lesson,
+              "RE18C stays a boss duel at start 5044637");
+        CHECK(rcore::WavesFightStarts("waves", false, false) && !rcore::WavesFightStarts("waves", true, false) &&
+                  !rcore::WavesFightStarts("boss", false, false) && !rcore::WavesFightStarts("waves", false, true),
+              "waves fight start is only the first group check");
+        CHECK(rcore::WavesUnmatchedEndWins("waves", false) && !rcore::WavesUnmatchedEndWins("waves", true) &&
+                  !rcore::WavesUnmatchedEndWins("boss", false),
+              "unmatched BossBattleModeEnd wins only a waves row");
+        {  // #107117 (PC2 #107114): Boss Match left with Leave Boss Match, then a Dojo by Fight now, must log the waves win
+            rcore::BossModeTrack bm;
+            bm.Begin();  // the Boss Match fight opens BossBattleMode
+            // Leave Boss Match: no BossBattleModeEnd; the mission changes (boss mission -> hub)
+            const bool stale = rcore::StaleBossModeOnMissionChange(false, bm.open, 0x4A1u);
+            if (stale) bm.Close();
+            const bool matched = bm.End();  // the Dojo's last wave: unmatched BossBattleModeEnd
+            CHECK(stale && !matched && rcore::WavesUnmatchedEndWins("waves", matched),
+                  "#107117: Leave Boss Match closes the boss mode, so the next Dojo end is the waves win");
+            rcore::BossModeTrack old;  // the 1.8.19 path: the open state survived the leave
+            old.Begin();
+            CHECK(!rcore::WavesUnmatchedEndWins("waves", old.End()), "#107117: without the close the left fight eats the waves win (PC2 repro)");
+            rcore::BossModeTrack live;  // a real boss fight still matches its own end
+            live.Begin();
+            CHECK(live.End() && !rcore::WavesUnmatchedEndWins("waves", true), "#107117: a fight's own BossBattleModeEnd still matches");
+            CHECK(!rcore::StaleBossModeOnMissionChange(true, true, 0) && !rcore::StaleBossModeOnMissionChange(false, false, 0x4A1u) &&
+                      rcore::StaleBossModeOnMissionChange(true, false, 0x4A1u),
+                  "#107117: the first mission sample and a closed mode do nothing; a fight flag alone still closes");
+            rcore::BossModeTrack dbl;
+            CHECK(!dbl.Close() && !dbl.End(), "#107117: closing twice / ending with none open is harmless");
+            // #107156 risk: ms28 changes mid-fight before the kill. The open state stays through the win window.
+            rcore::StaleBossModeClose midFight;
+            midFight.Arm(1000, 7);
+            CHECK(!midFight.Due(1000 + 19999, 7, true), "#107156: mid-fight mission change keeps the boss mode open inside the 20 s win window");
+            CHECK(!midFight.Due(1000 + 25000, 7, false) && !midFight.Due(1000 + 60000, 7, true),
+                  "#107156: the fight's own BossBattleModeEnd inside the window cancels the pending close (no later close)");
+            rcore::StaleBossModeClose again;
+            again.Arm(1000, 7);
+            CHECK(!again.Due(30000, 8, true) && !again.Due(90000, 8, true), "#107156: a new BossBattleMode after the change owns the state: never closed");
+            rcore::StaleBossModeClose leave;  // Leave Boss Match -> hub -> Dojo (two mission changes), waves end minutes later
+            leave.Arm(1000, 7);
+            leave.Arm(8000, 7);
+            CHECK(!leave.Due(20999, 7, true) && leave.Due(21000, 7, true) && !leave.Due(22000, 7, true),
+                  "#107117: the left boss mode closes once, 20 s after the first change, before the Dojo's waves end");
+            CHECK(rcore::kStaleBossModeGraceMs == 20000, "#107156: the close waits the same 20 s window ConfirmNativeWin accepts");
+        }
+    }
+    {  // human #107514: 'Train in this arena' route is decided from each row's own data (no per-row list, #87625)
+        int scroll = 0, native = 0, none = 0, wrong = 0, dojoWaves = 0, dojoWavesNative = 0;
+        for (const auto& r : rows) {
+            const bool scriptGate = NativeEntryGateFind(r.missionId, r.placement) != 0;
+            const int at = rcore::ArenaTrainRouteFor(r, scriptGate);
+            if (at == rcore::kAtScroll) ++scroll; else if (at == rcore::kAtNative) ++native; else ++none;
+            if (r.route == rcore::kE && at != rcore::kAtScroll) ++wrong;                 // every scroll / Dojo scroll: no-waves trip
+            if (r.route == rcore::kX && at != rcore::kAtNone) ++wrong;                   // no route: never offered
+            if (at == rcore::kAtNative && !scriptGate && (r.atFight || !r.GateDoor())) ++wrong;  // native only where the boss waits on a gate
+            if (at == rcore::kAtNative && !r.FightNowReady()) ++wrong;
+            if (r.dojo && rcore::WavesRow(r)) { ++dojoWaves; if (at == rcore::kAtNative) ++dojoWavesNative; }
+        }
+        printf("train in arena: %d scroll (no waves), %d native (no gate request), %d not offered; dojo waves rows %d (%d native)\n", scroll, native, none,
+               dojoWaves, dojoWavesNative);
+        CHECK(!wrong && scroll > 0 && native > 0, "#107514: Train in this arena: scrolls take the no-waves trip, native rows only where the boss waits on a gate");
+        rcore::Row gate;  // synthetic rows: the rule, not the catalogue
+        gate.route = rcore::kR; gate.missionId = 0x1234; gate.fightStart = 7; gate.arenaOk = gate.arenaCat = true; gate.gateId = 99; snprintf(gate.gateKind, sizeof gate.gateKind, "door");
+        rcore::Row atFight = gate; atFight.atFight = true;
+        rcore::Row box = gate; snprintf(box.gateKind, sizeof box.gateKind, "box");
+        rcore::Row scrollRow; scrollRow.route = rcore::kE;
+        rcore::Row noStart = gate; noStart.fightStart = 0;
+        CHECK(rcore::ArenaTrainRouteFor(gate, false) == rcore::kAtNative && rcore::ArenaTrainRouteFor(atFight, false) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(atFight, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(box, false) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(box, true) == rcore::kAtNone && rcore::ArenaTrainRouteFor(scrollRow, false) == rcore::kAtScroll &&
+                  rcore::ArenaTrainRouteFor(noStart, true) == rcore::kAtNone,
+              "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box gate is not offered");
+        // #107705 (Ally R1C7C): a door row whose arena spot is not in the catalogue lands at the start point outside the door: not offered
+        rcore::Row noArena = gate; noArena.arenaOk = noArena.arenaCat = false;
+        rcore::Row captured = gate; captured.arenaCat = false;  // a captured position: BR's warp only, Training's table still has the start point
+        CHECK(rcore::ArenaTrainRouteFor(noArena, false) == rcore::kAtNone && rcore::ArenaTrainRouteFor(noArena, true) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(captured, true) == rcore::kAtNone && rcore::ArenaTrainNoWhy(noArena, true) == rcore::kAtNoArena &&
+                  rcore::ArenaTrainNoWhy(atFight, false) == rcore::kAtNoGate && rcore::ArenaTrainNoWhy(noStart, true) == rcore::kAtNoRoute,
+              "#107705: native arena-only only with a catalogue spot inside the arena; the reason names the missing spot");
+        // #107823 (Ally REA75 Ibaraki Doji): a box gate fires the boss when the arena spot is reached, script gate or not
+        CHECK(rcore::ArenaTrainNoWhy(box, true) == rcore::kAtNoBox && rcore::ArenaTrainNoWhy(box, false) == rcore::kAtNoGate && rcore::GateBox(box) && !rcore::GateBox(gate),
+              "#107823: a box-gate row is not offered for Train in this arena; the reason names the trigger box");
+        {
+            int boxNative = 0, rea75 = -2;
+            for (const auto& r : rows) {
+                const int at = rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+                if (at == rcore::kAtNative && rcore::GateBox(r)) ++boxNative;
+                if (!strcmp(r.id, "REA75")) rea75 = at;
+            }
+            CHECK(!boxNative && rea75 == rcore::kAtNone, "#107823: no catalogue box-gate row (REA75 included) takes the native arena-only route");
+        }
+        {
+            int nativeNoArena = 0, r1c7c = -2;
+            for (const auto& r : rows) {
+                const int at = rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+                if (at == rcore::kAtNative && !r.arenaCat) ++nativeNoArena;
+                if (!strcmp(r.id, "R1C7C")) r1c7c = at;
+            }
+            CHECK(!nativeNoArena && r1c7c == rcore::kAtNone, "#107705: no catalogue row is offered native arena-only without an in-arena spot (R1C7C not offered)");
+        }
+        CHECK(rcore::FnFailOnRoute(5, false) && rcore::FnFailOnRoute(5, true) && rcore::FnFailOnRoute(0, false) && !rcore::FnFailOnRoute(0, true) &&
+                  !rcore::FnFailOnRoute(6, false) && !rcore::FnFailOnRoute(2, false),
+              "#107705: an entry that ends after a pass (leave) keeps fnow=pass; failed or ended before a pass is FAIL");
+        CHECK(rcore::ArenaOnlyGate(true, 1653104599u) == 0 && rcore::ArenaOnlyGate(false, 1653104599u) == 1653104599u,
+              "#107514: arena-only never requests the boss gate; a normal Fight now keeps it");
+        {  // #107642: Refuse clears both halves of the pick, also when Training was already told (refused after SetArenaOnlyNext(1))
+            static int trNext = -1;
+            struct Pick { int v; void store(int x) { v = x; } } pick{5};
+            auto setNext = [](int on) { trNext = on; };
+            trNext = 1;  // ExecDirect told Training arena-only, then 'mission queue full'
+            rcore::ArenaOnlyRefuseClear(pick, setNext);
+            const bool cleared = pick.v == -1 && trNext == 0;
+            pick.v = 7; trNext = 1;
+            rcore::ArenaOnlyRefuseClear(pick, nullptr);  // no Training loaded: BR pick still cleared, no call
+            CHECK(cleared && pick.v == -1 && trNext == 1, "#107642: a refused arena trip clears BR's row pick and Training's arena-only flag");
+        }
+        CHECK(rcore::ArenaOnlyGatePage(true, true, 0x3513u) && !rcore::ArenaOnlyGatePage(false, true, 0x3513u) &&
+                  !rcore::ArenaOnlyGatePage(true, false, 0x3513u) && !rcore::ArenaOnlyGatePage(true, true, 0u),
+              "#107683: the arena-only Return page (no Fight again) only while that trip runs and Training owns its mission gate");
+    }
+    {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
+        int warned = 0;
+        bool rb24d = false;
+        for (const auto& r : rows) {
+            if (!r.warning[0]) continue;
+            ++warned;
+            if (!strcmp(r.id, "RB24D") && strstr(r.warning, "Death Veil")) rb24d = true;
+        }
+        CHECK(warned == 1 && rb24d, "warning column marks RB24D (Death Veil) only");
+    }
+    {
+        rcore::ListCycle cycle;
+        rcore::BuildListCycle(rows, cycle);
+        printf("list filter: %d stops", cycle.Stops());
+        for (int i = 0; i < cycle.Stops(); ++i) printf(" | %s", cycle.Label(i));
+        printf("\n");
+        CHECK(cycle.Stops() >= 4, "All, Multi, at least one era, Scrolls");
+        CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
+        CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
+        CHECK(strcmp(cycle.Label(cycle.Stops() - 2), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Favorites") == 0, "last stops are Scrolls, Favorites");
+        {   // human #95155: Dojos stop = catalogue mission_class dojo-way rows, right before Scrolls; dojos stay in their era too
+            int dojoStop = -1, dojos = 0, dojoIn = 0, dojoLeak = 0, dojoEra = 0;
+            for (int i = 0; i < cycle.Stops(); ++i) if (strcmp(cycle.Label(i), "Dojos") == 0) dojoStop = i;
+            CHECK(cycle.hasDojo && dojoStop == cycle.Stops() - 3, "Dojos stop sits before Scrolls, Favorites");
+            for (const rcore::Row& r : rows) {
+                if (r.dojo) ++dojos;
+                const bool in = dojoStop >= 0 && rcore::RowInListStop(r, cycle, dojoStop);
+                if (in && r.dojo) ++dojoIn;
+                if (in && !r.dojo) ++dojoLeak;
+                if (r.dojo) for (int e = 0; e < cycle.nEra; ++e) if (rcore::RowInListStop(r, cycle, 2 + e)) { ++dojoEra; break; }
+            }
+            printf("dojos: %d rows, %d in Dojos, %d leak, %d in an era\n", dojos, dojoIn, dojoLeak, dojoEra);
+            CHECK(dojos == 9 && dojoIn == 9 && dojoLeak == 0 && dojoEra == 9, "Dojos lists the 9 dojo-way rows only, each also in its era");
+        }
+        {   // human #84670 / #99050: Not recently confirmed = rows with no catalogue 'confirmed' date (tools/boss_confirmed.json), Boss Matches only
+            CHECK(!cycle.hasUnconfirmed, "Training cycle (default) has no Not recently confirmed stop");
+            rcore::ListCycle boss, bossAll;
+            rcore::BuildListCycle(rows, boss, false, true);
+            rcore::BuildListCycle(rows, bossAll, true, true);
+            int st = -1, dojoSt = -1;
+            for (int i = 0; i < boss.Stops(); ++i) {
+                if (strcmp(boss.Label(i), "Not recently confirmed") == 0) st = i;
+                if (strcmp(boss.Label(i), "Dojos") == 0) dojoSt = i;
+            }
+            CHECK(boss.Stops() == cycle.Stops() + 1 && st == boss.Stops() - 3 && dojoSt == boss.Stops() - 4, "order: Dojos, Not recently confirmed, Scrolls, Favorites");
+            CHECK(boss.Kind(boss.Stops() - 2) == 3 && boss.Kind(boss.Stops() - 1) == 4, "Scrolls and Favorites keep their kinds after the new stop");
+            int conf = 0, unc = 0, uncListed = 0, leak = 0, favMove = 0;
+            for (const rcore::Row& r : rows) {
+                const bool in = st >= 0 && rcore::RowInListStop(r, boss, st);
+                if (r.confirmed) ++conf; else ++unc;
+                if (in && r.confirmed) ++leak;
+                if (in && r.route != rcore::kX) ++uncListed;
+                if (st >= 0 && rcore::RowInListStop(r, boss, st, true) != in) ++favMove;
+                if (r.confirmed && r.route == rcore::kX) ++leak;
+            }
+            printf("confirmed: %d rows, not recently confirmed %d (%d listed without Show all), %d leak\n", conf, unc, uncListed, leak);
+            // RD759 (Hanzo Novice) moved to the waves mission-start path (#89329) and was re-confirmed there 2026-11-15 (PC2 #106739, 406b3855): 63 / 58
+            CHECK(conf == 63 && unc == 58 && uncListed == 28 && leak == 0 && favMove == 0, "audit #84941: 63 confirmed / 58 not (28 non-X), favorites do not change membership");
+            CHECK(bossAll.hasUnconfirmed && bossAll.Stops() >= boss.Stops(), "Show all keeps the stop");
+        }
+        int sengoku = -1, wavesEra = -1;
+        for (int i = 0; i < cycle.nEra; ++i) {
+            if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
+            if (strcmp(cycle.era[i], "Waves") == 0) wavesEra = i;
+        }
+        CHECK(sengoku >= 0, "Sengoku comes from the region column");
+        CHECK(wavesEra >= 0, "Waves comes from the region column");
+        int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, waveMiss = 0, nameMiss = 0, allMiss = 0;
+        char blankIds[240] = {};
+        size_t bo = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const rcore::Row& r = rows[i];
+            if (!rcore::RowInListStop(r, cycle, 0)) ++allMiss;
+            CHECK(rcore::FightNowItemId((int)i) == 0x10000 + (int)i, "Fight now id stays catalogue index plus 0x10000");
+            if (!r.region[0]) {
+                ++blank;
+                if (bo + 16 < sizeof blankIds) bo += (size_t)snprintf(blankIds + bo, sizeof blankIds - bo, "%s%s", bo ? "," : "", r.id);
+            }
+            if (r.route == rcore::kE) {
+                ++scrolls;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 2)) ++scrollMiss;
+                if (wavesEra < 0 || strcmp(r.region, "Waves") != 0 || !rcore::RowInListStop(r, cycle, 2 + wavesEra)) ++waveMiss;
+                if (sengoku >= 0 && rcore::RowInListStop(r, cycle, 2 + sengoku)) ++waveMiss;
+                if (!strstr(r.name, " waves, ") || strncmp(r.name, "Waves", 5) == 0 || strstr(r.name, "Small") || strstr(r.name, "Hundred Demon")) ++nameMiss;
+                if (rcore::RowInListStop(r, cycle, 1)) ++multiLeak;
+            }
+            const bool isMulti = r.missionId && r.route != rcore::kE && rcore::RosterMembers(r.id) > 1;
+            if (rcore::RowInListStop(r, cycle, 1) != isMulti) ++multiLeak;
+            if (isMulti) ++multi;
+        }
+        printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
+        CHECK(allMiss == 0, "All shows every loaded row");
+        CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
+        CHECK(waveMiss == 0 && nameMiss == 0, "today every Picture Scroll region is Waves, so all 20 stay in that group");
+        {
+            std::vector<rcore::Row> flipped = rows;
+            int nFlip = 0;
+            for (auto& r : flipped) {
+                if (strcmp(r.id, "E09") && strcmp(r.id, "E17")) continue;
+                snprintf(r.region, sizeof r.region, "Sengoku");
+                if (strncmp(r.name, "Waves: ", 7) == 0) {
+                    char bare[64];
+                    snprintf(bare, sizeof bare, "%s", r.name + 7);
+                    snprintf(r.name, sizeof r.name, "%s", bare);
+                }
+                ++nFlip;
+            }
+            rcore::ListCycle fc;
+            rcore::BuildListCycle(flipped, fc);
+            int wavesStop = -1, sengokuStop = -1;
+            for (int i = 0; i < fc.nEra; ++i) {
+                if (strcmp(fc.era[i], "Waves") == 0) wavesStop = 2 + i;
+                if (strcmp(fc.era[i], "Sengoku") == 0) sengokuStop = 2 + i;
+            }
+            int leftWaves = 0, inSengoku = 0, stillScroll = 0, prefixGone = 0;
+            int otherN = 0, otherStay = 0;
+            for (const auto& r : flipped) {
+                if (r.route != rcore::kE) continue;
+                const bool target = !strcmp(r.id, "E09") || !strcmp(r.id, "E17");
+                if (target) {
+                    if (!rcore::WavesRow(r) && wavesStop >= 0 && !rcore::RowInListStop(r, fc, wavesStop)) ++leftWaves;
+                    if (sengokuStop >= 0 && rcore::RowInListStop(r, fc, sengokuStop)) ++inSengoku;
+                    if (rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++stillScroll;
+                    if (strncmp(r.name, "Waves: ", 7) != 0) ++prefixGone;
+                } else {
+                    ++otherN;
+                    if (rcore::WavesRow(r) && wavesStop >= 0 && rcore::RowInListStop(r, fc, wavesStop) &&
+                        rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++otherStay;
+                }
+            }
+            CHECK(nFlip == 2 && leftWaves == 2 && inSengoku == 2 && stillScroll == 2 && prefixGone == 2,
+                  "E09 and E17 leave Waves and stay under Scrolls when their region is Sengoku");
+            CHECK(otherN == 18 && otherStay == 18, "the other 18 scroll rows stay in Waves");
+        }
+        const rcore::WaveNudge origin = rcore::WaveNudgeAt(0);
+        CHECK(rcore::kWaveNudges == 13 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
+        CHECK(rcore::WaveNudgeAt(1).dx == 600.f && rcore::WaveNudgeAt(2).dx == -600.f && rcore::WaveNudgeAt(3).dz == 600.f && rcore::WaveNudgeAt(4).dz == -600.f,
+              "600 cm offsets are x+ x- z+ z-");
+        CHECK(rcore::WaveNudgeAt(1).dy == 100.f && rcore::WaveNudgeAt(5).dx == 1500.f && rcore::WaveNudgeAt(8).dz == -1500.f, "1500 follows 600, offset tries raise y");
+        CHECK(rcore::WaveNudgeDecide(-1, 1, false) == 1, "the record warp happens as soon as the mission is in");
+        CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
+        CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 1 && rcore::WaveNudgeDecide(12, 1, true) == 3 && rcore::WaveNudgeAt(9).dz == -1200.f, "state 3 stops the walk and the list ends");
+        CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
+        CHECK(multi == 22 && multiLeak == 0, "Multi is the 22 catalogue rows whose roster has more than one member (RBAB8 refused, f2e80b34)");
+        int warring = 0, dlc = 0, paren = 0, longLabel = 0;
+        {   // human #95158: X-only eras (DLC1 Edo = Tesso, Warring States) get no stop in the normal list; eras are alphabetical (#95175)
+            int emptyEra = 0, sorted = 1;
+            for (int i = 0; i < cycle.nEra; ++i) {
+                if (!strcmp(cycle.era[i], "DLC1 Edo") || !strcmp(cycle.era[i], "Warring States")) ++emptyEra;
+                if (i && rcore::CaseLess(cycle.era[i], cycle.era[i - 1])) sorted = 0;
+            }
+            CHECK(emptyEra == 0 && sorted, "X-only eras are not stops; era stops are alphabetical");
+            std::vector<int> it = {3, 1, 0, 2};
+            std::vector<rcore::Row> nr(4);
+            snprintf(nr[0].name, sizeof nr[0].name, "zeta"); snprintf(nr[1].name, sizeof nr[1].name, "Alpha");
+            snprintf(nr[2].name, sizeof nr[2].name, "beta"); snprintf(nr[3].name, sizeof nr[3].name, "Gamma");
+            rcore::SortItemsByName(it, 1, 0, nr);
+            CHECK(it[0] == 3 && it[1] == 1 && it[2] == 2 && it[3] == 0, "list rows sort by name, case-insensitive, from the group start");
+            {   // human #95418: the real catalogue, one run over every row: names come out plain case-insensitive A-Z (no status groups)
+                std::vector<int> all;
+                for (size_t i = 0; i < rows.size(); ++i) all.push_back((int)i);
+                rcore::SortItemsByName(all, 0, 0, rows);
+                int ordered = 1, veteran = -1, novice = -1;
+                for (size_t k = 0; k < all.size(); ++k) {
+                    if (k && rcore::CaseLess(rows[(size_t)all[k]].name, rows[(size_t)all[k - 1]].name)) ordered = 0;
+                    if (!strcmp(rows[(size_t)all[k]].name, "Saito Fuku (Veteran)")) veteran = (int)k;
+                    if (!strcmp(rows[(size_t)all[k]].name, "Saito Fuku (Novice)")) novice = (int)k;
+                }
+                CHECK(ordered && veteran > novice && veteran == novice + 1, "catalogue sorts A-Z in one run; Saito Fuku (Veteran) sits with its Novice / Adept rows");
+            }
+        }
+        rcore::ListCycle cycleAll;
+        rcore::BuildListCycle(rows, cycleAll, true);
+        for (int i = 0; i < cycleAll.Stops(); ++i) {
+            const char* lab = cycleAll.Label(i);
+            if (strchr(lab, '(')) ++paren;
+            if (strlen(lab) > 16) ++longLabel;
+            if (strcmp(lab, "Warring States") == 0) ++warring;
+            if (strcmp(lab, "DLC1 Edo") == 0) ++dlc;
+        }
+        CHECK(warring == 1 && dlc == 1 && paren == 0 && longLabel == 0, "cut era names collapse to Warring States and DLC1 Edo");
+        const int shown[] = {-68, 3, 5, -5};
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 5) == 2, "a boss that is still listed keeps its row");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 4) == 1, "a hidden boss moves to the first boss still listed");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, -68) == 0, "the filter row stays put");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 99, -5) == 3, "Back stays put");
+        int collapsed = 0;
+        const auto ls = rcore::Lines(cat);
+        const auto hdr = rcore::SplitTab(ls.empty() ? std::string() : ls[0]);
+        int cReg = -1;
+        for (size_t i = 0; i < hdr.size(); ++i)
+            if (hdr[i] == "region") cReg = (int)i;
+        std::vector<std::string> fulls, cuts;
+        for (size_t li = 1; li < ls.size(); ++li) {
+            const auto f = rcore::SplitTab(ls[li]);
+            if (cReg < 0 || (size_t)cReg >= f.size()) continue;
+            std::string v = f[(size_t)cReg];
+            if (v.empty() || v == "-") continue;
+            char cut[24];
+            rcore::Ascii(cut, sizeof cut, v);
+            for (size_t k = 0; k < cuts.size(); ++k) {
+                if (cuts[k] == cut && fulls[k] != v) ++collapsed;
+            }
+            bool seen = false;
+            for (size_t k = 0; k < cuts.size(); ++k)
+                if (cuts[k] == cut && fulls[k] == v) seen = true;
+            if (!seen) { cuts.push_back(cut); fulls.push_back(v); }
+        }
+        CHECK(cReg >= 0 && collapsed == 0, "distinct era names stay distinct after the 23-character cap");
+    }
     const rcore::Row* r52 = nullptr;
     for (auto& r : rows)
         if (r.missionId == 0x34) r52 = &r;
@@ -230,7 +711,8 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 41; ++i) map[i * 8] = empty;
         const uint8_t bytes[20] = {0xD4, 0x8E, 0xA3, 0xD1, 0x0B, 0x79, 0x2D, 0x37, 0x57, 0x2C, 0xD8, 0x74, 0xEE, 0x63, 0x08, 0xB9, 0x40, 0x45, 0x64, 0xFB};
         for (uint32_t i = 0; i < 20; ++i) {
-            const int slot = (int)((bytes[i] * 7u) % 41);
+            const uint32_t home = bytes[i] * 9u;
+            const int slot = (int)((((home >> 11) ^ home) * 0x8001u) % 41u);
             int s = slot;
             while (map[s * 8] != empty) s = (s + 1) % 41;
             map[s * 8] = bytes[i];
@@ -243,16 +725,32 @@ int main(int argc, char** argv) {
         bool all = true;
         int valid = 0;
         for (int i = 0; i < 41; ++i) {
-            if (map[i * 8] == empty) {
-                all &= !memcmp(&map[i * 8], &orig[i * 8], 8);
-                continue;
-            }
-            ++valid;
             uint32_t idx = 0;
             memcpy(&idx, &map[i * 8 + 4], 4);
-            all &= idx == 7 && map[i * 8] == orig[i * 8];
+            all &= idx == 7;
+            if (i && map[i * 8] != orig[i * 8]) all = false;
+            valid += orig[i * 8] != empty;
         }
-        CHECK(all && valid == 20, "every valid entry -> record 7, keys and empty slots untouched");
+        CHECK(all && valid == 20, "every slot -> record 7, keys kept except an empty slot 0");
+        CHECK(map[0] != empty, "slot 0 holds a real key");
+        // The game's key -> byte step (102B840): first slot whose index is the picked one, else slot 0. Then the byte -> record lookup.
+        for (uint32_t picked = 0; picked < 20; ++picked) {
+            int hit = 0;
+            for (int i = 0; i < 41; ++i) {
+                uint32_t idx = 0;
+                memcpy(&idx, &map[i * 8 + 4], 4);
+                if (idx == picked) { hit = i; break; }
+            }
+            const uint8_t byte = map[hit * 8];
+            const uint32_t h = byte * 9u;
+            int pos = (int)((((h >> 11) ^ h) * 0x8001u) % 41u);
+            uint32_t rec = 0xFFFFFFFFu;
+            for (int probe = 0; probe < 41; ++probe, pos = (pos + 1) % 41) {
+                if (map[pos * 8] == byte) { memcpy(&rec, &map[pos * 8 + 4], 4); break; }
+                if (map[pos * 8] == empty) break;
+            }
+            CHECK(byte != empty && rec == 7, "any key resolves to a real byte and the chosen record");
+        }
         CHECK(!rcore::MapRedirect(mp, map, 41, empty, 3, 20, &WrPlain), "no second redirect while active");
         CHECK(rcore::MapRestore(mp, &WrPlain) == 0 && !memcmp(map, orig, sizeof(map)), "restore: CRC ok, bytes identical");
         CHECK(rcore::MapRestore(mp, &WrPlain) == -1, "restore twice = nothing active");
@@ -267,8 +765,12 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 1000;
         CHECK(rcore::ETick(t, 2000, false, false) == 0, "armed, waiting");
-        CHECK(rcore::ETick(t, 60000, false, true) == 0, "no timeout while loading");
-        CHECK(rcore::ETick(t, 61000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
+        CHECK(rcore::ETick(t, 20000, false, true) == 0, "a load under 30 s does not time out");
+        CHECK(rcore::ETick(t, 31001, false, true) == 0, "a slow load at 30 s keeps waiting");
+        CHECK(rcore::ETick(t, 181001, false, true) == 3 && t.st == rcore::kEIdle, "stuck load at 180 s times out");
+        t.st = rcore::kEArmed;
+        t.armedAt = 1000;
+        CHECK(rcore::ETick(t, 2000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
         CHECK(rcore::ETick(t, 62000, false, true) == 0, "retry reload (loading, flag 0) keeps the patch");
         CHECK(rcore::ETick(t, 63000, true, false) == 0, "back in after the retry");
         CHECK(rcore::ETick(t, 64000, false, false) == 0 && rcore::ETick(t, 66000, false, false) == 0, "exit pending (< 5 s)");
@@ -276,6 +778,10 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 100000;
         CHECK(rcore::ETick(t, 131000, false, false) == 3 && t.st == rcore::kEIdle, "armed 30 s without a load -> timeout restore");
+        const rcore::Row* e00 = nullptr;
+        for (auto& r : rows)
+            if (!strcmp(r.id, "E00")) e00 = &r;
+        CHECK(e00 && (int)e00->warp[0] == 204649 && (int)e00->warp[1] == 12392 && (int)e00->warp[2] == 238099, "E00 keeps the record warp");
     }
     // ---------------- hooks.cpp: entry thunk ----------------
     {

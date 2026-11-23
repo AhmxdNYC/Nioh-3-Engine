@@ -35,7 +35,10 @@
 #include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
 #include "gimerge.h"
+#include "vtdisk.h"
+#include "loop_breaker.h"
 #include "gpuopt.h"
+#include "devremoved.h"
 #include "gpuprof.h"
 #include "menu.h"
 #include "padlat.h"
@@ -44,7 +47,9 @@
 #include "scenemirror.h"
 #include "cbvstage.h"
 #include "hitchlog.h"
+#include "perfsnap.h"
 #include "osd.h"
+#include "crashreport.h"
 #include "dxgidiag.h"
 #include "psoswap.h"
 #include "tilestats.h"
@@ -57,12 +62,17 @@
 #include "osd_shaders.h"
 #include "padviz_atlas_data.h"
 #include "padviz_png.h"
+#include "presenter_role.h"
 
 // diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
 extern "C" {
 extern float vrr_scale;
 extern uint32_t vrr_fpsOut;
 extern uint32_t vrr_tier;
+extern uint32_t vrr_floorOn, vrr_floorEnters;
+extern uint32_t vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_teArm;  // GH #155, written by caveFps
+extern uint64_t vrr_clampLostNs;  // Tier120Floor (GitHub #98), written by the VRR cave
+void GovTraceTick();  // dllmain.cpp, [VRR] GovTrace (GitHub #98)
 extern uint32_t vrr_capCur;
 }
 
@@ -123,7 +133,18 @@ using Present1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain1*, UINT, UINT, con
 using SetCs1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain3*, DXGI_COLOR_SPACE_TYPE);
 PresentFn g_origPresent = nullptr;
 Present1Fn g_origPresent1 = nullptr;
+// GitHub #38: real DXGI Present/Present1 read from dxgi.dll on disk (vtdisk.h). Another overlay that hooks the same vtable slot
+// before and again after us makes Present call itself through both hooks until the stack overflows (framepacer.dll).
+// No legitimate chain nests 8 presents on one thread, so at that depth the call goes straight to DXGI.
+PresentFn g_realPresent = nullptr;
+Present1Fn g_realPresent1 = nullptr;
+constexpr int kPresentLoopDepth = 8;
+volatile LONG g_presentLoopLogged = 0;
 SetCs1Fn g_origSetCs1 = nullptr;
+SetCs1Fn g_realSetCs1 = nullptr;           // GitHub #100: DXGI SetColorSpace1 read from disk (loop breaker)
+volatile LONG g_csLoopLogged = 0;
+volatile LONG g_csSkipLogged = 0, g_presentSkipLogged = 0;  // GitHub #138
+thread_local int t_csDepth = 0;
 // Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
 // IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
 // the last DIRECT queue that called ExecuteCommandLists on the presenting thread (else on any thread). Pointers only,
@@ -234,6 +255,39 @@ volatile LONG g_fsrSeen = 0;
 volatile LONG64 g_nGame = 0, g_nFsr = 0;  // presents per THREAD role (1.7.13): the game/render thread vs the FSR presenter thread
 thread_local int t_isFsr = 0;        // this thread is the FidelityFX presenter (set by NotePresentThread)
 thread_local int t_named = 0;        // this thread's presents were looked at (name logged / FSR presenter checked)
+thread_local int t_foreign = 0;      // GH #133/#134: this thread presents but runs no game code (DLSS-G pacer etc.)
+
+// GH #133/#134: walk this thread's stack once. A frame-generation pacer (DLSS-G "nv.sl.dlss_g.thread.pacer", whose name
+// can still be empty on its first Present) never runs Nioh3.exe code; the game's own present always does.
+presenter_role::Role PresentThreadRole() {
+    auto range = [](HMODULE m) {
+        presenter_role::Range r;
+        if (!m) return r;
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(m);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(reinterpret_cast<const uint8_t*>(m) + dos->e_lfanew);
+        r.lo = (uintptr_t)m;
+        r.hi = r.lo + nt->OptionalHeader.SizeOfImage;
+        return r;
+    };
+    const presenter_role::Range exe = range(GetModuleHandleW(nullptr));
+    const presenter_role::Range start[2] = {range(GetModuleHandleW(L"ntdll.dll")), range(GetModuleHandleW(L"kernel32.dll"))};
+    uintptr_t frames[248];
+    int n = 0;
+    while (n + 62 <= 248) {  // chunks of 62 (the documented per-call limit on old systems)
+        const USHORT got = RtlCaptureStackBackTrace((DWORD)n, 62, reinterpret_cast<PVOID*>(frames + n), nullptr);
+        n += got;
+        if (got < 62) break;
+    }
+    if (n >= 248) return presenter_role::Unknown;  // deeper than we looked: the last frame is not the thread start
+    return presenter_role::Classify(frames, n, exe, start, 2);
+}
+presenter_role::Role PresentThreadRoleSafe() {  // no C++ objects here: __try needs a function without unwinding
+    __try {
+        return PresentThreadRole();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return presenter_role::Unknown;
+    }
+}
 
 void CountPresent(IDXGISwapChain* sc, int64_t now) {
     for (ScCount& e : g_sc)
@@ -271,9 +325,13 @@ void NotePresentThread(int64_t now) {
         InterlockedExchange(&g_fsrSeen, 1);
         t_isFsr = 1;
     }
+    const presenter_role::Role role = PresentThreadRoleSafe();
+    t_foreign = !t_isFsr && role == presenter_role::Foreign;
     if (!t_isFsr) g_gamePresentTid = tid;
     InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
-    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
+    OLOG("Present called from thread %lu \"%s\"%s", tid, name.c_str(),
+         t_foreign ? " - no game code on its stack (frame-generation presenter): the overlay will not draw on the game queue from it"
+                   : role == presenter_role::Game ? "" : " (stack role unknown)");
 }
 
 struct Stats {
@@ -393,6 +451,42 @@ void UpdateStats(int64_t now) {
                  g_st.gameThreadFps, g_st.presenterFps, g_st.ratio, fs.pauseReason);
             lastState = fs.state;
             lastReason = fs.pauseReason;
+        }
+    }
+    GovTraceTick();
+    {   // Tier120Floor transitions (GitHub #98): proves the 120 tier ran as the 60 tier below the floor
+        static uint32_t lastOn = 0, lastEnters = 0;
+        const uint32_t on = *(volatile uint32_t*)&vrr_floorOn, enters = *(volatile uint32_t*)&vrr_floorEnters;
+        if (on != lastOn || enters != lastEnters) {
+            OLOG("VRR Tier120Floor: %s (entries %u, rendered %.1f fps, game ticks %.1f/s, vrr tier %u cap %u)", on ? "ON - 120 tier runs as the 60 tier" : "off - re-measuring the 120 tier",
+                 enters, g_st.realFps, g_st.tickFps, vrr_tier, vrr_capCur);
+            lastOn = on;
+            lastEnters = enters;
+        }
+    }
+    {   // GH #155: frames the VRR fix left stock because the game overrode the tier (event / time effect), and frames whose
+        // interval was clamped to the tier's longest. Stock frames below the fps setting run the game in slow motion.
+        static uint32_t lastOvr = 0, lastTe = 0, lastClamp = 0;
+        static uint64_t lastLost = 0;
+        static int64_t lastLine = 0;
+        const uint32_t ovr = *(volatile uint32_t*)&vrr_ovrFrames, te = *(volatile uint32_t*)&vrr_teFrames,
+                       cl = *(volatile uint32_t*)&vrr_clampFrames, val = *(volatile uint32_t*)&vrr_ovrVal;
+        const uint64_t lost = *(volatile uint64_t*)&vrr_clampLostNs;
+        if ((ovr != lastOvr || cl != lastClamp) && (lastLine == 0 || Secs(now - lastLine) >= 1.0)) {
+            lastLine = now;
+            const uint32_t dOvr = ovr - lastOvr, dTe = te - lastTe, dCl = cl - lastClamp;
+            const double lostMs = (double)(lost - lastLost) / 1e6;
+            if (dOvr) OLOG("VRR override: %u frames with the game tier override (G620 %u, tier %u)%s, rendered %.1f fps, speed %.2fx", dOvr, val,
+                           vrr_tier, dTe ? (dTe == dOvr ? " - kept real-time (TimeEffectArm)" : " - partly kept real-time (TimeEffectArm)")
+                                         : " - ran stock (slow motion below the fps setting)",
+                           g_st.realFps, g_st.speed);
+            if (dCl && lostMs >= 50.0) OLOG("VRR clamp: %u long frames clamped to the tier's minimum fps, %.0f ms of game time lost", dCl, lostMs);
+            lastOvr = ovr;
+            lastTe = te;
+            lastClamp = cl;
+            lastLost = lost;
+            crashreport::SetStateF("vrr overrides", "override %u (G620 %u, kept %u, arm %u) clamp %u lost %.0f ms", ovr, val, te, vrr_teArm, cl,
+                      (double)lost / 1e6);
         }
     }
     g_st.winStart = now;
@@ -865,7 +959,7 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
 // game's Present (empty thread name, Nioh3.exe) is not the thread that calls ExecuteCommandLists, so refusing
 // that queue left the menu blank after 600 frames. The FSR presenter must wait for its own queue.
 bool OtherThreadQueueOk() {
-    return g_anyThreadQueue || !t_isFsr;
+    return g_anyThreadQueue || (!t_isFsr && !t_foreign);  // GH #133/#134: the DLSS-G pacer is a presenter like FSR's
 }
 
 // The game's presenting queue when the swapchain won't say. Returns an AddRef'd queue, or nullptr (the caller
@@ -929,6 +1023,7 @@ void DestroyCtx(Ctx& c) {
     for (auto& a : c.alloc) SafeRelease(a);
     SafeRelease(c.fence);
     if (c.ev) CloseHandle(c.ev);
+    devremoved::Forget(c.dev);
     SafeRelease(c.dev);
     SafeRelease(c.q);
     c = Ctx{};
@@ -974,6 +1069,8 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         return false;
     }
     CHECK(c.q->GetDevice(IID_PPV_ARGS(&c.dev)), "ID3D12CommandQueue::GetDevice");
+    devremoved::NoteDevice(c.dev);  // crash report asks it for GetDeviceRemovedReason (#96825)
+    gpuopt::ObserveVrsDevice(c.dev);  // capability probe also runs with VRS off
     DXGI_SWAP_CHAIN_DESC sd{};
     sc->GetDesc(&sd);
     OLOG("swapchain %p: %ux%u fmt %d, %u buffers, swap effect %d, flags %X; queue %p (%s), device %p", (void*)sc,
@@ -1232,6 +1329,7 @@ bool DrawFrame(Ctx& c, int64_t now) {
     }
     const D3D12_RESOURCE_DESC bd = bb->GetDesc();
     const UINT W = (UINT)bd.Width, H = bd.Height;
+    perfsnap::NoteBackBuffer(W, H);  // #97638 report: output resolution
     bool drawn = false;
     do {
         if (W < 64 || H < 64) break;
@@ -1419,7 +1517,7 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
             }
             if (g_needQueue)
                 OLOG("no %s DIRECT queue after 600 frames - overlay off for this swapchain%s",
-                     t_isFsr ? "FSR-presenter" : "presenting-thread",
+                     t_isFsr ? "FSR-presenter" : t_foreign ? "frame-generation-presenter" : "presenting-thread",
                      (!t_isFsr && !g_lastDirectQ) ? " (ExecuteCommandLists saw no game DIRECT queue on any thread)" : "");
             MarkBad(sc);
             return;
@@ -1434,13 +1532,13 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
         q = nullptr;
         if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
         q->Release();
-    } else if (!g_anyThreadQueue && t_isFsr && !t_lastDirectQ) {
+    } else if (!g_anyThreadQueue && (t_isFsr || t_foreign) && !t_lastDirectQ) {
         // Leave the game thread's context in place. Tearing it down here thrashes the only overlay
         // context, and drawing this present would submit on the game queue from the FSR thread.
         static bool logged = false;
         if (!logged) {
             logged = true;
-            OLOG("FSR presenter has no own DIRECT queue yet - not drawing on the game queue");
+            OLOG("%s presenter has no own DIRECT queue yet - not drawing on the game queue", t_isFsr ? "FSR" : "frame-generation");
         }
         return;
     } else if (!g_anyThreadQueue && t_lastDirectQ) {
@@ -1479,13 +1577,58 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     }
 }
 
+// GitHub #97: the fault line named no address, so a GPU removal (0x887A0005 in the game's fatal box 18 ms later) could not be
+// told apart from an overlay bug. The filter copies where it faulted; the handler logs module+offset, the access and the
+// device's removal reason (short lines: the crash upload keeps 120 chars per log line).
+struct OsdFault {
+    void* at;
+    ULONG_PTR kind, addr;
+    DWORD n;
+};
+OsdFault g_osdFault{};
+int OsdFaultFilter(EXCEPTION_POINTERS* ep) {
+    g_osdFault.at = ep->ExceptionRecord->ExceptionAddress;
+    g_osdFault.n = ep->ExceptionRecord->NumberParameters;
+    g_osdFault.kind = g_osdFault.n >= 1 ? ep->ExceptionRecord->ExceptionInformation[0] : 0;
+    g_osdFault.addr = g_osdFault.n >= 2 ? ep->ExceptionRecord->ExceptionInformation[1] : 0;
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+void LogOsdFault(DWORD code) {
+    if (!g_log) return;
+    char mod[MAX_PATH] = "?";
+    HMODULE hm = nullptr;
+    uintptr_t off = (uintptr_t)g_osdFault.at;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (const char*)g_osdFault.at, &hm) && hm) {
+        char full[MAX_PATH];
+        if (GetModuleFileNameA(hm, full, MAX_PATH)) {
+            const char* b = strrchr(full, '\\');
+            snprintf(mod, sizeof mod, "%s", b ? b + 1 : full);
+        }
+        off -= (uintptr_t)hm;
+    }
+    g_log("OSD: exception %08lX while drawing - overlay disabled for this session", code);
+    g_log("OSD: fault at %s+0x%llx %s 0x%llx", mod, (unsigned long long)off,
+          g_osdFault.n < 2 ? "-" : g_osdFault.kind == 0 ? "read" : g_osdFault.kind == 1 ? "write" : "exec",
+          (unsigned long long)g_osdFault.addr);
+    char dr[256];
+    devremoved::Describe(dr, sizeof dr);
+    for (char* p = dr; *p; ++p)
+        if (*p == '\r' || *p == '\n') *p = ' ';
+    g_log("OSD: gpu %.100s", dr);
+}
+
 void OnPresentSafe(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     __try {
         OnPresent(sc,cover);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        dxgidiag::Note(dxgidiag::Present, dxgidiag::Fault, sc, nullptr, S_OK, false, GetExceptionCode());
+    } __except (OsdFaultFilter(GetExceptionInformation())) {
+        const DWORD code = GetExceptionCode();
+        dxgidiag::Note(dxgidiag::Present, dxgidiag::Fault, sc, nullptr, S_OK, false, code);
         InterlockedExchange(&g_disabled, 1);
-        if (g_log) g_log("OSD: exception %08lX while drawing - overlay disabled for this session", GetExceptionCode());
+        __try {
+            LogOsdFault(code);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+        }
     }
 }
 
@@ -1496,6 +1639,7 @@ void Hooked(IDXGISwapChain* sc, UINT flags, cover_present::Ticket* cover) {
     CountPresent(sc, now);  // every swapchain, every presenting thread (FG presenter included), lock-free
     NotePresentThread(now);
     if (!t_isFsr) hitchlog::OnGamePresent(now);  // [Debug] HitchLog: game-thread frame gap line (lock-free of the overlay)
+    if (!t_isFsr) perfsnap::OnGamePresent(now);  // #97638 report perf snapshot: one ring store per frame, a sample every 250 ms
     if (!TryAcquireSRWLockExclusive(&g_lock)) return;  // another thread is drawing: just present
     __try {
         ApplyLatency(sc, now);
@@ -1514,6 +1658,20 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
+    if (t_depth >= kPresentLoopDepth) {  // #38 hook loop: skip every hook, present once on DXGI
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138: DXGI itself loops back
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
+        if (!InterlockedExchange(&g_presentLoopLogged, 1))
+            OLOG("Present re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_depth, ModuleOf((const void*)g_origPresent).c_str(), g_realPresent ? "" : " (DXGI address unknown: frame skipped)");
+        const HRESULT hr = g_realPresent ? g_realPresent(sc, sync, flags) : S_OK;
+        --t_depth;
+        return hr;
+    }
     auto diag = dxgidiag::Begin(sc, dxgidiag::Present, sync, flags, t_depth,
                               reinterpret_cast<const void*>(g_origPresent), _ReturnAddress());
     const bool passthrough = dxgidiag::Passthrough();
@@ -1538,6 +1696,20 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
 
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
+    if (t_depth >= kPresentLoopDepth) {  // #38 hook loop, see HkPresent
+        if (loopbrk::Decide(t_depth, kPresentLoopDepth) == loopbrk::Step::Skip) {  // #138, see HkPresent
+            if (!InterlockedExchange(&g_presentSkipLogged, 1))
+                OLOG("Present1 still looping after the direct DXGI call (DXGI is patched by another overlay) - nested call dropped");
+            --t_depth;
+            return S_OK;
+        }
+        if (!InterlockedExchange(&g_presentLoopLogged, 1))
+            OLOG("Present1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_depth, ModuleOf((const void*)g_origPresent1).c_str(), g_realPresent1 ? "" : " (DXGI address unknown: frame skipped)");
+        const HRESULT hr = g_realPresent1 ? g_realPresent1(sc, sync, flags, p) : S_OK;
+        --t_depth;
+        return hr;
+    }
     auto diag = dxgidiag::Begin(sc, dxgidiag::Present1, sync, flags, t_depth,
                               reinterpret_cast<const void*>(g_origPresent1), _ReturnAddress(), p);
     const bool passthrough = dxgidiag::Passthrough();
@@ -1561,6 +1733,24 @@ HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags,
 }
 
 HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
+    // GitHub #100: another overlay (a version.dll proxy) re-hooked SetColorSpace1 around ours and called back through the
+    // vtable, so the two hooks recursed until the stack overflowed 6 s after start. Same breaker as Present (#38).
+    // GitHub #138: with the Steam overlay that DXGI function is detoured back into the loop, so the depth now also counts
+    // the direct call and anything nested below it is dropped (loop_breaker.h).
+    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
+    const loopbrk::Step step = loopbrk::Decide(t_csDepth, kPresentLoopDepth);
+    if (step == loopbrk::Step::Skip) {
+        if (!InterlockedExchange(&g_csSkipLogged, 1))
+            OLOG("SetColorSpace1 still looping after the direct DXGI call (DXGI is patched by another overlay via %s) - nested call dropped",
+                 ModuleOf((const void*)g_realSetCs1).c_str());
+        return S_OK;
+    }
+    if (step == loopbrk::Step::Direct) {
+        if (!InterlockedExchange(&g_csLoopLogged, 1))
+            OLOG("SetColorSpace1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_csDepth, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
+        return g_realSetCs1 ? g_realSetCs1(sc, cs) : S_OK;
+    }
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Enter, sc, reinterpret_cast<void*>(g_origSetCs1), S_OK, false, cs);
     HRESULT hr = g_origSetCs1(sc, cs);
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Returned, sc, reinterpret_cast<void*>(g_origSetCs1), hr, true, cs);
@@ -1670,8 +1860,14 @@ bool InstallHooks() {
         if (!PatchSlot(&qvt[kSlotExecuteCommandLists], (void*)&HkExecuteCommandLists, (void**)&g_origEcl, "ExecuteCommandLists"))
             g_origEcl = nullptr;
         if (tilestats::WantsHooks()) tilestats::InstallOnQueueVtable(qvt, /*eclViaOsd=*/g_origEcl != nullptr);
+        g_realPresent = reinterpret_cast<PresentFn>(vtdisk::OriginalSlotValue(&vt[kSlotPresent]));
+        g_realPresent1 = reinterpret_cast<Present1Fn>(vtdisk::OriginalSlotValue(&vt[kSlotPresent1]));
+        OLOG("DXGI Present from disk: %s (slot %s), Present1: %s (slot %s)",
+             g_realPresent ? ((void*)g_realPresent == vt[kSlotPresent] ? "same" : "differs") : "unknown", ModuleOf(vt[kSlotPresent]).c_str(),
+             g_realPresent1 ? ((void*)g_realPresent1 == vt[kSlotPresent1] ? "same" : "differs") : "unknown", ModuleOf(vt[kSlotPresent1]).c_str());
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
+        if (csVt) g_realSetCs1 = reinterpret_cast<SetCs1Fn>(vtdisk::OriginalSlotValue(&csVt[kSlotSetColorSpace1]));
         if (csVt && !PatchSlot(&csVt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
             OLOG("SetColorSpace1 not hooked - HDR10 text brightness is not adjusted");
         ok = a || b;
@@ -1748,6 +1944,15 @@ OverlaySettings& Overlay() { return g_cfg; }
 void SetRateSink(void (*fn)(double rendered, double ticks)) { g_rateSink = fn; }
 
 unsigned long GamePresentTid() { return g_gamePresentTid; }
+
+int64_t GameFrames() {
+    const int64_t g = g_nGame;
+    if (g) return g;
+    int64_t n = 0;
+    for (const ScCount& e : g_sc)
+        if (e.sc) n += e.n;
+    return n;
+}
 
 int64_t LastPresentQpc() {
     int64_t last = 0;

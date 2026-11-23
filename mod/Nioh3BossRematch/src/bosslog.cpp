@@ -4,6 +4,10 @@
 // original instructions, with all argument registers and xmm0-5 intact (hooks.cpp). Sites resolve by pattern / native name.
 #include "addon.h"
 #include "gamerva.h"
+#include "seal_use_gate.h"
+#include "press_queue.h"
+#include "form_core_equipment.h"
+#include "../../shared/soul_camera_vertical.h"
 
 #include <intrin.h>
 #include <tlhelp32.h>
@@ -14,13 +18,17 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <map>
+#include <set>
 #include <cmath>
 #include <algorithm>
+#include <new>
 
 namespace addon {
 namespace fight {
 volatile LONG g_fights = 0, g_active = 0;
 }
+namespace rematch { uint32_t RematchScrollMission(); }
 namespace bosslog {
 namespace {
 bool g_logOn = false;  // [Debug] BossLog or RematchLog: write BossLog lines (the fight state is tracked either way)
@@ -46,6 +54,64 @@ std::atomic<uint64_t> g_t0{0};
 std::atomic<double> g_endAt{-1e9};
 std::atomic<int> g_flagCount{0};
 std::atomic<uint32_t> g_lastMission{0};
+std::atomic<int> g_logOwn{0};    // this BossBattleMode opened a Report row (a Training session did not)
+std::atomic<int> g_clearWin{0};  // SetMissionClearFlag while that fight was up = the boss died
+
+std::atomic<uint64_t> g_logToken{0};
+std::atomic<uint32_t> g_logMission{0};
+uint32_t RunningLogMission() {
+    __try {
+        const uint64_t mgr = G_MS ? *(const uint64_t*)G_MS : 0;
+        const uint64_t state = mgr ? *(const uint64_t*)(mgr + 8) : 0;
+        return state ? *(const uint32_t*)(state + 0x28) : 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+// Training owns a generated multi-boss roster across native script phases.
+// This observes ownership only: it never changes native boss mode or mission flags.
+bool RosterPending() {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto pending = tr ? (int (*)())GetProcAddress(tr, "Nioh3Training_RosterPending") : nullptr;
+    return pending && pending() != 0;
+}
+// Phase notifications always reach Training, even while its grace window owns the report.
+void NativePhase(int phase) {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto notify = tr ? (void (*)(int))GetProcAddress(tr, "Nioh3Training_NativePhase") : nullptr;
+    if (notify) notify(phase);
+}
+void MaybeStart(const char* placementName) {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto token = tr ? (uint64_t (*)())GetProcAddress(tr, "Nioh3Training_FightToken") : nullptr;
+    const uint64_t currentToken = token ? token() : 0;
+    if (g_logOwn.load() && currentToken && currentToken == g_logToken.load() &&
+        g_logMission.load() == RunningLogMission() && RosterPending()) return;
+    // Training may already have closed the preceding attempt during its phase grace.
+    // A stale owner (even in the same mission) must never swallow the next start.
+    g_logOwn.store(0); g_logToken.store(0); g_logMission.store(0);
+    if (!tr) return;
+    auto act = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionActive");
+    if (act && (act() & 1)) return;  // Practice or Boss Match already opened the row
+    auto mark = (void (*)(int, int, const char*))GetProcAddress(tr, "Nioh3Training_FightMark");
+    if (!mark) return;
+    const char* n = rematch::FightLogName();
+    if (!n || !n[0]) n = placementName;
+    if (!n || !n[0]) n = "boss";
+    auto markEx = (void (*)(int, int, const char*, const char*))GetProcAddress(tr, "Nioh3Training_FightMarkEx");
+    if (markEx) markEx(rematch::FightLogMode(), 1, n, rematch::FightLogId());
+    else mark(rematch::FightLogMode(), 1, n);
+    g_clearWin.store(0);
+    g_logOwn.store(1);
+    g_logToken.store(token ? token() : 0);
+    g_logMission.store(RunningLogMission());
+}
+void MaybeEnd() {
+    if (RosterPending()) return; // an intermediate boss-mode end is not the roster result
+    if (!g_logOwn.exchange(0)) return;
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto mark = tr ? (void (*)(int, int, const char*))GetProcAddress(tr, "Nioh3Training_FightMark") : nullptr;
+    if (!mark) return;
+    mark(rematch::FightLogMode(), g_clearWin.exchange(0) ? 2 : 4, "");
+}
 
 constexpr int kRing = 16;
 struct RingEnt {
@@ -89,16 +155,35 @@ void HkBegin(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     InterlockedExchange(&fight::g_active, 1);
     InterlockedIncrement(&fight::g_fights);
     if (g_logOn) Log("BossLog #%d: Character::Create placement ids in the last 60 s:%s", n, bl ? buf : " none");
+    uint32_t newest = 0;
+    double newestT = -1e9;
+    for (uint32_t i = rn > kRing ? rn - kRing : 0; i < rn; ++i) {
+        const RingEnt& e = g_ring[i % kRing];
+        const double age = t - e.t.load();
+        if (age < 0 || age > 60.0 || e.t.load() < newestT) continue;
+        newestT = e.t.load();
+        newest = e.id.load();
+    }
+    NativePhase(1);
+    MaybeStart(rematch::NameForPlacement(newest));
 }
 
 void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    const bool wasActive = g_active.load();
     const double t = Now();
-    const double dur = g_active.load() ? FightSec() : 0.0;
+    const double dur = wasActive ? FightSec() : 0.0;
     if (g_logOn) Log("BossLog #%d: BossBattleModeEnd t=%.3f s, fight %.1f s, %d mission flag sets inside", g_fight.load(), t, dur,
           g_flagCount.load());
     g_endAt.store(t);
     g_active.store(false);
     InterlockedExchange(&fight::g_active, 0);
+    // Only the mission script ends boss mode this way: quitting, leaving and dying never reach this hook (#302: Ito, Sawamura).
+    // The clear call can come much later or need the player's input, so it cannot decide the win.
+    NativePhase(2);
+    g_clearWin.store(1);
+    rematch::NoteNativeWin();  // always; a roster still pending is checked where the attempt retires (v2, #80140)
+    MaybeEnd();
+    if (!wasActive) rematch::NoteWavesEnd();  // waves row: this end had no BossBattleMode
 }
 
 void HkCreate(uint64_t placementId, uint64_t arg2, uint64_t arg3, uint64_t arg4, const uint64_t*) {
@@ -125,6 +210,7 @@ void HkGauge(uint64_t actorId, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 void HkClear(uint64_t missionId, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     g_lastMission.store((uint32_t)missionId);
+    if (g_active.load()) g_clearWin.store(1);  // mission cleared during the fight: the boss died
     Log("BossLog #%d: SetMissionClearFlag mission id %u t=%.3f s (%s)", g_fight.load(), (uint32_t)missionId, Now(),
           InFightOrGrace() ? "fight window" : "no fight window");
 }
@@ -587,7 +673,7 @@ void HkEmaki(uint64_t ref, uint64_t key, uint64_t mission, uint64_t params, cons
     Log("RematchLog L2: EmakiMissionRequest caller=+%llX ref=%016llX key[12]=%s missionArg=%u params[24]=%s %s %s t=%.3f", (unsigned long long)CallerRva(sp),
           (unsigned long long)ref, kb, (uint32_t)mission, pb, on, cb, Now());
     FindScrollItem(keyId);
-    NoteRequest(0xCC96, true, "EmakiMissionRequest");
+    NoteRequest(rematch::RematchScrollMission(), true, "EmakiMissionRequest");
     g_pendReq.store(true);
 }
 // L3: MissionSetupEmaki(rcx charMgr** , rdx list*, r8d mission). Reads before the original runs; the "after" state is logged by the next tick.
@@ -1181,7 +1267,278 @@ std::atomic<int> g_fkOn{0};            // ini [Spirit] FormKey=1 or `rm spirit f
 // begins + start smoke, FormSlot0 capture / swap, FormKey swap / model / appear), attack-cancel gate patch put back + HasSkill hook passes
 // through (no AirBlock / RunThrow / RunFade), no FastThrow, no OrbSkip, no smoke freeze. Live: a form already up runs to its normal end.
 std::atomic<bool> g_scForms{true};
+// human #81220: per-core soul transformation. [Spirit] FormCoresOff = hex core ids (desc[0] of the seal spawn hit) that use the game's own
+// summon (vanilla, same as SoulCoreForms=0 for that use). ScOn() = every form / press-time gate. The d-pad direction at the press (L=1, D=2)
+// maps to the last core seen on that direction (kept in [Spirit] FormCoreLeft / FormCoreDown, so it holds across sessions): known core OFF =
+// the whole use is vanilla from the press edge. A core never seen on that direction (new equip) starts as a form; its spawn hit then learns it
+// and, if OFF, suppresses the form from there (press-time smoke / x8 throw of that first use already ran).
+std::atomic<bool> g_pickOff{false};
+std::atomic<int> g_pickDir{0};
+std::atomic<double> g_pickT{-100};
+std::atomic<uint32_t> g_pickCore{0};  // core selected for this press, including a never-used equipped core
+pressq::State g_pressQ;  // #83466: a press made during the old seal's ghost exit, replayed when it is gone
+bool PickGhostAlive();
+std::atomic<bool> g_pickLearned{false};  // #81275: only the FIRST spawn hit after a d-pad press learns the core / suppresses
+std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
+// #81516 fallback: cached directions are not evidence of the current loadout. Until this session learns a direction,
+// show a selectable placeholder. Its one-shot preference moves to the learned core ID, never stays attached to the pad.
+std::atomic<bool> g_slotSeen[3];
+std::atomic<bool> g_equippedReady{false};
+std::atomic<uint32_t> g_equippedCore[2];
+std::atomic<int> g_pendingPick[3]{{-1}, {-1}, {-1}};  // -1 unset, 0 game summon, 1 transform
+SRWLOCK g_coreEditLock = SRWLOCK_INIT;
+constexpr int kOffMax = 16;
+std::atomic<uint32_t> g_offIds[kOffMax];
+std::atomic<int> g_offN{0};
+constexpr int kSeenMax = 8;
+struct SeenCore { std::atomic<uint32_t> id{0}; std::atomic<int> dir{0}; };
+SeenCore g_seen[kSeenMax];
+inline bool ScOn() { return g_scForms.load(std::memory_order_relaxed) && !g_pickOff.load(std::memory_order_relaxed); }
+bool CoreIsOff(uint32_t id) {
+    if (!id) return false;
+    const int n = g_offN.load();
+    for (int i = 0; i < n && i < kOffMax; ++i) if (g_offIds[i].load() == id) return true;
+    return false;
+}
+void CoreOffSave() {
+    wchar_t b[200] = L"";
+    size_t o = 0;
+    const int n = g_offN.load();
+    for (int i = 0; i < n && i < kOffMax; ++i) o += (size_t)swprintf(b + o, 200 - o, L"%ls%X", i ? L"," : L"", g_offIds[i].load());
+    WritePrivateProfileStringW(L"Spirit", L"FormCoresOff", b, IniPath());
+}
+// Caller holds g_coreEditLock. Return the actual state (an OFF list at capacity cannot accept a new ID).
+bool CoreSetTransformsLocked(uint32_t id, bool transforms) {
+    if (!id) return true;
+    const bool wasOff = CoreIsOff(id);
+    if (transforms && wasOff) {
+        const int n = g_offN.load();
+        int j = 0;
+        for (int i = 0; i < n; ++i) if (const uint32_t keep = g_offIds[i].load(); keep != id) g_offIds[j++].store(keep);
+        g_offN.store(j);
+    } else if (!transforms && !wasOff && g_offN.load() < kOffMax) {
+        const int n = g_offN.load();
+        g_offIds[n].store(id);
+        g_offN.store(n + 1);
+    }
+    CoreOffSave();
+    return !CoreIsOff(id);
+}
+const wchar_t* PendingPickKey(int dir) { return dir == 1 ? L"FormCorePendingLeft" : L"FormCorePendingDown"; }
+void PendingPickSave(int dir) {
+    const int v = g_pendingPick[dir].load();
+    WritePrivateProfileStringW(L"Spirit", PendingPickKey(dir), v < 0 ? nullptr : v ? L"1" : L"0", IniPath());
+}
+void CoreOffLoad() {
+    wchar_t b[200] = L"";
+    GetPrivateProfileStringW(L"Spirit", L"FormCoresOff", L"", b, 200, IniPath());
+    int n = 0;
+    for (wchar_t* p = b; *p && n < kOffMax;) {
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(p, &e, 16);
+        if (e == p) { ++p; continue; }
+        if (v) g_offIds[n++].store((uint32_t)v);
+        p = e;
+    }
+    g_offN.store(n);
+    g_slotCore[1].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreLeft", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
+    g_slotCore[2].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreDown", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
+    for (int d = 1; d <= 2; ++d) {
+        const int v = IniInt(L"Spirit", PendingPickKey(d), -1);
+        g_pendingPick[d].store(v == 0 || v == 1 ? v : -1);
+        g_slotSeen[d].store(false);
+    }
+    Log("FormCoresOff: %d core(s) use the game's own summon; last core LEFT=%X DOWN=%X", n, g_slotCore[1].load(), g_slotCore[2].load());
+}
+void CoreSeen(uint32_t id, int dir) {
+    if (!id) return;
+    for (auto& s : g_seen) if (s.id.load() == id) { if (dir) s.dir.store(dir); return; }
+    for (auto& s : g_seen) { uint32_t z = 0; if (s.id.compare_exchange_strong(z, id)) { s.dir.store(dir); return; } }
+}
+// d-pad edge: decide for this press (game thread: tick, HkHasSkill).
+WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
+void PickEquipmentTick();
+bool PickFormActive();
+void FccPress(double now, int dir);  // human #122288 crouch cancel (defined before FormHide4Tick)
+void FccPadTick(WORD bt, double now);
+void PickPoll() {
+    PickEquipmentTick();
+    static int heldPrev = 0;
+    const WORD bt = PickPadButtons();
+    FccPadTick(bt, Now());  // human #122288: L3 edge, raw pad (below FormBlockPad)
+    const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
+    const double now = Now();
+    if (held && held != heldPrev) {
+        if (g_pickDir.load() && held != g_pickDir.load() &&
+            (PickFormActive() || (now >= g_pickT.load() && now - g_pickT.load() < .300))) {
+            if (PickGhostAlive()) {  // #83466: the old form already ended (ghost exit): queue this press, replay it when the seal is gone
+                pressq::Queue(g_pressQ, held, GetTickCount64());
+                Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now);
+            } else
+            Log("FormCore direction edge ignored during current press: dir=%c kept=%c t=%.3f",
+                held == 1 ? 'L' : 'D', g_pickDir.load() == 1 ? 'L' : 'D', now);
+            heldPrev = held; return;
+        }
+        AcquireSRWLockShared(&g_coreEditLock);
+        const bool equipped = g_equippedReady.load();
+        const uint32_t core = equipped ? g_equippedCore[held - 1].load() : g_slotCore[held].load();
+        ReleaseSRWLockShared(&g_coreEditLock);
+        g_pickCore.store(core);
+        const int pending = g_pendingPick[held].load();
+        const bool off = pending >= 0 ? pending == 0 : CoreIsOff(core);
+        g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
+        FccPress(now, held);  // human #122288: crouch-cancel window + core count snapshot for this press
+        if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
+        else pressq::Clear(g_pressQ);
+        Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
+            pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
+            !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
+    } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
+        g_pickOff.store(false);  // the vanilla window is over: gates back for the next press
+    }
+    heldPrev = held;
+}
+// #95567 (player report #59, Death Veil waves): every chr the game spawns passes 65A8A8. A wave enemy (a crab) that appeared within 15 m
+// right after a soul-core press was taken as the press's seal: it was learned as the core, became the form's body, and the player 'turned
+// into a crab'. When the pressed core is known from the equipped Yang slots (game tables, no id list), a spawn belongs to this press only if
+// it is that core's chr, or a helper that comes within [Spirit] FormHelperMs (default 1500, Ibaraki's helper +0.4 s) after it. Anything else
+// is foreign: not a seal, not a hit source, not learned. Pressed core unknown (no equipment map) = the old rule. 0 = off.
+std::atomic<int> g_formHelperMs{1500};
+double g_pressCoreFor = -100, g_pressCoreT = -100;
+bool PressSpawnForeign(uint32_t id, uint64_t chr) {
+    const int helperMs = g_formHelperMs.load();
+    if (helperMs <= 0 || !id || !g_equippedReady.load()) return false;
+    const double pickT = g_pickT.load(), now = Now();
+    const uint32_t wanted = g_pickCore.load();
+    if (!wanted || pickT <= 0 || now < pickT || now - pickT > 10.0) return false;  // no press in flight: not a press actor anyway
+    if (id == wanted) { if (g_pressCoreFor != pickT) { g_pressCoreFor = pickT; g_pressCoreT = now; } return false; }
+    if (g_pressCoreFor == pickT && now - g_pressCoreT <= helperMs / 1000.0) return false;  // helper of the core's own yokai
+    static uint64_t loggedChr = 0; static uint32_t loggedId = 0; static double loggedPick = -100;
+    if (loggedPick != pickT || loggedId != id || loggedChr != chr) {
+        loggedPick = pickT; loggedId = id; loggedChr = chr;
+        Log("FormCore foreign spawn chr=%llX id=%X %.2f s after the press of core %X (%s) - not this press's seal t=%.3f", (unsigned long long)chr, id,
+            now - pickT, wanted, g_pressCoreFor == pickT ? "after the helper window" : "core's yokai not out yet", now);
+    }
+    return true;
+}
+// seal spawn hit: learn which core the last pressed direction holds; an OFF core seen first here has the rest of its form suppressed.
+void PickLearn(uint32_t id) {
+    if (!id) return;
+    const double age = Now() - g_pickT.load();
+    const int dir = (age >= 0 && (age < 3.0 || (age <= 8.0 && id == g_pickCore.load() && ScOn()))) ? g_pickDir.load() : 0;
+    // #81314: every chr spawn reaches here (HkSeal N=0); one with no recent d-pad press (ambient 4735) is not a core: never listed / learned.
+    if (!dir) return;
+    // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
+    if (dir && g_pickLearned.exchange(true)) { Log("FormCore %X dir=%c: later spawn hit in the same press ignored (core not changed)", id, dir == 1 ? 'L' : 'D'); return; }
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const int pending = g_pendingPick[dir].load();
+    if (pending >= 0) {
+        const bool actual = CoreSetTransformsLocked(id, pending != 0);
+        g_pendingPick[dir].store(-1);
+        PendingPickSave(dir);
+        Log("FormCore %X dir=%c: pending transform=%d %s", id, dir == 1 ? 'L' : 'D', pending,
+            actual == (pending != 0) ? "saved by core ID; direction preference cleared" : "OFF list full; preference rejected (no direction override retained)");
+    }
+    if (dir) {
+        if (g_slotCore[dir].exchange(id) != id)
+            WritePrivateProfileStringW(L"Spirit", dir == 1 ? L"FormCoreLeft" : L"FormCoreDown", [&] { static wchar_t t[16]; swprintf(t, 16, L"%X", id); return t; }(), IniPath());
+    }
+    CoreSeen(id, dir);
+    g_slotSeen[dir].store(true);
+    const bool off = CoreIsOff(id);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    if (off && !g_pickOff.load()) {
+        g_pickOff.store(true); g_pickT.store(Now());
+        Log("FormCore %X dir=%c transform=0 reason=core in FormCoresOff, first seen at the spawn hit: form suppressed from here (press-time steps already ran) t=%.3f",
+            id, dir == 1 ? 'L' : dir == 2 ? 'D' : '?', Now());
+    }
+    else if (!off) g_pickOff.store(false);  // a newly learned ON core must not inherit the old direction's OFF window
+}
 std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
+// #81516: build a copied item->summon map on one worker after player/save readiness. Menu reads only published IDs.
+struct CoreTableSource {
+    uint64_t db = 0, items = 0, params = 0;
+    bool operator==(const CoreTableSource& b) const { return db == b.db && items == b.items && params == b.params; }
+};
+SRWLOCK g_coreMapLock = SRWLOCK_INIT;
+std::vector<formcore::Entry> g_coreMap;
+CoreTableSource g_coreMapSource;
+std::atomic<bool> g_coreMapBusy{false};
+std::atomic_flag g_coreEquipTick = ATOMIC_FLAG_INIT;
+uint64_t FkPlayer();
+bool ReadCoreTableSource(CoreTableSource& s) {
+    uint64_t items = 0, params = 0;
+    return Rd(G_DATA, s.db) && Plaus(s.db) && Rd(s.db + 0x68, items) && Plaus(items) &&
+        Rd(s.db + 0x118, params) && Plaus(params) && Rd(items, s.items) && Plaus(s.items) &&
+        Rd(params, s.params) && Plaus(s.params);
+}
+bool CopyCoreTable(uint64_t base, size_t stride, uint32_t max, std::vector<uint8_t>& rows) {
+    uint32_t count = 0, after = 0;
+    if (!Rd(base + 4, count) || !count || count > max) return false;
+    rows.resize(size_t(count) * stride);
+    return CopySafe(rows.data(), base + 8, rows.size()) && Rd(base + 4, after) && after == count;
+}
+DWORD WINAPI CoreMapWorker(void* arg) {
+    const CoreTableSource source = *static_cast<CoreTableSource*>(arg);
+    delete static_cast<CoreTableSource*>(arg);
+    const double start = Now();
+    try {
+        std::vector<uint8_t> items, params;
+        if (CopyCoreTable(source.items, formcore::kItemStride, 16384, items) &&
+            CopyCoreTable(source.params, formcore::kParamStride, 2048, params)) {
+            auto map = formcore::BuildMap(items, params);
+            CoreTableSource after;
+            if (!map.empty() && ReadCoreTableSource(after) && after == source) {
+                const size_t count = map.size();
+                AcquireSRWLockExclusive(&g_coreMapLock);
+                g_coreMap.swap(map); g_coreMapSource = source;
+                ReleaseSRWLockExclusive(&g_coreMapLock);
+                Log("FormCore table map: %zu core items resolved in %.3f ms (copied tables, worker)", count, (Now() - start) * 1000.0);
+            }
+        }
+    } catch (...) { Log("FormCore table map: allocation failed; learned/placeholder fallback retained"); }
+    g_coreMapBusy.store(false);
+    return 0;
+}
+void PublishEquippedCores(bool ready, uint32_t y1 = 0, uint32_t y2 = 0) {
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const bool changed = g_equippedReady.load() != ready || g_equippedCore[0].load() != y1 || g_equippedCore[1].load() != y2;
+    g_equippedCore[0].store(y1); g_equippedCore[1].store(y2); g_equippedReady.store(ready);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    if (changed && ready) Log("FormCore equipped: Y1=%X Y2=%X src=OnmyoBox+23B6B8/item+180/yang+18/seal+54", y1, y2);
+}
+void PickEquipmentTick() {
+    if (g_coreEquipTick.test_and_set()) return;
+    struct Clear { ~Clear() { g_coreEquipTick.clear(); } } clear;
+    static double last = -100, nextBuild = -100;
+    const double now = Now();
+    if (now - last < 0.25) return;
+    last = now;
+    if (!gamerva::g_known) { PublishEquippedCores(false); return; }  // structure offsets verified for the supported build only
+    CoreTableSource source;
+    const uint64_t inv = InvBase();
+    uint16_t items[2] = {};
+    if (!FkPlayer() || !ReadCoreTableSource(source) ||
+        !formcore::EquippedItems(inv, [](uint64_t a, auto& v) { return Rd(a, v); }, items)) {
+        PublishEquippedCores(false); return;
+    }
+    uint32_t cores[2] = {};
+    AcquireSRWLockShared(&g_coreMapLock);
+    const bool mapped = source == g_coreMapSource && !g_coreMap.empty();
+    if (mapped) for (int i = 0; i < 2; ++i) cores[i] = formcore::Lookup(g_coreMap, items[i]);
+    ReleaseSRWLockShared(&g_coreMapLock);
+    if (mapped) {
+        PublishEquippedCores((!items[0] || cores[0]) && (!items[1] || cores[1]), cores[0], cores[1]);
+        return;
+    }
+    PublishEquippedCores(false);
+    if (now < nextBuild || g_coreMapBusy.exchange(true)) return;
+    nextBuild = now + 5.0;
+    auto* request = new (std::nothrow) CoreTableSource(source);
+    HANDLE thread = request ? CreateThread(nullptr, 0, &CoreMapWorker, request, 0, nullptr) : nullptr;
+    if (thread) CloseHandle(thread);
+    else { delete request; g_coreMapBusy.store(false); }
+}
 std::atomic<uint32_t> g_fkX{0};        // form id for 74C2FC (0 = auto: old [state+A68] after clearing A68, else 0x6E73)
 std::atomic<uint64_t> g_fkMgr{0};      // spirit mgr seen at the 2916C5C entry
 std::atomic<uint32_t> g_fkMgrId{0xFFFFFFFF};
@@ -1202,6 +1559,7 @@ std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
 std::atomic<uint64_t> g_fkLeftChr{0};
 double g_fkLeftT = -1, g_fs0CapLeftT = -1;
 double g_fkSealT = -1;  // pc #56910: time of the last seal spawn hit (FormHide=4 falls back to it when FormSlot0 never captures, e.g. DOWN core A2ACB)
+float g_fkSealDist = -1.f;  // #72299: distance of that spawn. 0 with motion 0 is the extra character, not a new seal.
 // ally #54309: a type-3 chr pack has no kind-3 model (1175400 = 0), but the seal chr carries its own model in slot 1 ([[chr+50]+10]).
 // [Spirit] FormModel=1: keep the form's own key; only the model getter call 74C79D (call 1175400 in SetForm, result -> [[chr+50]+8+i*8]
 // at 74C7B1) returns that seal model once, then the game's own Living Artifact request (0x4E, as Y+B) runs the transform.
@@ -1424,7 +1782,8 @@ LONG CALLBACK SwVeh(EXCEPTION_POINTERS* e) {
     if (e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return EXCEPTION_CONTINUE_SEARCH;
     CONTEXT* c = e->ContextRecord;
     const uint64_t dr6 = c->Dr6, slot = g_swSlot;
-    if (!(dr6 & 3) || !slot) return EXCEPTION_CONTINUE_SEARCH;
+    if (!(dr6 & 3)) return EXCEPTION_CONTINUE_SEARCH;
+    if (!slot) { c->ContextFlags |= CONTEXT_DEBUG_REGISTERS; c->Dr0 = c->Dr1 = 0; c->Dr7 &= ~(0xFull | (0xFFull << 16)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }  // human #122102: stray Dr0/Dr1 hit after disarm
     const LONG i = InterlockedIncrement(&g_swN) - 1;
     if (i < 96) {
         SwHit& h = g_swHits[i];
@@ -1538,7 +1897,10 @@ PVOID g_ywVeh = nullptr;
 LONG CALLBACK YwVeh(EXCEPTION_POINTERS* e) {
     if (e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return EXCEPTION_CONTINUE_SEARCH;
     CONTEXT* c = e->ContextRecord;
-    if (!(c->Dr6 & 4) || !g_ywAddr) return EXCEPTION_CONTINUE_SEARCH;
+    if (!(c->Dr6 & 4)) return EXCEPTION_CONTINUE_SEARCH;
+    // human #122102 (fatal 0x80000004 at Nioh3+0x59624, 00:23:26 right after a YawWatch window): a thread the disarm pass missed kept Dr2 armed;
+    // its next write trapped after g_ywAddr was cleared and nobody handled it. A stray Dr2 hit now disarms this thread and continues.
+    if (!g_ywAddr) { c->ContextFlags |= CONTEXT_DEBUG_REGISTERS; c->Dr2 = 0; c->Dr7 &= ~((3ull << 4) | (0xFull << 24)); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }
     const uint64_t rip = c->Rip;
     LONG n = g_ywN;
     for (LONG i = 0; i < n && i < 24; ++i) if (g_ywHits[i].fr[0] == rip) { InterlockedIncrement(&g_ywHits[i].cnt); c->Dr6 = 0; return EXCEPTION_CONTINUE_EXECUTION; }
@@ -1752,7 +2114,7 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
         if (fresh && (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load())) {
             // ally #57758: a fresh LEFT spawn hit on a reused chr address is a new use - capture it again (once per spawn hit)
             const bool leftAgain = chr == g_fkLeftChr.load() && g_fkLeftT > g_fs0CapLeftT;
-            if (g_scForms.load() && kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {  // human #61869: forms OFF = no capture
+            if (ScOn() && kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {  // human #61869: forms OFF = no capture
                 if (leftAgain) {
                     g_fs0CapLeftT = g_fkLeftT;
                     g_fs0CapChr.store(chr);
@@ -2188,6 +2550,51 @@ int FormHideSealPresent(uint64_t global, uint64_t seal) {
     }
     return 0;
 }
+// report #19 v2 (#66107): a form may only bind to an actor that was NOT alive when this soul core was pressed. Test C (#66091): DOWN uses
+// 2/3 began on a C17E3 actor at the same address as use 1's. One rule for every core (#61094/#61123): at each press the whole actor
+// table (same 16-bucket walk as FormHideSealPresent) is snapshot; any seal found in it is rejected. Resolved on its own (g_fhEnd.actorGlobal
+// is only set once a form began with FormHideUntilEnd on).
+uint64_t ActorTableGlobal() {
+    static uint64_t g = 0; static bool tried = false;
+    if (tried) return g;
+    tried = true;
+    static const uint8_t removeHead[] = {0x48,0x83,0xEC,0x28,0x48,0x8B,0xD1,0x48,0x8B,0x0D,0x52,0x5B,0x48,0x04,
+        0x48,0x85,0xC9,0x74,0x0C,0x48,0x81,0xC1,0x98,0x0B,0,0,0xE8,0x11,0,0,0};
+    int32_t rel = 0;
+    if (FormHideCodeMatches(0x2BF7E8, removeHead, sizeof(removeHead)) && Rd(g_base + Grva(0x2BF7F2), rel)) g = g_base + Grva(0x2BF7F6) + rel;
+    return g;
+}
+struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; uint64_t player = 0; float groundY = 0; };
+PressSnap g_pressSnap;
+void SealExitReplayPressReset();
+bool PressSnapTake(double now) {  // false = table unreadable (then nothing is rejected by it; the other guards still apply)
+    SealExitReplayPressReset();
+    g_pressSnap.nodes.clear(); g_pressSnap.t = now; g_pressSnap.ok = false;
+    g_pressSnap.player = 0;
+    const uint64_t player = FkPlayer(); float pos[4] = {};
+    if (player && Copy(pos, player + 0x110, sizeof(pos)) && std::isfinite(pos[1])) {
+        g_pressSnap.player = player; g_pressSnap.groundY = pos[1];
+    }
+    uint64_t mgr = 0, buckets = 0; const uint64_t global = ActorTableGlobal();
+    if (!global || !Rd(global, mgr) || !mgr || !Rd(mgr + 0xBA0, buckets) || !buckets) return false;
+    unsigned budget = 4096;
+    for (unsigned i = 0; i < 16; ++i) {
+        uint64_t node = 0, count = 0;
+        if (!Rd(buckets + i * 16, node) || !Rd(buckets + i * 16 + 8, count) || count > budget) return false;
+        budget -= (unsigned)count;
+        for (uint64_t n = 0; n < count; ++n) {
+            if (!node) return false;
+            g_pressSnap.nodes.push_back(node);
+            if (!Rd(node, node)) return false;
+        }
+    }
+    std::sort(g_pressSnap.nodes.begin(), g_pressSnap.nodes.end());
+    g_pressSnap.ok = true;
+    return true;
+}
+bool AliveAtPress(uint64_t chr) {  // chr was in the actor table when the current press was snapshot
+    return chr && g_pressSnap.ok && std::binary_search(g_pressSnap.nodes.begin(), g_pressSnap.nodes.end(), chr + 0xE0);
+}
 void FormHideEndBegin(uint64_t player, uint64_t seal) {
     g_fhEnd = {};
     if (!g_fhUntilEnd.load()) return;
@@ -2342,56 +2749,12 @@ static void FormRotYaw(float* r, float a) {
 }
 // write the turned rows to the seal at ro and to its mirror copy at +0x210 (Temp/yawfind out4: same layout, same yaw) when the
 // mirror really holds the same facing; mark the transform dirty like the player copy does
-// human #61199: rows held at 0 deg off but the yokai still DRAWS turned -> the drawn facing comes from another copy. At bind, find every
-// pure-yaw quaternion (x,z ~ 0) near the seal whose angle equals the seal's spawn yaw (Temp/yawfind out4: [chr+F0]+4F4/554/5B4 matched),
-// and turn those together with the rows every frame. sign: +1 yaw = 2*atan2(y,w), -1 yaw = -2*atan2(y,w).
-struct FaceQ { uint64_t a; int sign; };
-static FaceQ g_faceQ[12];
-static int g_faceQn = 0;
-static int FormFaceFindQuats(uint64_t cap, float yawS, char* desc, size_t dn) {
-    g_faceQn = 0; desc[0] = 0;
-    struct R { const char* nm; uint64_t base; uint32_t n; } rs[8] = {};
-    int nr = 0;
-    rs[nr++] = {"chr", cap, 0x3000};
-    static const struct { const char* nm; uint32_t off; uint32_t n; } ptrs[] = {{"[F0]", 0xF0, 0x1000}, {"[10]", 0x10, 0x800}, {"[20]", 0x20, 0x800},
-                                                                                {"[E8]", 0xE8, 0x800}, {"[3A0]", 0x3A0, 0x800}, {"[40]", 0x40, 0x800}};
-    for (const auto& p : ptrs) { uint64_t v = 0; if (Rd(cap + p.off, v) && v > 0x10000 && v != cap && (v & 7) == 0) rs[nr++] = {p.nm, v, p.n}; }
-    uint64_t comp = 0, xf = 0;
-    if (Rd(cap + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf > 0x10000) rs[nr++] = {"xf", xf, 0x400};
-    static float buf[0x3000 / 4];
-    size_t used = 0;
-    for (int i = 0; i < nr; ++i) {
-        if (!Copy(buf, rs[i].base, rs[i].n)) continue;
-        for (uint32_t o = 0; o + 16 <= rs[i].n; o += 4) {
-            const float* q = buf + o / 4;
-            if (!std::isfinite(q[0]) || !std::isfinite(q[1]) || !std::isfinite(q[2]) || !std::isfinite(q[3])) continue;
-            if (std::fabs(q[0]) > 0.02f || std::fabs(q[2]) > 0.02f || std::fabs(q[1]) < 0.05f || std::fabs(q[3]) < 0.02f) continue;
-            if (std::fabs(q[1] * q[1] + q[3] * q[3] - 1.f) > 0.01f) continue;
-            const float y = 2.f * std::atan2(q[1], q[3]) * 57.29578f;
-            for (int sg = 1; sg >= -1; sg -= 2) {
-                float dd = sg * y - yawS; while (dd > 180.f) dd -= 360.f; while (dd < -180.f) dd += 360.f;
-                if (std::fabs(dd) < 0.7f && g_faceQn < 12) {
-                    g_faceQ[g_faceQn++] = {rs[i].base + o, sg};
-                    if (used + 24 < dn) used += snprintf(desc + used, dn - used, " %s+%X(%c)", rs[i].nm, o, sg > 0 ? '+' : '-');
-                    break;
-                }
-            }
-        }
-    }
-    return g_faceQn;
-}
-static void FormFaceWriteQuats(float yawDeg) {
-    for (int i = 0; i < g_faceQn; ++i) {
-        const float h = g_faceQ[i].sign * yawDeg * 0.5f * 0.01745329f;
-        float yw[2] = {std::sin(h), std::cos(h)}, q[4] = {};
-        if (!Copy(q, g_faceQ[i].a, 16)) continue;
-        if (std::fabs(q[0]) > 0.05f || std::fabs(q[2]) > 0.05f || std::fabs(q[1] * q[1] + q[3] * q[3] - 1.f) > 0.02f) continue;  // reused, not ours
-        WrBytes(g_faceQ[i].a + 4, &yw[0], 4); WrBytes(g_faceQ[i].a + 12, &yw[1], 4);
-    }
-}
+// #83188: never infer writable quaternions from float-shaped heap bytes.
+// The old scan selected [seal+20]+44C and wrote +450/+458, which are
+// native timed-lerp list metadata (27E92C), causing the 468FC null-node crash.
+// Facing uses the known movement yaw fields and transform rows below only.
 static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
     if (!WrBytes(cap + ro, r, 48)) return false;
-    FormFaceWriteQuats(std::atan2(r[8], r[10]) * 57.29578f);
     float mr[12] = {};
     if (ro == 0x120 && Copy(mr, cap + 0x210, sizeof(mr)) && std::isfinite(mr[8]) && std::isfinite(mr[10])) {
         const float n = mr[8] * mr[8] + mr[10] * mr[10];
@@ -2400,6 +2763,47 @@ static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
     uint64_t comp = 0, xf = 0;
     if (Rd(cap + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf) { uint32_t fl = 0; if (Rd(xf + 0xD8, fl)) { fl |= 0x11; WrBytes(xf + 0xD8, &fl, 4); } }
     return true;
+}
+// #82256: form-start player height is a conservative ceiling, never the leaping seal's height.
+// No terrain query is inferred: horizontal following and downward movement remain native.
+struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; };
+FormFollowGroundState g_followGround;
+bool FormFollowWrite(uint64_t player, const float* target, bool* didWarp = nullptr) {
+    const bool warped = g_fhWarp.load() && FormPinWarpCall(player,target);
+    if (didWarp) *didWarp=warped;
+    if (!warped) return WrBytes(player+0x110,target,16);
+    float actual[4]={};
+    if (!Copy(actual,player+0x110,16) || !std::isfinite(actual[0]) || !std::isfinite(actual[1]) || !std::isfinite(actual[2])) return false;
+    if (actual[1] > target[1]) { actual[1]=target[1]; return WrBytes(player+0x110,actual,16); }
+    return true;
+}
+void FormFollowGroundBegin(uint64_t player) {
+    // Each press owns its height; never reuse a previous form or area baseline.
+    g_followGround = {};
+    float p[4] = {};
+    if (Copy(p, player + 0x110, sizeof(p)) && std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]))
+        g_followGround = {player,
+            g_pressSnap.player == player && g_pressSnap.t > 0 && Now() >= g_pressSnap.t && Now() - g_pressSnap.t <= 8.5
+                ? g_pressSnap.groundY : p[1], false};
+
+}
+bool FormFollowGroundTarget(uint64_t player, float* pos) {
+    if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    pos[1] = (std::min)(pos[1], g_followGround.y);
+    return true;
+}
+bool FormFollowGroundRestore(uint64_t player) {
+    if (player != g_followGround.owner || !g_followGround.used) return true;
+    float pos[4] = {};
+    if (!Copy(pos, player + 0x110, sizeof(pos))) return false;
+    const float before = pos[1];
+    if (!std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
+    const bool changed = pos[1] != before;
+    const bool ok = !changed || FormFollowWrite(player,pos);
+    Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
+        before, pos[1], g_followGround.y, changed, ok);
+    return ok;
 }
 bool FormFollow(uint64_t pchr, uint64_t cap) {
     uint64_t ag = g_fhEnd.actorGlobal;  // never read a removed seal (same actor-table lookup as FormPin)
@@ -2411,8 +2815,11 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     if (FormHideSealPresent(ag, cap) != 1) return false;
     float pos[4] = {};
     if (!Copy(pos, cap + 0x110, 16) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
-    const bool warped = g_fhWarp.load() && FormPinWarpCall(pchr, pos);
-    if (!warped && !WrBytes(pchr + 0x110, pos, 16)) return false;
+    float followPos[4]; memcpy(followPos, pos, sizeof(followPos));
+    if (!FormFollowGroundTarget(pchr, followPos)) return false;
+    bool warped=false;
+    if (!FormFollowWrite(pchr,followPos,&warped)) return false;
+    g_followGround.used = true;
     float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
     bool rot = false;
@@ -2433,9 +2840,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
         g_faceHold = {};
         if (setter) faced = true;
         else if (g_fhFaceOnSpawn.load() > 0 && unit && std::fabs(d) > 2.f) {
-            char qd[320];
-            const int nq = FormFaceFindQuats(cap, yawS, qd, sizeof(qd));
-            Log("FormFace: %d yaw quaternion(s) at the seal's spawn yaw:%s", nq, qd);
+            Log("FormFace: typed yaw/rows only; heuristic quaternion writes disabled (83188)");
             YwArm(cap);
             // human #61219/#61241 (probe 78649ff8): the game rebuilds rows +120 every frame from the seal's movement component
             // comp=[[seal+3B0]+30] (vt+2A0 builds the matrix from the euler at comp+A0, yaw radians at +A4; +200 holds the same yaw).
@@ -2474,7 +2879,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
                 FormRotYaw(sm, -g_faceHold.d);
                 if (FormFaceWrite(cap, ro, sm)) ++g_faceHold.fixes;
                 g_faceHold.last = std::atan2(sm[8], sm[10]) * 57.29578f;
-            } else { g_faceHold.last = yS; ++g_faceHold.kept; FormFaceWriteQuats(yS); }
+            } else { g_faceHold.last = yS; ++g_faceHold.kept; }
         }
         if (g_faceChk.cap == cap && g_faceChk.n < 3) {
             static const double at[3] = {0.1, 0.5, 1.0};
@@ -2504,7 +2909,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     const double now = Now();
     if (loggedCap != cap || now >= nextLog) {
         Log("FormFollow %s: player %llX -> seal %llX pos=%.1f %.1f %.1f warp=%d rot=%d t=%.3f", loggedCap != cap ? "first" : "at",
-            (unsigned long long)pchr, (unsigned long long)cap, pos[0], pos[1], pos[2], warped, rot, now);
+            (unsigned long long)pchr, (unsigned long long)cap, followPos[0], followPos[1], followPos[2], warped, rot, now);
         loggedCap = cap; nextLog = now + 1;
     }
     return true;
@@ -2540,19 +2945,57 @@ bool FhIsSealAct(uint32_t id) {
 // Returns true on the frame the player's action changes to a seal-use id. Keeps a 16-entry start history for the learner.
 // human #58733: cores that summon a human ally (A9F39: action 0x28B6, no seal throw) spawn a live "seal" too; only a capture that follows
 // the seal throw (0x28FD family) within FormNeedSealActSec may begin a form, so those cores behave like the plain game. 0 = off.
+bool FormSealExited(uint64_t actor);
+bool FormSealContinuation(uint64_t actor);
+void RetireFormSeals(uint64_t seal);
 double g_sealEdgeT = -100;
 extern std::atomic<uint32_t> g_ftActs[4];
 extern std::atomic<int> g_ftN;
-std::atomic<int> g_formNeedSealActMs{0};  // human #58806: 0 = off - a running core use has no throw action, so the guard dropped real forms
+std::atomic<int> g_formNeedSealActMs{0};
+std::atomic<int> g_formNeedUseMs{2200};  // report #19, see FormNeedUseMs  // human #58806: 0 = off - a running core use has no throw action, so the guard dropped real forms
 std::atomic<int> g_sealEndMinMs{1500};
 std::atomic<int> g_sealCancelEndMs{600};  // pc2 #59480: 0 = off (>0 = on)
 double g_throwCutT = -100; uint32_t g_throwCutAct = 0;
+// report #19 (human 11-04): a soul-core throw that ends with no yokai (trap/buff core, or a refused use) kept the player hidden + frozen
+// 2.5 s. g_throwDoneT = when the player's action left the seal/FastThrow throw family; [Spirit] SealNoSpawnEndMs after it with no seal
+// spawn hit since the press, the press hide ends. Universal: keyed on the game's own action change, no core list. 0 = off.
+double g_throwDoneT = -100;
+std::atomic<int> g_noSpawnEndMs{400};
+// report #22 (human 11-04 8:02 pm): the game's own proof that it really used a soul core is the seal orb (effect 0x6254D, the same orb
+// object for every core; OrbSkip hooks see it ~70-90 ms after the accept). Accepts the game refused (cooldown / state: 7 of 9 DOWN
+// presses, no item used, no throw) never make one. g_orbT = last time the orb was seen; g_orbHooked = the OrbSkip hooks are in, so its
+// absence means something. Universal, no core list.
+std::atomic<double> g_orbT{-100};
+std::atomic<bool> g_orbHooked{false};
+std::atomic<int> g_orbSpawnMs{1800};  // [Spirit] SealOrbSpawnMs: after the orb, how long a press hide waits for the yokai (16127: 0.6-1.73 s)
+const char* g_fh4EndWhy = "";  // reason of the last FormHide=4 end (game thread), read by the learners at the form-off edge
+bool UseConfirmedSince(double t) {  // the game threw the seal orb, or the player entered a seal action, since t
+    return (g_orbHooked.load() && g_orbT.load() >= t - 0.05) || g_sealEdgeT >= t - 0.05;
+}
+// #82145: cold-load known cores can spawn at +5.49 s; allow up to eight seconds. Only a confirmed transform press gets extra time.
+// Use an absolute press deadline so repeated ticks / late orb events cannot extend it indefinitely.
+double KnownTransformWaitUntil(double start) {
+    const double press = g_pickT.load();
+    return g_pickCore.load() && ScOn() && press >= start - 1.5 && press <= start + .05 && UseConfirmedSince(press)
+        ? press + 8.0 : -100.0;
+}
+bool UseFamilyAct(uint32_t id) {  // a seal-use action (learned/configured) or a FastThrow throw id
+    if (FhIsSealAct(id)) return true;
+    for (int i = 0, n = g_ftN.load(); i < n; ++i) if (g_ftActs[i].load() == id) return true;
+    return false;
+}
+bool UseCategoryAct(uint32_t id) {  // same action category (high byte) as the configured throw ids, e.g. the running throw 0x28B2
+    if (UseFamilyAct(id)) return true;
+    if (id > 0xFFFF || g_ftN.load() <= 0) return false;
+    return (id >> 8) == (g_ftActs[0].load() >> 8);
+}
 // pc #59670 TEST ONLY: [Spirit] DebugForceThrowCut=N fakes a hit cut on every Nth seal throw: DebugForceThrowCutMs (default 150) after the
 // seal action starts, the throw is marked cut as if the player had gone straight to 0x271F, and the seal that still comes out of that
 // throw is despawned with no form (a real cut throws no seal). 0 = off (release).
 std::atomic<int> g_dbgForceCut{0}, g_dbgForceCutMs{150};
 double g_dbgCutSuppress = -1;  // until then a new seal / seal action begins no form (the faked cut's leftover seal)
 bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
+    if (FormSealExited(cap) || FormSealContinuation(cap)) return false;
     static double dbgCutAt = 0;
     static int dbgThrows = 0;
     if (dbgCutAt > 0 && now >= dbgCutAt) {
@@ -2587,6 +3030,7 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
         }
         // human #58738: some yokai cores (30744, bottom slot) throw with 0x28FB only, never 0x28FD; any FastThrow throw id counts as the seal throw
         else for (int i = 0, n = g_ftN.load(); i < n; ++i) if (g_ftActs[i].load() == id) { g_sealEdgeT = now; break; }
+        if (id != 0xFFFF && UseFamilyAct(prev) && !UseFamilyAct(id)) g_throwDoneT = now;
         if (g_fhActLog.load()) {
             if ((int64_t)now != sec) { sec = (int64_t)now; inSec = 0; }
             if (++inSec <= 20 || edge) Log("FormHide=3 player action 0x%X -> 0x%X%s t=%.3f", prev, id, edge ? " (seal action)" : "", now);
@@ -2632,17 +3076,30 @@ struct Fh4State {
     uint64_t sealRoot = 0;  // pc #56435: seal's model root, refreshed by the tick at 10 Hz (hooks used to walk the actor table per call)
     double nextSealPoll = 0;
     bool fromSpawn = false;  // pc #56910: seal bound from the spawn hit, not a FormSlot0 capture
+    bool keepSeal = false;  // #66107: the begin kept its first armed seal over a later capture -> a newer capture is not a capture-change
     int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
     float sealP0[4] = {};
     double followT0 = 0;
 };
 Fh4State g_fh4;
+bool PickFormActive() { return g_fh4.owner != 0; }
+bool FormSealContinuation(uint64_t actor) { return actor && g_fh4.owner && actor == g_fh4.seal; }
 // pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
 // button mask dropped from the game's XInputGetState for that window (default 0xFF4F = every button except Start, Back and R3: attacks,
 // items, dodge/sprint, d-pad, guard), FormBlockRT=1 zeroes both triggers, FormBlockLS=1 zeroes the left stick (no walking; pc #56964 /
 // human #56935: no actions at all, camera free -> right stick untouched). The IAT slot is taken on the FIRST form start, not at load, so this hook sits outside EngineFix's PadLatency/VPad hooks
 // and also masks the harness pipe pad. Keyboard (DirectInput) is not masked. 0 = off.
 std::atomic<int> g_fbMask{0xFF4F}, g_fbRT{1}, g_fbLS{1};
+// human #122288: [Spirit] FormCrouchCancel = window in ms (default 200 per human #122339, 0 = off). From the soul-core press (d-pad LEFT/DOWN edge or the
+// game's accept) until press + window, FormBlockPad lets L3 (0x0040) and the left stick through, so the game's own crouch (and its seal
+// cancel) is never masked. FccPadTick (below) decides the cancel itself.
+std::atomic<int> g_fccMs{200};  // human #122339: 200 ms default
+std::atomic<ULONGLONG> g_fccPassUntil{0};  // GetTickCount64 deadline of the left-stick pass-through window
+// human #122339: the crouch press inside the window only cancels - the game never sees it (no real crouch). L3 is eaten from the press
+// until press + window, and a press that went down inside the window stays eaten until it is released.
+std::atomic<ULONGLONG> g_fccEatUntil{0};
+bool g_fccEatHeld[4] = {};
+std::atomic<long> g_fccEaten{0};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
 std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
@@ -2675,6 +3132,15 @@ struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
 struct FbState { DWORD packet; FbPad pad; };
 DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
+    if (r == ERROR_SUCCESS && st && user < 4) {  // human #122339: eat the crouch-cancel L3 (form up or not)
+        FbState* s = (FbState*)st;
+        if (s->pad.buttons & 0x0040) {
+            if (g_fccEatHeld[user] || GetTickCount64() < g_fccEatUntil.load(std::memory_order_relaxed)) {
+                if (!g_fccEatHeld[user]) { g_fccEatHeld[user] = true; g_fccEaten.fetch_add(1, std::memory_order_relaxed); }
+                s->pad.buttons &= (WORD)~0x0040;
+            }
+        } else g_fccEatHeld[user] = false;
+    }
     if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
         if (g_fbStyle.load(std::memory_order_relaxed) && user < 4) {  // ally #57627: watch for a style shift chord (raw, before masking)
@@ -2697,8 +3163,10 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
             }
         }
         const BYTE rawRt = s->pad.rt; const WORD rawA = s->pad.buttons & 0x1000;
-        const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
-        const bool trig = g_fbRT.load(std::memory_order_relaxed), ls = g_fbLS.load(std::memory_order_relaxed);
+        WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
+        const bool trig = g_fbRT.load(std::memory_order_relaxed);
+        bool ls = g_fbLS.load(std::memory_order_relaxed);
+        if (GetTickCount64() < g_fccPassUntil.load(std::memory_order_relaxed)) ls = false;  // human #122288 window: stick free; L3 eaten above (#122339)
         if ((s->pad.buttons & m) || (trig && (s->pad.rt || s->pad.lt)) || (ls && (s->pad.lx || s->pad.ly))) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
@@ -2731,6 +3199,9 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
             if (c == 2 && t >= t0 + 60 && t < t0 + 120) s->pad.buttons |= 0x1000;  // + A while RT is held
         }
     }
+    if (r == ERROR_SUCCESS && st) {  // #83466: replay of a press that was queued during the old seal's ghost exit
+        if (const WORD b = pressq::Buttons(g_pressQ, GetTickCount64())) ((FbState*)st)->pad.buttons |= b;
+    }
     return r;
 }
 void** FbXInputSlot() {
@@ -2754,10 +3225,24 @@ void** FbXInputSlot() {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     return nullptr;
 }
-void FormBlockSet(bool on) {
-    if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
+// #81339: PadButtons() asks xinput's export, which the pipe pad (game IAT patch) never reaches; the pick reads the game's import
+// instead (the one below any FormBlockPad hook: no masking / style injection), falling back to PadButtons().
+WORD PickPadButtons() {
+    static void** slot = FbXInputSlot();
+    FbXGet f = g_fbPrev ? g_fbPrev : (slot ? (FbXGet)*slot : nullptr);
+    if (!f || f == (FbXGet)&HkFormBlockPad) return PadButtons(nullptr, nullptr);
+    struct { DWORD pkt; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } st = {};
+    for (DWORD u = 0; u < 4; ++u) if (f(u, &st) == 0) return st.buttons;
+    return PadButtons(nullptr, nullptr);  // #81425: import sees no pad: the export path (Proton / real pad) decides
+}
+// pc #97485: EngineFix's PadDebug row asks whether FormBlockPad is hiding the pad from the game right now (same test as HkFormBlockPad).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_PadBlockActive() {
+    return g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000 ? 1 : 0;
+}
+// human #122339: the hook install, shared by the first form start and the crouch-cancel press (L3 must be eaten before any form).
+bool FbEnsureHooked() {
     static bool hooked = false, tried = false;
-    if (on && !tried) {
+    if (!tried) {
         tried = true;
         void** slot = FbXInputSlot();
         DWORD old = 0, t = 0;
@@ -2769,6 +3254,11 @@ void FormBlockSet(bool on) {
         }
         Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
+    return hooked;
+}
+void FormBlockSet(bool on) {
+    if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
+    const bool hooked = on ? FbEnsureHooked() : g_fbPrev != nullptr;
     if (!hooked || g_fbActive.exchange(on) == on) return;
     if (on) { g_fbPressStyle.store(g_fbPressArm.load() >= 0 ? g_fbPressArm.load() : g_styleFree.load()); g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(0); g_fbInjT0.store(0);
         for (auto& u : g_fbUser) u.rt = true, u.chordA = false, u.other = true, u.lastRt = GetTickCount64();  // an RT held at the press is not a style shift
@@ -2814,6 +3304,7 @@ void Fh4Restore(uint64_t player) {
     FormBlockSet(false);  // input comes back even when the hide restore below has to retry
     bool ok = true;
     if (player == g_fh4.owner && player == FkPlayer()) {
+        if (!FormFollowGroundRestore(player)) ok = false;
         uint64_t root = 0; float current = 0; uint8_t h = 0;
         if (!Rd(player + 0x20, root)) ok = false;
         else if (root && root == g_fh4.root) {
@@ -2830,7 +3321,7 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    g_fh4 = {}; g_fhEnd.active = false;
+    g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     uint64_t actual = 0;
@@ -2862,6 +3353,10 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
 // then until the SealDefer deadline. [Spirit] FormSealKeep=1 (default) holds the seal root +248 at 1.0 while FormHide=4 owns a captured
 // seal that is still in the actor table, with its own root (never the player's).
 std::atomic<int> g_fhSealKeep{1};
+uint64_t PressPrimarySeal(double* at);
+bool NativeSealExitReady(uint64_t seal, double captureAt, uint64_t player);
+bool g_nativeExitPending = false;
+
 // pc #57569 (human #57567): [Spirit] SealGhostExit=1 (with SealEndOnHit): a despawn at the last hit also kills the yokai's projectiles / hit
 // effects. Instead, at the last-hit close the form ends (FormHide4Tick reason "ghost-exit": Fh4Restore = player visible + input back, pin and
 // follow stop) while the seal lives on, invisible (its model root fade [[seal+20]+248] held at 0, the same fade it uses to vanish by itself,
@@ -2870,6 +3365,7 @@ std::atomic<int> g_ghostOn{0};
 std::atomic<double> g_ghostReqAt{0};  // human #58053: smoke first, the player shows SealExitRevealMs later
 std::atomic<uint64_t> g_ghostReq{0};   // seal whose form should end now (set by SealEndOnHitTick, consumed by FormHide4Tick)
 std::atomic<uint64_t> g_ghostSeal{0};  // seal held invisible until it leaves the actor table
+bool PickGhostAlive() { return g_ghostSeal.load() != 0; }
 std::atomic<double> g_ghostT{0};
 // pc #59670 (pc2 #59665): seal whose form must end now whatever the end settings are (FormCapTick at FormMaxSec, SealEndOnIdle when the
 // queued despawn did not take). Consumed by FormHide4Tick: the form ends, the seal is held invisible (g_ghostSeal) until it really leaves.
@@ -2884,6 +3380,11 @@ std::atomic<double> g_coverT{0}, g_sealShowAt{0}, g_ghostHideAt{0};
 // human #58173: the exit smoke starts while the yokai still attacks (SealExitSmokeAtMs after the press, or when its last hit burst opens,
 // whichever first); at the last-hit close it fades out (SealGhostFadeMs) and the player's body fades in over SealPlayerFadeMs.
 std::atomic<int> g_exitSmokeAtMs{1450}, g_plFadeMs{250}, g_exitLeadMs{600}, g_lastHitGraceMs{150};  // lead: human #60302 natural-end exit smoke
+std::atomic<int> g_exitAtLastHitMs{0};  // #81898: last burst OPEN + offset; -9999 restores close-based exit
+// human #107984/#107991: [Spirit] SealExitOnHelperMs (-1 = off). A hit burst whose source is a separate spawned actor (not the bound seal)
+// means the yokai handed its attack to a projectile/helper; the form ends this many ms after that burst opens. The seal hides as before,
+// the helper is NOT ghosted, so its projectiles stay visible and finish the attack. No per-core table.
+std::atomic<int> g_exitOnHelperMs{150};  // live test #108072: 150 ms
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -2942,9 +3443,41 @@ bool SealExitCore(uint32_t sid) {
     for (int i = 0; i < g_sxcN; ++i) if (g_sxcCore[i] == sid) return true;
     return false;
 }
+// #82327: every actor of the exiting press retains its own fade and tail lifetime.
+struct PressGhost { uint64_t actor=0, root=0; uint32_t key=0; double at=0, hideAt=0; float fade=1, tail=2, base=1, ramp=0; int fadeMs=0; };
+// #108161: a helper exit keeps the hidden seal at its form speed (no x2 tail): the seal's x2 tail ended its life ~1.2 s early and the
+// helper's last bursts (natural +5.4..6.2 s) never came (live 01:27: 3/3/3/2 bursts, despawn 3.7 s after exit vs 4-5 natural).
+std::atomic<bool> g_ghostKeepSpeed{false};
+SRWLOCK g_pressGhostLock = SRWLOCK_INIT;
+std::vector<PressGhost> g_pressGhosts;
+bool PressGhostGet(uint64_t actor, PressGhost& out) {
+    bool found = false;
+    AcquireSRWLockShared(&g_pressGhostLock);
+    for (const auto& g : g_pressGhosts) if (g.actor == actor) { out = g; found = true; break; }
+    ReleaseSRWLockShared(&g_pressGhostLock);
+    if (!found || Now() - out.at > 20) return false;
+    uint32_t key=0; uint64_t root=0;
+    return Rd(actor,key) && key==out.key && Rd(actor+0x20,root) && root==out.root;
+}
+void PressGhostForget(uint64_t actor) {
+    AcquireSRWLockExclusive(&g_pressGhostLock);
+    g_pressGhosts.erase(std::remove_if(g_pressGhosts.begin(),g_pressGhosts.end(),
+        [actor](const PressGhost& g){return g.actor==actor;}),g_pressGhosts.end());
+    ReleaseSRWLockExclusive(&g_pressGhostLock);
+}
+void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke);
+void PressGhostTick();
 void GhostHideSeal(uint64_t seal) {
     uint64_t sr = 0; float k6 = 1;
     if (!seal || !Rd(seal + 0x20, sr) || !sr || !Rd(sr + 0x248, k6) || k6 == 0.f) return;
+    PressGhost ghost;
+    if (PressGhostGet(seal, ghost)) {
+        if (Now() < ghost.hideAt) return;
+        const double f = ghost.fadeMs > 0 ? 1.0 - (Now()-ghost.at)*1000.0/ghost.fadeMs : 0;
+        const float v = f > 0 ? (float)(ghost.fade*f) : 0.f;
+        if (v < k6) WrBytes(sr+0x248,&v,4);
+        return;
+    }
     if (Now() < g_ghostHideAt.load(std::memory_order_relaxed)) return;  // human #58146: the yokai stays a moment inside the exit smoke
     float v = 0.f;
     if (g_ghostFadeMs > 0 && g_ghostFadeSeal.load(std::memory_order_relaxed) == seal) {
@@ -3010,6 +3543,8 @@ void HkFh4Multiplier(uint64_t chr, uint64_t root) {
         SealShowHold(chr, sa);
         if (Now() < sa + g_showFadeMs.load() / 1000.0 && chr && chr == g_fh4.seal && chr != g_fh4.owner) return;  // no FormSealKeep (fade 1) while held / fading in
     }
+    PressGhost pg;
+    if (PressGhostGet(chr, pg)) { GhostHideSeal(chr); return; }
     if (const uint64_t gs = g_ghostSeal.load(std::memory_order_relaxed); gs && chr == gs) { GhostHideSeal(chr); return; }
     if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
     Fh4Timer tm;
@@ -3146,9 +3681,14 @@ std::atomic<uint64_t> g_tailSeal{0};
 std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, so a menu SealSpeed / SealTailSpeed change applies live
 float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
+    PressGhost ghost;
+    if (PressGhostGet(a, ghost)) {
+        const double e = ghost.ramp > 0 ? (Now()-ghost.at)*1000.0/ghost.ramp : 1;
+        return e >= 1 ? ghost.tail : e <= 0 ? ghost.base : ghost.base+(ghost.tail-ghost.base)*(float)e;
+    }
     const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
     // human #61869: forms OFF - only the form still up / its ghost tail keeps its speed (a stale tail seal address may be a vanilla yokai now)
-    if (!g_scForms.load(std::memory_order_relaxed) && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
+    if (!ScOn() && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
     if (ts && a == ts) {
         const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
         const double e = ms > 0.f ? (Now() - g_tailT0.load()) * 1000.0 / ms : 1.0;
@@ -3160,7 +3700,20 @@ std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
 std::atomic<int> g_ftLayerLog{0};
 std::atomic<double> g_rtT0{-100};
+// #29: HasSkill is an item query, not proof that a soul core was used.
+std::atomic<double> g_rtPendingT{-100};
+std::atomic<uint32_t> g_rtPendingAct{0xFFFFFFFF};
+std::atomic<double> g_rtAcceptT{-100};  // #66107: time of the last accept; unlike g_rtT0 never reset when the x8 window closes
 std::atomic<int> g_rtMaxMs{1200};  // [Spirit] RunThrowMaxMs (0 = off)
+// report #19: an accept the game did not follow with a throw (0x6310 -> attack 0x6224) ran the player's attacks at x8 for 1.2 s. The window
+// closes as soon as the player enters an action that is neither the one at the accept nor in the throw category.
+std::atomic<uint32_t> g_rtAct{0xFFFFFFFF}, g_rtClosedAct{0xFFFFFFFF};
+std::atomic<double> g_rtClosedT{-100};
+// report #22: an accept the game refused while the player kept the same action (idle 0x7D0 / ninja 0x6224) ran that action at x8 for up to
+// 1.2 s (log 20:01:59.985 -> 20:02:01.109). [Spirit] RunThrowConfirmMs (default 200, 0 = off): if by then the game showed no use (no seal
+// orb, no seal/throw action since the first ask), the window closes. A real use shows the throw action after ~13 ms and the orb after <= 92 ms.
+std::atomic<double> g_rtFirstT{-100};
+std::atomic<int> g_rtConfirmMs{200};
 void* g_ftOrig = nullptr;
 // human #61290/#61347: soul cores must not start in the air (jump/fall). Our attack cancel (gate patch + HasSkill(0xEDC9) = yes)
 // also let them through mid-air. Generic in-air test from the player's position (chr+0x110, cm) sampled each frame from the base
@@ -3273,8 +3826,60 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
         }
         return r * sm;
     }
-    const float m = g_scForms.load(std::memory_order_relaxed) ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
-    const bool rtOn = m > 1.f && g_rtMaxMs.load() > 0 && a == FkPlayer() && !g_fh4.owner && (Now() - g_rtT0.load()) * 1000.0 < g_rtMaxMs.load();
+    const float m = ScOn() ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
+    if (a == FkPlayer()) {
+        const double now = Now(), pending = g_rtPendingT.load();
+        const uint32_t cur = PlayerActId(a);
+        if (!ScOn() || g_fh4.owner) g_rtPendingT.store(-100);
+        else if (pending >= 0) {
+            const int configured = g_rtConfirmMs.load();
+            const int timeout = configured > 0 ? (std::min)(configured, 200) : 200;
+            const auto decision = sealuse::Check(now, pending, g_rtPendingAct.load(), cur, timeout);
+            if (decision == sealuse::Decision::Confirm) {
+                double expected = pending;
+                if (g_rtPendingT.compare_exchange_strong(expected, -100)) {
+                    g_rtAct.store(cur); g_rtFirstT.store(now);
+                    g_rtAcceptT.store(now); g_rtT0.store(now);
+                    Log("RunThrow: confirmed seal action 0x%X after pending item query t=%.3f", cur, now);
+                    const float speed = PlayerGroundSpeed();
+                    if (g_runFadeMs.load() > 0 && speed >= (float)g_runFadeSpeed.load()) {
+                        g_runFadeAt.store(now);
+                        Log("RunFade: confirmed moving seal %.0f cm/s t=%.3f", speed, now);
+                    }
+                }
+            } else if (decision == sealuse::Decision::Cancel) {
+                g_rtPendingT.store(-100);
+            }
+        }
+        // The multiplier is returned, never written into persistent game rate state.
+        // Leaving the verified throw immediately returns the game's original rate and disables drag/fade.
+        if (!sealuse::ThrowAction(cur) || !ScOn()) {
+            g_rtT0.store(-100);
+            g_runFadeAt.store(0);
+        }
+    }
+    bool rtOn = m > 1.f && g_rtMaxMs.load() > 0 && a == FkPlayer() && !g_fh4.owner && (Now() - g_rtT0.load()) * 1000.0 < g_rtMaxMs.load();
+    if (rtOn && g_throwDoneT > g_rtT0.load()) {  // #66107: the throw of this accept is over (player left the throw actions) -> no more x8
+        rtOn = false;
+        if (g_rtT0.exchange(-100) > -50) Log("RunThrow: closed - the throw ended %.2f s ago, normal speed t=%.3f", Now() - g_throwDoneT, Now());
+    }
+    if (rtOn) {
+        const uint32_t cur = PlayerActId(a), at = g_rtAct.load();
+        if (cur != at && cur != 0xFFFF && cur != 0xFFFFFFFF && !UseCategoryAct(cur)) {
+            rtOn = false;
+            g_rtClosedAct.store(cur); g_rtClosedT.store(Now());
+            if (g_rtT0.exchange(-100) > -50) Log("RunThrow: closed - act 0x%X -> 0x%X is not a soul-core throw, normal speed t=%.3f", at, cur, Now());
+        } else if (const int cms = g_rtConfirmMs.load(); cms > 0 && g_orbHooked.load() && !UseCategoryAct(cur)) {
+            const double t1 = g_rtFirstT.load(), now = Now();
+            if ((now - t1) * 1000.0 >= cms && !UseConfirmedSince(t1)) {
+                rtOn = false;
+                g_rtClosedAct.store(cur); g_rtClosedT.store(now);  // the game's repeated asks in this same action do not re-open it
+                if (g_rtT0.exchange(-100) > -50)
+                    Log("RunThrow: closed - no seal orb / throw %.0f ms after the accept (the game did not use the core), normal speed (act 0x%X) t=%.3f",
+                        (now - t1) * 1000.0, cur, now);
+            }
+        }
+    }
     if (layer == 0 && a == FkPlayer()) RunThrowDrag(a, rtOn ? m : 0.f);
     if (rtOn) {
         static double lt = 0;
@@ -3301,6 +3906,7 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
 void FastThrowInstall() {
     const int pct = IniInt(L"Spirit", L"FastThrow", 0);
     g_rtMaxMs.store(IniInt(L"Spirit", L"RunThrowMaxMs", 1200));
+    g_rtConfirmMs.store(IniInt(L"Spirit", L"RunThrowConfirmMs", 200));
     g_rtDrag.store(IniInt(L"Spirit", L"RunThrowDrag", 1));
     g_runFadeMs.store(IniInt(L"Spirit", L"RunFadeMs", 100)); g_runFadeSpeed.store(IniInt(L"Spirit", L"RunFadeSpeed", 200));
     g_airCm.store(IniInt(L"Spirit", L"AirBlockCm", 40)); g_airMs.store(IniInt(L"Spirit", L"AirBlockMs", 600)); g_airSlope.store(IniInt(L"Spirit", L"AirBlockSlopePct", 70) / 100.f); g_airBend.store(IniInt(L"Spirit", L"AirBendCmS", 150)); g_airBendMs.store(IniInt(L"Spirit", L"AirBendMs", 150));  // human #61234: running soul-core throw sped up too
@@ -3359,15 +3965,17 @@ void* g_orbFxOrig = nullptr;
 std::atomic<uint32_t> g_orbHits{0};
 uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
     uint32_t fx = 0;
-    if (g_scForms.load(std::memory_order_relaxed) && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869
+    if (ScOn() && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869
+        g_orbT.store(Now());
         if (g_orbHits.fetch_add(1) < 4) Log("OrbSkip: seal orb %llX lands on its first tick t=%.3f", (unsigned long long)o, Now());
         return 1;
     }
     return ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))g_orbLandOrig)(o, edx, r8, r9);
 }
 uint64_t HkOrbFx(uint64_t ctrl, uint64_t out, uint64_t fx, uint64_t r9, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8) {
-    if ((uint32_t)fx == 0x6254D && out > 0x10000 && g_scForms.load(std::memory_order_relaxed)) {  // human #61869
+    if ((uint32_t)fx == 0x6254D && out > 0x10000 && ScOn()) {  // human #61869
         *(volatile uint32_t*)out = 0;
+        g_orbT.store(Now());
         Log("OrbSkip: orb effect 0x6254D skipped (ctrl %llX) t=%.3f", (unsigned long long)ctrl, Now());
         return out;
     }
@@ -3386,6 +3994,7 @@ void OrbSkipInstall() {
     }
     if (!InstallCallRetargetAt((uint8_t*)(g_base + Grva(0x322958)), "call:OrbSkipFx", (void*)&HkOrbFx, &g_orbFxOrig, &why))
         Log("OrbSkip: orb effect hook failed (%s) - orb lands at once but its effect may flash", why ? why : "?");
+    g_orbHooked.store(true);  // report #22: the ground hook alone sees every seal orb (first flying tick)
     Log("OrbSkip: on (seal orb lands on its first tick, orb effect 0x6254D off)");
 }
 // human #61347: in the air the item gate patch is put back to the game's own 'test al,al' (so the gate asks HasSkill, which says no
@@ -3393,8 +4002,9 @@ void OrbSkipInstall() {
 std::atomic<uint64_t> g_acGate{0};
 int AcGateSet(bool want);
 void AirGateTick() {
+    PickPoll();  // human #81220: per-core pick at the d-pad edge
     if (!g_acGate.load()) return;
-    const bool air = PlayerInAir(nullptr), off = !g_scForms.load(std::memory_order_relaxed);  // human #61869: forms OFF = game's check too
+    const bool air = PlayerInAir(nullptr), off = !ScOn();  // human #61869: forms OFF = game's check too
     const bool want = !air && !off;
     if (AcGateSet(want) == 1) {
         static int n = 0;
@@ -3446,7 +4056,8 @@ std::atomic<uint64_t> g_acCallers[16];
 std::atomic<uint32_t> g_acCalls{0};
 uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
     const uint64_t r = g_hasSkillOrig(ctrl, id, p3);
-    if (!g_scForms.load(std::memory_order_relaxed)) return r;  // human #61869: forms OFF = the game's own answer (no AirBlock / RunThrow / RunFade)
+    if ((uint16_t)id == 0xEDC9) PickPoll();  // human #81220: the accept is the press: decide before any gate below
+    if (!ScOn()) return r;  // human #61869: forms OFF = the game's own answer (no AirBlock / RunThrow / RunFade)
     if ((uint16_t)id != 0xEDC9) return r;
     const uint64_t ra = (uint64_t)_ReturnAddress() - g_base;
     for (auto& c : g_acCallers) {
@@ -3464,16 +4075,12 @@ uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
         }
     }
     if (uint64_t a = 0; Rd(ctrl + 0xE0, a) && a && a == FkPlayer() && !g_fh4.owner) {
-        // human #61224/#61234: a soul core used while running plays the player's throw (gold orb in hand) for ~0.75 s on top of the run
-        // before the yokai spawns; FastThrow only knew the standing throw ids. This ask = the game accepting the soul-core use from any
-        // action, so from here until the seal spawns (max RunThrowMaxMs) every player motion layer runs at FastThrow speed.
+        // #29: every d-pad item reaches this query. Arm only; no rate, drag, fade,
+        // or accepted-use timestamp changes until HkMotionSpeed observes a seal action.
         const double now = Now();
-        if (now - g_rtT0.load() > 1.0) { float dy = 0, bend = 0; PlayerInAir(&dy, &bend); Log("AirBlock check at accept: height range %.0f cm, bend %.0f cm/s (ground) t=%.3f", dy, bend, now); }
-        if (now - g_rtT0.load() > 1.0) Log("RunThrow: soul-core use accepted from act 0x%X - player layers x FastThrow until the seal spawns t=%.3f", PlayerActId(a), now);
-        g_rtT0.store(now);
-        if (const float v = PlayerGroundSpeed(); g_runFadeMs.load() > 0 && v >= (float)g_runFadeSpeed.load() && now - g_runFadeAt.load() > 1.0) {
-            g_runFadeAt.store(now);
-            Log("RunFade: moving %.0f cm/s at the soul-core accept - body fades out over %d ms from now t=%.3f", v, g_runFadeMs.load(), now);
+        if (now - g_rtPendingT.load() > 0.2 && now - g_rtT0.load() > 0.2) {
+            g_rtPendingAct.store(PlayerActId(a));
+            g_rtPendingT.store(now);
         }
     }
     return (r & 0xFF) ? r : 1;
@@ -3557,13 +4164,194 @@ extern "C" __declspec(dllexport) unsigned Nioh3BossRematch_FormUseTick() { retur
 // long after its trigger (LEFT press edge or the fresh seal capture), so the player stays visible a little longer at the form start.
 // Read on every trigger; the Soul core tuning menu page writes it live. A pending begin is dropped if the mode/player changes meanwhile.
 std::atomic<int> g_fhDelayMs{400};
+// #72299 / #72586 / #72621: while a form is live, a later spawn replaces the seal only when it is a new seal.
+// The game's own spawn note carries that: a real seal has a motion, or it appears away from the player.
+// A motion-0 spawn under 1 m is the extra body of the same call. On the main pc that body landed at
+// 0.0, 0.2, and 0.7 m. The moving seal in the same call was 1.5 m and had a motion. No id list.
+// #73244: a missing distance is not far. The note slot holds one spawn, and the next spawn in the world
+// replaces it. That must not turn a body we already kept into a new seal.
+static bool LaterSpawnReplacesLiveSeal(uint32_t motion, float dist) {
+    if (motion != 0) return true;
+    if (dist >= 1.f) return true;
+    return false;
+}
+static uint64_t g_keptFor = 0;
+static uint64_t g_keptChr[4] = {};
+static float g_keptDist[4] = {};
+static void ClearKeptExtras() {
+    g_keptFor = 0;
+    for (int i = 0; i < 4; ++i) { g_keptChr[i] = 0; g_keptDist[i] = 0.f; }
+}
+static bool KeptExtra(uint64_t seal, uint64_t chr, float* distOut) {
+    if (!seal || !chr || g_keptFor != seal) return false;
+    for (int i = 0; i < 4; ++i) if (g_keptChr[i] == chr) { if (distOut) *distOut = g_keptDist[i]; return true; }
+    return false;
+}
+static void RememberKeptExtra(uint64_t seal, uint64_t chr, float dist) {
+    if (!seal || !chr) return;
+    if (g_keptFor != seal) { ClearKeptExtras(); g_keptFor = seal; }
+    float ignored = 0.f;
+    if (KeptExtra(seal, chr, &ignored)) return;
+    for (int i = 0; i < 4; ++i) if (!g_keptChr[i]) { g_keptChr[i] = chr; g_keptDist[i] = dist; return; }
+}
+// human #122288: crouch cancel at the soul core transformation start. [Spirit] FormCrouchCancel = window in ms (default 200 per human #122339, 0 = off).
+// An L3 (crouch) press within the window after the soul-core press (PickPoll: d-pad LEFT/DOWN edge or the game's accept) cancels the
+// transformation of that press, for every core (no id list):
+//  1. FormBlockPad lets L3 + the left stick through during the window (g_fccPassUntil), so the game's own crouch reaches it and cuts the
+//     seal throw where the game allows it (vanilla quick-crouch cancel). x8 RunThrow and the start fade-out are stopped at once.
+//  2. FormHide4Tick: a pending begin is dropped; a form already up ends through the normal end path (reason "crouch-cancel":
+//     Fh4Restore = player visible, pad released) - no fade, no ghost exit. A seal the press still spawned (bound or later, up to the
+//     cold-spawn limit) is despawned through SealQueueDespawn and begins no form.
+//  3. Core count guard ([Spirit] FormCrouchCancelKeepCore=1). human #122360: the first guard read the equipped-core records (inv+10+i*F0)
+//     and could not see the count. Now it uses the table Training's infinite soul cores puts back live (pc #57367, live 11-20 01:55):
+//     records inv+0x1E0AD0 + i*0xE8 (i < 1200, u16 id == u16 base id at +0/+2, u32 count at +4). The press snapshots id + count of every
+//     record; from the cancel until 3 s after it, a record with the same id whose count is exactly one below its press value gets the
+//     press value written back (absolute value: idempotent with Training's own put-back). No id list: works for every core.
+std::atomic<int> g_fccKeepCore{1};
+std::atomic<bool> g_fccEndReq{false};
+constexpr uint64_t kFccInvArr = 0x1E0AD0, kFccInvStride = 0xE8;
+constexpr int kFccInvN = 1200;
+struct FccInv { bool ok = false; int have = 0; uint16_t id[kFccInvN] = {}; uint32_t n[kFccInvN] = {}; bool done[kFccInvN] = {}; };
+struct FccState {
+    double pressT = -100, cancelT = -100, watchUntil = -100, suppressUntil = -100;
+    int dir = 0; uint32_t core = 0; bool transform = false, decided = false;
+    int putBack = 0, other = 0;  // core guard counts of the current cancel
+};
+FccState g_fcc;  // game thread only (PickPoll / FormHide4Tick)
+FccInv g_fccInv;
+bool FccReadInvRec(uint64_t inv, int i, uint16_t& id, uint32_t& n) {
+    uint8_t h[8];
+    if (!CopySafe(h, inv + kFccInvArr + uint64_t(i) * kFccInvStride, sizeof h)) return false;
+    uint16_t base = 0; memcpy(&id, h, 2); memcpy(&base, h + 2, 2); memcpy(&n, h + 4, 4);
+    if (!id || id != base || n > 999) id = 0;
+    return true;
+}
+bool FccSnapInv() {
+    FccInv& v = g_fccInv; v.ok = false; v.have = 0;
+    if (!gamerva::g_known) return false;  // structure offsets verified for the supported build only
+    const uint64_t inv = InvBase();
+    if (!inv) return false;
+    for (int i = 0; i < kFccInvN; ++i) {
+        v.done[i] = false;
+        if (!FccReadInvRec(inv, i, v.id[i], v.n[i])) { v.id[i] = 0; continue; }
+        if (v.id[i]) ++v.have;
+    }
+    v.ok = v.have > 0;
+    return v.ok;
+}
+void FccPress(double now, int dir) {
+    const int ms = g_fccMs.load();
+    g_fcc.pressT = now; g_fcc.dir = dir; g_fcc.core = g_pickCore.load(); g_fcc.decided = false;
+    g_fccEndReq.store(false);
+    g_fcc.watchUntil = -100;      // a new press closes the old count guard (its own use must stay spent)
+    if (g_fcc.suppressUntil > now) Log("FormCrouchCancel: new press ends the despawn window of the cancelled press t=%.3f", now);
+    g_fcc.suppressUntil = -100;
+    g_fcc.transform = ms > 0 && ScOn() && g_fhMode.load() == 4;
+    if (!g_fcc.transform) { g_fccPassUntil.store(0); return; }
+    g_fccPassUntil.store(GetTickCount64() + (ULONGLONG)ms);
+    const bool eat = FbEnsureHooked();  // human #122339: L3 in the window cancels only, never crouches
+    if (eat) g_fccEatUntil.store(GetTickCount64() + (ULONGLONG)ms);
+    const bool snap = g_fccKeepCore.load() && FccSnapInv();
+    Log("FormCrouchCancel: press dir=%c core=%X t=%.3f window=%d ms (stick free, L3 eaten until %.3f) guard=%s (%d inventory records)",
+        dir == 1 ? 'L' : 'D', g_fcc.core, now, ms, now + ms / 1000.0, !g_fccKeepCore.load() ? "off" : snap ? "snapshot" : "unreadable", g_fccInv.have);
+}
+void FccShowPlayer(uint64_t player, double now);
+void FccPadTick(WORD bt, double now) {
+    static bool l3Was = false;
+    const bool l3 = (bt & 0x0040) != 0, rise = l3 && !l3Was;
+    l3Was = l3;
+    if (!rise || g_fcc.pressT < 0) return;
+    const double d = now - g_fcc.pressT;
+    if (d < 0 || d > 3.0) return;  // no soul-core press in the last 3 s: an ordinary crouch, not logged
+    const int ms = g_fccMs.load(), dms = (int)(d * 1000.0 + 0.5);
+    const char* why = ms <= 0 ? "FormCrouchCancel=0 (off)" : g_fcc.decided ? "this press was already decided"
+                    : !g_fcc.transform ? "not a transformation press (forms OFF, core set to game summon or FormHide != 4)"
+                    : dms > ms ? "late (outside the window)" : nullptr;
+    if (why) {
+        Log("FormCrouchCancel: L3 t=%.3f press t=%.3f delta=%d ms window=%d ms -> ignored: %s", now, g_fcc.pressT, dms, ms, why);
+        if (ms > 0 && g_fcc.transform) g_fcc.decided = true;
+        return;
+    }
+    g_fcc.decided = true; g_fcc.cancelT = now; g_fcc.putBack = g_fcc.other = 0;
+    g_fcc.suppressUntil = g_fcc.pressT + 8.5;  // a cold-loaded core spawns up to ~5.5 s late (KnownTransformWaitUntil: press + 8 s)
+    g_fcc.watchUntil = now + 3.0;
+    g_fccPassUntil.store(GetTickCount64() + 300);  // left stick stays free a moment; the held L3 stays eaten until released (#122339)
+    g_fccEndReq.store(true);
+    if (g_rtT0.exchange(-100) > -50) Log("FormCrouchCancel: x8 RunThrow closed t=%.3f", now);
+    g_runFadeAt.store(0);
+    const bool fading = g_plOutT0.load() > 0 && now >= g_plOutT0.load();
+    g_plOutT0.store(0);
+    Log("FormCrouchCancel: L3 t=%.3f press t=%.3f delta=%d ms window=%d ms -> CANCELLED (form %s, start fade %s) core=%X, L3 eaten from the game %ld (no crouch)",
+        now, g_fcc.pressT, dms, ms, g_fh4.owner ? "up: ends now" : "not begun: begin dropped", fading ? "undone" : "not started", g_fcc.core, g_fccEaten.load());
+    if (fading) FccShowPlayer(g_plOutChr.load(), now);
+}
+// The start fade-out (PlayerFadeOut) may already have lowered the player's root multipliers before FormHide took over: put back the
+// values it saved at its first frame, only where the current value is lower (the game rewrites +3A8 itself on the next update anyway).
+void FccShowPlayer(uint64_t player, double now) {
+    uint64_t root = 0; float k8 = 0, k6 = 0; bool ok = true;
+    if (!player || player != FkPlayer() || !Rd(player + 0x20, root) || !root) ok = false;
+    else {
+        if (Rd(root + 0x3A8, k8) && std::isfinite(k8) && g_plOutK8 > 0 && k8 < g_plOutK8) ok &= WrBytes(root + 0x3A8, &g_plOutK8, 4);
+        if (Rd(root + 0x248, k6) && std::isfinite(k6) && g_plOutK6 > 0 && k6 < g_plOutK6) ok &= WrBytes(root + 0x248, &g_plOutK6, 4);
+    }
+    Log("FormCrouchCancel: start fade undone k8 %.3f -> %.3f k6 %.3f -> %.3f ok=%d t=%.3f", k8, g_plOutK8, k6, g_plOutK6, ok, now);
+}
+// Core count guard poll (game thread, every FormHide4Tick).
+void FccCoreTick(double now) {
+    if (g_fcc.watchUntil < 0) return;
+    const bool last = now >= g_fcc.watchUntil;
+    const uint64_t inv = g_fccKeepCore.load() && g_fccInv.ok ? InvBase() : 0;
+    for (int i = 0; i < kFccInvN && inv; ++i) {
+        if (!g_fccInv.id[i] || g_fccInv.done[i]) continue;
+        uint16_t id = 0; uint32_t n = 0;
+        if (!FccReadInvRec(inv, i, id, n) || n == g_fccInv.n[i]) continue;
+        g_fccInv.done[i] = true;
+        if (id == g_fccInv.id[i] && n + 1 == g_fccInv.n[i]) {
+            const bool ok = WrBytes(inv + kFccInvArr + uint64_t(i) * kFccInvStride + 4, &g_fccInv.n[i], 4);
+            uint32_t back = 0; Rd(inv + kFccInvArr + uint64_t(i) * kFccInvStride + 4, back);
+            ++g_fcc.putBack;
+            Log("FormCrouchCancel: item %X slot %d count %u -> %u after the cancel: put back ok=%d (now %u) t=%.3f",
+                id, i, g_fccInv.n[i], n, ok && back == g_fccInv.n[i], back, now);
+        } else {
+            ++g_fcc.other;
+            Log("FormCrouchCancel: item %X slot %d changed id %X count %u -> %u (not a drop by 1) - not touched t=%.3f", g_fccInv.id[i], i, id, g_fccInv.n[i], n, now);
+        }
+    }
+    if (!last) return;
+    Log("FormCrouchCancel: core guard done %.1f s after the cancel: %d put back, %d other changes%s t=%.3f", now - g_fcc.cancelT, g_fcc.putBack, g_fcc.other,
+        !g_fccKeepCore.load() ? " (FormCrouchCancelKeepCore=0)" : g_fccInv.ok ? "" : " (no press snapshot)", now);
+    g_fcc.watchUntil = -100;
+}
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static double pendAt = 0, pendTrig = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
+    static uint64_t pendCap = 0; static double pendCapT = -1; static bool pendSpawn = false;  // #66107: the actor a fresh begin was armed with
+    bool keepArmed = false;
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     bool spawnBegin = false;
     static uint64_t spawnUsed = 0; static double spawnUsedT = -1;  // a spawn-hit seal begins one form only (the end resets 'attempted' to the FormSlot0 capture)
+    PressGhostTick();
+    switch (pressq::Tick(g_pressQ, GetTickCount64(), g_ghostSeal.load() != 0, g_fh4.owner != 0 || g_fbActive.load(), g_pickLearned.load(), [](bool first) {
+        const double now = Now();
+        // The physical press can snapshot the dying old seal. Once it unlinks, its pooled address
+        // may be reused by this replay's new seal. Capture actors still alive BEFORE publishing input.
+        // Retries are the same logical press: recapturing could blacklist its delayed new spawn.
+        if (first) {
+            const bool ok = PressSnapTake(now);
+            Log("FormCore queued press snapshot: %zu live actors%s t=%.3f", g_pressSnap.nodes.size(),
+                ok ? "" : " - actor table unreadable, no snapshot", now);
+        }
+        g_pickT.store(now); g_pickLearned.store(false);
+    })) {
+    case pressq::Step::Pulse:
+        Log("FormCore queued press fired: dir=%c try %d t=%.3f", g_pressQ.dir.load() == 1 ? 'L' : 'D', g_pressQ.tries.load(), Now());
+        break;
+    case pressq::Step::Done: Log("FormCore queued press: new seal spawned t=%.3f", Now()); break;
+    case pressq::Step::Expired: Log("FormCore queued press: dropped after %d ms t=%.3f", (int)pressq::kWindowMs, Now()); break;
+    case pressq::Step::GaveUp: Log("FormCore queued press: no seal after %d tries, gave up t=%.3f", pressq::kMaxTries, Now()); break;
+    default: break;
+    }
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
@@ -3576,10 +4364,23 @@ void FormHide4Tick(uint64_t player) {
         } else if (pr == 1) GhostHideSeal(gs);
     }
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
-    if (g_fh4.owner && g_fh4.fromSpawn) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
-    else if (g_fhFollow.load() && g_fh4.owner && !g_fh4.seal) {  // pc #56910: no kind-0 capture for some cores (DOWN A2ACB) -> use the spawn hit
+    double primaryAt = 0;
+    const uint64_t primary = PressPrimarySeal(&primaryAt);
+    if (primary) {
+        cap = primary; capT = primaryAt;
+        AcquireSRWLockExclusive(&g_fh4Lock);
+        if (g_fh4.owner && g_fh4.seal && g_fh4.seal != primary && !g_ghostReq.load()) {
+            Log("FormPrimary: promote %llX -> %llX for pressed core %X", (unsigned long long)g_fh4.seal,
+                (unsigned long long)primary, g_pickCore.load());
+            g_fh4.seal = primary; g_fh4.capT = primaryAt; g_fh4.keepSeal = true;
+            FormHideEndBegin(player, primary);
+        }
+        ReleaseSRWLockExclusive(&g_fh4Lock);
+    }
+    if (g_fh4.owner && (g_fh4.fromSpawn || g_fh4.keepSeal)) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
+    else if (g_fh4.owner && !g_fh4.seal) {  // #81879: binding is required even when follow is OFF (pin mode).
         const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
-        if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3) {
+        if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3 && !AliveAtPress(sc)) {
             Log("FormHide=4 seal from spawn hit (no FormSlot0 capture) chr=%llX desc=%X t=%.3f", (unsigned long long)sc, g_fkSealDesc.load(), now);
             cap = sc; capT = st; g_fh4.fromSpawn = true;
         }
@@ -3609,10 +4410,33 @@ void FormHide4Tick(uint64_t player) {
     downWas = down;
     const bool padLeft = now - leftT < 1.0;
     leftWas = left;
+    {   // #66107: the first soul-core use signal of a press (d-pad edge, the game's accept, the seal/throw action) snapshots the live actors
+        static double lastSig = -100;
+        const double rt = g_rtAcceptT.load(), sig = (std::max)((std::max)(rt, g_sealEdgeT), leftT);
+        if (sig > lastSig + 1e-6) {
+            lastSig = sig;
+            // report #22: a refused press (no orb, no throw) still took a snapshot, and the 2.5 s rule then kept it for the next real press
+            // (20:01:40.58 refused -> 42.86 real, 2.3 s). Its actors may die and their pooled addresses come back as the real yokai
+            // (214C6A523F0 was B18D3, then 16127) -> wrongly 'alive at the press'. A snapshot the game never followed with a use is replaced.
+            const bool unused = g_pressSnap.t > 0 && sig - g_pressSnap.t > 0.3 && g_orbHooked.load() && !UseConfirmedSince(g_pressSnap.t);
+            if ((sig - g_pressSnap.t > 2.5 || unused) && now - sig < 0.25) {
+                const bool ok = PressSnapTake(now);
+                Log("FormHide=4 press snapshot: %zu live actors%s (a form binds only an actor spawned after this) t=%.3f",
+                    g_pressSnap.nodes.size(), ok ? "" : " - actor table unreadable, no snapshot", now);
+            }
+        }
+    }
+    FccCoreTick(now);  // human #122288: core count guard after a crouch cancel
+    const bool fccEnd = g_fccEndReq.exchange(false) && now - g_fcc.cancelT < 1.0;  // never a stale request on a later form
     AcquireSRWLockExclusive(&g_fh4Lock);
+    if (fccEnd && !g_fh4.owner) {  // human #122288: crouch inside the window before the begin -> the armed begin is dropped
+        Log("FormCrouchCancel: no form up yet - armed begin %s dropped, no hide t=%.3f", pendAt > 0 ? "(pending)" : "(none)", now);
+        pendAt = pendTrig = 0; pendEdge = pendSpawn = false; pendPlayer = pendCap = 0; pendCapT = -1;
+    }
     if (g_fh4.owner) {
         const char* reason = nullptr;
-        if (const uint64_t gr = g_ghostReq.load(); gr && gr == g_fh4.seal && now >= g_ghostReqAt.load()) { g_ghostReq.store(0); reason = "ghost-exit"; }
+        if (fccEnd) reason = "crouch-cancel";  // human #122288: same end path as every other end (Fh4Restore)
+        else if (const uint64_t gr = g_ghostReq.load(); gr && gr == g_fh4.seal && now >= g_ghostReqAt.load()) { g_ghostReq.store(0); reason = "ghost-exit"; }
         else if (const uint64_t fe = g_fh4ForceEnd.load(); fe && fe == g_fh4.seal) {
             g_fh4ForceEnd.store(0); reason = g_fh4ForceWhy;
             g_ghostFadeSeal.store(0); g_ghostHideAt.store(0); g_ghostT.store(now); g_ghostSeal.store(fe); GhostHideSeal(fe);
@@ -3621,25 +4445,117 @@ void FormHide4Tick(uint64_t player) {
         else if (player != g_fh4.owner) reason = "player-change";
         else if (g_fh4Fault.load()) reason = "apply-fault";
         else if (!g_fh4.seal) {
-            if (cap && capT >= g_fh4.started - .05) {
+            if (cap && capT >= g_fh4.started - .05 && AliveAtPress(cap)) {
+                static uint64_t rejLogged = 0;
+                if (rejLogged != cap) { rejLogged = cap; Log("FormHide=4 skip: seal %llX was already alive at the press (%.2f s ago) - not spawned by it, no form t=%.3f", (unsigned long long)cap, now - g_pressSnap.t, now); }
+                attempted = cap; attemptedT = capT;
+            }
+            // report #22: the seal orb of this press landed -> the game used the core and its yokai is on the way (DOWN 16127 spawns 0.6-1.73 s
+            // after the orb, i.e. after the throw ended). v2 gave the player back 0.4 s after the throw, so every DOWN use popped the samurai
+            // back and hid it again 0.5-1.3 s later. Then wait SealOrbSpawnMs from the orb; with no orb, the throw-end rule stays.
+            const bool orbOut = g_orbHooked.load() && g_orbT.load() >= g_fh4.started - .05 && g_orbSpawnMs.load() > 0;
+            // #81879: a cold LEFT spawn arrived 1.97 s after its orb, inside the accepted use window but after
+            // the old 1.8 s end. Keep one hide alive for the entire window in which this use can still bind a seal.
+            const double useT = (std::max)(g_orbT.load(), g_sealEdgeT);
+            const double normalNoSpawnAt = orbOut ? (std::max)(g_orbT.load() + g_orbSpawnMs.load() / 1000.0,
+                                                        useT + (std::max)(0, g_formNeedUseMs.load()) / 1000.0)
+                                           : g_throwDoneT + g_noSpawnEndMs.load() / 1000.0;
+            const double coldUntil = KnownTransformWaitUntil(g_fh4.started);
+            if (coldUntil > normalNoSpawnAt) {
+                static double loggedPress = -100;
+                if (loggedPress != g_pickT.load()) {
+                    loggedPress = g_pickT.load();
+                    Log("FormCore cold-wait core=%X confirmed=1 deadline=%.3f press=%.3f (8000 ms)", g_pickCore.load(), coldUntil, loggedPress);
+                }
+            }
+            const double noSpawnAt = (std::max)(normalNoSpawnAt, coldUntil);
+            const double pressTimeoutAt = (std::max)(coldUntil, orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5);
+            if (cap && !FormSealExited(cap) && capT >= g_fh4.started - .05 && (coldUntil < 0 || capT <= noSpawnAt) && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                // report #22: the first fresh actor after the press is this form's seal (same rule as the delayed begin, #66107): a later capture
+                // (C17E3 0.26 s after 16127, 20:02:16.38) must not end the form as a capture-change
+                g_fh4.keepSeal = true;
+                Log("FormHide=4 press hide binds the first fresh seal %llX %.2f s after the press (later captures are not adopted) t=%.3f",
+                    (unsigned long long)cap, now - g_fh4.started, now);
                 g_fh4.started = now; FormHideEndBegin(player, cap);
                 FormHideEndReason(player, cap, now);
-            } else if (now - g_fh4.started > 2.5) reason = "press-no-seal";
+            } else if (g_noSpawnEndMs.load() > 0 && g_sealEdgeT >= g_fh4.started - 1.5 && g_throwDoneT > g_sealEdgeT &&
+                       !(g_fkSealChr.load() && g_fkSealT >= g_fh4.started - .05) && now >= noSpawnAt) {
+                reason = "throw-done-no-seal";  // report #19: throw over, no yokai came out -> give the player back now, not after 2.5 s
+                if (orbOut) Log("FormHide=4 seal orb landed %.2f s ago and no seal spawned (%.2f s after the press)", now - g_orbT.load(), now - g_fh4.started);
+                else Log("FormHide=4 throw ended %.2f s ago with no seal orb and no seal spawn (%.2f s after the press)", now - g_throwDoneT, now - g_fh4.started);
+            } else if (now > pressTimeoutAt) reason = "press-no-seal";
             else if (g_sealCancelEndMs.load() > 0 && g_throwCutT >= g_fh4.started - 1.5) {
                 // pc2 #59480/#59533: a hit (0x271F) cut the throw before the yokai spawned -> player hidden 2.1 s with no yokai.
                 // FhSealActTick marks a seal action that went straight to a non-throw action; the hide begins ~0.3 s after that.
                 reason = "throw-cancelled"; Log("FormHide=4 throw cut by action 0x%X %.2f s before the hide", g_throwCutAct, g_fh4.started - g_throwCutT);
             }
-        } else if (cap != g_fh4.seal || capT != g_fh4.capT) reason = "capture-change";
+        } else if (cap != g_fh4.seal || capT != g_fh4.capT) {
+            // #72299 / #72586 / #72621 / #72747 / #73244: a later motion-0 spawn under 1 m is the extra body of this press.
+            // The 12:01 am press ended in 42 ms because that body was 0.2 m away and the old gate was 0.05 m.
+            // At 1:49 am the same body was kept, then cut 1.8 s later: another spawn replaced the one note,
+            // FormSlot0 still showed the kept body, and the missing note was treated as a new seal.
+            // A body already kept for this seal stays kept. A missing distance is not far.
+            // A capture of a different body still ends the form. No id list.
+            {
+                const uint64_t noteChr = g_fkSealChr.load();
+                const uint32_t noteMot = g_fkSealMotion.load();
+                const float noteDist = g_fkSealDist;
+                const bool noted = noteChr == cap && g_fkSealT >= g_fh4.started - .05f;
+                float remembered = -1.f;
+                const bool already = KeptExtra(g_fh4.seal, cap, &remembered);
+                const bool keep = already || (noted && !LaterSpawnReplacesLiveSeal(noteMot, noteDist));
+                if (keep) {
+                    const float shownDist = noted ? noteDist : remembered;
+                    const uint32_t shownMot = noted ? noteMot : 0;
+                    if (!already) RememberKeptExtra(g_fh4.seal, cap, shownDist);
+                    static uint64_t emptyLogged = 0;
+                    static uint64_t alreadyLogged = 0;
+                    if (already && alreadyLogged != cap) {
+                        alreadyLogged = cap;
+                        Log("FormHide=4 later spawn %llX motion=%X dist=%.2f keep (gate 1 m, already kept) seal %llX t=%.3f",
+                            (unsigned long long)cap, shownMot, shownDist, (unsigned long long)g_fh4.seal, now);
+                    } else if (!already && emptyLogged != cap) {
+                        emptyLogged = cap;
+                        Log("FormHide=4 later spawn %llX motion=%X dist=%.2f keep (gate 1 m) seal %llX t=%.3f",
+                            (unsigned long long)cap, shownMot, shownDist, (unsigned long long)g_fh4.seal, now);
+                    }
+                    cap = g_fh4.seal; capT = g_fh4.capT;
+                    reason = FormHideEndReason(player, cap, g_fh4.started);
+                } else {
+                    const uint32_t shownMot = noted ? noteMot : 0;
+                    const float shownDist = noted ? noteDist : -1.f;
+                    Log("FormHide=4 later spawn %llX motion=%X dist=%.2f new seal (gate 1 m%s) was %llX t=%.3f",
+                        (unsigned long long)cap, shownMot, shownDist, noted ? "" : ", no spawn note",
+                        (unsigned long long)g_fh4.seal, now);
+                    reason = "capture-change";
+                }
+            }
+        }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
+        if (reason && !strcmp(reason, "seal-despawn") &&
+            !NativeSealExitReady(g_fh4.seal, g_fh4.capT, player)) reason = nullptr;
         if (reason) {
+            // #82145/#82155: retire only pending begin metadata on a failed press. Existing restore owns pad/player cleanup.
+            const bool fcc = !strcmp(reason, "crouch-cancel");
+            if (!strcmp(reason, "throw-done-no-seal") || !strcmp(reason, "press-no-seal") || !strcmp(reason, "throw-cancelled") || fcc) {
+                pendAt = pendTrig = 0; pendEdge = pendSpawn = false; pendPlayer = pendCap = 0; pendCapT = -1;
+            }
+            if (fcc && g_fh4.seal) {  // human #122288: the press's yokai is already out -> it leaves with the cancel (never one alive at the press)
+                const int ok = AliveAtPress(g_fh4.seal) ? -3 : SealQueueDespawn(g_fh4.seal);
+                Log("FormCrouchCancel: bound seal %llX despawn ok=%d (-3 = alive at the press, left alone) t=%.3f", (unsigned long long)g_fh4.seal, ok, now);
+            }
+            RetireFormSeals(g_fh4.seal);
+            ClearKeptExtras();
             Log("FormHide=4 end %s", reason);
-            if (!strcmp(reason, "ghost-exit") && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
+            g_fh4EndWhy = reason; g_nativeExitPending = false;
+            if ((!strcmp(reason, "ghost-exit") || !strcmp(reason, "seal-despawn")) && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
                 g_plFadeRoot = g_fh4.root; g_plFadeK8 = g_fh4.multiplier; g_plFadeK6 = g_fh4.fade;
                 g_plFadeChr.store(player); g_plFadeT0.store(now);
             }
             Fh4Restore(player);
+            if (fcc) Log("FormCrouchCancel: restore %s (player visible, FormBlockPad %s) t=%.3f", g_fh4.owner ? "FAILED - retried by the tick" : "ok",
+                         g_fbActive.load() ? "still on" : "released", now);
             // pc #57103: the FormSlot0 capture outlives the form (cleared only at 60 s). A spawn-hit form (DOWN A2ACB) never consumed it, so
             // the same tick re-began a form on the stale LEFT seal -> hidden + locked 20 s. Every end consumes whatever capture is current.
             attempted = g_fs0CapChr.load(); attemptedT = g_fs0CapT;
@@ -3673,16 +4589,33 @@ void FormHide4Tick(uint64_t player) {
                         heldAt = g_ghostReqAt.load();
                         Log("FormFollow hold: player kept at the last-hit spot %.1f %.1f %.1f until the reveal t=%.3f", hold[0], hold[1], hold[2], now);
                     }
-                    if (heldAt == g_ghostReqAt.load() && !(g_fhWarp.load() && FormPinWarpCall(player, hold))) WrBytes(player + 0x110, hold, 16);
+                    if (heldAt == g_ghostReqAt.load() && FormFollowGroundTarget(player, hold)) {
+                        if (FormFollowWrite(player,hold)) g_followGround.used = true;
+                    }
                 } else if (fd == 1) FormFollow(player, g_fh4.seal);
                 else if (fd == 0) FormPin(player, g_fh4.seal);
                 Fh4KeepSeal();
             }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player && [&] {
+                   if (FormSealExited(cap)) return false;
                    bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
                                       FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
                    spawnBegin = false;
+                   if (now < g_fcc.suppressUntil) {  // human #122288: a crouch-cancelled press begins no form; a seal it still spawned leaves
+                       const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
+                       const bool spawnNew = sc && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT);
+                       if (fresh || spawnNew) {
+                           const uint64_t s = fresh ? cap : sc;
+                           if (fresh) { attempted = cap; attemptedT = capT; }
+                           if (spawnNew) { spawnUsed = sc; spawnUsedT = st; }
+                           const int ok = AliveAtPress(s) ? -3 : SealQueueDespawn(s);
+                           Log("FormCrouchCancel: seal %llX of the cancelled press despawned ok=%d (-3 = alive at the press, left alone), no form t=%.3f",
+                               (unsigned long long)s, ok, now);
+                       }
+                       pendAt = 0;
+                       return false;
+                   }
                    if (now < g_dbgCutSuppress) {  // pc #59670 DebugForceThrowCut: the faked-cut throw still makes a seal - remove it, no form
                        const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
                        const bool spawnNew = sc && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT);
@@ -3699,11 +4632,13 @@ void FormHide4Tick(uint64_t player) {
                    }
                    if (!fresh && !edge) {  // human #58738/#58746: no FormSlot0 capture for some cores (30744) -> the seal spawn hit is the capture (every core, every slot)
                        const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
-                       if (sc && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
+                       if (sc && !FormSealExited(sc) && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
                            cap = sc; capT = st; fresh = true; spawnBegin = true;
                        }
                    }
-                   if (!g_scForms.load() && pendAt <= 0) {  // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
+                   if (!ScOn() && (pendAt <= 0 || g_pickOff.load())) {  // #81275: a pick-OFF core cancels an already armed begin too
+                       pendAt = 0;
+                       // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
                        if (fresh) { if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; } }
                        return false;
                    }
@@ -3711,10 +4646,36 @@ void FormHide4Tick(uint64_t player) {
                    const bool sealActOk = needMs <= 0 || now - g_sealEdgeT <= needMs / 1000.0;
                    static uint64_t skipLogged = 0;
                    if (fresh && !sealActOk && skipLogged != cap) { skipLogged = cap; Log("FormHide=4 skip: seal %llX captured without a seal throw in the last %d ms (summon-type core) - no form t=%.3f", (unsigned long long)cap, needMs, now); }
-                   const bool freshOk = fresh && sealActOk;
+                   // report #19: a trap-type core's yokai came out 10 s after its throw (2.4 s after the last use) 7 m away - the form grabbed and
+                   // teleported the player. A seal begins a form only within [Spirit] FormNeedUseMs of a soul-core use (the game's accept
+                   // HasSkill(0xEDC9), a seal/throw action start, or a d-pad LEFT/DOWN press). Universal, 0 = off.
+                   const int useMs = g_formNeedUseMs.load();
+                   // report #22: with the orb hooks in, only a use the game really made counts (its seal orb or a seal/throw action). The accept
+                   // and the d-pad edge are also there for refused presses: 20:02:02.35 a 16127 came out 2.37 s after a refused accept (no orb,
+                   // no throw, no item used) and v2 rejected it only by 0.17 s.
+                   const double useT = g_orbHooked.load() ? (std::max)(g_orbT.load(), g_sealEdgeT)
+                                                          : (std::max)((std::max)(g_rtAcceptT.load(), g_sealEdgeT), leftT);
+                   const bool useOk = useMs <= 0 || capT - useT <= useMs / 1000.0 || capT <= KnownTransformWaitUntil(useT);
+                   static uint64_t useSkipLogged = 0;
+                   if (fresh && !useOk) {
+                       if (useSkipLogged != cap) { useSkipLogged = cap; Log("FormHide=4 skip: seal %llX came out %.2f s after the last soul-core use (> %d ms) - not this press, no form t=%.3f", (unsigned long long)cap, capT - useT, useMs, now); }
+                       if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; }
+                   }
+                   // #66107: an actor that was already in the actor table at the press was not spawned by it (DOWN uses 2/3 began a 9 s form on
+                   // such a C17E3 and dragged the player 10 m). Rejected for every core, no list.
+                   const bool bornOk = !AliveAtPress(cap);
+                   static uint64_t bornSkipLogged = 0;
+                   if (fresh && useOk && !bornOk) {
+                       if (bornSkipLogged != cap) { bornSkipLogged = cap; Log("FormHide=4 skip: seal %llX was already alive at the press (%.2f s ago) - not spawned by it, no form t=%.3f", (unsigned long long)cap, now - g_pressSnap.t, now); }
+                       if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; }
+                   }
+                   bool freshOk = fresh && sealActOk && useOk && bornOk;
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
                    if ((edge || freshOk) && pendAt <= 0) {
                        pendAt = now + (spawnBegin ? 0 : g_fhDelayMs.load() / 1000.0); pendTrig = now; pendEdge = edge; pendPlayer = player;  // the spawn-hit seal is already out: no press delay
+                       // #66107: the first fresh actor after the press is the one the form binds. In test C a 2nd actor (C17E3) captured during
+                       // the 400 ms delay replaced the first (16127) and its 9 s life dragged the player. Remember the armed actor.
+                       pendCap = freshOk ? cap : 0; pendCapT = capT; pendSpawn = spawnBegin;
                        { const int fs = g_styleFree.load(), sn = FbStyleNow(); g_fbPressArm.store(fs >= 0 ? fs : sn);  // human #58330
                          Log("FormStyle press: free %d A95C %d -> %d", fs, sn, g_fbPressArm.load()); }
                        if (padLeft) CoverStartSmoke(player, now);  // human #58146: smoke first, the player vanishes inside it
@@ -3722,17 +4683,30 @@ void FormHide4Tick(uint64_t player) {
                    if (pendAt <= 0) return false;
                    if (pendPlayer != player || now - pendAt > 2.5) { pendAt = 0; return false; }
                    if (now < pendAt) return false;
+                   if (pendCap && (pendCap != cap || pendCapT != capT) && FormHideSealPresent(g_fhEnd.actorGlobal, pendCap) != 0) {
+                       Log("FormHide=4 begin keeps the first fresh seal %llX (armed %.2f s ago); later actor %llX is not adopted t=%.3f",
+                           (unsigned long long)pendCap, now - pendTrig, (unsigned long long)cap, now);
+                       if (fresh && !spawnBegin) { attempted = cap; attemptedT = capT; }  // the later capture never begins its own form
+                       if (const uint64_t sc = g_fkSealChr.load(); sc && sc != pendCap) { spawnUsed = sc; spawnUsedT = g_fkSealT; }
+                       cap = pendCap; capT = pendCapT; spawnBegin = pendSpawn; freshOk = true; keepArmed = true;
+                   }
+                   pendCap = 0;
                    edge = pendEdge && !(freshOk && g_fhDelayMs.load() > 0);  // a capture that came in during the delay is adopted as a capture begin
                    pendAt = 0;
                    return edge || freshOk;
                }()) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             // human #58208: started = the trigger, not the delayed begin: the DOWN seal's spawn hit lands inside the delay and was missed
+            FormFollowGroundBegin(player);
             g_fh4.owner = player; g_fh4.started = pendTrig > 0 && pendTrig <= now ? pendTrig : now; g_fh4Fault.store(false);
             g_formUseTick.store(GetTickCount());  // human #60993: Training's infinite soul core keys off any form start
+            // #66107: the x8 RunThrow window belongs to this accept only up to the hide. Test C: after a no-seal press hide ended at 0.58 s the
+            // window (1.2 s) came back -> a 2nd 'rate 1.000 -> 8.000' on the idle player. Close it here so no end can re-open it.
+            if (g_rtT0.exchange(-100) > -50) Log("RunThrow: closed at the form/hide begin - normal speed after it t=%.3f", now);
             FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                if (keepArmed && !spawnBegin) g_fh4.keepSeal = true;
                 if (spawnBegin) { g_fh4.fromSpawn = true; spawnUsed = cap; spawnUsedT = capT; Log("FormHide=4 begin from the seal spawn hit (no FormSlot0 capture) seal=%llX desc=%X t=%.3f", (unsigned long long)cap, g_fkSealDesc.load(), now); }
                 FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
             }
@@ -3848,7 +4822,7 @@ void FormHideDirectTick(uint64_t pchr) {
     const bool press = (leftEdge || actEdge) && pchr;
     if (!press && (mode != 3 || !pchr || !cap || now < capT || (attempted == cap && attemptedT == capT))) return;
     if (!press) { attempted = cap; attemptedT = capT; }
-    if (!g_scForms.load()) return;  // human #61869: forms OFF = no new mode-3 hide
+    if (!ScOn()) return;  // human #61869: forms OFF = no new mode-3 hide
     if (!guarded()) { Log("FormHide=3: full 29-byte A550E8 guard differs - skipped"); return; }
     uint8_t before = 0xFF, after = 0xFF;
     if (!Rd(pchr + 0xB440, before)) { Log("FormHide=3: hide-byte read failed - skipped"); return; }
@@ -3880,7 +4854,7 @@ void FormHideTick(uint64_t pchr) {
     static int pins = 0;
     const uint64_t cap = g_fs0CapChr.load();
     if (!pchr || !cap) return;
-    if (!g_scForms.load() && done != cap) { done = undone = cap; return; }  // human #61869: forms OFF = no new native hide
+    if (!ScOn() && done != cap) { done = undone = cap; return; }  // human #61869: forms OFF = no new native hide
     if (g_fhUntilEnd.load() && g_fhEnd.active && g_fhEnd.player != pchr) {
         Log("FormHideUntilEnd abandon: native player changed; no unhide on replacement player");
         g_fhEnd.active = false;
@@ -4005,6 +4979,13 @@ void SealDeferRelease(const char* why) {
     if (!g_sdHeld || !g_sdOrig) return;
     const uint64_t a = g_sdHeld, l = g_sdList;
     g_sdHeld = 0;
+    const int pr = FormHideSealPresent(ActorTableGlobal(), a);  // report #67: a held request must not queue a seal the game already freed
+    if (pr != 1) {
+        Log("SealDefer RELEASE (%s) seal=%llX dropped, present=%d (already gone or table unreadable), %d requests swallowed", why,
+            (unsigned long long)a, pr, g_sdSkips);
+        g_sdSkips = 0;
+        return;
+    }
     int ok = 1;
     __try { g_sdOrig(l, a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
@@ -4021,6 +5002,14 @@ int SealQueueDespawn(uint64_t cap) {
         if (!bytesOk) Log("SealEnd: 681E9C bytes not found in this update - off");
     }
     if (!bytesOk) return -1;
+    // report #67: never queue an actor that is not in the actor table. FormCap queued seal 25243899130 in the frame the game had already
+    // despawned it; the despawn drain (5BC9A0 -> 2BF7E8) then read the freed chr's +3B0 and crashed (Nioh3.exe+2BF847). -1 (table
+    // unreadable) is not proof of life either. -2 = not queued (gone or unknown).
+    const int pr = FormHideSealPresent(ActorTableGlobal(), cap);
+    if (pr != 1) {
+        Log("SealQueueDespawn: seal %llX not queued, present=%d (already gone or table unreadable) t=%.3f", (unsigned long long)cap, pr, Now());
+        return -2;
+    }
     int ok = 1;
     g_seoForce = cap;
     __try { ((void (*)(uint64_t))(g_base + Grva(0x681E9C)))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
@@ -4090,6 +5079,7 @@ void SealEndOnIdleTick() {
 // is skipped while SealIdleEnd is on (the ghost exit lets the hidden yokai finish by itself). SealIdleLog=1 (default) logs every
 // action / motion change of the seal from the bind until it is gone ('SealMotion' lines), so one session shows the real signal.
 std::atomic<int> g_sieMode{0}, g_sieMinMs{300}, g_sieLoop{1}, g_sieHold{1}, g_sieHoldMs{100};
+bool g_sieNativeEnd = false;
 uint64_t g_sieFireSeal = 0;  // game thread: SealEndOnHitTick ends this seal's form
 const char* g_sieWhy = "";
 struct SieSample { uint32_t act = 0xFFFFFFFF; uint16_t mot = 0, fact = 0; float f = 0, e = 0, rate = 0; uint8_t loop = 0; bool moOk = false; };
@@ -4112,7 +5102,8 @@ void SieRead(uint64_t chr, SieSample& s) {
 }
 void SealIdleEndTick() {
     const int mode = g_sieMode.load(), lg = g_sieLog.load();
-    if (mode <= 0 && lg <= 0) return;
+    const bool hitFallback = g_ghostOn.load() > 0 && g_coverOn.load() > 0;
+    if (mode <= 0 && lg <= 0 && !hitFallback) return;
     static uint64_t seal = 0;
     static uint32_t sid = 0;
     static double t0 = 0, segT = 0, holdT = 0, nextPresent = 0;
@@ -4130,10 +5121,13 @@ void SealIdleEndTick() {
     static bool wasOn = false;
     const bool on = g_fh4.owner != 0;
     if (on && !wasOn && seal) over("new form");  // the same chr address can come back for the next form
+    // report #22: the watch belongs to one form. It kept logging the seal's motions (form=0) until its despawn 1.5-10 s later, which read
+    // like a form state that was never cleared. It ends with the form now and names the end that made the idle rule unnecessary.
+    if (!on && wasOn && seal) { char w[64]; snprintf(w, sizeof(w), "form ended: %s", g_fh4EndWhy); over(w); }
     wasOn = on;
     if (cur && cur != seal) {
         if (seal) over("new seal");
-        seal = cur; g_sieFireSeal = 0; t0 = now; segT = now; holdT = 0; nextPresent = now + 0.1;
+        seal = cur; g_sieFireSeal = 0; g_sieNativeEnd = false; t0 = now; segT = now; holdT = 0; nextPresent = now + 0.1;
         uint32_t k = 0; Rd(seal, k); sid = k >> 4;
         seenAtk = fired = segEnded = prevSegEnded = oddLogged = false; lastDf = 0; lines = 0; segs = 1;
         SieRead(seal, prev);
@@ -4182,7 +5176,11 @@ void SealIdleEndTick() {
     const SieSample was = prev;
     prev = s;
     if (s.act != 1 && s.act != 0 && s.act != 0xFFFF && s.act != 0xFFFFFFFF) seenAtk = true;
-    if (fired || !formOn || mode <= 0 || !seenAtk || ms < g_sieMinMs.load()) return;
+    // A resumed attack invalidates a latched terminal edge while a helper was still active.
+    if (fired && change && s.act != 1 && s.act != 0 && s.act != 0xFFFF && s.act != 0xFFFFFFFF) {
+        fired = false; g_sieFireSeal = 0; g_sieNativeEnd = false;
+    }
+    if (fired || !formOn || (mode <= 0 && !hitFallback) || !seenAtk || ms < g_sieMinMs.load()) return;
     const char* why = nullptr;
     if (s.act == 1 && pa != 1) why = "act->idle 0x1";
     else if (g_sieLoop.load() > 0 && change && both && s.loop && !was.loop && prevSegEnded) why = "looping motion after the attack motion ended";
@@ -4190,6 +5188,7 @@ void SealIdleEndTick() {
     if (!why) return;
     fired = true;
     g_sieWhy = why;
+    g_sieNativeEnd = s.act == 1; // only native idle, not a predicted motion end, can teach counts
     g_sieFireSeal = seal;
     Log("seal idle end core=%X t=%dms act 0x%X->0x%X mot %X->%X f=%.2f/%.2f loop=%d (%s): ghost exit + exit smoke now t=%.3f", sid, ms, pa, s.act, was.mot, s.mot,
         s.f, s.e, s.loop, why, now);
@@ -4205,8 +5204,57 @@ void SealIdleEndTick() {
 std::atomic<int> g_sehMode{0};
 uint64_t g_sehKid[8] = {};
 double g_sehKidT[8] = {};
+struct PressHitSource { uint64_t actor; double at; };
+std::vector<PressHitSource> g_pressHitSources;
+double g_hitSourceSnapshot = -100;
+struct RetiredFormSeal { uint64_t actor, root; uint32_t key; };
+std::vector<RetiredFormSeal> g_retiredFormSeals;
+bool FormSealExited(uint64_t actor) {
+    if (!actor) return false;
+    for (auto it=g_retiredFormSeals.begin();it!=g_retiredFormSeals.end();) {
+        uint32_t key=0; uint64_t root=0;
+        const int present=FormHideSealPresent(ActorTableGlobal(),it->actor);
+        const bool reused=(Rd(it->actor,key) && key!=it->key) || (Rd(it->actor+0x20,root) && root!=it->root);
+        if (present==0 || reused) it=g_retiredFormSeals.erase(it);
+        else { if(it->actor==actor)return true; ++it; }
+    }
+    return false;
+}
+void RetireFormSeals(uint64_t seal) {
+    std::vector<uint64_t> actors{seal};
+    if(g_hitSourceSnapshot==g_pressSnap.t) for(const auto& entry:g_pressHitSources) actors.push_back(entry.actor);
+    for(uint64_t actor:actors) {
+        if(!actor || actor==FkPlayer() || FormSealExited(actor))continue;
+        uint32_t key=0;uint64_t root=0;
+        if(Rd(actor,key)&&Rd(actor+0x20,root))g_retiredFormSeals.push_back({actor,root,key});
+    }
+}
+uint64_t PressPrimarySeal(double* at) {
+    if (g_hitSourceSnapshot != g_pressSnap.t || g_pressSnap.t <= 0) return 0;
+    const uint32_t wanted = g_pickT.load() >= g_pressSnap.t - 1.5 ? g_pickCore.load() : 0;
+    const PressHitSource* first = nullptr;
+    for (const auto& entry : g_pressHitSources) {
+        if (entry.at < g_pressSnap.t || AliveAtPress(entry.actor) || FormSealExited(entry.actor)) continue;
+        if (!first) first = &entry;
+        uint32_t key = 0;
+        if (wanted && Rd(entry.actor, key) && (key >> 4) == wanted) { *at = entry.at; return entry.actor; }
+    }
+    if (first) { *at = first->at; return first->actor; }
+    return 0;
+}
 void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNote), any chr near the player
     if (!chr) return;  // human #60327: natural mode counts bursts too
+    if (g_hitSourceSnapshot != g_pressSnap.t) {
+        g_pressHitSources.clear(); g_hitSourceSnapshot = g_pressSnap.t;
+    }
+    if (g_pressSnap.t > 0 && Now() >= g_pressSnap.t) {
+        auto found = std::find_if(g_pressHitSources.begin(), g_pressHitSources.end(),
+            [chr](const PressHitSource& s) { return s.actor == chr; });
+        if (found == g_pressHitSources.end()) {
+            g_retiredFormSeals.erase(std::remove_if(g_retiredFormSeals.begin(),g_retiredFormSeals.end(),
+                [chr](const RetiredFormSeal& r){return r.actor==chr;}),g_retiredFormSeals.end());
+            PressGhostForget(chr); g_pressHitSources.push_back({chr, Now()}); }
+    }
     static int n = 0;
     // pc2 #57781: a chr address the game reuses (LEFT's helper EE49E, from the 6th form on) gets its time refreshed; a stale time made
     // the burst test skip its colliders, so burst 1 (28 colliders) was never counted and the ghost exit never fired
@@ -4218,13 +5266,39 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
 // so its burst never closed and the form ran into the idle pose; its real hits are one extra collider at 0.64 / 0.97 / 1.69 s. Counts learned
 // with the old rule are kept apart: [SealHitsA] / [SealLastHitA] are learned fresh (first use of each core plays in full once).
 std::atomic<int> g_sehAtk{1};
-const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA" : L"SealHits"; }
-const wchar_t* SecLastHit() { return g_sehAtk.load() > 0 ? L"SealLastHitA" : L"SealLastHit"; }
+// #82127: old aggregate/appearance counts must never seed the corrected observer.
+const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA4" : L"SealHits4"; }
 int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
-    const int n = (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
-    if (g_sehAtk.load() > 0) return n;
-    return n ? n : id == 0x5129B ? 2 : id == 0xA2ACB ? 2 : 0;  // built-in seeds (ally trace #57014) when the ini has no [SealHits] line
+    return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
+}
+// #108189: who owned the core's LAST burst in a natural (unfired) form: 1 = only helper actors, 0 = the seal took part, -1 = not learned.
+// SealExitOnHelperMs fires only for 1, so a core is played in full once, and a core whose count is merely unknown is never cut.
+const wchar_t* SecHelperLast() { return g_sehAtk.load() > 0 ? L"SealHelperLastA4" : L"SealHelperLast4"; }
+int SealHelperLastFor(uint32_t id) {
+    wchar_t k[16]; swprintf_s(k, L"%X", id);
+    return (int)GetPrivateProfileIntW(SecHelperLast(), k, -1, IniPath());
+}
+// #108262: the flag is read from the ini once per form at seal bind (like SealHitsFor) and kept here; the per-tick check reads the cache.
+// Packed (core id << 8) | (flag + 1); 0 = empty. SealHelperLastLearn updates it so a flag learned this form is seen without a re-read.
+std::atomic<uint64_t> g_helperLastCache{0};
+int SealHelperLastBind(uint32_t id) {
+    const int v = SealHelperLastFor(id);
+    g_helperLastCache.store(((uint64_t)id << 8) | (uint64_t)(v + 1));
+    return v;
+}
+int SealHelperLastCached(uint32_t id) {
+    const uint64_t c = g_helperLastCache.load();
+    return c && (uint32_t)(c >> 8) == id ? (int)(c & 0xFF) - 1 : SealHelperLastBind(id);
+}
+void SealHelperLastLearn(uint32_t id, int owner, const char* why) {  // owner: 1 helper only, 2 seal took part (0 = no burst, nothing learned)
+    if (!id || !owner) return;
+    const int v = owner == 1 ? 1 : 0, had = SealHelperLastFor(id);
+    g_helperLastCache.store(((uint64_t)id << 8) | (uint64_t)(v + 1));
+    if (had == v) return;
+    wchar_t k[16], w[4]; swprintf_s(k, L"%X", id); swprintf_s(w, L"%d", v);
+    WritePrivateProfileStringW(SecHelperLast(), k, w, IniPath());
+    Log("SealEndOnHit learn core %X: last burst owned by %s (was %d) -> [%ls] (%s)", id, v ? "a helper only" : "the seal", had, SecHelperLast(), why);
 }
 // pc #57269 (human #57262): [Spirit] SealExitFx=1 - exit transition instead of the sped-up tail: at the last-hit close the dark appear
 // effects the seal yokai shows when it first spawns (Ibaraki 5129B spawn hit: 63056 63047 6304A 6304D 63050 63053 6307E 63027, from its motion
@@ -4266,6 +5340,8 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_orbSpawnMs.store(IniInt(L"Spirit", L"SealOrbSpawnMs", 1800));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
@@ -4302,7 +5378,7 @@ int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
 // (player -> player, the seal -> the seal, anything else -> skipped). At the ghost exit they are replayed with the same spacing.
 // SealExitReplayBone=0 (default, pc #57943): only the world-space fx (62557 big smoke, one-shot) are replayed - the bone-attached ones
 // loop on the player and never end. SealExitReplaySkip = hex ids never recorded (default 3E8, the per-hit spark), SealExitReplayIds = if set, only these ids are recorded.
-struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; };
+struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; uint64_t replayTarget = 0; };
 constexpr int kFxRecMax = 24;
 FxRec g_fxRec[kFxRecMax];
 int g_fxRecN = 0;
@@ -4374,6 +5450,7 @@ bool CoverAt(FxRec& r, const float* p, uint32_t sid = 0) {
     return true;
 }
 thread_local bool t_fxReplaying = false;
+thread_local bool t_coldCover = false;  // native first-use smoke: observe, but never learn the player's scale as a core template
 struct FxPlay { double at; FxRec r; };
 FxPlay g_fxPlay[kFxRecMax];
 int g_fxPlayN = 0;  // game thread only
@@ -4392,7 +5469,9 @@ int HexList(const wchar_t* key, const wchar_t* def, uint32_t* out, int cap) {
     }
     return n;
 }
+std::atomic<int> g_cameraFollowVertical{1};
 void SealExitReplayLoad() {
+    g_cameraFollowVertical.store(IniInt(L"SoulCore", L"CameraFollowVertical", 1) != 0);
     g_fxrOn.store(IniInt(L"Spirit", L"SealExitReplay", 1));
     g_fxrTailMs = IniInt(L"Spirit", L"SealExitReplayTailMs", 300);
     g_fxrMaxMs = IniInt(L"Spirit", L"SealExitReplayMaxMs", 2500);
@@ -4414,6 +5493,9 @@ void SealExitReplayLoad() {
     g_exitSmokeAtMs = IniInt(L"Spirit", L"SealExitSmokeAtMs", 1450);  // human #58173
     g_exitLeadMs = IniInt(L"Spirit", L"SealExitLeadMs", 600);  // human #60302
     g_lastHitGraceMs = IniInt(L"Spirit", L"SealLastHitGraceMs", 50);  // human #60327, #60522 150->50
+    const int lastHitMs = IniInt(L"Spirit", L"SealExitAtLastHitMs", 0);
+    g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
+    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 150); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -4484,8 +5566,26 @@ void FxMuteTick() {  // game thread: give the effects back once this spawn is pa
     ReleaseSRWLockExclusive(&g_fxMuteLock);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
+bool ExitSmokeId(uint32_t id);
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
     (void)a; (void)b;
+    if (t_coldCover && (uint32_t)c == 0x62557) {
+        const uint64_t p = StackArg(sp, 5);
+        const bool world = !p && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
+        float m[16] = {};
+        const bool read = world && Copy(m, d, sizeof(m));
+        if (read) {
+            Log("FormCore first-press native-fx id=%X shape=world scale=%.4f,%.4f,%.4f pos=%.1f,%.1f,%.1f owner=%llX",
+                (uint32_t)c, sqrtf(m[0]*m[0]+m[1]*m[1]+m[2]*m[2]),
+                sqrtf(m[4]*m[4]+m[5]*m[5]+m[6]*m[6]), sqrtf(m[8]*m[8]+m[9]*m[9]+m[10]*m[10]),
+                m[12], m[13], m[14], (unsigned long long)StackArg(sp, 6));
+        } else {
+            int32_t bone = -1;
+            const bool boneRead = p && Copy(&bone, p, sizeof(bone));
+            Log("FormCore first-press native-fx id=%X shape=%s bone=%d boneRead=%d scale=unavailable native-descriptor-scale=1 owner=%llX",
+                (uint32_t)c, p ? "bone" : "unknown", bone, boneRead ? 1 : 0, (unsigned long long)StackArg(sp, 6));
+        }
+    }
     if (t_fxReplaying || g_fxrOn.load(std::memory_order_relaxed) <= 0) return;
     if (g_fbStyleFx.load(std::memory_order_relaxed) && g_fbActive.load(std::memory_order_relaxed) &&
         Now() - g_fbStyleT.load(std::memory_order_relaxed) < g_fbStyleFxMs.load(std::memory_order_relaxed) / 1000.0) {  // human #58422
@@ -4545,10 +5645,14 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     if (!P && dStack) { r.world = 1; if (!Copy(r.blk, d, 0x40)) return; }
     else if (P && !dStack) { r.world = 0; if (!Copy(r.blk, P, 0x60)) return; }
     else return;  // a shape we have not seen: do not replay it
-    const uint64_t pl = g_fh4.owner;
-    if (pl) Copy(r.pl, pl + 0x110, 16);
+    const uint64_t pl = g_fh4.owner ? g_fh4.owner : FkPlayer();
+    if (!pl || !Copy(r.pl, pl + 0x110, 16)) return;
+    if (!r.world || !ExitSmokeId(r.id)) return;
     int n;
     AcquireSRWLockExclusive(&g_fxRecLock);
+    for (int i = 0; i < g_fxRecN; ++i) if (g_fxRec[i].id == r.id) {
+        ReleaseSRWLockExclusive(&g_fxRecLock); return;
+    }
     n = g_fxRecN;
     if (g_fxRecN < kFxRecMax) g_fxRec[g_fxRecN++] = r;
     ReleaseSRWLockExclusive(&g_fxRecLock);
@@ -4561,16 +5665,32 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     }
 }
 // game thread: a new form session starts (FormHide=4 owner set) / the seal got bound
-void SealExitReplayBegin(double t) {
+bool ExitSmokeId(uint32_t id) {
+    if (id == 0x62557 || id == 0x62DF5) return true;
+    for (int i = 0; i < g_fxrCtrN; ++i) if (g_fxrCtr[i] == id) return true;
+    return false;
+}
+std::set<uint32_t> g_exitReplayIds;
+void SealExitReplayPressReset() {
     AcquireSRWLockExclusive(&g_fxRecLock);
     g_fxRecN = 0;
     ReleaseSRWLockExclusive(&g_fxRecLock);
+    g_exitReplayIds.clear();
+    g_fxrT0.store(0); g_fxrUntil.store(0);
+    // Drop only old EXIT entries; an already queued start-cover must survive Begin.
+    int kept = 0;
+    for (int i = 0; i < g_fxPlayN; ++i) if (!g_fxPlay[i].r.replayTarget) g_fxPlay[kept++] = g_fxPlay[i];
+    g_fxPlayN = kept; g_frzOk[1] = false;
+}
+void SealExitReplayBegin(double t) {
+    SealExitReplayPressReset();
     g_fxrUntil.store(0);
     g_fxrT0.store(t);
 }
 void SealExitReplayBound(double t) { g_fxrUntil.store(t + g_fxrTailMs / 1000.0); }
 // game thread, at the ghost exit of a smoke core: schedule the recorded start effects from now on
-int SealExitReplayQueue(uint64_t seal, uint64_t player) {
+int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
+    (void)seal;
     g_fxrT0.store(0);
     if (g_fxrOn.load() <= 0) return 0;
     static FxRec rec[kFxRecMax];
@@ -4595,40 +5715,37 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
     }
     if (!n) return 0;
     const double now = Now();
-    g_fxPlayN = 0;
-    for (int i = 0; i < n; ++i) {
+    if (!append && g_exitReplayIds.empty()) g_fxPlayN = 0;
+    const int begin = g_fxPlayN;
+    for (int i = 0; i < n && g_fxPlayN < kFxRecMax; ++i) {
         FxRec r = rec[i];
+        if (!r.world || !ExitSmokeId(r.id) || g_exitReplayIds.count(r.id)) continue;
         if (r.world) {
             float* m = (float*)r.blk;
             const float dx = m[12] - r.pl[0], dy = m[13] - r.pl[1], dz = m[14] - r.pl[2];
             if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
             if (FxCenterId(r.id)) FxFwd(m, pn[0], pn[2]);  // human #58053/#58081
-            r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
-        } else if (!g_fxrBone) {
-            continue;  // pc #57943: bone-attached start fx are looping auras the form end normally kills; replayed they glow forever and stack
-        } else if (r.owner != player && r.owner != seal) {
-            Log("SealExitReplay: fx %X owner %llX is not the player or the seal - skipped", r.id, (unsigned long long)r.owner);
-            continue;
+            r.owner = 0; r.d = 0; r.a7 = 0; // one-shot world smoke has no bone owner
         }
+        r.replayTarget = player;
+        memcpy(r.pl,pn,sizeof(pn));  // queued world origin; playback follows any further travel
         if (r.a7 > 0x10000) r.a7 = 0;
+        g_exitReplayIds.insert(r.id);
         g_fxPlay[g_fxPlayN].at = rec[i].t;
         g_fxPlay[g_fxPlayN].r = r;
         ++g_fxPlayN;
     }
     double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
-    for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
-    for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
-    const int rep = g_fxrRepeatMs.load();  // human #58117: one read per queue (menu writes it live)
-    for (int i = 0; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
-    for (int i = 0, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
-        if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += rep / 1000.0; }
-    return g_fxPlayN;
+    for (int i = begin; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
+    for (int i = begin; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
+    for (int i = begin; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
+    return g_fxPlayN - begin;
 }
 // human #58146: freeze switches (Soul core tuning): 0 = start smoke, 1 = end smoke. ON = that smoke is spawned again every SmokeFreezeMs
 // at the spot it last appeared, so it stays up until switched off.
 void SmokeFreezeTick() {
-    if (!g_scForms.load(std::memory_order_relaxed) && !g_fh4.owner) return;  // human #61869
+    if (!ScOn() && !g_fh4.owner) return;  // human #61869
     const double now = Now();
     for (int i = 0; i < 2; ++i) {
         if (!g_frz[i].load(std::memory_order_relaxed) || !g_frzOk[i] || now < g_frzNext[i] || g_fxPlayN >= kFxRecMax) continue;
@@ -4643,8 +5760,35 @@ void SmokeFreezeTick() {
         g_frzNext[i] = now + g_frzMs / 1000.0;
     }
 }
-// human #58146: LEFT press -> our big smoke on the player right now (from the template = the last game-made one; the first use of a
-// session has none yet and keeps the game's own smoke). The yokai is held invisible until SealShowMs after the press.
+// #81598, pc2 RE a678c375: general native play-effect-on-actor API, called only on the game thread.
+bool CoverNativeSmoke(uint64_t player) {
+    if (!player) return false;
+    static const uint8_t getHead[] = {0x48,0x83,0xEC,0x28,0x48,0x85,0xC9,0x74,0x2D,0xE8,0xCE,0x0E,0x00,0x00,0x48,0x85,0xC0,0x74,0x05,0x48,0x83,0xC4,0x28,0xC3,0xE8,0xC3,0x8B,0x74,0x00,0x48,0x85,0xC0};
+    static const uint8_t playHead[] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x48,0x89,0x7C,0x24,0x18,0x41,0x56,0x48,0x81,0xEC,0xF0,0x00,0x00,0x00,0x48,0x83,0x79,0x10,0x00,0x41,0x8B,0xF9};
+    if (!FormHideCodeMatches(0x2C7E90, getHead, sizeof(getHead)) ||
+        !FormHideCodeMatches(0x2A10B4, playHead, sizeof(playHead))) {
+        Log("FormCore first-press native-smoke guard failed; keeping game smoke");
+        return false;
+    }
+    const bool wasReplay = t_fxReplaying, wasCold = t_coldCover;
+    uint64_t comp = 0;
+    int handle = -1;
+    bool called = false, fault = false;
+    t_fxReplaying = true; t_coldCover = true;
+    __try {
+        comp = ((uint64_t(*)(uint64_t))(g_base + Grva(0x2C7E90)))(player);
+        if (comp) {
+            ((void(*)(uint64_t,int*,uint32_t,int,uint8_t))(g_base + Grva(0x2A10B4)))(comp, &handle, 0x62557, 0, 0);
+            called = true;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { fault = true; }
+    t_fxReplaying = wasReplay; t_coldCover = wasCold;
+    Log("FormCore first-press native-smoke called=%d fault=%d component=%llX handle=%d t=%.3f",
+        called ? 1 : 0, fault ? 1 : 0, (unsigned long long)comp, handle, Now());
+    return called && !fault && handle != -1 && handle != 0;  // #81879: zero is failure too; keep the game's fallback smoke
+}
+// Start smoke uses the learned slot template, or the native actor effect API on a cold slot.
+// The yokai is held invisible until SealShowMs after the press.
 void CoverStartSmoke(uint64_t player, double now) {
     g_coverMade.store(0);
     g_coverT.store(now);
@@ -4654,7 +5798,25 @@ void CoverStartSmoke(uint64_t player, double now) {
     float p[4] = {};
     FxRec r = {};
     const int sl = g_pressSlot.load();
-    if (!player || !Copy(p, player + 0x110, 16) || !CoverAt(r, p, 0xFFFFFFF0u + (uint32_t)(sl >= 1 && sl <= 2 ? sl : 0))) {
+    const bool coverReady = player && Copy(p, player + 0x110, 16) &&
+        CoverAt(r, p, 0xFFFFFFF0u + (uint32_t)(sl >= 1 && sl <= 2 ? sl : 0));
+    // #81537: distinguish the per-core pick from the independently cold smoke cache.
+    // This describes the first observed cover request per direction in this process,
+    // not a claimed save-load boundary (the game can load another save without exiting).
+    static unsigned observedSlots = 0;
+    const unsigned bit = 1u << (sl >= 1 && sl <= 2 ? sl : 0);
+    if (!(observedSlots & bit)) {
+        observedSlots |= bit;
+        Log("FormCore first-press scope=process dir=%c core=%X transform=%d smokeReady=%d source=%s t=%.3f",
+            sl == 1 ? 'L' : sl == 2 ? 'D' : '?', g_pickCore.load(),
+            ScOn() ? 1 : 0, coverReady ? 1 : 0, coverReady ? "slot-template" : "native-smoke", now);
+    }
+    if (!coverReady) {
+        if (CoverNativeSmoke(player)) {
+            g_coverMade.store(1);  // suppress later seal smoke only after a nonzero, non-sentinel native handle
+            Log("SealCover: press t=%.3f native start smoke 62557 for cold d-pad slot %d", now, sl);
+            return;
+        }
         Log("SealCover: press t=%.3f, no smoke template for d-pad slot %d yet - the game's own smoke this time", now, sl); return; }
     if (g_fxPlayN >= kFxRecMax) g_fxPlayN = 0;
     g_fxPlay[g_fxPlayN].at = now;
@@ -4664,6 +5826,17 @@ void CoverStartSmoke(uint64_t player, double now) {
     const float* m = (const float*)r.blk;
     Log("SealCover: press t=%.3f start smoke %X at %.0f %.0f %.0f, player fades out at %d ms over %d, hidden at %d ms, yokai shown at %d ms over %d",
         now, r.id, m[12], m[13], m[14], g_plOutAtMs.load(), g_plOutMs.load(), g_fhDelayMs.load(), g_sealShowMs.load(), g_showFadeMs.load());
+}
+void RelocateExitReplay(FxRec& r) {
+    if (!r.replayTarget) return;
+    if (!r.world) { r.owner=FkPlayer(); return; }
+    float now[4]={};
+    if(!Copy(now,r.replayTarget+0x110,16))return;
+    float* m=(float*)r.blk;
+    for(int i=0;i<3;++i) m[12+i]+=now[i]-r.pl[i];
+    memcpy(r.pl,now,sizeof(now));
+    Log("SealExitReplay placement: fx=%X target=%llX world=%.1f/%.1f/%.1f",r.id,
+        (unsigned long long)r.replayTarget,m[12],m[13],m[14]);
 }
 void SealExitReplayTick() {  // game thread
     if (!g_fxPlayN) return;
@@ -4682,6 +5855,7 @@ void SealExitReplayTick() {  // game thread
     for (int i = 0; i < g_fxPlayN; ++i) {
         FxPlay& p = g_fxPlay[i];
         if (now < p.at) { g_fxPlay[k++] = p; continue; }
+        RelocateExitReplay(p.r);
         alignas(16) uint8_t blk[0x60];
         memcpy(blk, p.r.blk, sizeof(blk));
         alignas(16) uint8_t out[0x20] = {};
@@ -4696,20 +5870,111 @@ void SealExitReplayTick() {  // game thread
     g_fxPlayN = k;
 }
 // human #60302: SealEndOnHit=0 forms end on the seal's own despawn and skipped the whole exit smoke (pc log: 18/18 forms, 0 exit smoke).
-// Natural mode: the yokai is never cut; the exit smoke starts SealExitLeadMs before the despawn, timed from the shortest form seen for
-// that core ([SealDur], learned per core, no id list), or at the despawn itself the first time a core is used.
-int SealDurFor(uint32_t id) {
-    wchar_t k[16]; swprintf_s(k, L"%X", id);
-    return (int)GetPrivateProfileIntW(L"SealDur", k, 0, IniPath());
+// report #22: the learned per-core timings [SealDur] / [SealLastHit] (#60302/#60327) are gone (human #61089: no stored timings); natural mode
+// #81898: default exit is THIS form's last live burst OPEN + SealExitAtLastHitMs, with the yokai finishing invisibly.
+// -9999 restores the close+grace rule. Unknown counts keep the idle/despawn fallback; no predicted hit timetable.
+void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
+    std::set<uint64_t> unique(actors.begin(), actors.end());
+    for (uint64_t actor : unique) {
+        PressGhost g; g.actor=actor; g.at=Now(); g.hideAt=g_ghostHideAt.load();
+        if (!actor || actor==FkPlayer() || !Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
+        float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
+        g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
+        g.base=g_sealMul.load()>0?g_sealMul.load():1.f; g.ramp=g_tailRampMs.load();
+        if (g_ghostKeepSpeed.load()) g.tail=g.base;
+        PressGhostForget(actor);
+        AcquireSRWLockExclusive(&g_pressGhostLock); g_pressGhosts.push_back(g); ReleaseSRWLockExclusive(&g_pressGhostLock);
+        GhostHideSeal(actor);
+        Log("PressGhost: actor=%llX desc=%X tail=x%.2f hide/fade=%d/%d", (unsigned long long)actor,g.key>>4,g.tail,g_ghostHideMs.load(),g.fadeMs);
+    }
 }
-// human #60327: natural mode also ends the form at the yokai's last hit: [SealLastHit] = the latest hit-burst close (ms after the press) seen
-// in a full form of that core (learned, max over uses). Next uses: smoke SealExitLeadMs before it, at last hit + SealLastHitGraceMs the
-// yokai body is hidden (its attacks/effects play on) and the player comes back; no idle tail. First use of a core plays in full to learn.
-int SealLastHitFor(uint32_t id) {
-    wchar_t k[16]; swprintf_s(k, L"%X", id);
-    return (int)GetPrivateProfileIntW(SecLastHit(), k, 0, IniPath());
+void PressGhostTick() {
+    std::vector<PressGhost> snapshot;
+    AcquireSRWLockShared(&g_pressGhostLock); snapshot=g_pressGhosts; ReleaseSRWLockShared(&g_pressGhostLock);
+    for (const auto& g : snapshot) {
+        PressGhost valid;
+        if (!PressGhostGet(g.actor,valid) || FormHideSealPresent(ActorTableGlobal(),g.actor)==0) PressGhostForget(g.actor);
+        else GhostHideSeal(g.actor);
+    }
+}
+bool SealTimingIdentityMatches(uint64_t seal, uint32_t sid) {
+    uint32_t key = 0;
+    return sid && Rd(seal, key) && (key >> 4) == sid;
+}
+struct SealTailHitWatch {
+    uint64_t seal = 0, player = 0;
+    uint32_t sid = 0, boundId = 0;
+    double sess = 0, started = 0, sourceSince = 0;
+    int bursts = 0, atExit = 0;
+    bool open = false, atkOnly = true;
+    std::vector<uint64_t> kids;
+    std::map<uint64_t, uint64_t> appearance;
+    std::set<uint64_t> previous;
+    double lastNew = -100;
+    std::set<uint64_t> clusterOwners;
+};
+std::vector<SealTailHitWatch> g_tailHitWatches;
+void SealTailHitTick() {
+    if (g_tailHitWatches.empty()) return;
+    const double now = Now();
+    uint64_t pb = 0;
+    static std::vector<uint64_t> objects(0xFA0);
+    const bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb && Copy(objects.data(), pb + 0x20, objects.size() * 8);
+    for (auto it = g_tailHitWatches.begin(); it != g_tailHitWatches.end();) {
+        auto& w = *it;
+        const int present = FormHideSealPresent(ActorTableGlobal(), w.seal);
+        uint32_t id = 0;
+        if (present == 0 || now - w.started > 30.0 || (present > 0 && Rd(w.seal, id) && (id >> 4) != w.boundId)) {
+            Log("SealTailHits core %X finished: %d bursts (exit at %d), %s", w.sid, w.bursts, w.atExit,
+                present == 0 ? "despawn" : "identity/30s guard");
+            it = g_tailHitWatches.erase(it); continue;
+        }
+        if (present < 0 || !poolOk) { ++it; continue; }
+        // Only add fresh helper candidates while this original form still owns the player.
+        // A later form cannot donate its helpers to an older invisible seal.
+        if (g_fh4.owner == w.player && g_fh4.seal == w.seal) {
+            if (g_hitSourceSnapshot == w.sourceSince) for (const auto& entry : g_pressHitSources)
+                if (entry.at >= w.sourceSince && std::find(w.kids.begin(), w.kids.end(), entry.actor) == w.kids.end())
+                    w.kids.push_back(entry.actor);
+            for (int k = 0; k < 8; ++k)
+                if (g_sehKid[k] && g_sehKidT[k] >= w.sourceSince &&
+                    std::find(w.kids.begin(), w.kids.end(), g_sehKid[k]) == w.kids.end()) w.kids.push_back(g_sehKid[k]);
+        }
+        std::map<uint64_t, uint64_t> remaining;
+        std::set<uint64_t> current;
+        int n = 0, fresh = 0;
+        std::set<uint64_t> freshOwners;
+        for (uint64_t o : objects) {
+            const auto excluded = w.appearance.find(o);
+            if (excluded != w.appearance.end()) { remaining.emplace(*excluded); continue; }
+            uint64_t owner = 0;
+            if (!o || !Rd(o + 8, owner) || !owner || owner == w.player) continue;
+            if (owner != w.seal && std::find(w.kids.begin(), w.kids.end(), owner) == w.kids.end()) continue;
+            if (w.atkOnly) {
+                uint64_t ad = 0; uint32_t aid = 0;
+                if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;
+            }
+            ++n; current.insert(o);
+            if (!w.previous.count(o)) { ++fresh; freshOwners.insert(owner); }
+        }
+        w.appearance.swap(remaining);
+        const bool newSource = std::any_of(freshOwners.begin(),freshOwners.end(),[&](uint64_t owner){return !w.clusterOwners.count(owner);});
+        const bool newCluster = fresh && (now >= w.lastNew + 0.150 || newSource);
+        if (newCluster) w.clusterOwners.clear();
+        w.clusterOwners.insert(freshOwners.begin(),freshOwners.end());
+        if (fresh) w.lastNew = now;
+        w.previous.swap(current);
+        if (newCluster) {
+            ++w.bursts;
+            // Post-exit effects/actor reuse are diagnostic only, never training data.
+            Log("SealTailHits core %X: post-exit burst %d at +%.3f (diagnostic only)",w.sid,w.bursts,now-w.sess);
+        }
+        w.open = n > 0;
+        ++it;
+    }
 }
 void SealEndOnHitTick() {
+    SealTailHitTick();  // independent of the visible form, including subsequent forms
     const bool natural = !g_sehMode.load();
     if (natural && (g_ghostOn.load() <= 0 || g_coverOn.load() <= 0)) return;
     SmokeFreezeTick();
@@ -4723,47 +5988,56 @@ void SealEndOnHitTick() {
     static double sess = 0;
     static uint64_t seal = 0;
     static int bursts = 0, want = 0;
-    static bool open = false, fired = false;
-    static uint32_t sid = 0;
+    static bool open = false, fired = false, countedOpen = false;
+    static std::set<uint64_t> previous;
+    static double lastNew = -100;
+    static std::set<uint64_t> clusterOwners;
+    static bool censusComplete = true;
+    static double boundAt = 0;  // #82033: classify only by time since bind, never by action
+    struct AppearCollider { uint64_t owner; bool seen; };
+    static std::map<uint64_t, AppearCollider> appearance;
+    static int prevRaw = -1, prevMasked = -1, censusLines = 0;
+    static uint32_t sid = 0, boundId = 0;
+    static double sourceSince = 0;
+    static std::vector<uint64_t> sources;
+    static std::map<uint64_t, int> sourceCensus;
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
+    static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
+    static int lastBurstOwner = 0;  // #108189: 0 no burst, 1 last burst from helper actors only, 2 the seal took part
+    static char ownerOrder[33] = {}; static int ownerLen = 0;  // #108262: burst owners this form, S = seal took part, H = helper only
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
+    if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
-        if (natural && !on && seal && sid && !fired && lastClose > 0) {
-            const int lc = (int)(lastClose * 1000.0), had = SealLastHitFor(sid);
-            if (lc > had) {
-                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", lc);
-                WritePrivateProfileStringW(SecLastHit(), k, v, IniPath());
-                Log("SealCover: core %X last hit closes at %d ms (was %d) -> [SealLastHit]", sid, lc, had);
-            }
-        }
-        if (natural && !on && seal && sid && !fired) {
-            const int ms = (int)((Now() - sess) * 1000.0), had = SealDurFor(sid);
-            if (ms >= 1500 && ms <= 20000 && (!had || ms < had)) {
-                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", ms);
-                WritePrivateProfileStringW(L"SealDur", k, v, IniPath());
-                Log("SealCover: core %X form %d ms (was %d) -> [SealDur]", sid, ms, had);
-            }
-            if (earlySess != sess && SealExitCore(sid)) {  // first use of this core: smoke at the despawn
-                earlySess = sess;
-                earlyN = SealExitReplayQueue(seal, FkPlayer());
-                Log("SealCover: exit smoke at the despawn %.3f s after the press (no [SealDur] yet), %d effects", Now() - sess, earlyN);
-            }
-        }
-        if (seal && sid && !fired && bursts > 0) {  // form over without our end: learn this core's burst count
+        // report #22: learn only from a form the seal itself finished (it despawned). 20:02:04.48 a form cut by a capture-change after 1.7 s
+        // wrote [SealDur] 16127=1717 (was 2140, also from a cut form) and the next use smoked its exit 1.5 s in, mid-attack. Stored per-core
+        // timings ([SealDur], [SealLastHit]) are no longer written or used (human #61089/#61094: no learned timings); the end comes from
+        // THIS form's live hit bursts. Learn a minimum only at natural/terminal completion with readable samples; cut forms cannot lower it.
+        const bool complete = !on && !strcmp(g_fh4EndWhy, "seal-despawn");
+        if (!on && seal && sid && !fired && !complete)
+            Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
+                Now() - sess, bursts);
+        if (seal && sid && !fired && bursts > 0 && complete && censusComplete && SealTimingIdentityMatches(seal, sid)) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
-            if (bursts > had) {
+            if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
-                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
+                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
             }
+            SealHelperLastLearn(sid, lastBurstOwner, "seal despawn");
         }
         if (const uint64_t ts = g_tailSeal.load(); ts && ts != g_ghostSeal.load()) {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0;
+        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
+        countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
+        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
+        // Spawn callbacks can precede the first observer tick (and the bound actor).
+        // Use the accepted press snapshot, not observer/bind time, for source admission.
+        sourceSince = on && g_pressSnap.t > 0 && g_pressSnap.t <= sess && sess - g_pressSnap.t <= 8.5
+            ? g_pressSnap.t : sess;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -4774,81 +6048,207 @@ void SealEndOnHitTick() {
     if (!sess || fired) return;
     const double now = Now();
     if (!seal && g_fh4.seal) {
-        seal = g_fh4.seal;
-        uint32_t k = 0; Rd(seal, k); sid = k >> 4; want = SealHitsFor(sid);
+        seal = g_fh4.seal; boundAt = now;
+        uint32_t k = 0;
+        if (!Rd(seal, k) || !(k >> 4)) { seal = 0; censusComplete = false; return; }
+        boundId = k >> 4; sid = boundId; want = SealHitsFor(sid); // spawned actor is authoritative, never the latest pad event
+        SealHelperLastBind(sid);  // #108262: one ini read per form
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
         CoreTplBind(sid, sess);
         Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
-            bursts, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
+            bursts, want, want ? " - live last-burst exit timing" : " - no future burst count in live collision pool; idle fallback");
+    }
+    if (seal && (g_fh4.seal != seal || !SealTimingIdentityMatches(seal, sid))) {
+        censusComplete = false;
+        return; // reused/promoted actor cannot donate bursts or learning to this session
+    }
+    // Retain every noted actor from this press, including actors preceding the bound seal.
+    for (int k = 0; k < 8; ++k) {
+        const uint64_t actor = g_sehKid[k];
+        if (!actor || actor == g_fh4.owner || g_sehKidT[k] < sourceSince || g_sehKidT[k] > now) continue;
+        if (std::find(sources.begin(), sources.end(), actor) == sources.end()) {
+            sources.push_back(actor);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
+                (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal);
+        }
+    }
+    if (g_hitSourceSnapshot == sourceSince) for (const auto& entry : g_pressHitSources) {
+        if (entry.at < sourceSince || entry.at > now || entry.actor == g_fh4.owner) continue;
+        if (std::find(sources.begin(), sources.end(), entry.actor) == sources.end()) {
+            sources.push_back(entry.actor);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
+                (unsigned long long)entry.actor, entry.at, sourceSince, (unsigned long long)seal);
+        }
     }
     const bool idleOnly = g_sieMode.load() == 1;  // human #61026: SealIdleEnd=1 - the idle edge is the only end rule (no hit timings)
-    const bool idleFire = g_sieMode.load() > 0 && seal && g_sieFireSeal == seal;
-    const int lastMs = natural && seal && !idleOnly ? SealLastHitFor(sid) : 0;
-    if (natural && !idleOnly) {
-        const int dur = seal ? SealDurFor(sid) : 0;
+    const int exitAtLastHitMs = g_exitAtLastHitMs.load();
+    // Opening a hit must never route to despawn: only enable this early rule with ghost exit available.
+    const bool atOpen = exitAtLastHitMs != -9999 && g_ghostOn.load() > 0;
+    const bool idleFire = seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want);
+    if (natural && !idleOnly && !atOpen) {
         // human #61113/#61119: with a known hit count the smoke starts at THIS form's real last close, never from a learned time
         const bool lastDone = want && bursts >= want && !open && lastClose > 0;
-        const int endMs = want ? (lastDone ? (int)(lastClose * 1000.0) + g_lastHitGraceMs.load() : 0) : (lastMs ? lastMs + g_lastHitGraceMs.load() : dur);
+        const int endMs = lastDone ? (int)(lastClose * 1000.0) + g_lastHitGraceMs.load() : 0;
         if (endMs && earlySess != sess && SealExitCore(sid) && (lastDone || (now - sess) * 1000.0 >= endMs - g_exitLeadMs.load())) {
             earlySess = sess;
             earlyN = SealExitReplayQueue(seal, FkPlayer());
-            Log("SealCover: exit smoke %.3f s after the press, form ends at %.3f s (%s), %d effects", now - sess, endMs / 1000.0,
-                lastMs ? "[SealLastHit]" : "[SealDur]", earlyN);
+            Log("SealCover: exit smoke %.3f s after the press, form ends at %.3f s (last hit %d/%d closed + %d ms), %d effects", now - sess,
+                endMs / 1000.0, bursts, want, g_lastHitGraceMs.load(), earlyN);
         }
     }
     uint64_t pb = 0;
     bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb;
     if (poolOk) { pool.resize(0xFA0); poolOk = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+    if (!poolOk) censusComplete = false;
     if (!poolOk && !idleFire) return;
-    int n = 0, body = 0;
+    int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0, fresh = 0;
+    std::set<uint64_t> current;
+    std::map<uint64_t, int> actorRaw, freshActors;
+    for (uint64_t actor : sources) actorRaw[actor] = 0;
+    if (seal) actorRaw[seal] = 0;
+    if (poolOk) for (auto& entry : appearance) entry.second.seen = false;
+    const bool bindWindow = !seal || now <= boundAt + 0.200;
     const bool atkOnly = g_sehAtk.load() > 0;
+    // A2ACB can open an appearance collider at +.274 after spawn, beyond bind's .2s window.
+    double born = -100;
+    if (g_hitSourceSnapshot == sourceSince) for (const auto& entry : g_pressHitSources)
+        if (entry.at >= sourceSince && (born < 0 || entry.at < born)) born = entry.at;
+    for (int k = 0; k < 8; ++k)
+        if (g_sehKid[k] && g_sehKidT[k] >= sourceSince && (born < 0 || g_sehKidT[k] < born)) born = g_sehKidT[k];
+    const bool spawnWindow = born >= sourceSince && now <= born + 0.400;
     for (int i = 0; poolOk && i < 0xFA0; ++i) {
         const uint64_t o = pool[i];
         if (!o) continue;
+        auto excluded = appearance.find(o);
+        if (excluded != appearance.end()) excluded->second.seen = true; // preserve identity across owner/attack-data changes
         uint64_t own = 0;
         if (!Rd(o + 8, own) || !own || own == g_fh4.owner) continue;
         bool mine = seal && own == seal;
-        for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && g_sehKidT[k] >= sess - 0.05;
+        if (!mine) mine = std::find(sources.begin(), sources.end(), own) != sources.end();
+        if (mine) ++actorRaw[own];
+        if (mine && (bindWindow || spawnWindow) && excluded == appearance.end())
+            excluded = appearance.emplace(o, AppearCollider{own, true}).first;
         if (mine && atkOnly) {  // body collider (no attack data, no attack id) = not a hit
             uint64_t ad = 0; uint32_t aid = 0;
             if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) { ++body; mine = false; }
         }
-        if (mine) ++n;
+        if (mine) {
+            ++raw;
+            if (excluded != appearance.end()) { ++masked; }
+            else {
+                ++n; if (own == seal) ++direct; else ++helper;
+                current.insert(o); if (!previous.count(o)) { ++fresh; ++freshActors[own]; }
+            }
+        }
     }
-    if (n && !open) { open = true; ++bursts; Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess); }
+    if (poolOk) {
+        for (auto a = appearance.begin(); a != appearance.end();) {
+            if (!a->second.seen) a = appearance.erase(a); else ++a;
+        }
+        if ((raw != prevRaw || masked != prevMasked) && censusLines < 64) {
+            Log("SealHitPool core %X +%.3f raw=%d appearance=%d attack=%d seal=%d helper=%d body=%d", sid,
+                now - sess, raw, masked, n, direct, helper, body);
+            ++censusLines;
+        }
+        prevRaw = raw; prevMasked = masked;
+        for (const auto& a : actorRaw) {
+            auto prior = sourceCensus.find(a.first);
+            if (prior == sourceCensus.end() || prior->second != a.second)
+                Log("SealHitSource census core %X actor=%llX +%.3f raw=%d", sid,
+                    (unsigned long long)a.first, now - sourceSince, a.second);
+        }
+        sourceCensus = actorRaw;
+    }
+    // #82179: new eligible objects start a cluster even while earlier attacks remain open.
+    // Same-source opens within 150 ms merge; a new attack owner starts a distinct cluster.
+    const bool newSource = std::any_of(freshActors.begin(),freshActors.end(),[&](const auto& a){return a.second>0 && !clusterOwners.count(a.first);});
+    const bool newCluster = poolOk && fresh && (now >= lastNew + 0.150 || newSource);
+    if (poolOk) {
+        if (newCluster) clusterOwners.clear();
+        for(const auto& a:freshActors) if(a.second>0) clusterOwners.insert(a.first);
+    }
+    if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
+    if (newCluster) {
+        ++bursts; lastOpen = now - sess;
+        { auto me = freshActors.find(seal); lastBurstOwner = !seal || (me != freshActors.end() && me->second > 0) ? 2 : 1; }  // unbound seal = cannot prove helper-only
+        if (ownerLen < 32) { ownerOrder[ownerLen++] = lastBurstOwner == 1 ? 'H' : 'S'; ownerOrder[ownerLen] = 0; }
+        for (const auto& a : freshActors) Log("SealHitSource core %X burst %d actor=%llX new=%d +%.3f", sid,
+            bursts, (unsigned long long)a.first, a.second, now - sourceSince);
+        Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
+            bursts, fresh, n, masked, now - sess);
+    }
+    // human #107991: first burst from a helper actor (not the seal) -> end the form SealExitOnHelperMs later, helper left visible
+    // #108105/#108189 guard (universal, no core ids): the helper must own the core's LAST burst, learned per core from one natural form
+    // ([SealHelperLastA4], see SealHelperLastLearn). 5129B's last burst is the seal's -> 0, never cut; Kasha's is the cart's -> 1.
+    static double helperSess = -1, helperOpen = -1, sealHitSess = -1;
+    static std::set<uint64_t> helpers;
+    if (helperSess != sess) helpers.clear();
+    if (newCluster && seal) { auto me = freshActors.find(seal); if (me != freshActors.end() && me->second > 0) sealHitSess = sess; }
+    // #108189: the learned flag decides - only a core seen in a full natural form with a helper-only last burst (an unknown or a learned
+    // count alone is not enough), and only while the seal itself has not hit this form.
+    const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastCached(sid) == 1;
+    if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
+        for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
+            helpers.insert(a.first);
+            if (helperSess != sess) {
+                helperSess = sess; helperOpen = now - sess;
+                Log("SealExitOnHelper core %X: burst %d comes from helper %llX (not the seal %llX) %.3f s after the press - form ends in %d ms, helper stays visible",
+                    sid, bursts, (unsigned long long)a.first, (unsigned long long)seal, helperOpen, g_exitOnHelperMs.load());
+            }
+        }
+    const bool helperDue = seal && helperSess == sess && helperOpen >= 0 && g_ghostOn.load() > 0 && g_exitOnHelperMs.load() >= 0 &&
+                           now - sess >= helperOpen + g_exitOnHelperMs.load() / 1000.0;
+    if (n) { open = true; countedOpen = true; }
     bool fire = false;
     if (!n && open) {
         open = false;
-        Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
-        lastClose = now - sess;
-        // pc #60336: projectile cores (30744 learned 443 ms, really hits until 1.5 s) - raise [SealLastHit] as soon as a later close is seen,
-        // also on forms our own end fired, so the next exit smoke is not timed from a too-early learned hit
-        if (natural && seal && sid) {
-            const int lc = (int)(lastClose * 1000.0), had = SealLastHitFor(sid);
-            if (had && lc > had) {
-                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", lc);
-                WritePrivateProfileStringW(SecLastHit(), k, v, IniPath());
-                Log("SealCover: core %X later hit close at %d ms (was %d) -> [SealLastHit]", sid, lc, had);
-            }
+        if (countedOpen) {
+            Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
+            lastClose = now - sess;
+            fire = !atOpen && !natural && seal && want && bursts >= want;
         }
-        fire = !natural && seal && want && bursts >= want;
-    } else if (!natural && !n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+        countedOpen = false;
+    } else if (!atOpen && !natural && !n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
     // human #61113/#61119/#61124: one rule for every core - end a fixed SealLastHitGraceMs after THIS form's real last hit close
     // (last = the core's hit count, counted live per form); the learned [SealLastHit] time is only used before the count is known
-    if (natural && !idleOnly && !n && !open && want && bursts >= want && lastClose > 0 && (now - sess) >= lastClose + g_lastHitGraceMs.load() / 1000.0) {
+    if (!atOpen && natural && !idleOnly && !n && !open && want && bursts >= want && lastClose > 0 && (now - sess) >= lastClose + g_lastHitGraceMs.load() / 1000.0) {
         fire = true;
         static double overLogged2 = -1;
         if (overLogged2 != sess) { overLogged2 = sess; Log("SealCover: core %X last hit over (hit %d/%d closed at %.3f s) - ending the form %.3f s after the press (+%d ms)", sid, bursts, want, lastClose, now - sess, (int)((now - sess - lastClose) * 1000.0)); }
-    } else if (natural && !idleOnly && !want && !n && !open && lastMs && (now - sess) * 1000.0 >= lastMs + g_lastHitGraceMs.load()) {
-        fire = true;
-        static double overLogged = -1;  // pc #60336: once per form (SealEndMinMs can hold the end for many ticks)
-        if (overLogged != sess) { overLogged = sess; Log("SealCover: core %X last hit over (learned %d ms, %d bursts this form) - ending the form %.3f s after the press", sid, lastMs, bursts, now - sess); }
     }
+    // Negative offsets cannot predict a future live open: their deadline is already due when it is first observed.
+    if (atOpen && seal && want > 0 && bursts >= want && exitOpen < 0) exitOpen = lastOpen;
+    const bool openDue = atOpen && seal && want > 0 && bursts >= want && exitOpen >= 0 &&
+                         now - sess >= exitOpen + exitAtLastHitMs / 1000.0;
+    if (openDue) fire = true;
+    if (helperDue && !fire) { fire = true; Log("SealExitOnHelper core %X: ending the form %.3f s after the press (burst %d)", sid, now - sess, bursts); }
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
     if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
-    if (idleFire && !fire) {
+    // Default hit fallback needs a real observed hit and a readable, empty attack pool.
+    // An idle edge alone can precede a helper attack; never truncate active attack windows.
+    const bool terminalFallback = g_sieMode.load() > 0 ||
+        (g_ghostOn.load() > 0 && g_coverOn.load() > 0 && poolOk && bursts > 0 && !n && !open && lastClose > 0);
+    if (idleFire && terminalFallback && !fire) {
+        // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
+        // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
+        if (g_sieNativeEnd && poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0 && SealTimingIdentityMatches(seal, sid)) {
+            const int had = SealHitsFor(sid);
+            if (!had || bursts < had) {
+                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
+                WritePrivateProfileStringW(SecHits(), k, v, IniPath());
+                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
+                    sid, bursts, had, SecHits(), g_sieWhy);
+            }
+        }
+        // #108189: the owner of the last burst needs no closed window (Kasha's cart burst is still open at the idle edge)
+        if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid)) {
+            // #108262: always visible in live logs, so an idle edge that falls between a helper and a later seal burst can be spotted
+            Log("SealHelperLast core %X: native idle edge %.3f s after the press, %d bursts, owner order %s (S seal, H helper only) -> last %s",
+                sid, now - sess, bursts, ownerOrder, lastBurstOwner == 1 ? "helper" : "seal");
+            SealHelperLastLearn(sid, lastBurstOwner, "idle edge");
+        }
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
             g_sieWhy, now - sess, bursts);
@@ -4858,7 +6258,7 @@ void SealEndOnHitTick() {
         fire = true;
         if (capLogged != sess) { capLogged = sess; Log("SealEndOnHit core %X: form cap %d s reached (burst %d %s, want %d) - ending the form", sid, g_formMaxSec.load(), bursts, open ? "open" : "closed", want); }
     }
-    if (!natural && !idleOnly && earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
+    if (!atOpen && !natural && !idleOnly && earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
         ((open && bursts >= want) || fire || (g_exitSmokeAtMs.load() > 0 && now - sess >= g_exitSmokeAtMs.load() / 1000.0))) {
         earlySess = sess;
         earlyN = SealExitReplayQueue(seal, FkPlayer());
@@ -4866,10 +6266,25 @@ void SealEndOnHitTick() {
     }
     if (!fire) return;
     fired = true;
-    if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (openDue && !idleOnly) Log("SealCover: core %X last burst %d/%d opened %.3f s after press, exit +%d ms (observed %.3f s, minimum %d ms)",
+        sid, bursts, want, exitOpen, exitAtLastHitMs, now - sess, g_sealEndMinMs.load());
+    if (g_sdHeld == seal && !openDue) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
     if (g_ghostOn.load() > 0) {  // pc #57569: end the form now, the seal runs on invisible (tail speed) until its own despawn
+        // Copy the already-filtered state before the visible form resets; never replay exit effects.
+        if (g_tailHitWatches.size() >= 8) {
+            Log("SealTailHits: observer capacity reached; discard oldest without learning a terminal count");
+            g_tailHitWatches.erase(g_tailHitWatches.begin());
+        }
+        SealTailHitWatch watch;
+        watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.boundId = boundId; watch.sess = sess; watch.sourceSince = sourceSince;
+        watch.previous = previous; watch.lastNew = lastNew; watch.clusterOwners = clusterOwners;
+        watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
+        for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
+        watch.kids = sources;
+        g_tailHitWatches.push_back(watch);
+        Log("SealTailHits core %X: watching after ghost exit from burst %d until despawn", sid, bursts);
         g_tailT0.store(now);
-        if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
+        if (g_tailMul.load() > 1.f && !helperDue) g_tailSeal.store(seal);  // #108161: helper exit, seal keeps its form speed
         g_ghostT.store(now);
         const bool smoke = SealExitCore(sid);
         int made = 0;
@@ -4879,17 +6294,27 @@ void SealEndOnHitTick() {
             g_ghostFadeSeal.store(seal);
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
-        const int replay = smoke ? (earlySess == sess ? earlyN : SealExitReplayQueue(seal, FkPlayer())) : 0;
+        int replay = smoke ? SealExitReplayQueue(seal, FkPlayer()) : 0;
+        if (smoke) for (uint64_t actor : sources) if (actor && actor != seal && !(helperDue && helpers.count(actor))) {
+            replay += SealExitReplayQueue(actor, actor, true);
+            if (g_sxfOn.load()>0 && g_sxfN>0) made += SealExitFxSpawn(actor);
+        }
         if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         const int hideMs = smoke && replay > 0 && g_coverOn.load() > 0 ? g_ghostHideMs.load() : 0;  // human #58146: smoke > yokai gone > player
         g_ghostHideAt.store(hideMs > 0 ? now + hideMs / 1000.0 : 0);
         g_ghostSeal.store(seal);
+        std::vector<uint64_t> ghosts = sources;
+        if (helperDue) ghosts.erase(std::remove_if(ghosts.begin(), ghosts.end(), [&](uint64_t a) { return a != seal && helpers.count(a); }), ghosts.end());
+        if (std::find(ghosts.begin(),ghosts.end(),seal)==ghosts.end()) ghosts.push_back(seal);
+        g_ghostKeepSpeed.store(helperDue);
+        PressGhostBegin(ghosts,smoke);
+        g_ghostKeepSpeed.store(false);
         GhostHideSeal(seal);
         const int revMs = g_revealMs.load() > hideMs ? g_revealMs.load() : hideMs;
         g_ghostReqAt.store(smoke && replay > 0 ? now + revMs / 1000.0 : 0);
         if (smoke) Log("SealCover: exit smoke now, yokai hidden in %d ms, player back in %d ms", hideMs, smoke && replay > 0 ? revMs : 0);
         g_ghostReq.store(seal);
-        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
+        Log("SealEndOnHit seal=%llX core %X hit burst %d exit %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
             (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), smoke ? "ON" : "off (core not in SealExitFxCore)", smoke ? g_ghostFadeMs : 0,
             g_ghostFade0, made, smoke && g_sxfOn.load() > 0 ? g_sxfN : 0, now);
         return;
@@ -4912,6 +6337,32 @@ void SealEndOnHitTick() {
     const int ok = SealQueueDespawn(seal);
     Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid,
         bursts, now - sess, ok, now);
+}
+// #82379: natural despawn uses the same smoke/hide/reveal order before player restore.
+// Keep the terminal reason seal-despawn so the complete-run learner can correct a stale high count.
+bool NativeSealExitReady(uint64_t seal, double captureAt, uint64_t player) {
+    static uint64_t doneSeal = 0; static double doneCapture = -100, revealAt = 0;
+    if (!seal || !player) return true;
+    if (doneSeal == seal && doneCapture == captureAt) { g_nativeExitPending = Now() < revealAt; return !g_nativeExitPending; }
+    doneSeal = seal; doneCapture = captureAt;
+    const double now = Now();
+    const uint32_t sid = g_formSid.load();
+    const bool smoke = SealExitCore(sid);
+    int replay = smoke ? SealExitReplayQueue(seal,player) : 0;
+    std::vector<uint64_t> actors{seal};
+    if (g_hitSourceSnapshot == g_pressSnap.t) for (const auto& entry : g_pressHitSources)
+        if (entry.at >= g_pressSnap.t && std::find(actors.begin(),actors.end(),entry.actor)==actors.end()) actors.push_back(entry.actor);
+    if (smoke) for (uint64_t actor : actors) {
+        if (actor != seal) replay += SealExitReplayQueue(actor,actor,true);
+        if (g_sxfOn.load()>0 && g_sxfN>0) SealExitFxSpawn(actor==seal && g_sxfOwner!=1 ? player : actor);
+    }
+    const int hideMs = smoke && replay>0 && g_coverOn.load()>0 ? g_ghostHideMs.load() : 0;
+    g_ghostHideAt.store(hideMs>0 ? now+hideMs/1000.0 : 0);
+    PressGhostBegin(actors,smoke);
+    revealAt = smoke && replay>0 ? now+(std::max)(hideMs,g_revealMs.load())/1000.0 : now;
+    Log("SealCover: native despawn transition core=%X actors=%zu smoke=%d reveal=%dms",sid,actors.size(),replay,(int)((revealAt-now)*1000));
+    g_nativeExitPending = now < revealAt;
+    return !g_nativeExitPending;
 }
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
@@ -5050,10 +6501,59 @@ void SealLifeTick() {
         }
     }
 }
+// Camera-only publication; CamKiProbe applies it to freshly built third-person output.
+std::atomic<float> g_cameraVerticalTarget{0};
+std::atomic<ULONGLONG> g_cameraVerticalStamp{0};
+std::atomic<uint64_t> g_cameraVerticalSession{0};
+void SoulCameraVerticalTick(uint64_t player) {
+    static soulcamera::Target target;
+    float sp[4]={},pp[4]={};
+    const uint64_t seal=g_fh4.seal;
+    // All reads go through SEH Copy. Membership precedes actor reads; stable
+    // key/root checks bracket the position copy to reject a recycled identity.
+    static uint64_t boundSeal=0,boundRoot=0;static uint32_t boundKey=0;
+    static double boundCap=-1;static bool rejected=false;
+    if(boundCap!=g_fh4.capT || boundSeal!=seal) {
+        boundCap=g_fh4.capT;boundSeal=seal;boundRoot=0;boundKey=0;rejected=false;
+    }
+    uint64_t rootBefore=0,rootAfter=0;uint32_t keyBefore=0,keyAfter=0;
+    bool valid=g_cameraFollowVertical.load()!=0 && player && g_fh4.owner==player && seal && !rejected &&
+        FormHideSealPresent(g_fhEnd.actorGlobal,seal)==1 &&
+        Copy(&keyBefore,seal,4) && keyBefore && Copy(&rootBefore,seal+0x20,8) && rootBefore;
+    if(valid) {
+        if(!boundRoot){boundRoot=rootBefore;boundKey=keyBefore;}
+        valid=rootBefore==boundRoot && keyBefore==boundKey &&
+            Copy(sp,seal+0x110,16) && Copy(pp,player+0x110,16) &&
+            Copy(&keyAfter,seal,4) && Copy(&rootAfter,seal+0x20,8) &&
+            keyAfter==boundKey && rootAfter==boundRoot;
+        if(!valid)rejected=true; // never adopt recycled storage within this capture
+    }
+    static uint64_t serial=0; static double cap=-1; static float maxY=0;
+    const bool active=valid && std::isfinite(sp[1]) && std::isfinite(pp[1]);
+    if(g_cameraVerticalSession.load() && (!active || cap!=g_fh4.capT)) {
+        Log("SoulCamera press=%llu max seal dY=%.2f (absolute seal-player Y)",serial,maxY);
+        g_cameraVerticalSession.store(0);
+    }
+    if(active && !g_cameraVerticalSession.load()) {
+        cap=g_fh4.capT;maxY=0;g_cameraVerticalSession.store(++serial);
+    }
+    const float y=target.Sample(player,seal,g_fh4.capT,sp[1],pp[1],active);
+    maxY=(std::max)(maxY,std::fabs(y));
+    g_cameraVerticalTarget.store(y);g_cameraVerticalStamp.store(GetTickCount64());
+}
+extern "C" __declspec(dllexport) float Nioh3BossRematch_CameraVerticalTarget() {
+    if(!g_cameraFollowVertical.load() || GetTickCount64()-g_cameraVerticalStamp.load()>250)return 0;
+    return g_cameraVerticalTarget.load();
+}
+extern "C" __declspec(dllexport) uint64_t Nioh3BossRematch_CameraVerticalSession() {
+    if(!g_cameraFollowVertical.load() || GetTickCount64()-g_cameraVerticalStamp.load()>250)return 0;
+    return g_cameraVerticalSession.load();
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     SealLifeTick();
     FormHideDirectTick(pchr);  // also restores a mode-3 hide after mode/capture changes
     FormHide4Tick(pchr);
+    SoulCameraVerticalTick(pchr);
     if (const int mode = g_fhMode.load(); mode && mode != 3 && mode != 4) FormHideTick(pchr);  // pc #55327: native modes unchanged
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
@@ -5473,7 +6973,7 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("PartProbe: budget reset at first seal chr (so far F3D78 %ld, 2C4450 %ld calls)", g_ppF3Hits, g_ppC4Hits);
             InterlockedExchange(&g_ppLines, 0);
         }
-        if (seal && g_fkAppearMode.load() && g_scForms.load()) FkAppearApply(pchr, schr);  // human #61869
+        if (seal && g_fkAppearMode.load() && ScOn()) FkAppearApply(pchr, schr);  // human #61869
         // ally #54204: the seal figures shared the player's model pointer. If the chr key is the player's own, use desc[0] as the body id.
         uint64_t dkey = 0, dpack = 0;
         uint8_t dl = 0;
@@ -5487,7 +6987,7 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("FormKey seal desc key=%llX pack=%llX loaded=%u model=1175400(key,3)=%llX fault=%d sameAsPlayerKey=%d", (unsigned long long)dkey,
                 (unsigned long long)dpack, dl, (unsigned long long)dm, f, (s.gkey ? s.gkey : s.key) == (p.gkey ? p.gkey : p.key));
         }
-        if (seal && g_fkModelMode.load() && g_fkSwap.load() && g_scForms.load()) {  // human #61869: forms OFF = no model / key swap
+        if (seal && g_fkModelMode.load() && g_fkSwap.load() && ScOn()) {  // human #61869: forms OFF = no model / key swap
             if (s.m10 && s.m10 != p.m8 && s.m10 != p.m10) {
                 g_fkSwap.store(0);
                 g_fkMHits = 0;
@@ -5507,7 +7007,7 @@ void HkFormKeyInputBody(uint64_t a) {
                 g_fkLogged.store(0);  // look at the next seal spawn (the 2nd figure)
                 Log("FormKey MODEL: seal chr has no own slot-1 model (M+10=%llX) - waiting for the next spawn", (unsigned long long)s.m10);
             }
-        } else if (!g_fkAppearMode.load() && g_scForms.load() && g_fkSwap.exchange(0)) {  // FormAppear replaces the key swap
+        } else if (!g_fkAppearMode.load() && ScOn() && g_fkSwap.exchange(0)) {  // FormAppear replaces the key swap
             uint64_t key = s.gkey ? s.gkey : s.key;
             if (dkey && (key == (p.gkey ? p.gkey : p.key) || !s.w0)) key = dkey;
             g_fkPendKey.store(key);
@@ -5607,17 +7107,26 @@ double SoulTune(int which, int dir, bool* live) {
     struct T { const wchar_t* key; double step, lo, hi; bool flt; };
     static const T k[] = {{L"SealExitRevealMs", 50, 0, 2000, false}, {L"SealExitSmokeFwd", 10, -200, 200, false}, {L"SealExitSmokeSide", 10, -200, 200, false},
                           {L"SealExitSmokeRepeatMs", 100, 0, 2000, false}, {L"FormHideDelayMs", 50, 0, 1000, false}, {L"SealSpeed", .1, .5, 3, true},
-                          {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}};
+                          {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}, {L"SealExitAtLastHitMs", 50, -500, 1000, false},
+                          {L"FormCrouchCancel", 50, 0, 1000, false},  // human #122288
+                          {L"FastThrow", 1, 1, 16, false}, {L"RunThrowMaxMs", 100, 0, 3000, false}, {L"SealTailRampMs", 50, 0, 1000, false}};  // human #128855 throw layers
     if (which < 0 || which >= (int)(sizeof k / sizeof *k)) return 0;
-    if (live) *live = which < 5 || which >= 7 || g_ftHooked.load();
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
-             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : g_frz[which - 7].load();
+             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
+             : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
+             : which == 13 ? (double)g_tailRampMs.load() : g_frz[which - 7].load();
+    if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
     }
     if (!dir) return v;
     const T& t = k[which];
-    v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
+    if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
+    if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250};
+        v = shipped[which];
+    } else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
     if (t.flt) v = std::round(v * 10) / 10;
     switch (which) {
@@ -5628,17 +7137,93 @@ double SoulTune(int which, int dir, bool* live) {
     case 4: g_fhDelayMs.store((int)v); break;
     case 5: if (g_ftHooked.load()) g_sealMul.store((float)v); break;
     case 6: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
+    case 9: g_exitAtLastHitMs.store((int)v); break;
+    case 10: g_fccMs.store((int)v); break;  // human #122288
+    case 11: if (g_ftHooked.load()) g_ftMul.store(v > 1 ? (float)v : 0.f); break;  // human #128855 (read per frame by HkMotionSpeed)
+    case 12: g_rtMaxMs.store((int)v); break;
+    case 13: g_tailRampMs.store((float)v); break;
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
     if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
     WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
-    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, which >= 5 && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
+    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6 || which >= 11) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
     return v;
+}
+
+void SoulTuneReset() {
+    for (int which = 0; which < 14; ++which) SoulTune(which, 2, nullptr);
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
 // *formUp = a form (or its ghost exit) is still running and ends normally; *hooked = FormKey hooks are in this session.
+// human #81220: menu API for the per-core transformation picks.
+int FormCoreSeen(uint32_t* ids, int* dirs, int max) {
+    if (!ids || !dirs || max <= 0) return 0;
+    AcquireSRWLockShared(&g_coreEditLock);
+    int n = 0;
+    if (g_equippedReady.load()) {
+        for (int y = 0; y < 2 && n < max; ++y) {
+            const uint32_t id = g_equippedCore[y].load();
+            if (!id) continue;
+            if (n && ids[0] == id) { dirs[0] |= 4 << y; continue; }
+            ids[n] = id; dirs[n++] = 4 << y;  // Yang position flags, independent of d-pad directions
+        }
+    }
+    // Current-session directions first; id 0 is a real, selectable placeholder. Duplicate IDs are a single core row.
+    for (int d = 1; d <= 2 && n < max; ++d) {
+        if (g_equippedReady.load() && g_pendingPick[d].load() < 0) continue;
+        const uint32_t id = g_slotSeen[d].load() ? g_slotCore[d].load() : 0;
+        bool present = false;
+        for (int i = 0; i < n; ++i) if (id && ids[i] == id) { dirs[i] |= d; present = true; break; }
+        if (present) continue;
+        ids[n] = id; dirs[n++] = d;
+    }
+    for (auto& s : g_seen) if (const uint32_t id = s.id.load(); id && n < max) {
+        bool present = false;
+        for (int i = 0; i < n; ++i) if (ids[i] == id) present = true;
+        if (!present) { ids[n] = id; dirs[n++] = 0; }
+    }
+    ReleaseSRWLockShared(&g_coreEditLock);
+    return n;
+}
+bool FormCoreTransforms(uint32_t id) { return !CoreIsOff(id); }
+bool FormCorePendingTransforms(int dir) {
+    if (dir < 1 || dir > 2) return true;
+    const int pending = g_pendingPick[dir].load();
+    return pending >= 0 ? pending != 0 : !CoreIsOff(g_slotCore[dir].load());
+}
+bool FormCorePendingSet(int dir, bool transforms) {
+    if (dir < 1 || dir > 2) return true;
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    // A spawn may have replaced the placeholder between the UI snapshot and this click.
+    bool actual = transforms;
+    if (g_slotSeen[dir].load()) actual = CoreSetTransformsLocked(g_slotCore[dir].load(), transforms);
+    else if (!transforms && g_offN.load() >= kOffMax) {  // cannot promise to save another unknown OFF ID
+        actual = true; g_pendingPick[dir].store(-1); PendingPickSave(dir);
+    }
+    else { g_pendingPick[dir].store(transforms ? 1 : 0); PendingPickSave(dir); }
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCore pending dir=%c: menu -> transform=%d", dir == 1 ? 'L' : 'D', actual ? 1 : 0);
+    return actual;
+}
+// flips one core; returns the new transform state (true = transforms).
+bool FormCoreToggle(uint32_t id) {
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const bool actual = CoreSetTransformsLocked(id, CoreIsOff(id));
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCore %X: menu -> transform=%d (FormCoresOff saved)", id, actual ? 1 : 0);
+    return actual;
+}
+void FormCoreReset() {
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    g_offN.store(0);
+    for (auto& id : g_offIds) id.store(0);
+    CoreOffSave();
+    for (int dir = 1; dir <= 2; ++dir) { g_pendingPick[dir].store(-1); PendingPickSave(dir); }
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    // An ongoing form/press keeps its decision; the next press sees the shipped all-ON policy.
+}
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {
     const bool v = dir ? dir > 0 : !g_scForms.load();
@@ -5708,13 +7293,22 @@ void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
-void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
+void FormKeySealDesc(uint32_t id) { if (PressSpawnForeign(id, 0)) return; g_fkSealDesc.store(id); PickLearn(id); }  // #95567
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
+    { uint32_t key = 0; if (chr && Rd(chr, key) && PressSpawnForeign(key >> 4, chr)) return; }  // #95567: a wave enemy is never a seal
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
     if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || (g_fkSealChr.load() == chr && Now() - g_fkSealT < 1.0)) return;
+    double primaryAt = 0;
+    const uint64_t primary = PressPrimarySeal(&primaryAt);
+    if (primary && primary != chr) {
+        Log("FormPrimary: keep %llX; secondary spawn %llX desc=%X", (unsigned long long)primary,
+            (unsigned long long)chr, g_fkSealDesc.load());
+        return;
+    }
     g_fkSealMotion.store(motion);
+    g_fkSealDist = dist;
     g_fkSealT = Now();
     g_fkSealChr.store(chr);
     if (g_fkSealDesc.load() == 0x5129B) { g_fkLeftT = g_fkSealT; g_fkLeftChr.store(chr); }
@@ -5881,8 +7475,12 @@ void Register(bool boss, bool rm, bool inv) {
     F_UNL = Site("MissionUnlockedGet");
     g_logOn = boss || rm;
 #if BR_SOULCORE
-    if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
+    // report #22 (a): the key swap (game SetForm 74C2FC on the player with the yokai's chr pack key) never installs anything - a chr pack
+    // has no kind-3 model (FkModel = 0), log 'swap ret al=0 A68 1909 -> 1909' in every session - but it rewrote the player's A68 form id
+    // on the first use of each session. Research only now: [Spirit] FormKeySwap=1 (default 0) or the 'formkey on' pipe command.
+    if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(IniInt(L"Spirit", L"FormKeySwap", 0) > 0 ? 1 : 0); }
     g_scForms.store(IniInt(L"Spirit", L"SoulCoreForms", 1) != 0);  // human #61869 (read before FormKeyInstall applies the gate patch)
+    CoreOffLoad();  // human #81220
     Log("SoulCoreForms=%d (FormKey=%d)", g_scForms.load() ? 1 : 0, g_fkOn.load());
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
@@ -5898,6 +7496,12 @@ void Register(bool boss, bool rm, bool inv) {
     { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xFF4F", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
+    {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
+        const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
+        g_fccMs.store(ms < 0 ? 0 : ms > 1000 ? 1000 : ms);
+        g_fccKeepCore.store(IniInt(L"Spirit", L"FormCrouchCancelKeepCore", 1));
+        Log("FormCrouchCancel: window %d ms%s, core count guard %s", g_fccMs.load(), g_fccMs.load() ? "" : " (off)", g_fccKeepCore.load() ? "on" : "off");
+    }
     g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
     g_fbStyleLive.store(IniInt(L"Spirit", L"FormStyleLive", 1));  // human #58381
     g_fbStyleFx.store(IniInt(L"Spirit", L"FormStyleFxHide", 1));  // human #58422
@@ -5931,7 +7535,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhFaceOnSpawn.store(IniInt(L"Spirit", L"FormFaceOnSpawn", 1));  // human #61127
     g_fhFaceSetter.store(IniInt(L"Spirit", L"FormFaceSetter", 0));  // human #61168: the game setter froze the yokai
     g_fhFaceComp.store(IniInt(L"Spirit", L"FormFaceComp", 1));  // human #61241: facing source = [[seal+3B0]+30]+A4
-    g_ywLeft.store(IniInt(L"Spirit", L"YawWatch", 3));  // human #61219: find the writer of the seal yaw
+    g_ywLeft.store(IniInt(L"Spirit", L"YawWatch", 0));  // human #122102: diagnostic off by default (its watchpoint crashed a live game)  // human #61219: find the writer of the seal yaw
     g_fhFollowCm.store(IniInt(L"Spirit", L"FormFollowCm", 400));  // pc #55842: 1 = move via the game's warp setter 669AB8
     g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
     {
@@ -6069,9 +7673,33 @@ namespace fight {
 // 'Leave arena' (user 20261018): the native boss mode was ended outside the script's BossBattleModeEnd: clear the fight state as HkEnd does
 void ForceEnd(const char* why) {
     if (bosslog::g_logOn) Log("BossLog: fight state cleared (%s)", why);
+    bosslog::g_logToken.store(0); bosslog::g_logMission.store(0);
     bosslog::g_endAt.store(-1e9);  // no post-fight grace: there was no fight
     bosslog::g_active.store(false);
     InterlockedExchange(&g_active, 0);
+    bosslog::MaybeEnd();  // Leave arena / forced end: the open story fight is a quit unless it already ended
+}
+// #107117: the native boss mode ended without BossBattleModeEnd (Leave Boss Match, death / retry reload, mission change). Closes the
+// fight flag and the boss-mode-open state together, so the next unmatched BossBattleModeEnd (a Dojo waves win) is not read as the
+// left fight's end. No Report row is closed here: ForceEnd does that where the fight is a quit.
+bool CloseBossMode(const char* why) {
+    const bool was = bosslog::g_active.exchange(false);
+    const bool flag = InterlockedExchange(&g_active, 0) != 0;
+    if ((was || flag) && bosslog::g_logOn) Log("BossLog: boss mode closed without BossBattleModeEnd (%s)%s", why, was ? "" : " (fight flag only)");
+    return was || flag;
+}
+bool BossModeOpen() { return bosslog::g_active.load(); }
+// Called before the save-protection veto: observe victory without performing a save write.
+void ConfirmNativeWin(uint32_t mission) {
+    if (bosslog::RosterPending()) return; // preserve token; Training validates every named kill
+    if (!mission || mission != bosslog::g_logMission.load()) return;
+    if (!bosslog::g_active.load() && Now() - bosslog::g_endAt.load() >= 20.0) return;
+    const uint64_t token = bosslog::g_logToken.exchange(0);
+    if (!token) return;
+    bosslog::g_clearWin.store(1);
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto confirm = tr ? (void (*)(uint64_t))GetProcAddress(tr, "Nioh3Training_FightConfirmWin") : nullptr;
+    if (confirm) confirm(token);
 }
 void LastFightPlacements(char* buf, size_t n) {
     AcquireSRWLockShared(&bosslog::g_lastLock);

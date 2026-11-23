@@ -278,7 +278,18 @@ static int AsMissionsOk(const uint8_t* d, size_t n, const AsIdTab* E) {
 
 // ---------------------------------------------------------------- per mission data (auto_arena.mission_data)
 typedef struct { double pos[3], yaw, ext[3]; uint32_t id, flags, sub, pid, chr; uint8_t fl; char name[128]; } AsPt;
-typedef struct { uint32_t mid, flags, nameId; uint8_t kind, world, shipped; AsPt *en, *st, *box, *trig; int nen, nst, nbox, ntrig; } AsMis;
+typedef struct { uint32_t mid, flags, nameId; uint8_t kind, world, shipped, inventory; AsPt *en, *st, *box, *trig; int nen, nst, nbox, ntrig; } AsMis;
+// #65732: worlds whose mission scripts strip the player's items / gear (tutorial, dojo). Not a block list any more: Nioh3Training_KeepGear
+// reports 2 for a trip into such a world so Boss Rematch skips the sandbox kit natives from the first frame. Decided by the script text.
+static uint8_t as_kg_worlds[256];
+static int AsInventoryScript(const uint8_t* d, size_t n) {
+    static const char* const symbols[] = {"Item::ReserveAllItem", "Item::ClearEquipment"};
+    for (unsigned k = 0; k < sizeof symbols / sizeof symbols[0]; ++k) {
+        size_t len = strlen(symbols[k]);
+        for (size_t i = 0; i + len <= n; ++i) if (!memcmp(d + i, symbols[k], len)) return 1;
+    }
+    return 0;
+}
 static double AsR0(double v) { char b[64]; snprintf(b, sizeof b, "%.0f", v); return strtod(b, 0); }   // the Python f0 / f1 rounding
 static double AsR1(double v) { char b[64]; snprintf(b, sizeof b, "%.1f", v); return strtod(b, 0); }
 static void AsName(char* dst, const uint8_t* src, size_t max) {   // rematch_catalog.ascii_(latin1)[:60]: non-ASCII -> '?', stripped
@@ -379,7 +390,7 @@ static void AsMission(AsLfm* L, const AsIdTab* E, const uint8_t* r, AsMis* m) {
     }
     free(d);
     int64_t* trig = 0; int ntrig = 0;
-    d = AsGet(L, sp, &n); if (d) { ntrig = AsScriptTrig(d, n, &trig); free(d); }
+    d = AsGet(L, sp, &n); if (d) { m->inventory = AsInventoryScript(d, n); ntrig = AsScriptTrig(d, n, &trig); free(d); }
     d = AsGet(L, AsIdPath(E, ids[3]), &n);
     uint32_t c = AsTab(d, n, AS_BREC);
     size_t pool = 8 + (size_t)c * AS_BREC;
@@ -535,6 +546,8 @@ static int AsScan(const char* gameDir, AsRowFn cb, void* ctx) {
     uint32_t nm = AsTab(md, mn, AS_MREC);
     AsMis* ms = (AsMis*)calloc(nm, sizeof(AsMis));
     for (uint32_t i = 0; i < nm; ++i) AsMission(&L, &E, md + 8 + (size_t)i * AS_MREC, &ms[i]);
+    memset(as_kg_worlds, 0, sizeof as_kg_worlds);
+    for (uint32_t i = 0; i < nm; ++i) if (ms[i].inventory) as_kg_worlds[ms[i].world] = 1;
     AsChrSet have = {0, 0}; int rows = 0;
     struct { AsRowFn cb; void* ctx; int* n; } cnt = {cb, ctx, &rows};
     (void)cnt;

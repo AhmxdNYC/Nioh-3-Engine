@@ -311,12 +311,12 @@ void ResolveAll() {
     LoadNatives();
     for (int i = 0; i < sites::kCount; ++i) ResolveOne(i);
     // one line per group
-    const char* groups[16];
+    const char* groups[24];
     int ng = 0;
     for (int i = 0; i < sites::kCount; ++i) {
         bool have = false;
         for (int k = 0; k < ng; ++k) have |= !strcmp(groups[k], sites::kDefs[i].group);
-        if (!have && ng < 16) groups[ng++] = sites::kDefs[i].group;
+        if (!have && ng < 24) groups[ng++] = sites::kDefs[i].group;
     }
     for (int k = 0; k < ng; ++k) {
         int n = 0, ok = 0, other = 0, moved = 0;

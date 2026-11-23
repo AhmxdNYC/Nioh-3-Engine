@@ -15,6 +15,7 @@ struct Def {
     const char* iat;      // iat: "dll!func"
 };
 constexpr Def kDefs[] = {
+    {0x3EB04, kCode, "48 83 EC 28 48 8B 49 08 48 85 C9 74 0A 48 8B 49 20 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x3FF5E, kCode, "48 8B 0B 44 8A F8 88 44 24 78 4D 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x403D7, kCode, "44 0F B6 C8 4D 8B C5 48 8B 03 48 85", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x48B9C, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 DB 44 8B C2 48 8B C1", 0, 0x0, 0, 0, 0, ""},  // loadonly.cpp
@@ -25,6 +26,7 @@ constexpr Def kDefs[] = {
     {0x61BAC, kCode, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x61BC2, kCode, "4C 63 86 80 00 00 00 41 FF C4 41 0F", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x85960, kCode, "48 8B 15 ?? ?? ?? ?? 33 C0 48 85 D2 74 1C 4C 8B 42 08 4C 39", 0, 0x0, 0, 0, 0, ""},  // savefiles.cpp
+    {0xA0BA8, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 20 44 8B 51 10 49 8B F9", 0, 0x0, 0, 0, 0, ""},  // motionguard.cpp
     {0xD3958, kCode, "4C 8B 41 18 45 33 C9 49 8B C8 49 8B 40 08 EB 04 48 8B 40 10 44 38 48 19 75 0D 39 50 20 72 F1 4C 8B C0 48 8B", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0xD63C0, kCode, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 07 48 8B 01 48 FF 60 08 32 C0 C3 CC CC 48 8B 0D ??", 0, 0x0, 0, 0, 0, ""},  // menu.cpp
     {0xD8400, kCode, "33 C0 44 8B E8 40 84 F6 74 21 4D 85", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
@@ -32,6 +34,10 @@ constexpr Def kDefs[] = {
     {0x113FC8, kCode, "40 53 48 83 EC 20 48 83 02 04 48 8B D9 80 B9 42 05 00 00 00", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x114024, kCode, "48 89 5C 24 18 55 56 57 48 81 EC 30 04 00 00 48 8B 05 ?? ??", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x11575D, kCode, "48 8D 3D ?? ?? ?? ?? 48 89 44 24 20 48 8B D9 48 89 54 24 28", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
+    {0x116D30, kCode, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 60 4C 8B 25 ?? ?? ?? ?? 4C", 0, 0x0, 0, 0, 0, ""},  // thrsched.cpp
+    {0x116F12, kCode, "FF 15 ?? ?? ?? ?? 8B 85 C4 06 00 00", 0, 0x0, 0, 0, 0, ""},  // thrsched.cpp
+    {0x116F80, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 30 48 8B 05 ?? ?? ?? ?? 48 8D 99 D0 0C 00 00", 0, 0x0, 0, 0, 0, ""},  // thrsched.cpp
+    {0x11702C, kCode, "FF 15 ?? ?? ?? ?? 8B 46 1C 39 46 14", 0, 0x0, 0, 0, 0, ""},  // thrsched.cpp
     {0x118E19, kCode, "E8 ?? ?? ?? ?? 83 A4 9F 70 0B 00 00", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x118E28, kCode, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 E9 48 81 EC A8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 FF 4C 8B 7D 7F 4D", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x118F4D, kCode, "E8 ?? ?? ?? ?? 44 8B 45 9F 48 8D 55", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
@@ -49,12 +55,15 @@ constexpr Def kDefs[] = {
     {0x1E72D1, kCode, "4D 85 F6 74 49 49 8B 4E 68 48 85 C9", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x205530, kCode, "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 80 78 12 00 0F 84 ?? ?? ?? ?? 48 8D 4C 24 30 FF 15 ?? ?? ?? ?? 48 8B 44 24", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x20723D, kCode, "48 8B 0B 44 8A F0 88 44 24 78 45 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
+    {0x20DFC0, kCode, "48 8B C4 48 89 58 08 48 89 68 18 48 89 70 20 48 89 50 10 57 41 54 41 55 41 56 41 57 48 83 EC 60 33 FF 0F 29", 0, 0x0, 0, 0, 0, ""},  // holdkeygap.cpp
     {0x2477D4, kCode, "68 AB 69 03 EB E7 CC CC 41 BA 02 00 00 00 48 8D 41 10 4C 8B", 8, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x247950, kCode, "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 ?? ?? ?? ?? 8B 87 70 01 00 00 89", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x247955, kCode, "57 48 83 EC 20 48 8B FA 48 8B D9 E8 ?? ?? ?? ?? 8B 87 70 01", 0, 0x0, 0, 0, 0, ""},  // drawprep.cpp
     {0x252510, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 57 48 81 EC 50 01 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x283950, kCode, "48 8B 0D ?? ?? ?? ?? 33 C0 48 85 C9 74 0C 38 41 3E 75 05 38", 0, 0x0, 0, 0, 0, ""},  // autocont.cpp
     {0x2BE284, kCode, "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 4C 8B C9 48 8B 00 80 B8 79", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0x2E0384, kCode, "0F 85 ?? ?? ?? ?? B0 01 48 8B 4D F8", 0, 0x0, 0, 0, 0, ""},  // resinfoguard.cpp
+    {0x310698, kCode, "41 5F 41 5E 5F C3 CC CC 48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B 31", 8, 0x0, 0, 0, 0, ""},  // aichainguard.cpp
     {0x310C18, kCode, "40 53 48 83 EC 20 48 83 79 18 08 48 8B D9 72 12 E8 ?? ?? ?? ?? 48 8B 13 48 8B C8 4C 8B 00 41 FF 50 58 33 C0 48 C7 43 18 07 00 00 00 48 89 43 10 66 89 03 48 83 C4 20 5B C3 CC CC CC 40 53 48 83 EC 20 48 8B", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
     {0x311ED5, kCode, "45 33 C9 45 33 C0 33 C9 41 8D 51 01 FF 15 ?? ?? ?? ?? 49 89", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
     {0x311EE1, kCode, "FF 15 ?? ?? ?? ?? 49 89 07 48 85 C0", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
@@ -63,6 +72,7 @@ constexpr Def kDefs[] = {
     {0x312754, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 8B 79 1C 45", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
     {0x3127A1, kCode, "FF 15 ?? ?? ?? ?? 85 C0 40 0F B6 F6", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
     {0x314181, kCode, "25 00 02 00 00 45 33 C9 C1 E0 15 0F", 0, 0x0, 0, 0, 0, ""},  // readfix.cpp
+    {0x39B0F7, kCode, "48 8B 0D ?? ?? ?? ?? BA 9D 84 3D EF", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x3B2528, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 48 8B F1 44", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x3B3443, kCode, "E8 ?? ?? ?? ?? 33 DB 84 C0 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ??", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x3B3460, kCode, "E8 ?? ?? ?? ?? 84 C0 0F 85 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 81 C1 50 04 00 00 E8", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
@@ -84,12 +94,50 @@ constexpr Def kDefs[] = {
     {0x418B94, kCode, "48 89 5C 24 08 57 48 81 EC B0 00 00 00 48 8B D9 E8 ?? ?? ?? ?? 48 81 C3 78 3C 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x418F46, kCode, "48 8D 42 28 48 8B D9 48 89 44 24 20", 0, 0x0, 0, 0, 0, ""},  // bkstats.cpp
     {0x418F90, kCode, "8B 41 28 39 41 24 74 03 B0 01 C3 83", 0, 0x0, 0, 0, 0, ""},  // bkstats.cpp
-    {0x420654, kCode, "40 55 53 56 57 41 56 48 8D AC 24 50 08 FF FF B8 B0 F8 00 00", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0x420654, kCode, "40 55 53 56 57 41 56 48 8D AC 24 50 08 FF FF B8 B0 F8 00 00", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp, zinflate.cpp
+    {0x42FB3E, kCode, "49 3B DE 74 73 8B 7B 10 8B D7 48 8B 0D ?? ?? ?? ?? 89 7D 67", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x42FBD6, kCode, "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 7D 67 48", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x42FC11, kCode, "E8 ?? ?? ?? ?? 45 33 C0 48 8B F8 8A 48 02 88 08 8A 48 03 88 48 01 44 89 40 02 44 89 40 08 66 44 89 40 0C 44 8B 6B 28 8B 4B 30 8B 43", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x42FD92, kCode, "E8 ?? ?? ?? ?? 8A 40 03 88 45 67 EB", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430189, kCode, "48 3B DF 0F 84 ?? ?? ?? ?? 44 8B 63", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x4301A2, kCode, "E8 ?? ?? ?? ?? 41 8B CC 4C 8B F0 E8 ?? ?? ?? ?? 45 33 C0 84", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430220, kCode, "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 7F 10 44 89 7D 77 45 3B", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43028F, kCode, "E8 ?? ?? ?? ?? 45 33 C0 44 38 40 02 75 0A 44 38 40 03 0F 84 ?? ?? ?? ?? 83 7D 7F FF", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430316, kCode, "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 6F 10 48 8D 4E 50 48 8D", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430330, kCode, "E8 ?? ?? ?? ?? 45 33 C0 4C 8B E0 44", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430399, kCode, "0F 84 D9 00 00 00 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5", 13, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x4303C2, kNone, "", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430499, kCode, "FF 0F 84 87 FE FF FF 41 83 FE FF 0F 84 ?? ?? ?? ?? 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 ?? ?? ?? ?? 8B 53", 24, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x4304C2, kCode, "66 36 4D 00 84 C0 75 DC 48 8D 55 67 48 8D 4E 50 E8 ?? ?? ?? ?? 45 33 C0 44 38 40 02", 16, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430A38, kCode, "48 3B 5E 58 74 6F 8B 53 10 48 8B 8D", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430BC1, kCode, "49 3B DC 0F 84 ?? ?? ?? ?? 48 8B 05", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430CB7, kCode, "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 6B 10 41 8B D5 48 8B 05 ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43118D, kCode, "48 3B FB 0F 84 ?? ?? ?? ?? 4C 63 7F", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43126F, kCode, "49 3B 5E 18 0F 84 ?? ?? ?? ?? 44 8B 63 10 44 89 65 58 45 3B", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43138F, kCode, "E8 ?? ?? ?? ?? 33 C9 38 48 02 75 09 38 48 03 0F 84 ?? ?? ?? ?? 83 7D 60 FF 0F 85 ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x431690, kNone, "", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x4316F9, kCode, "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? CC CC CC 48 8B 41 30 4C 8B 59 18 49 23 C1 4C 8B 51 08 48 03 C0 4D 8B 4C C3 08 4D 3B CA 74 1F 49 8B 0C C3 41 8B 00 41 3B 41 10 0F 85 ?? ?? ?? ?? 49 8B 01 48 89 02 4C 89 4A 08 48 8B C2 C3 4C 89 12 E9 ?? ?? ?? ?? CC 41", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x431E6C, kNone, "", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x431ED5, kCode, "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? CC CC CC 48 8B 41 30 4C 8B 59 18 49 23 C1 4C 8B 51 08 48 03 C0 4D 8B 4C C3 08 4D 3B CA 74 1F 49 8B 0C C3 41 8B 00 41 3B 41 10 0F 85 ?? ?? ?? ?? 49 8B 01 48 89 02 4C 89 4A 08 48 8B C2 C3 4C 89 12 48 83 62 08 00 EB F2", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433AD6, kCode, "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 BC 24 B0 00 00 00", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433B16, kCode, "E8 ?? ?? ?? ?? 48 8B F8 8A 48 02 66", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433E58, kCode, "49 3B DC 0F 84 ?? ?? ?? ?? 44 8B 73 10 48 8D 94 24", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433E79, kCode, "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D6 48 8B 89", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433EDE, kCode, "49 3B FF 74 ?? 48 8D 57 10 44 39 32", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x433EFA, kCode, "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB D5 48 8B 1B E9 ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x436758, kCode, "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x436A20, kCode, "E8 ?? ?? ?? ?? 84 C0 75 16 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0A 80 78 3E 00 75 04 32", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x436CF8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
+    {0x438659, kCode, "49 3B DE 74 CC 8B 73 10 48 8D 4F 50", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43866E, kCode, "E8 ?? ?? ?? ?? 4C 8B 97 F0 00 00 00", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x48A150, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 44 0F B7 59 08 45 33 C9", 0, 0x0, 0, 0, 0, ""},  // motionguard.cpp
+    {0x491B30, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 41", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x493050, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED 48 8B F9 8B DD 33 C0 8D 75 01 F0 0F B1 71 34 75 2A 83 CB FF F0 0F", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x4930B0, kCode, "EB C5 48 8B CF E8 ?? ?? ?? ?? EB C7", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x4930B5, kCode, "E8 ?? ?? ?? ?? EB C7 33 C9 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x495AF2, kCode, "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x495F26, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 54 24 20 48 8B CF 41 FF 14 C0 48", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
+    {0x4A4F3B, kCode, "48 8B 97 C8 01 00 00 33 C0 F0 0F B1", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x4A53D0, kCode, "E8 ?? ?? ?? ?? 44 89 BB 68 E5 1E 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x52B142, kCode, "E8 ?? ?? ?? ?? 45 33 E4 48 8B F0 48 85 C0 0F 85 ?? ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x52BE1C, kCode, "8B 81 CC 01 00 00 0F A3 D0 72 03 33", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
@@ -107,6 +155,7 @@ constexpr Def kDefs[] = {
     {0x5B7BB4, kCode, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 68 F8 FF FF 48 81 EC 98 08 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 80 07 00 00 48 8B 9D 00 08 00 00", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x5F328D, kCode, "E8 ?? ?? ?? ?? 48 8B C8 48 89 45 D8 48 F7 D9 48 8B F8 48 8B", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x702B64, kCode, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C 48 8B CF E8", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
+    {0x751784, kCode, "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8D 59 10 48", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x7D9B91, kCode, "E8 ?? ?? ?? ?? 48 8D BB A0 61 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x7D9BA3, kCode, "E8 ?? ?? ?? ?? 48 8B 8B 18 47 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x7D9BC7, kCode, "FF 90 20 01 00 00 8B C0 48 8B 84 C3", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
@@ -119,17 +168,20 @@ constexpr Def kDefs[] = {
     {0x89B2FD, kCode, "E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x8B3868, kCode, "48 83 EC 28 48 8B 41 18 48 8B 00 48", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x8F041C, kCode, "40 53 48 83 EC 20 41 8B D8 48 85 C9 74 21 BA E9 FA B3 37 41", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
+    {0x901BA4, kCode, "48 83 EC 28 4C 63 CA 4C 8B D1 E8 ?? ?? ?? ?? F3 0F 10 0D ?? ?? ?? ?? 0F 57 C0 43 8B 8C 8A A4 00 00 00 44 8B", 0, 0x0, 0, 0, 0, ""},  // holdkeygap.cpp
     {0x909218, kCode, "41 5E 41 5D 41 5C 5D C3 4C 8B 49 08 49 B8 25 23 22 84 E4 9C", 8, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x9290D8, kCode, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D AC 24 50 FD FF FF 48 81", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
     {0x9A62FC, kCode, "40 53 48 83 EC 20 48 83 02 04 48 8B D9 E8 ?? ?? ?? ?? C6 83", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x9AFDF0, kCode, "48 83 02 04 66 C7 81 43 05 00 00 01", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
-    {0xA09A40, kCode, "40 55 53 56 57 41 54 41 56 41 57 48 8D AC 24 50 08 FF FF B8", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0xA09A40, kCode, "40 55 53 56 57 41 54 41 56 41 57 48 8D AC 24 50 08 FF FF B8", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp, zinflate.cpp
     {0xB614A8, kCode, "33 D2 E9 ?? ?? ?? ?? CC 40 53 48 83 EC 20 48 8B D9 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // loadmem.cpp
     {0xB61524, kCode, "48 83 EC 28 83 69 4C 01 75 15 83 49", 0, 0x0, 0, 0, 0, ""},  // loadmem.cpp
     {0xE266A4, kCode, "48 8B 5C 24 30 48 83 C4 20 5F C3 CC 48 89 5C 24 10 48 89 6C 24 18 56 48 83 EC 40 48", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0xE2686F, kCode, "0F 28 74 24 30 48 8B 7C 24 50 48 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0xE6DA30, kCode, "48 89 5C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 F0 FB", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
+    {0x18CBDAC, kCode, "48 8B C4 48 89 48 08 48 89 50 10 4C 89 40 18 4C 89 48 20 48 83 EC 48 BA 01 00 00 00", 0, 0x0, 0, 0, 0, ""},  // assertguard.cpp
     {0x198357C, kCode, "E8 ?? ?? ?? ?? 85 C0 0F 8E ?? ?? ?? ?? 48 8B 57 60 4C 8B 4F", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
+    {0x19A9246, kCode, "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB C3 48 8D 0D ?? ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x1A25524, kCode, "E8 ?? ?? ?? ?? 48 89 45 B8 48 8B D8", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x1A3146A, kCode, "8B 95 A8 03 00 00 48 8B CD E8 ?? ??", 0, 0x0, 0, 0, 0, ""},  // loadonly.cpp
     {0x1A31470, kCode, "48 8B CD E8 ?? ?? ?? ?? FF C3 84 DB", 0, 0x0, 0, 0, 0, ""},  // loadonly.cpp
@@ -146,6 +198,7 @@ constexpr Def kDefs[] = {
     {0x1A7C455, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 55 D0 48 8B CF 41 FF 14 C0 48 8B", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
     {0x1A7C467, kCode, "48 8B 4D D8 48 8B 45 D0 EB DB 80 7D", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp, replayprof.cpp
     {0x1A7C4C0, kCode, "24 68 48 83 C4 50 5D C3 8B 41 28 39", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
+    {0x1A82298, kCode, "40 53 48 83 EC 20 48 8B D9 48 8B 89 20 77 00 00 EB 52 48 8B", 0, 0x0, 0, 0, 0, ""},  // ptstart.cpp
     {0x1C205A4, kCode, "40 53 48 83 EC 20 48 8B 01 48 8B D9 80 B8 9A 27 00 00 00 75 40 F3 0F 10 0D ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // savefiles.cpp
     {0x1C35372, kCode, "B9 F1 AB C4 03 E8 ?? ?? ?? ?? 48 8B", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
     {0x1C35393, kCode, "E8 ?? ?? ?? ?? 44 38 6F 55 0F 85 ??", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
@@ -161,6 +214,9 @@ constexpr Def kDefs[] = {
     {0x2239600, kCode, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1 41 8B D8 44", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x226A490, kCode, "81 7D 70 DE 10 00 00 74 14 48 8B C6", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x226A497, kCode, "74 14 48 8B C6 39 78 08 75 03 40 88", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
+    {0x2978718, kCode, "E8 ?? ?? ?? ?? 48 8B F0 8A 48 02 F3", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x2978891, kCode, "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D7 48 8B 89", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x2978924, kCode, "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 45 40 48 8B 3F EB C3 48", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x2EE8B92, kCode, "E8 ?? ?? ?? ?? 48 8D 4F 10 E8 ?? ?? ?? ?? 8B 97 30 47 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x2EEC4F9, kCode, "E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 40 84 FF 75 11 48 8D", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x2F0D684, kCode, "48 89 5C 24 18 55 56 57 48 83 EC 70 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 60 48 83 02 04 48 8B DA 48 8B", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
@@ -168,7 +224,7 @@ constexpr Def kDefs[] = {
     {0x2F0D774, kCode, "48 89 5C 24 08 57 48 83 EC 30 48 83 02 04 4C 8B C2 48 8B 02", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x2F77A6C, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 4C 89 48 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 4C 8B E2 48", 0, 0x0, 0, 0, 0, ""},  // readprobe.cpp
     {0x30A6931, kCode, "E9 ?? ?? ?? ?? CC CC 48 89 5C 24 08 57 48 83 EC 20 4C 8B 49", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
-    {0x324D064, kCode, "40 55 53 56 57 41 56 41 57 48 8D AC 24 48 80 FF FF B8 B8 80", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0x324D064, kCode, "40 55 53 56 57 41 56 41 57 48 8D AC 24 48 80 FF FF B8 B8 80", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp, zinflate.cpp
     {0x32FAE39, kCode, "E8 ?? ?? ?? ?? 48 83 EF 01 75 CA 48", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x32FBDBE, kCode, "E8 ?? ?? ?? ?? 48 8B 55 E0 49 8B CC", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x32FE938, kCode, "48 89 5C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B B9 C8 01", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
@@ -183,6 +239,7 @@ constexpr Def kDefs[] = {
     {0x38E26C8, kIat, "", 0, 0x0, 0, 0, 0, "KERNEL32.dll!ReadFileEx"},  // readprobe.cpp
     {0x38E2C50, kIat, "", 0, 0x0, 0, 0, 0, "XINPUT1_4.dll!#2"},  // menu.cpp
     {0x38E2E18, kIat, "", 0, 0x0, 0, 0, 0, "sl.interposer.dll!D3D12CreateDevice"},  // memstats.cpp
+    {0x38F4E38, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 F6 C2 01 0F 85 ?? ?? ?? ?? 48 8B C3 48 83 C4 20 5B C3 CC CC CC 48 89 5C 24 10 48 89 6C 24 18", 0, 0x5DEB3E, 3, 7, 0, ""},  // fhlinger.cpp
     {0x3AAF600, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 8B CB 48 89 03 48 8B 84 24 20 01 00", 0, 0x228CE13, 3, 7, 0, ""},  // frameoverlap.cpp
     {0x3C02220, kGlobal, "48 8D 3D ?? ?? ?? ?? 48 89 44 24 20 48 8B D9 48 89 54 24 28", 0, 0x11575D, 3, 7, 0, ""},  // dllmain.cpp, frameoverlap.cpp, replayprof.cpp
     {0x408F940, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 C7 47 20 00 00 00 00 48 8D 4F 60 48 89 07 BA 02 01 00 00 E8 ?? ?? ?? ?? 48 8B 4E 08 48 8B 7C 24 30 48 8D 04 29 48 3B 46 10 76 04 33 D2 EB 0A 48 8B 16 48 03 D1 48 89 46 08 48 8B 8B 38 63 00 00 48 8D 82 8F", 0, 0x13474E8, 3, 7, 0, ""},  // loadmem.cpp
@@ -197,6 +254,7 @@ constexpr Def kDefs[] = {
     {0x45BA1E0, kGlobal, "48 8B 2D ?? ?? ?? ?? 80 BD 08 9B 06", 0, 0x4321F3, 3, 7, 0, ""},  // dllmain.cpp
     {0x45BA588, kGlobal, "48 8B 15 ?? ?? ?? ?? 89 4D 7F 0F 94", 0, 0x3710D, 3, 7, 0, ""},  // bkstats.cpp, dllmain.cpp, gpuprof.cpp, memstats.cpp, pmode.cpp, rebar.cpp, replayprof.cpp
     {0x45BA780, kGlobal, "48 8B 05 ?? ?? ?? ?? 40 38 70 12 74 16 48 8D 4C 24 50 FF 15", 0, 0x40C08, 3, 7, 0, ""},  // bkstats.cpp, dllmain.cpp
+    {0x45BAF30, kGlobal, "8B 05 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 0F BE 40 2F E9 ?? ?? ?? ?? 8B", 0, 0x6075E7, 2, 6, 0, ""},  // perfsnap.cpp
     {0x45BAF3C, kGlobal, "8B 05 ?? ?? ?? ?? E9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 98 E9 ?? ??", 0, 0x607CE1, 2, 6, 0, ""},  // pmode.cpp
     {0x45BAF54, kGlobal, "8B 0D ?? ?? ?? ?? 89 15 ?? ?? ?? ??", 0, 0x5A9E28, 2, 6, 0, ""},  // osd.cpp
     {0x45BAF58, kGlobal, "44 39 1D ?? ?? ?? ?? 75 09 45 89 50", 0, 0x5AF50A, 3, 7, 0, ""},  // osd.cpp
@@ -210,6 +268,7 @@ constexpr Def kDefs[] = {
     {0x45C84A4, kGlobal, "0F 10 15 ?? ?? ?? ?? 0F 2F 15 ?? ?? ?? ?? 77 0B E8 ?? ?? ??", 0, 0x3B356F, 3, 7, 0, ""},  // loadstats.cpp
     {0x45C84A8, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 23 08 00 00 C3 C3", 0, 0xEFBC8, 3, 7, 0, ""},  // loadstats.cpp
     {0x45C84F8, kGlobal, "48 8B 05 ?? ?? ?? ?? B3 FF 48 85 C0", 0, 0x85A93, 3, 7, 0, ""},  // dllmain.cpp, tour.cpp
+    {0x45C8570, kGlobal, "48 8D 0D ?? ?? ?? ?? 48 03 C1 EB 02", 0, 0x1FE1511, 3, 7, 0, ""},  // perfsnap.cpp
     {0x45CE800, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 10 F3 0F 10 88 AC 1F 00 00", 0, 0x476B7, 3, 7, 0, ""},  // loadstats.cpp
     {0x45CE8A0, kGlobal, "88 05 ?? ?? ?? ?? 0F B6 05 ?? ?? ??", 0, 0x418F68, 2, 6, 0, ""},  // bkstats.cpp
     {0x47098A0, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0C 8B 00 83 E8 02 83 F8 02", 0, 0x27EA74, 3, 7, 0, ""},  // loadstats.cpp, tour.cpp

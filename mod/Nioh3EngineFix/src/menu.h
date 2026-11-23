@@ -76,7 +76,7 @@ struct Host {
     volatile uint32_t* wkKept = nullptr;
     volatile uint32_t* wkSkipped = nullptr;
     // boot-time values the game was launched with ("applies next launch" items)
-    int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0;
+    int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0, fwp = 0;
     // experimental patches + their counters (stats line)
     ExpFix exp[kNumExp];
     volatile uint32_t *ppRan = nullptr, *ppSkipped = nullptr, *m1Refresh = nullptr, *x1Skip = nullptr;
@@ -114,6 +114,7 @@ void OnPresent();
 float Draw(unsigned W, unsigned H);
 float PanelScale(unsigned W, unsigned H);  // right-side menu panel only; the FPS counter uses osd::CounterScale
 bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
+extern volatile long g_entryTip; // Training entry cover: answer the post-load tip while that screen is up
 bool IsOpen();
 cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
 void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);
@@ -130,9 +131,16 @@ const char* OpenHint();
 // item (WakeStats), or FPS / FrameTime / Speed. Bool items take 0/1, R1 0-16, maxlatency 0-3, PauseHint 0-2. Frame generation
 // and Save are not remote. Returns 0 ok (reply = "<label> = <value>"), < 0 error (reply says why).
 int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs);
+// Raw HUD widget mask on Present thread: comma-separated 0..255, "none" to clear, nullptr to query.
+int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs);
 // vpad.cpp: filter for the game's 256-byte DirectInput keyboard reads, called before the menu looks at them (true = report
 // success to the game). Set before osd::Start.
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk));
+// UO #14 vpad.cpp: true when the game's last read of that device carried virtual input (dev 0 = pad slot idx, 1 = keyboard);
+// such reads still drive the menu but never switch the input modality. Set before osd::Start.
+void SetInputVirtual(bool (*query)(int dev, unsigned idx));
+// UO #14: 0 = pad, 1 = keyboard - the device of the player's last trusted press (menu.cpp ModalityToKey / ModalityToPad)
+int InputModality();
 
 // ---- W3 hookPeek (game's message thread): swallow the menu key (keeps Windows from entering the F10 system-menu
 // mode) and, while the menu is open, the navigation keys. Only WM_KEY*/WM_SYSKEY* are looked at.

@@ -15,8 +15,12 @@
 #include "boss_move_facts.h"
 #include "Nioh3Training/src/move_motion.h"
 #include "Nioh3Training/src/auto_moves_types.h"
-#define N3CAT_CAP 8192  // a macro: move_toggle.h sizes its per-move preference array with it
-enum { N3CAT_NEXT_CAP = 4096, N3CAT_FACT_CAP = 8192, N3CAT_MOTION_CAP = 8192 };
+// GitHub #126: 8192 rows held the 5061 hand rows plus only 3-4 runtime bosses (a human duelist brings 767-1646 rows); every later boss got
+// 0 rows, so its Boss moves page was empty and 'Repeat last move' never captured an attack (Giant Toad 210803, live sweep 11-05: 0 new rows
+// from the 5th boss on). 32768 is the most the Boss Rematch menu ids allow (kItMoveBase 0x30000 .. kItBossTrainHere 0x38000, static_assert).
+// Lookups go through a hash index (N3CatFind / N3CatMotionFind), so the bigger table costs no extra scan time.
+#define N3CAT_CAP 32768  // a macro: move_toggle.h sizes its per-move preference array with it
+enum { N3CAT_NEXT_CAP = 16384, N3CAT_FACT_CAP = 32768, N3CAT_MOTION_CAP = 32768, N3CAT_HASH = 65536 };
 // the hand tables as generated (the proof compares against these, auto_moves_cmp.h)
 static const N3Move* const kN3MovesHand = kN3Moves; static const int kN3MovesHandN = N3_MOVE_COUNT;
 static const N3Next* const kN3NextHand = kN3Next; static const int kN3NextHandN = N3_NEXT_COUNT;
@@ -27,6 +31,19 @@ static N3MoveFact g_n3fa[N3CAT_FACT_CAP]; static volatile int g_n3fa_n;
 static N3Motion g_n3mo[N3CAT_MOTION_CAP]; static volatile int g_n3mo_n;
 typedef struct { uint8_t known, zero, hits; char damage[96]; } N3ActionRecord;
 static N3ActionRecord g_n3records[N3CAT_CAP];
+// GitHub #126: open-addressing index (chr, id) -> row + 1 of g_n3cat / g_n3mo. Append-only like the arrays: a row is written, then indexed,
+// then counted (n), so a reader on another thread sees either the old miss or the complete row. The first row of a key wins (as the old scan).
+static volatile int32_t g_n3cat_ix[N3CAT_HASH], g_n3mo_ix[N3CAT_HASH];
+static volatile int32_t g_n3cat_dropped;  // runtime rows that did not fit (logged by the merge callers)
+static inline unsigned N3CatHash(uint32_t chr, uint32_t id) { uint32_t h = chr * 2654435761u ^ (id + 0x9E3779B9u) * 2246822519u; h ^= h >> 15; return h & (N3CAT_HASH - 1); }
+#ifdef __cplusplus
+static_assert(N3CAT_HASH >= 2 * N3CAT_CAP && N3CAT_HASH >= 2 * N3CAT_MOTION_CAP && !(N3CAT_HASH & (N3CAT_HASH - 1)), "index half full at most");
+#else
+_Static_assert(N3CAT_HASH >= 2 * N3CAT_CAP && N3CAT_HASH >= 2 * N3CAT_MOTION_CAP && !(N3CAT_HASH & (N3CAT_HASH - 1)), "index half full at most");
+#endif
+static void N3CatIndexPut(volatile int32_t* ix, unsigned slot, int row) {
+    for (unsigned k = 0; k < N3CAT_HASH; ++k, slot = (slot + 1) & (N3CAT_HASH - 1)) if (!ix[slot]) { ix[slot] = row + 1; return; }
+}
 static volatile uint32_t g_n3auto[256]; static volatile int g_n3auto_n;  // bosses whose runtime list is merged
 static int g_n3cat_init;
 static void N3CatInit(int hand) {
@@ -35,16 +52,31 @@ static void N3CatInit(int hand) {
     if (!hand) return;
     for (int i = 0; i < N3_MOVE_COUNT && i < N3CAT_CAP; ++i) g_n3cat[i] = kN3Moves[i];
     for (int i = 0; i < N3_NEXT_COUNT && i < N3CAT_NEXT_CAP; ++i) g_n3nx[i] = kN3Next[i];
-    // Hit/damage metadata never seeds from hand facts; archive records or unknown only.
+    // Hit/damage metadata never seeds from hand facts; archive records, else the runtime hitbox-row count (hits only, #121846), else unknown.
     for (int i = 0; i < N3_MOTION_COUNT && i < N3CAT_MOTION_CAP; ++i) g_n3mo[i] = kN3Motion[i];
     g_n3cat_n = N3_MOVE_COUNT < N3CAT_CAP ? N3_MOVE_COUNT : N3CAT_CAP; g_n3nx_n = N3_NEXT_COUNT < N3CAT_NEXT_CAP ? N3_NEXT_COUNT : N3CAT_NEXT_CAP;
     g_n3fa_n = 0; g_n3mo_n = N3_MOTION_COUNT < N3CAT_MOTION_CAP ? N3_MOTION_COUNT : N3CAT_MOTION_CAP;
+    for (int i = 0; i < g_n3cat_n; ++i) { int dup = 0; for (unsigned s = N3CatHash(g_n3cat[i].chr, g_n3cat[i].id); g_n3cat_ix[s]; s = (s + 1) & (N3CAT_HASH - 1)) { const N3Move* r = &g_n3cat[g_n3cat_ix[s] - 1]; if (r->chr == g_n3cat[i].chr && r->id == g_n3cat[i].id) { dup = 1; break; } } if (!dup) N3CatIndexPut(g_n3cat_ix, N3CatHash(g_n3cat[i].chr, g_n3cat[i].id), i); }
+    for (int i = 0; i < g_n3mo_n; ++i) { int dup = 0; for (unsigned s = N3CatHash(g_n3mo[i].chr, g_n3mo[i].id); g_n3mo_ix[s]; s = (s + 1) & (N3CAT_HASH - 1)) { const N3Motion* r = &g_n3mo[g_n3mo_ix[s] - 1]; if (r->chr == g_n3mo[i].chr && r->id == g_n3mo[i].id) { dup = 1; break; } } if (!dup) N3CatIndexPut(g_n3mo_ix, N3CatHash(g_n3mo[i].chr, g_n3mo[i].id), i); }
 }
+// row of (chr, id) in g_n3cat, -1 = none. Rows a test wrote past the index (g_n3cat_n raised by hand) are not found, as before they had no rows.
 static inline int N3CatFind(uint32_t chr, uint32_t id) {
     const int n = g_n3cat_n;
-    for (int i = 0; i < n; ++i) if (g_n3cat[i].chr == chr && g_n3cat[i].id == id) return i;
+    for (unsigned s = N3CatHash(chr, id), k = 0; k < N3CAT_HASH; ++k, s = (s + 1) & (N3CAT_HASH - 1)) {
+        const int32_t v = g_n3cat_ix[s]; if (!v) return -1;
+        if (v - 1 < n && g_n3cat[v - 1].chr == chr && g_n3cat[v - 1].id == id) return (int)(v - 1);
+    }
     return -1;
 }
+static inline int N3CatMotionFind(uint32_t chr, uint32_t id) {
+    const int n = g_n3mo_n;
+    for (unsigned s = N3CatHash(chr, id), k = 0; k < N3CAT_HASH; ++k, s = (s + 1) & (N3CAT_HASH - 1)) {
+        const int32_t v = g_n3mo_ix[s]; if (!v) return -1;
+        if (v - 1 < n && g_n3mo[v - 1].chr == chr && g_n3mo[v - 1].id == id) return (int)(v - 1);
+    }
+    return -1;
+}
+#define N3CAT_MOTION_FIND 1  // move_toggle.h MvMotion uses the index
 static inline const N3ActionRecord* N3CatRecordFind(uint32_t chr, uint32_t id) {
     int i = N3CatFind(chr, id); return i >= 0 && g_n3records[i].known ? &g_n3records[i] : 0;
 }
@@ -74,9 +106,9 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
         const char kind = m[k].kind;
         const int i = N3CatFind(chr, m[k].id);
         if (i >= 0) { g_n3cat[i].kind = kind; continue; }
-        if (g_n3cat_n >= N3CAT_CAP) break;
+        if (g_n3cat_n >= N3CAT_CAP) { g_n3cat_dropped += n - k; break; }
         N3Move r; r.chr = chr; r.id = m[k].id; r.boss = name; r.label = N3CatLabel(&m[k]); r.kind = kind; r.ms = 0;
-        g_n3cat[g_n3cat_n] = r; g_n3cat_n = g_n3cat_n + 1; ++added;
+        const int at = g_n3cat_n; g_n3cat[at] = r; N3CatIndexPut(g_n3cat_ix, N3CatHash(chr, r.id), at); g_n3cat_n = at + 1; ++added;
     }
     for (int k = 0; k < n; ++k) {
         int i = N3CatFind(chr, m[k].id); if (i < 0) continue;
@@ -90,13 +122,13 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
     }
     for (int i = 0; i < g_n3fa_n; ++i) if (g_n3fa[i].chr == chr) g_n3fa[i].chr = 0;
     for (int k = 0; k < n && g_n3fa_n < N3CAT_FACT_CAP; ++k) if (m[k].fact) {
-        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].record_known ? m[k].hits : 0; f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab;
+        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].hits;  /* archive or runtime hitbox count (ArApply, #121846) */ f.great = m[k].great; f.attack = m[k].attack; f.grab = m[k].grab; f.nohit = (uint8_t)(m[k].nohit && !m[k].hits); f.proj = m[k].proj;  /* human #126342 */
         g_n3fa[g_n3fa_n] = f; g_n3fa_n = g_n3fa_n + 1;
     }
     for (int k = 0; k < n; ++k) {
-        int j = -1; for (int i = 0; i < g_n3mo_n; ++i) if (g_n3mo[i].chr == chr && g_n3mo[i].id == m[k].id) { j = i; break; }
+        const int j = N3CatMotionFind(chr, m[k].id);
         if (j >= 0) g_n3mo[j].motion = m[k].motion;
-        else if (g_n3mo_n < N3CAT_MOTION_CAP) { N3Motion x; x.chr = chr; x.id = m[k].id; x.motion = m[k].motion; g_n3mo[g_n3mo_n] = x; g_n3mo_n = g_n3mo_n + 1; }
+        else if (g_n3mo_n < N3CAT_MOTION_CAP) { N3Motion x; x.chr = chr; x.id = m[k].id; x.motion = m[k].motion; const int at = g_n3mo_n; g_n3mo[at] = x; N3CatIndexPut(g_n3mo_ix, N3CatHash(chr, x.id), at); g_n3mo_n = at + 1; }
     }
     if (g_n3auto_n < 256) { g_n3auto[g_n3auto_n] = chr; g_n3auto_n = g_n3auto_n + 1; }
     return added;

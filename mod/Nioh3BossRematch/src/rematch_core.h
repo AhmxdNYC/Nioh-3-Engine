@@ -7,14 +7,17 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <set>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include "../../Nioh3Training/src/fallback_rosters_gen.h"
 
 namespace rcore {
 
 enum Route : uint8_t { kR = 0, kH = 1, kD = 2, kE = 3, kX = 4 };
 inline const char* RouteName(Route r) {
-    static const char* const n[] = {"replay", "hidden duel", "direct", "picture scroll", "no route"};
+    static const char* const n[] = {"replay", "hidden duel", "direct", "waves", "no route"};
     return n[r];
 }
 
@@ -22,7 +25,9 @@ struct Row {
     char id[24] = "", name[64] = "", mission[64] = "", region[24] = "", reason[200] = "";
     Route route = kX;
     uint16_t missionId = 0;
+    uint32_t storyMission = 0; // catalogue story_mission. Scroll rows name the scroll mission here; replay_mission_id stays empty.
     int emakiIndex = -1;       // E rows: Emaki record index (0..19)
+    int wakeStep = 0;          // E rows: catalogue wake_step = the WaveNudgeAt offset that woke the record in the test runs (0 = record warp / unmeasured)
     uint32_t placement = 0;    // expected boss placement (BossLog Create id) or 0
     int world = -1;            // catalogue region_byte: the world the boss stands in (-1 = unknown)
     bool hidden = false;
@@ -32,11 +37,14 @@ struct Row {
     uint32_t fightStart = 0;
     int fightDist = -1;        // metres from the boss placement
     char fightConf[8] = "";    // high / medium / low
+    char warning[124] = "";    // catalogue warning column (human #94922): known live problem, shown on the row and its footers
     char fightKind[20] = "";   // boss retry point / shrine / spawn point / gadget point / mission start
     float warp[4] = {};        // the start point's spawn x y z yaw (game units / degrees), for the log
     // Fight now v2 (in the arena): a point just inside the arena trigger box (catalogue arena_x..arena_yaw) or a captured position
     bool arenaOk = false;      // arena[] valid: warp there after the load
+    bool arenaCat = false;     // #107705: arena[] from the catalogue (inside the trigger box; the same spot Training's arena table warps to), not a capture
     bool atFight = false;      // the mission already starts at the fight (one start point <= 30 m): no warp needed
+    bool trFillTried = false;  // #65732: start point looked up in Nioh3Training's arena table once
     float arena[4] = {};
     uint32_t arenaBox = 0;
     char arenaConf[12] = "";   // high / medium / low / captured
@@ -51,6 +59,99 @@ struct Row {
     bool GateDoor() const { return gateId && strcmp(gateKind, "box") != 0; }
     bool FightNowReady() const { return fightStart && (arenaOk || atFight || gateId); }
     bool Verified() const { return verifiedCat || verifiedRun; }
+    // The mission script's running function calls Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
+    // Filled by tools/rematch_catalog.py from the script, not from a row list. The menu reads it before that script runs.
+    bool lesson = false;
+    bool dojo = false;         // catalogue mission_class == dojo-way (the game's mission record class; human #95155 Dojos filter)
+    bool confirmed = false;    // catalogue confirmed = date of recorded live entry evidence on the current fight path (human #84670)
+    // Script kind from the catalogue scan. "waves" = IsDeathGroupEnemy and no BossBattleMode. Not a row list.
+    char fightSignal[8] = "";
+    uint32_t waveGroup[4] = {};
+    int waveCount = 0;
+    bool Waves() const { return strcmp(fightSignal, "waves") == 0; }
+    uint32_t summonChr = 0;  // field-only X row: enemy record +4 key, the Load::Character id (not the param char_id)
+    bool OpenWorld() const { return route == kX && summonChr && placement; }
+};
+
+// A waves row starts when its first wave group is checked, and an unmatched BossBattleModeEnd is the win.
+// A boss row (BossBattleMode already open, or fight_signal boss) keeps the old path.
+inline bool WavesFightStarts(const char* signal, bool bossModeOpen, bool alreadyStarted) {
+    return signal && !strcmp(signal, "waves") && !bossModeOpen && !alreadyStarted;
+}
+inline bool WavesUnmatchedEndWins(const char* signal, bool bossModeOpen) {
+    return signal && !strcmp(signal, "waves") && !bossModeOpen;
+}
+// #107117 (PC2 #107114): Leave Boss Match, a death / retry reload or a mission change ends the native boss mode without
+// BossBattleModeEnd. Every place that drops the fight flag for that reason also closes the boss-mode-open state the waves win reads;
+// otherwise the next Dojo's unmatched end is taken as the left fight's end and the waves win is never logged.
+struct BossModeTrack {
+    bool open = false;
+    void Begin() { open = true; }
+    bool Close() { const bool w = open; open = false; return w; }  // ended outside BossBattleModeEnd: true when one was open
+    bool End() { const bool w = open; open = false; return w; }    // BossBattleModeEnd: true when it matched an open boss mode
+};
+// human #107514: 'Train in this arena' = the row's arena with no waves and no boss; Training's summons as usual. Decided from the row's
+// own catalogue data, no per-row list (#87625). kAtScroll: a Picture Scroll / Dojo scroll trip with Emaki::RequestWaveBattle skipped (the
+// wave list is the scroll's only enemy source, #79507). kAtNative: Fight now load + arena warp with the boss gate never requested; offered
+// only where the boss start waits on that gate (generated script WaitWarpStart or a door gate, not a mission that starts at the fight).
+// #107705: and only where the row data puts the warp inside the arena (catalogue arena_x.., the 'arena' kind of Training's table). Without it
+// the trip lands at the start point outside the door (R1C7C, 25 m out) and opening the door starts the boss.
+enum ArenaTrainRoute : int { kAtNone = -1, kAtScroll = 0, kAtNative = 1 };
+// #107823 (Ally REA75): a 'box' gate is a trigger box around the arena (gate_kind box; the arena spot is inside it), not a door. Entering
+// it fires BossBattleMode on its own (2.7 s after arrival), so the arena-only trip cannot hold it: never offered, whatever the script gate.
+inline bool GateBox(const Row& r) { return r.gateId && !r.GateDoor(); }
+enum ArenaTrainNo : int { kAtNoRoute = 0, kAtNoGate = 1, kAtNoArena = 2, kAtNoBox = 3 };
+inline int ArenaTrainNoWhy(const Row& r, bool scriptGate) {
+    if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNoRoute;
+    if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNoGate;
+    if (GateBox(r)) return kAtNoBox;
+    return kAtNoArena;
+}
+inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
+    if (r.route == kE) return kAtScroll;
+    if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNone;
+    if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNone;
+    return r.arenaCat && !GateBox(r) ? kAtNative : kAtNone;
+}
+inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
+// Training entry route -> Fight now FAIL: 5 = failed; 0 = ended, a failure only before a pass (#107705: a leave after an arena-only
+// or native pass ends the entry too and showed fnow=fail).
+inline bool FnFailOnRoute(int route, bool passed) { return route == 5 || (route == 0 && !passed); }
+// #107683: the Return page of a running 'Train in this arena' trip (Training owns its mission gate) is the no-waves scroll page:
+// Training rows, Return, Back, Close. No Fight again (it would reload the mission as a normal boss fight).
+inline bool ArenaOnlyGatePage(bool fightRunning, bool arenaOnlyTrip, uint32_t nativeGateMission) {
+    return fightRunning && arenaOnlyTrip && nativeGateMission != 0;
+}
+// #107642: a refused request (any gate, incl. 'mission state not readable' / 'mission queue full' after Training was told) drops
+// both halves of a 'Train in this arena' pick: BR's row pick and Training's SetArenaOnlyNext, so the next normal Fight now fights.
+template <class RowPick>
+inline void ArenaOnlyRefuseClear(RowPick& row, void (*setArenaOnlyNext)(int)) {
+    row.store(-1);
+    if (setArenaOnlyNext) setArenaOnlyNext(0);
+}
+inline bool StaleBossModeOnMissionChange(bool fightFlag, bool bossModeOpen, uint32_t lastMission) {
+    return lastMission && (fightFlag || bossModeOpen);
+}
+// #107156 risk: a mission change is not proof the boss mode is gone (ms28 could change mid-fight before the kill). The open state
+// the native win reads (ConfirmNativeWin, HkClear: open or 20 s after the end) is closed only once that same window has passed with
+// no BossBattleModeEnd and no new BossBattleMode. A Dojo waves end after Leave Boss Match comes far later (hub, load, waves).
+constexpr uint64_t kStaleBossModeGraceMs = 20000;
+struct StaleBossModeClose {
+    uint64_t at = 0;
+    long fights = 0;
+    void Arm(uint64_t t, long fightCount) {  // keeps the first change's time while one is pending (hub -> Dojo is a second change)
+        if (at) return;
+        at = t ? t : 1;
+        fights = fightCount;
+    }
+    // true once: the left boss mode is still open, no new boss mode began, and the grace has passed
+    bool Due(uint64_t t, long fightCount, bool bossModeOpen) {
+        if (!at) return false;
+        if (!bossModeOpen || fightCount != fights) { at = 0; return false; }  // its own end came, or a new fight owns the state
+        if (t - at < kStaleBossModeGraceMs) return false;
+        at = 0;
+        return true;
+    }
 };
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
@@ -103,7 +204,10 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
-              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte");
+              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class"), cConf = ci("confirmed"),
+              cSum = ci("summon_chr"),
+              cSig = ci("fight_signal"), cWave = ci("wave_groups");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -121,11 +225,30 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         Ascii(r.region, sizeof(r.region), col(cReg));
         Ascii(r.reason, sizeof(r.reason), col(cWhy));
         r.missionId = (uint16_t)strtoul(col(cMid).c_str(), nullptr, 0);
+        r.storyMission = (uint32_t)strtoul(col(cStory).c_str(), nullptr, 0);
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
+        Ascii(r.warning, sizeof(r.warning), col(cWarn));
+        r.dojo = col(cMcls) == "dojo-way";
+        r.confirmed = !col(cConf).empty();
+        r.wakeStep = col(cWake).empty() ? 0 : atoi(col(cWake).c_str());  // out of range is clamped where it is used (WaveNudgeAt)
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
         if (!col(cRb).empty()) r.world = (int)strtol(col(cRb).c_str(), nullptr, 0);  // #12444: the boss's world (teleport fast-load ready check)
         r.verifiedCat = col(cVer) == "1";
+        r.lesson = col(cLesson) == "1";
+        Ascii(r.fightSignal, sizeof(r.fightSignal), col(cSig));
+        {
+            const std::string wg = col(cWave);
+            r.waveCount = 0;
+            size_t a = 0;
+            while (a < wg.size() && r.waveCount < 4) {
+                const size_t b = wg.find_first_of(", ", a);
+                const size_t end = b == std::string::npos ? wg.size() : b;
+                if (end > a) r.waveGroup[r.waveCount++] = (uint32_t)strtoul(wg.c_str() + a, nullptr, 10);
+                if (b == std::string::npos) break;
+                a = b + 1;
+            }
+        }
         if ((r.route == kR || r.route == kH || r.route == kD) && !r.missionId) continue;
         if ((r.route == kR || r.route == kH || r.route == kD) && !col(cFc).empty() && !col(cSt).empty()) {
             r.fightStart = (uint32_t)strtoul(col(cSt).c_str(), nullptr, 0);
@@ -142,6 +265,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                 for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(col(ac[k]).c_str());
                 r.arenaBox = (uint32_t)strtoul(col(cAbox).c_str(), nullptr, 0);
                 r.arenaOk = true;
+                r.arenaCat = true;
             }
             r.gateId = (uint32_t)strtoul(col(cGid).c_str(), nullptr, 0);
             {
@@ -159,11 +283,222 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                 r.boxOk = sscanf_s(g.c_str(), "%f %f %f %f %f %f %f", &r.box[0], &r.box[1], &r.box[2], &r.box[3], &r.box[4], &r.box[5], &r.box[6]) == 7;
             }
         }
+        if (r.route == kE) {
+            const int wc[4] = {cWx, cWy, cWz, cWyaw};
+            for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+        }
+        if (r.route == kX) {
+            // Open-world list is parked (human #92460): summon_chr is not read, so OpenWorld() stays false and kX rows keep the
+            // normal path. Re-enable this line when the human resumes open-world work.
+            (void)cSum;  // r.summonChr = (uint32_t)strtoul(col(cSum).c_str(), nullptr, 0);
+            if (r.OpenWorld()) {
+                const int wc[4] = {cWx, cWy, cWz, cWyaw};
+                for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+                Ascii(r.fightKind, sizeof(r.fightKind), col(cFk));
+            }
+        }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
     }
     return (int)rows.size();
 }
+
+// Picture Scroll mission. A chosen scroll row uses its own story_mission.
+// The game's pick (row < 0) uses that value only when every scroll row names the same one.
+inline uint32_t ScrollMission(const std::vector<Row>& rows, int row) {
+    if (row >= 0 && (size_t)row < rows.size()) {
+        const Row& r = rows[(size_t)row];
+        if (r.route == kE && r.storyMission) return r.storyMission;
+    }
+    uint32_t shared = 0;
+    for (const Row& r : rows) {
+        if (r.route != kE || !r.storyMission) continue;
+        if (!shared) shared = r.storyMission;
+        else if (shared != r.storyMission) return 0;
+    }
+    return shared;
+}
+
+// Roster member count for this catalogue id. 0 = no generated roster (a single boss, a scroll, or an unresolved row).
+inline int RosterMembers(const char* id) {
+    const FallbackRoster* row = FallbackRosterFind(id);
+    return row ? (int)row->count : 0;
+}
+
+// Short era label from the region text already on the row. Cut at '(', drop a standalone year,
+// so "Warring States (Toka" and "1572 Warring States" share one label. No boss-name list.
+inline void EraKey(const char* in, char* out, int cap) {
+    if (!out || cap <= 0) return;
+    out[0] = 0;
+    if (!in || !in[0]) return;
+    char tmp[96];
+    int n = 0;
+    for (const char* p = in; *p && *p != '(' && n < (int)sizeof(tmp) - 1; ++p) {
+        if (*p == '\r' || *p == '\n') break;
+        tmp[n++] = *p;
+    }
+    while (n > 0 && (tmp[n - 1] == ' ' || tmp[n - 1] == '\t')) --n;
+    tmp[n] = 0;
+    char* w = out;
+    int left = cap - 1;
+    for (char* tok = tmp; *tok && left > 0;) {
+        while (*tok == ' ' || *tok == '\t') ++tok;
+        if (!*tok) break;
+        char* end = tok;
+        while (*end && *end != ' ' && *end != '\t') ++end;
+        const int len = (int)(end - tok);
+        bool year = len == 4;
+        for (int i = 0; year && i < 4; ++i) year = tok[i] >= '0' && tok[i] <= '9';
+        if (!year) {
+            if (w != out && left > 0) { *w++ = ' '; --left; }
+            const int copy = len < left ? len : left;
+            memcpy(w, tok, (size_t)copy);
+            w += copy;
+            left -= copy;
+        }
+        tok = end;
+    }
+    *w = 0;
+}
+
+// Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
+// Stops: All, Multi, one per distinct era (catalogue order), Dojos (only when a row is a dojo),
+// Not recently confirmed (Boss Matches only, when a listed row has no catalogue 'confirmed' date; human #84670), Scrolls, Favorites.
+// A scroll stays in its era as well as under Scrolls; a dojo stays in its era as well as under Dojos. An empty region is not an era.
+// Kinds: 0 All, 1 Multi, 2 era, 3 Scrolls, 4 Favorites, 5 Dojos, 6 Not recently confirmed.
+struct ListCycle {
+    static constexpr int kMaxEra = 32;
+    char era[kMaxEra][40]{};
+    int nEra = 0;
+    bool hasDojo = false;
+    bool hasUnconfirmed = false;
+    int Extra() const { return (hasDojo ? 1 : 0) + (hasUnconfirmed ? 1 : 0); }
+    int Stops() const { return 4 + nEra + Extra(); }
+    int Kind(int stop) const {
+        if (stop <= 0) return 0;
+        if (stop == 1) return 1;
+        if (stop >= 2 && stop < 2 + nEra) return 2;
+        if (hasDojo && stop == 2 + nEra) return 5;
+        if (hasUnconfirmed && stop == 2 + nEra + (hasDojo ? 1 : 0)) return 6;
+        return stop == 2 + nEra + Extra() ? 3 : 4;
+    }
+    const char* Label(int stop) const {
+        const int k = Kind(stop);
+        if (k == 0) return "All";
+        if (k == 1) return "Multi";
+        if (k == 2) return era[stop - 2];
+        if (k == 5) return "Dojos";
+        if (k == 6) return "Not recently confirmed";
+        return k == 3 ? "Scrolls" : "Favorites";
+    }
+    void AddEra(const char* name) {
+        if (!name || !name[0] || nEra >= kMaxEra) return;
+        for (int i = 0; i < nEra; ++i)
+            if (strcmp(era[i], name) == 0) return;
+        snprintf(era[nEra], sizeof era[0], "%s", name);
+        ++nEra;
+    }
+};
+
+// Case-insensitive ASCII order for menu lists (human #95175: every list alphabetical).
+inline bool CaseLess(const char* a, const char* b) {
+    for (;; ++a, ++b) {
+        int x = (unsigned char)*a, y = (unsigned char)*b;
+        if (x >= 'A' && x <= 'Z') x += 32;
+        if (y >= 'A' && y <= 'Z') y += 32;
+        if (x != y || !x) return x < y;
+    }
+}
+// Sorts items[from..] by the catalogue name of their row (row = item - base); stable, so equal names keep catalogue order.
+inline void SortItemsByName(std::vector<int>& items, size_t from, int base, const std::vector<Row>& rows) {
+    if (from >= items.size()) return;
+    std::stable_sort(items.begin() + (std::ptrdiff_t)from, items.end(), [&](int a, int b) {
+        const int ra = a - base, rb = b - base;
+        if (ra < 0 || rb < 0 || (size_t)ra >= rows.size() || (size_t)rb >= rows.size()) return false;
+        return CaseLess(rows[(size_t)ra].name, rows[(size_t)rb].name);
+    });
+}
+// human #95158: an era made only of X rows (open-world / refused, never listed unless Show all) showed an empty list
+// (DLC1 Edo = Tesso only). Such an era gets no stop unless includeX. human #95175: era stops in alphabetical order.
+// unconfirmedStop: Boss Match list only (Training has no fight-entry evidence to show).
+inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool includeX = false, bool unconfirmedStop = false) {
+    c = ListCycle{};
+    char key[40];
+    for (const auto& r : rows) {
+        if (r.route == kX && !includeX) continue;
+        EraKey(r.region, key, (int)sizeof key);
+        c.AddEra(key);
+        if (r.dojo) c.hasDojo = true;
+        if (unconfirmedStop && !r.confirmed) c.hasUnconfirmed = true;
+    }
+    std::vector<std::string> names(c.era, c.era + c.nEra);
+    std::stable_sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return CaseLess(a.c_str(), b.c_str()); });
+    for (int i = 0; i < c.nEra; ++i) snprintf(c.era[i], sizeof c.era[0], "%s", names[(size_t)i].c_str());
+}
+
+// The Waves label is this row's region, not "every Picture Scroll". E17 and E09 leave the
+// Waves group when their region column is a boss era. They stay under Scrolls because route is E0.
+inline bool WavesRow(const Row& r) {
+    char key[40];
+    EraKey(r.region, key, (int)sizeof key);
+    return strcmp(key, "Waves") == 0;
+}
+
+// Multi is a catalogue row whose generated roster has more than one member. A count of 0 is not multi.
+// isFavorite belongs to the list being drawn: Boss Matches and Training keep separate favorites (#79069).
+inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFavorite = false) {
+    const int k = c.Kind(stop);
+    if (k == 0) return true;
+    if (k == 4) return isFavorite;
+    if (k == 5) return r.dojo;
+    if (k == 6) return !r.confirmed;
+    if (k == 3) return r.route == kE;
+    if (k == 2) {
+        const int ei = stop - 2;
+        if (ei < 0 || ei >= c.nEra || !r.region[0]) return false;
+        char key[40];
+        EraKey(r.region, key, (int)sizeof key);
+        return key[0] && strcmp(key, c.era[ei]) == 0;
+    }
+    if (!r.missionId || r.route == kE || r.route == kX) return false;
+    return RosterMembers(r.id) > 1;
+}
+
+// Keep the cursor on anchorItem when that row is still listed. A hidden boss lands on the first boss still shown.
+inline int KeepVisibleSel(const int* items, int n, int sel, int anchorItem) {
+    if (n <= 0) return 0;
+    for (int i = 0; i < n; ++i)
+        if (items[i] == anchorItem) return i;
+    if (anchorItem >= 0 && anchorItem < 0x10000) {
+        for (int i = 0; i < n; ++i)
+            if (items[i] >= 0 && items[i] < 0x10000) return i;
+        return 0;
+    }
+    if (sel < -2) return -2;
+    if (sel < 0) return sel;
+    if (sel >= n) return n - 1;
+    return sel;
+}
+
+// #89941: held Left in the Favorites filter removed every favorite. Each unfavorite drops the row, the cursor lands on the next
+// favorite, and the host's key repeat (first after 400 ms, then every 90 ms) unfavorites that one too. After a favorite edit moves
+// the cursor to another row, the rest of that Left / Right hold does nothing; a fresh press after kQuietMs of no Left / Right works.
+// Only the row the hold landed on is guarded (#92504): once the cursor moves to any other row (filter row etc.) Left / Right works.
+struct FavHoldGuard {
+    static constexpr uint64_t kQuietMs = 550;  // longer than the host's 400 ms first-repeat delay
+    uint64_t last = 0;
+    int item = 0;
+    bool locked = false;
+    bool Swallow(uint64_t now, int curItem) {  // call on every Left / Right; true = part of a locked hold, ignore it
+        if (!locked) return false;
+        if (curItem == item && now - last < kQuietMs) { last = now; return true; }
+        locked = false;
+        return false;
+    }
+    void Lock(uint64_t now, int landedItem) { locked = true; last = now; item = landedItem; }
+};
+
+inline int FightNowItemId(int catalogueIndex) { return 0x10000 + catalogueIndex; }
 
 // Captured arena positions (Nioh3BossRematch_arenas.tsv, written at BossBattleMode start with [Rematch] ArenaCapture = 1):
 // "mission<TAB>placements<TAB>x<TAB>y<TAB>z<TAB>when<TAB>src" (mission hex/dec, placements space separated, src before-load /
@@ -300,13 +635,17 @@ inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey,
     if (mp.active || !entries || n <= 0 || n > MapPatch::kMax || target >= count) return false;
     if (!MapReadBytes(mp.snap, entries, (size_t)n * 8, rd)) return false;
     std::vector<uint8_t> nw(mp.snap, mp.snap + (size_t)n * 8);
-    int valid = 0;
+    int firstValid = -1;
     for (int i = 0; i < n; ++i) {
-        if (nw[(size_t)i * 8] == emptyKey) continue;
+        if (firstValid < 0 && nw[(size_t)i * 8] != emptyKey) firstValid = i;
         memcpy(&nw[(size_t)i * 8 + 4], &target, 4);
-        ++valid;
     }
-    if (!valid) return false;
+    if (firstValid < 0) return false;
+    // The game turns a key into a byte by picking a record index from the key, then scanning this map for that index (102B840). When
+    // nothing matches it returns the byte of slot 0. With every index on the target, that is every key except the one that happens to
+    // pick the target. Slot 0 is empty in the shipped map, so those keys got the empty byte: the lookup missed, the request lost its
+    // region and the load never ended. Slot 0 now holds a real key. Empty slots carry the target too, so the scan cannot stop on one.
+    if (nw[0] == emptyKey) nw[0] = nw[(size_t)firstValid * 8];
     mp.entries = entries;
     mp.n = n;
     mp.target = target;
@@ -334,12 +673,14 @@ inline int MapRestore(MapPatch& mp, WriteFn wr, ReadFn rd = nullptr) {
 
 // ---- E lifecycle (one call per pump tick) ----
 // Idle -> Armed (request made) -> InMission (charMgr +0x2C18 == 1 seen) -> exit (+0x2C18 == 0 for 5 s, not loading) -> restore.
-// Armed with no InMission within kArmTimeoutMs -> restore + refuse. A retry inside the scroll keeps +0x2C18 = 1 (patch stays live).
+// Armed with no InMission within kArmTimeoutMs (kArmLoadTimeoutMs while the load flag is on) -> restore + refuse.
+// A missed record lookup leaves the player on the mission's default start, and that load never ends.
+// A retry inside the scroll keeps +0x2C18 = 1 (patch stays live). The in-mission exit still waits out a reload.
 enum EState : int { kEIdle = 0, kEArmed = 1, kEIn = 2 };
 struct ETrack {
     EState st = kEIdle;
     uint64_t armedAt = 0, zeroSince = 0;
-    static constexpr uint64_t kArmTimeoutMs = 30000, kExitMs = 5000;
+    static constexpr uint64_t kArmTimeoutMs = 30000, kArmLoadTimeoutMs = 180000, kExitMs = 5000;
 };
 // returns: 0 nothing, 1 entered the mission, 2 exited (restore now), 3 armed timeout (restore now, refuse)
 inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
@@ -351,7 +692,8 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
                 t.zeroSince = 0;
                 return 1;
             }
-            if (now - t.armedAt > ETrack::kArmTimeoutMs && !loading) {
+            // A slow load is not a stuck one: a return queued now would run right after it and throw the player out.
+            if (now - t.armedAt > (loading ? ETrack::kArmLoadTimeoutMs : ETrack::kArmTimeoutMs)) {
                 t.st = kEIdle;
                 return 3;
             }
@@ -371,6 +713,52 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
     return 0;
 }
 
+// One offset list for every Waves row (#77650). Step 0 is the live record warp. The next four are the
+// 600 cm steps from Temp/s77376 and Temp/s77377 (those tries used y = warp y + 100). 1500 is the same
+// four directions when 600 never reaches wave state 3. No per-row point.
+struct WaveNudge { float dx, dz, dy; };
+inline constexpr int kWaveNudges = 13;
+inline WaveNudge WaveNudgeAt(int step) {
+    static const WaveNudge k[kWaveNudges] = {
+        {0.f, 0.f, 0.f},
+        {600.f, 0.f, 100.f}, {-600.f, 0.f, 100.f}, {0.f, 600.f, 100.f}, {0.f, -600.f, 100.f},
+        {1500.f, 0.f, 100.f}, {-1500.f, 0.f, 100.f}, {0.f, 1500.f, 100.f}, {0.f, -1500.f, 100.f},
+        // E07 woke only at z-1200 (pc2 #77817), between the 600 and 1500 steps; main PC + pc2 walked past it.
+        {0.f, -1200.f, 100.f}, {0.f, 1200.f, 100.f}, {1200.f, 0.f, 100.f}, {-1200.f, 0.f, 100.f},
+    };
+    if (step < 0 || step >= kWaveNudges) return {0.f, 0.f, 0.f};
+    return k[step];
+}
+// 0 wait, 1 take the next offset, 2 stop because wave state is 3, 3 the list is finished
+inline int WaveNudgeDecide(int step, int state, bool dwellDone, int count = kWaveNudges) {
+    if (state == 3) return 2;
+    if (step < 0) return 1;
+    if (!dwellDone) return 0;
+    if (step + 1 >= count) return 3;
+    return 1;
+}
+// #78985: the offset that woke each record in the test runs, so the first warp under the loading screen lands on it. The numbers live in
+// the catalogue column wake_step (tools/rematch_catalog.py WAKE_STEP; sources pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389).
+inline int WaveWakeStep(const Row& r) {
+    return r.route == kE && r.wakeStep > 0 && r.wakeStep < kWaveNudges ? r.wakeStep : 0;
+}
+// The known offset first, then the whole old walk: a first warp that came too early gets its offset again in the walk.
+inline int WaveWalkCount(int wakeStep) { return wakeStep > 0 ? kWaveNudges + 1 : kWaveNudges; }
+inline int WaveWalkOffset(int wakeStep, int tryNo) {
+    if (wakeStep <= 0) return tryNo;
+    return tryNo == 0 ? wakeStep : tryNo - 1;
+}
+inline constexpr uint64_t kWaveDwellCoverMs = 4000, kWaveDwellMs = 9000;
+
+// #79069 Training at a scroll arena: the same spot the waves wake at, twice, because a first warp can land before the mission
+// takes it. Then the player keeps control. The wave request itself is skipped by VetoWaveRequest, so these warps wake nothing.
+inline constexpr int kWaveTrainWarps = 2;
+inline int WaveTryOffset(bool training, int wakeStep, int tryNo) { return training ? wakeStep : WaveWalkOffset(wakeStep, tryNo); }
+inline int WaveTryCount(bool training, int wakeStep) { return training ? kWaveTrainWarps : WaveWalkCount(wakeStep); }
+
+// Wave state 1 also means "waiting for the next wave" (wave 2+, members still listed). The run is over only at wave 0 with no members (#75963 log, BR fd4eca18).
+inline bool WaveRunOver(int state, unsigned waveNo, unsigned members) { return state == 1 && waveNo == 0 && members == 0; }
+
 // ---- stale fight flag (user 20261018) ----
 // A save made inside an arena reloads with no mission (0) and the area script runs BossBattleMode with no boss; BossBattleModeEnd never
 // comes, so fight::g_active blocked every Boss Match / Practice start ("in a boss fight") for the rest of the session.
@@ -386,5 +774,96 @@ inline bool StaleFight(bool active, bool riseNearLoad, bool msOk, uint32_t missi
 // A world load ends any native boss mode (the area script runs BossBattleMode again after the load if it wants one): the flag is
 // dropped when a load begins, unless a rematch flow or a Nioh3Training session owns that load (they handle their own fight state).
 inline bool ClearFightOnLoad(bool active, bool idle, bool trainingOwns) { return active && idle && !trainingOwns; }
+
+// Resume hold (#75648). MissionStartFromSave reloads [MissionMgr+8]+28h (0xCC96 -> EmakiMissionRequest,
+// any other nonzero id -> MissionRequestById) and the start at +14h. A mission load autosaves those fields
+// while the trip is current. MissionRequestReturn uses +1Ch, so Return can walk home in memory while the
+// file still says the trip. The trip id is the one this request just passed, not a mission list.
+// ResumeBlocksWrite is the disk decision. ResumeHold adds the game-thread result:
+// 0 = not holding, 1 = keep holding, 2 = the trip is over, so the game's own autosave may run.
+inline bool ResumeBlocksWrite(bool armed, uint32_t trip, uint32_t source, uint32_t live, bool liveOk, bool session) {
+    if (!armed) return false;
+    if (session) return true;
+    if (!liveOk) return true;
+    return trip != source && trip != 0 && live == trip;
+}
+inline int ResumeHold(bool armed, uint32_t trip, uint32_t source, uint32_t live, bool liveOk,
+                      bool loading, bool session, bool entered) {
+    if (!armed) return 0;
+    if (ResumeBlocksWrite(armed, trip, source, live, liveOk, session) || loading) return 1;
+    if (!entered) return 0;
+    return 2;
+}
+
+// #79069 favorites file, one row a line: "B <row id>" Boss Matches, "T <row id>" Training. Row ids, never list positions: the
+// catalogue can reorder. A line this build cannot read is dropped, so a damaged file loses that line and nothing else.
+inline bool FavIdOk(const char* id) {
+    if (!id || !id[0]) return false;
+    int n = 0;
+    for (; id[n]; ++n) {
+        const char c = id[n];
+        if (n >= 31 || !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == '-')) return false;
+    }
+    return true;
+}
+inline std::string FavKey(char list, const char* id) { return std::string(1, list) + " " + id; }
+inline void FavParse(const std::string& text, std::set<std::string>& out) {
+    size_t at = 0;
+    while (at < text.size()) {
+        size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        at = end + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.size() > 2 && (line[0] == 'B' || line[0] == 'T') && line[1] == ' ' && FavIdOk(line.c_str() + 2)) out.insert(line);
+    }
+}
+inline std::string FavText(const std::set<std::string>& favs) {
+    std::string text;
+    for (const auto& f : favs) { text += f; text += "\r\n"; }
+    return text;
+}
+
+// #83427: partition the existing display order, never catalogue rows/IDs or menu controls.
+template <class IsFavorite>
+inline void FavoritesFirst(std::vector<int>& items, IsFavorite isFavorite) {
+    std::stable_partition(items.begin(), items.end(), isFavorite);
+}
+
+// Empty Picture Scroll bag: the shrine return still asks to reopen the list. Close that request
+// only when the list's own item query is 0. A nonzero value keeps the game's list.
+inline bool CloseScrollListWhenEmpty(uint32_t count, uint8_t reopenFlag) {
+    return reopenFlag != 0 && count == 0;
+}
+
+// #78735 + #78985 scroll row loading screen: 1 = the trip ended, 2 = waves started (first enemy about 0.3 s later, E07 log),
+// 3 = the walk tried every offset, 4 = safety timeout. 0 = keep it up. The whole walk is under 60 s after landing.
+inline constexpr uint64_t kScrollCoverSafetyMs = 75000;
+inline int ScrollCoverDone(bool tripLive, bool inMission, bool waves, bool walkOver, uint64_t inMs) {
+    if (!tripLive) return 1;
+    if (!inMission) return 0;
+    if (waves) return 2;
+    if (walkOver) return 3;
+    return inMs >= kScrollCoverSafetyMs ? 4 : 0;
+}
+
+// #79955 title exit: Return to Title leaves the rematch state set, and the game's per-frame pump may not run at the title, so the Tick-side
+// check never saw it. The UI worker polls this: state not idle + no player + no load + mission 0 for kTitleIdleMs in a row = at the title.
+// A load (loading flag, or a mission id, or a player) restarts the count. Returns true once, when it is time to go idle.
+inline constexpr uint64_t kTitleIdleMs = 20000;
+struct TitleWatch {
+    uint64_t since = 0;
+    bool Step(bool stateActive, bool player, bool loading, uint32_t mission, uint64_t t) {
+        if (!stateActive || player || loading || mission != 0) { since = 0; return false; }
+        if (!since) { since = t; return false; }
+        if (t - since < kTitleIdleMs) return false;
+        since = 0;
+        return true;
+    }
+    // Title test without the mission id: it keeps its last value at the title. Unreadable game state = may be loading, never idle.
+    bool StepSnap(bool stateActive, bool player, bool gmReadable, bool loading, uint64_t t) {
+        return Step(stateActive, player, loading || !gmReadable, 0, t);
+    }
+};
 
 }  // namespace rcore

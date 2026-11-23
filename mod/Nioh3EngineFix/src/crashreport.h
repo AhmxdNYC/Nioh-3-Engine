@@ -12,7 +12,9 @@
 // Ini ([Debug]): CrashReport = 1 (default; 0 = off, nothing installed), CrashDump = 0 (1 = also write a MiniDump .dmp beside the
 // report), CrashTest = 0 (forced-crash hook for pc: 1 access violation, 2 stack overflow, 3 abort(), 4 fatal-error popup,
 // 5 terminate (unhandled C++ exception), 6 invalid CRT parameter), CrashTestDelaySec = 30 (seconds after Start).
+// ForceCrashTest = 1 is the same as CrashTest = 1. Every crash is also uploaded as JSON (crashupload.h, #64881).
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace crashreport {
@@ -23,6 +25,7 @@ struct StartInfo {
     void* selfModule = nullptr;  // HMODULE of this .asi (report folder + sha of the sibling .asi files)
     uintptr_t base = 0;          // Nioh3.exe image base
     bool knownBuild = false;
+    const char* modVersion = "";  // EngineFix version (crash upload record)
 };
 
 void Start(const StartInfo& info);
@@ -42,6 +45,9 @@ bool ReportOpenWanted();
 bool CopyReportUrl();      // URL to the clipboard (text)
 void OpenReportUrl();      // ShellExecute "open"
 void OpenReportFolder(const char* path);  // Explorer selects the snapshot, or opens the report folder
+
+// #97638: "-- performance (last ~10 s) --" section (perfsnap::Text). crashPath = true on a crash: static data only.
+void SetPerfText(size_t (*fn)(char* out, size_t cap, bool crashPath));
 
 // Feeds the last-log-lines ring (called from the mod's Log()).
 void NoteLog(const char* line);

@@ -46,6 +46,12 @@ static void* Hook(uintptr_t rva, int ncopy, void* detour) {
     return rva == 0x35EF04 ? (void*)Select : (void*)Commit;
 }
 static uint32_t IhSelect(uint64_t st, uint32_t id) { (void)st; return id; }
+#define HOOK_SET(dst,rva,n,detour) (dst = (void*)Hook(rva,n,detour))
+#define N3T_SLOTS 2
+static uint64_t g_slot_act[2]; static uint32_t g_slot_native[2], g_slot_chr[2];
+static int native_live;
+static int SlotAlive(int s) { return native_live && s == 0; }
+static int NativeSlotsActive(void) { return native_live; }
 #include "../src/move_toggle.h"
 static inline int MvRepStanding(uint32_t chr) { (void)chr; return standing; }
 
@@ -71,6 +77,11 @@ int main(void) {
     }
     assert(!g_mv_install_pending && hook_calls == 0);
     puts("PASS: zero-session startup; all chr=0 queries/setters rejected without hooks");
+    native_live = 1; g_slot_native[0] = 44; g_slot_act[0] = actor; g_slot_chr[0] = 16102;
+    assert(MvBossMatch() && MvBossChr(0x3000) == 16102 && !MvBossChr(0x3001));
+    g_tr.active = 1; g_tr.practice = 1; assert(!MvBossMatch());
+    g_tr.active = 0; native_live = 0; assert(!MvBossMatch() && !MvBossChr(0x3000));
+    puts("PASS native controller identity, live/stale gating and explicit Training precedence");
     g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7;
     o_mvsel = Select; o_mvcom = Commit;
     int tested = 0, protected_count = 0, yoritomo = 0;
@@ -421,6 +432,169 @@ int main(void) {
         cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
         puts("PASS: single-move repeat (#14710): other attacks refused while the move plays, its link / own next piece pass, ends back in idle, drill-forced move followed");
     }
+    // human #68578 'Repeat last move': the boss's own attack starts are recorded (links / next pieces / twitches / reactions are not), Last move
+    // repeats the newest, Last 2 plays the two in the boss's order with no gap inside the cycle, nothing is recorded while it repeats
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); MvGapPut(16102u, 500);
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 0 && Nioh3Training_SetRepeatLast(16102u, 1) == 0 && Nioh3Training_GetMoveRepeat(16102u) == 0);
+        const uint32_t seq[] = {2, 0x4E6C, 0xFFFF, 0x4EA7, 2, 0x4E5C, 0x4E60, 2, 0x4E30, 0x100, 2};
+        fake_now = 300000;
+        for (unsigned k = 0; k < sizeof seq / sizeof seq[0]; ++k) { cur_act = seq[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E5C && ids[1] == 0x4E6C);
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E5C && Nioh3Training_GetRepeatLast(16102u) == 1);
+        cur_act = 0x4E21; fake_now += 20; MvLastTick(); cur_act = 2; fake_now += 20; MvLastTick();  // frozen while it repeats
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E5C);
+        assert(Nioh3Training_SetRepeatLast(16102u, 3) == 2 && Nioh3Training_GetRepeatLast(16102u) == 2);  // only 2 captured
+        const int ri = MvRepFind(16102u);
+        cur_act = 2; fake_now = 400000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);      // oldest first
+        cur_act = 0x4E6C; fake_now = 400050; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        cur_act = 2; fake_now = 401600; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);      // next member, no gap inside the cycle
+        assert(g_rep_li[ri] == 0);
+        cur_act = 0x4E5C; fake_now = 401650; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        cur_act = 2; fake_now = 403000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);           // cycle done: the boss's gap
+        fake_now = 403400; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
+        fake_now = 403600; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);                   // and again from the first
+        assert(h_mvcom(0x3000, 0x4E6C, 0, 0, 0) == 1);
+        // a move row replaces it (single repeat, no cycle)
+        assert(Nioh3Training_SetMoveRepeat(16102u, 0x4E21, 1) == 1 && Nioh3Training_GetRepeatLast(16102u) == 0 && g_rep_nlist[MvRepFind(16102u)] == 0);
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E5C);
+        assert(Nioh3Training_SetRepeatLast(16102u, 0) == -1 && Nioh3Training_GetMoveRepeat(16102u) == 0 && Nioh3Training_GetRepeatLast(16102u) == 0);
+        cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
+        puts("PASS: repeat last move (#68578): attack starts recorded (no links / next pieces / twitches / reactions), Last 1, Last 2 cycle in order without inner gap, gap after the cycle, frozen while repeating, OFF");
+    }
+    // GitHub #91: delay 0 chains on the idle pick. It does not wait until ActIdOf is idle 2.
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); MvGapPut(16102u, 0);
+        fake_now = 600000;
+        const uint32_t seen[] = {2, 0x4E6C, 2, 0x4E5C, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) { cur_act = seen[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);
+        cur_act = 0x4E6C; fake_now += 40; Pick(2);
+        assert(h_mvsel(0x3000, 0) == 0x4E5C);  // idle pick at delay 0 starts the next move now
+        assert(ActIdOf(0x3000) == 0x4E6C);     // did not wait for the action to become idle 2
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        memset(g_ml, 0, sizeof g_ml); Nioh3Training_SetMoveRepeat(16102u, 0, 0); MvGapPut(16102u, 0);
+        assert(MvContinues(16102u, 0x4E5Cu, 0x4E60u));
+        fake_now = 620000;
+        const uint32_t pair[] = {2, 0x4E5C, 2, 0x4E6C, 2};
+        for (unsigned k = 0; k < sizeof pair / sizeof pair[0]; ++k) { cur_act = pair[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);
+        cur_act = 0x4E5C; fake_now += 40; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);  // a different attack still waits
+        Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // the same-family branch starts the next captured move
+        assert(ActIdOf(0x3000) == 0x4E5C);
+        fake_now += 20; Pick(2); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // an idle pick does not step the list again
+        fake_now += 2000; Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // still 4E6C until that move is the action
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        puts("PASS: delay 0 does not wait for idle action 2 (#91)");
+    }
+    // human #122170: Last 2 at the default 1 s delay. Inside the cycle the boss's own attack pick in A's recovery hands straight into B
+    // (no A -> idle -> B freeze); a pick at A's start still waits; B (the cycle's last) keeps the delay before A again.
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); MvGapPut(16102u, 1000);
+        fake_now = 640000;
+        const uint32_t seen[] = {2, 0x4E64, 2, 0x4E68, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) { cur_act = seen[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E64);
+        cur_act = 0x4E64; fake_now += 20; Pick(0x4E6C); assert(h_mvsel(0x3000, 0) == MV_KEEP);   // start-of-move pick: A plays on
+        fake_now += 1641; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == 0x4E68);                   // A's recovery pick: B now
+        assert(ActIdOf(0x3000) == 0x4E64);                                                       // no idle in between
+        fake_now += 20; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == 0x4E68);                      // not stepped again before B plays
+        cur_act = 0x4E68; fake_now += 20; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        fake_now += 2000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);                  // last member: its recovery pick waits for the delay
+        cur_act = 2; fake_now += 500; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);            // delay after the cycle
+        fake_now += 1100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E64);
+        Nioh3Training_SetRepeatLast(16102u, 0); MvGapPut(16102u, 0);
+        puts("PASS: Last 2 hands A into B at the boss's own recovery pick, delay only after the cycle (#122170)");
+    }
+    // human #122193: Pause mode keeps the old A -> idle -> B; the chain point is learned from the boss's own fights for Stand still
+    {
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_bm.actor = 0; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml); memset(g_hand, 0, sizeof g_hand); MvGapPut(16102u, 1000);
+        fake_now = 660000;
+        MlNote(16102u, 2, fake_now); MlNote(16102u, 0x4E64, fake_now += 20);
+        MlNote(16102u, 0x4E68, fake_now += 1650);                     // straight into another attack: learned
+        assert(MvHandGet(16102u, 0x4E64) == 1650);
+        MlNote(16102u, 2, fake_now += 900); MlNote(16102u, 0x4E5C, fake_now += 500);
+        assert(MvHandGet(16102u, 0x4E68) == 0);                       // went through idle: not a chain point
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);          // 0x4E68 > 0x4E5C
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 0);              // not learned for 0x4E68
+        g_hand[0].chr = 16102u; g_hand[0].id = 0x4E68; g_hand[0].ms = 1200;
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E68);
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 1200 && MvHandFlow(16102u, 0x4E68, 2) == 0);  // only while an attack runs
+        Nioh3Training_SetRepeatFlow(0, 0);
+        assert(MvHandFlow(16102u, 0x4E68, 0x4E68) == 0);
+        cur_act = 0x4E68; fake_now += 20; Pick(0x4E30); h_mvsel(0x3000, 0);
+        fake_now += 1641; Pick(0x4E4E); assert(h_mvsel(0x3000, 0) == MV_KEEP);   // Pause: A plays to its end
+        cur_act = 2; fake_now += 100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);  // then B from idle
+        Nioh3Training_SetRepeatFlow(1, 0); Nioh3Training_SetRepeatLast(16102u, 0); MvGapPut(16102u, 0);
+        puts("PASS: Flow / Pause switch, chain point learned only from direct attack-to-attack, Stand still flow gated (#122193)");
+    }
+    // GitHub #92: a native-slot boss (direct teleport) is recorded with no summon and no Boss Match.
+    {
+        memset(g_ml, 0, sizeof g_ml);
+        g_tr.active = g_bm.active = 0; g_nsp = 0; g_sp_actor[0] = 0;
+        g_slot_act[0] = actor; g_slot_chr[0] = 16102u; g_slot_native[0] = 44;
+        fake_now = 700000; cur_act = 2; MvLastTick();
+        cur_act = 0x4E5C; fake_now += 20; MvLastTick();
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 1 && ids[0] == 0x4E5C);
+        g_slot_act[0] = 0; g_slot_chr[0] = 0; g_slot_native[0] = 0;
+        puts("PASS: direct-teleport native slot records moves (#92)");
+    }
+    // GitHub #126: an attack row below 0x4E20 (kind 'A') is recorded; a movement / reaction row there (kind 'M') still is not.
+    {
+        g_tr.active = g_tr.practice = g_bm.active = 0;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml);
+        fake_now = 800000;
+        assert(!MlAttack(16102u, 0x3FB) && MlAttack(16102u, 0x18D1) && MlAttack(16102u, 0x4E5C) && !MlAttack(16102u, 0xFFFF) && !MlAttack(42u, 0x18D1));
+        const uint32_t seen[] = {2, 0x3FB, 2, 0x18D1, 2};
+        for (unsigned k = 0; k < sizeof seen / sizeof seen[0]; ++k) MlNote(16102u, seen[k], ++fake_now);
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 1 && ids[0] == 0x18D1);
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && MvRepeatId(16102u) == 0x18D1);
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        memset(g_ml, 0, sizeof g_ml);
+        puts("PASS: attack below 0x4E20 captured for Repeat last move, movement row below it is not (GitHub #126)");
+    }
+    // #69187: real repeat implementation, known hazardous captured family, stale
+    // history sanitation, and the two-picks-at-one-timestamp death regression.
+    {
+        g_tr.active = g_tr.practice = g_bm.active = 1; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml);
+        fake_now = 500000;
+        const uint32_t observed[] = {2, 0x4E7B, 0x4EA7, 0x4E7C, 2, 0x4E6C, 2, 0x4E55, 2};
+        for (unsigned k = 0; k < sizeof observed / sizeof observed[0]; ++k) MlNote(16102u, observed[k], ++fake_now);
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E55 && ids[1] == 0x4E6C);
+        assert(!MvLastUnsafe(42450u, 0x4E7B));  // same numeric ID on another boss remains usable
+        assert(MvContinues(16102u, 0x4E7B, 0x4EA7) && MvContinues(16102u, 0x4EA7, 0x4E7C));
+        // An unsafe non-head member must also be filtered when arming old history.
+        g_ml[0].ids[0] = 0x4E7B; g_ml[0].ids[1] = 0x4E6C; g_ml[0].n = 2;
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 1 && MvRepeatId(16102u) == 0x4E6C);
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        g_ml[0].ids[0] = 0x4E7B; g_ml[0].n = 1;
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 0 && MvRepeatId(16102u) == 0);
+        g_ml[0].ids[0] = 0x4E55; g_ml[0].ids[1] = 0x4E6C; g_ml[0].n = 2;
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        int ri = MvRepFind(16102u); cur_act = 2; fake_now += 1000;
+        Pick(0x4E55); assert(h_mvsel(0x3000, 0) == 0x4E6C);
+        cur_act = 0x4E6C; ++fake_now; Pick(0x4E55); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        cur_act = 0x18D1; ++fake_now; Pick(0x4E55);
+        int li = g_rep_li[ri]; LONG count = g_rep_count[ri];
+        assert(h_mvsel(0x3000, 0) == 0x4E55 && g_rep_li[ri] == li && g_rep_count[ri] == count);
+        Pick(0x4E3B); assert(h_mvsel(0x3000, 0) == 0x4E3B && MvRepeatId(16102u) == 0);
+        assert(h_mvsel(0x3000, 0) == 0x4E3B && g_rep_li[ri] == 0);
+        uint32_t before = forced_n; MvRepTick(); assert(forced_n == before);
+        assert(Nioh3Training_GetRepeatLast(16102u) == 0);
+        puts("PASS: unsafe Last replay skipped, all-unsafe stops, safe order retained, native landing preserved, death/recovery cannot advance cycle");
+    }
     // A saved block and repeat must resume after a match without being overwritten.
     g_tr.active=1;g_tr.practice=1;g_tr.chr=16102u;g_mv_hooked=1;
     assert(Nioh3Training_SetMoveAllowed(16102u,0x4E21,0,0)==1);
@@ -449,6 +623,15 @@ int main(void) {
     g_tr.practice=1;
     assert(MvBlocked(16102u,0x4E22) && MvRepeatId(16102u)==0x4E22);
     puts("PASS: block / repeat set during a Boss Match apply to that match, not the next one (#59523)");
+    // Gap log regression remains; the unproven boss-death guard is retired.
+    LONG gaps = g_rep_gaps; g_rep_end[0] = 1234; g_rep_gap_logged[0] = 0;
+    for (int j = 0; j < 495; ++j) assert(!MvGapLog(0, 2));
+    assert(g_rep_gaps == gaps);
+    g_rep_gaps = 0; assert(MvGapLog(0, 0x4E53));
+    for (int j = 0; j < 495; ++j) assert(!MvGapLog(0, 0x4E55));
+    assert(g_rep_gaps == 1);
+    ++g_rep_end[0]; assert(MvGapLog(0, 0x4E53) && g_rep_gaps == 2);
+    puts("PASS: 495 idle gaps produce zero logs, actual attack veto logs once per gap");
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
 }
