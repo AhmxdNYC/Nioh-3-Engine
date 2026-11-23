@@ -305,6 +305,7 @@ inline constexpr Entry kEntries[] = {
     {"Memory", "LM_SliceMB", "128"},
     {"Report", "Url", "https://nioh3-mod-feedback.vercel.app"},
     {"Report", "Open", "0"},
+    {"Report", "ShareData", "0"},
     {"Report", "CrashUpload", "1"},
     {"Report", "CrashUrl", ""},
     {"Report", "ReportUrl", ""},

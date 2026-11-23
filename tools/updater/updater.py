@@ -95,8 +95,9 @@ def publish_gate(names):
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 # #121461 updates badge: after an update that changed files, one POST of the two version numbers
-# (no install id, machine id, path or account). Only for the official manifest; --no-count or
-# [Update] CountUpdate = 0 turns it off. Never blocks or fails an update.
+# (no install id, machine id, path or account). Only for the official manifest, and only when the
+# player opted in with the in-game 'Share data' row (Nioh3EngineFix.ini [Report] ShareData = 1, off by
+# default); --no-count or [Update] CountUpdate = 0 also turns it off. Never blocks or fails an update.
 COUNT_URL = "https://nioh3-mod-feedback.vercel.app/api/updates"
 
 
@@ -419,11 +420,35 @@ def pause():
         input()
 
 
+def share_data_on(dirs=()):
+    """1.8.41 opt-in: True only when a Nioh3EngineFix.ini in one of dirs says [Report] ShareData = 1
+    (the in-game 'Share data' row; off by default). Missing file, key or a bad value = off. Never raises."""
+    for d in dirs:
+        try:
+            f = Path(d) / "Nioh3EngineFix.ini"
+            if not f.is_file():
+                continue
+            section = ""
+            for line in f.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+                t = line.split(";", 1)[0].strip()
+                if t.startswith("[") and t.endswith("]"):
+                    section = t[1:-1].strip().lower()
+                elif section == "report" and "=" in t:
+                    k, v = (x.strip() for x in t.split("=", 1))
+                    if k.lower() == "sharedata":
+                        return v == "1"
+        except Exception:
+            continue
+    return False
+
+
 def count_enabled(no_count=False, config=None, dirs=()):
-    """Off with --no-count or [Update] CountUpdate = 0 in the given config, else in a
+    """Opt-in (1.8.41): counts only when the player turned on 'Share data' in the mod menu
+    ([Report] ShareData = 1 in Nioh3EngineFix.ini next to the updater or in the game folder).
+    Then still off with --no-count or [Update] CountUpdate = 0 in the given config, else in a
     Nioh3Updater.ini next to the updater or in the game folder (any file saying 0 wins).
     Never raises: an unreadable file or a bad value means do not count."""
-    if no_count:
+    if no_count or not share_data_on(dirs):
         return False
     try:
         if config is not None:

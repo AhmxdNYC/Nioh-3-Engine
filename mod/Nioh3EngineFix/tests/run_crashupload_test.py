@@ -49,8 +49,17 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     ini = temp / "test.ini"
-    ini.write_text(f"[Report]\nCrashUrl=http://127.0.0.1:{server.server_port}/api/crash\nCrashUpload=1\nCrashSendDelayMs=600000\n")
     try:
+        # 1.8.41 opt-in: with no [Report] ShareData (an old ini) nothing is sent, unsent records are deleted, no install id is made.
+        ini.write_text(f"[Report]\nCrashUrl=http://127.0.0.1:{server.server_port}/api/crash\nCrashUpload=1\nCrashSendDelayMs=600000\n")
+        (temp / "Nioh3CrashReports/pending").mkdir(parents=True, exist_ok=True)
+        (temp / "Nioh3CrashReports/pending/crash-old.json").write_text("{}")
+        output = run([str(exe), str(ini), "send"], cwd=temp)
+        assert "share data 0" in output and "sent 0 pending 0" in output, output
+        assert not list((temp / "Nioh3CrashReports/pending").glob("*.json"))
+        assert "InstallId" not in ini.read_text() and not list((temp / "inbox").glob("**/*.json"))
+        print("opt-out: nothing sent, old record dropped, no install id")
+        ini.write_text(f"[Report]\nShareData=1\nCrashUrl=http://127.0.0.1:{server.server_port}/api/crash\nCrashUpload=1\nCrashSendDelayMs=600000\n")
         output = run([str(exe), str(ini), "record"], cwd=temp)
         assert "ALL PASSED" in output, output
         pending = list((temp / "Nioh3CrashReports/pending").glob("*.json"))
