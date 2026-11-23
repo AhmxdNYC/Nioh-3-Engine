@@ -1,0 +1,236 @@
+r"""Generate mod/boss_move_facts.h: per boss move, the hit count and the unblockable (GreatAttack) flag from the game's action file.
+
+    py -I tools/gen_boss_move_facts.py            write mod/boss_move_facts.h
+    py -I tools/gen_boss_move_facts.py --check    exit 1 if the header is out of date (skipped when the action file is not extracted)
+
+user #22349: the Boss moves menu groups attacks as '1 hit', '2 hits' ... plus 'Unblockable', from real game data.
+Data and proofs: notes/yoritomo-hits-and-unblockable.md, notes/yoritomo-hit-source-22305.md, notes/yoritomo-moves-unblockable-22305.md.
+The per-move facts come from tools/yoritomo_move_facts.py (works on any 16-sub-table action file):
+  attack = action row +0x13C / +0x142 set (an attack block)
+  great = action row u16 +0x04 bit 0x2000 (-> Collision::Damage::Hit::IsAttackGreatAttack)
+  hits  = hit windows of the move's own hitbox rows (same start frame + hit group = 1 hit); 0 = unknown (no own timed rows, or the move spawns projectiles / objects
+          whose hits are not in the file: not guessed)
+Only bosses whose action file is known are listed (BOSSES). Every other boss keeps its old menu groups.
+"""
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, 'tools'))
+import yoritomo_move_facts as ymf  # noqa: E402
+
+# chr id -> archive_01 action file (relative to data/extract/lfm/archive_01)
+BOSSES = {
+    16102: 'FA/5FBD421BF96B8514DA056584B9507A22DC7956B1793995A113FBA714CFFA54',  # Minamoto no Yoritomo
+    # user #22709: the other catalogue bosses, bound by setting-DB action-object hashes (notes/boss-action-files-22709.md; every recorded
+    # action id of the boss is inside its file, Red Kappa 20 of 21 = only the shared idle 0x2 missing). Ibaraki Doji: not bound (no hashes).
+    42450: 'E5/D7F8918446ABDAF10213EA35BE55B598075FD371A0733C32B6C96C7094F6DE',   # Takeda Shingen (CE_SHINGEN_00)
+    83953: '50/1C63D0293D7573AF46BDE49601C2705AD8B34FFC1E99B7DD3E0B395DA271E0',   # Hino-enma (CE_HINOENMA_00)
+    307259: '68/C41C904AB5F805ABD435FA2D65C850CD7A6708AB10826F4095E351428BCE50',  # Yamagata Masakage (CN_MASAKAGE)
+    352684: 'FD/D80A7992FD2F3EB4AE582BAE0A06A071449E2F89C91978B13471449D28C062',  # Ippon-Datara (CE_IPPONDATARA_00)
+    371449: '17/7C2A9D279C4CCBD76370936DD9E37B04CE138A413F8103F5333DC1E24EED78',  # Otoroshi (CE_OTOROSHI_00)
+    392871: '36/56DBE82BB2A681263A9AC57990DB62F28B7EBB564B682F6B7E918F2CAF7143',  # Nuribotoke (CE_NURIBOTOKE_00)
+    405836: '9F/82419925B6E38603BF41EC38B20530F90DF6945058C5DAF6BAD1C7CB4F92DF',  # Red Kappa (CE_KAPPA_00; the file the live autobind binds, 100 %. 69/442B3E.. was a same-name sibling, pc2 #24079)
+    778951: '08/E907A4928137E37DEBE7505D8718276207BECEAFDCE1C14F1E98B8F04F6609',  # Takasugi Shinsaku (CN_SHINSAKU)
+    816820: 'BC/178B95A4E728AE6C2DAB3FE730750EFCDE3043E83B59BC8CD27D27D15D2852',  # Kamaitachi (CE_KAMAITACHI_00)
+}
+# user #22709 "yes all bosses": more bosses with a bound action file. A boss name has several enemy-param records (phases / variants / cutscene
+# copies, key64 in notes/boss-enemy-params.csv = the runtime chr id); every one of them shares the same action file. name -> (file, [chr ids]).
+EXTRA = {
+    'Baba Nobuharu': ('5E/B7FA064C0CC4146F0D8543E8BA5E5551669A50436A9C0B5FC327059F858A22', [482895, 500795]),            # CE_NOBUHARU_00
+    'Mikoshi Nyudo': ('7B/5B1D30E4DA4ADE236BBBEA40E9049C28454DFAB0E780EB3E4ED10130E51EF5', [257162, 595316, 455015, 365788, 765402, 596583]),  # CE_MIKOSHI_00
+    'Great Tengu': ('4B/40FC2DA417DA8DB95124F0856A4B075BA1992BE3B98A894DE329EB8AEB7605', [269750, 991103]),               # CE_OTENGU_00
+    'Minamoto no Yoshitsune': ('D1/9BBCBF148452237A6C7CDCD40E67562DDA1DBACDDCD579F67193AF7AC09C37', [478320, 195068, 154603, 723587]),  # CE_YOSHITSUNE_00
+    'Enki': ('9A/357DF15B766959813CFD6B1FD730C2EFE225BA7B5081AA2489178F43577985', [109203, 681377]),                      # CE_ENKI_00
+    'Tokugawa Yoshinobu': ('00/A4B656FD4C56FBF6D668817BE9EFCCD3B05BCD925F6F9EF7CCC63805B38997', [268880, 66670]),  # CE_YOSHINOBU_00
+    'Ryomen Sukuna': ('13/CB12A585468C8223F6554C66144DD6DB7A8EEE063F741F4D54FF766F0ADB38', [451004, 252231, 180686]),     # CE_RYOUMENSUKUNA_00
+    'Himiko': ('1D/CCC41379662FC7FD72F75B037F901EB224026C34F90692E056401975C3EEC4', [835773, 794417]),                    # CN_HIMIKO
+}
+NAMES = {}
+for _n, (_f, _ids) in EXTRA.items():
+    for _c in _ids:
+        BOSSES[_c] = _f
+        NAMES[_c] = _n
+OUT = os.path.join(ROOT, 'mod', 'boss_move_facts.h')
+
+
+def data_file(rel):
+    # the extracted data is not in git: this checkout, then the main checkout next to a worktree
+    for base in (os.environ.get('NIOH3_DATA_ROOT', ROOT), ROOT, os.path.join(os.path.dirname(ROOT), 'nioh3-engine')):
+        p = os.path.join(base, 'data', 'extract', 'lfm', 'archive_01', *rel.split('/'))
+        if os.path.exists(p):
+            return p
+    return None
+
+
+# human #123773: same rule as mod/Nioh3Training/src/auto_moves.h AmObjMayHit (keep the two in step). A spawned object hits only through a
+# damaging hitbox of its own (object +0x12 action / +0x15 slot) or of its component rows (sub-table 8 type 33) or of its child objects; an
+# object tree with none is a visual / sound object and does not make the move's count unknown. Anything not resolved counts as "may hit".
+def _slot_hits(d, st, owned, rowof, act, slot):
+    r = rowof.get(act)
+    nhb = st[2][1] // ymf.HB
+    if r is None or slot >= len(owned[r]) or owned[r][slot] >= nhb:
+        return True
+    b = st[2][0] + owned[r][slot] * ymf.HB
+    return bool(ymf.u16(d, b + 0x10) or ymf.u16(d, b + 0x12))
+
+
+def obj_may_hit(d, st, owned, rowof, ev, memo):
+    u16 = ymf.u16
+    o0 = st[0][0]
+    n7, n8 = u16(d, o0 + 30), u16(d, o0 + 34)
+    if u16(d, o0 + 32) != 336 or n7 * 336 != st[7][1] or (st[8][1] and (u16(d, o0 + 36) != 80 or n8 * 80 != st[8][1])):
+        return True
+    if ev < 20000 or ev == 0xFFFF or ev - 20000 >= n7:
+        return True
+    n = ev - 20000
+    b = st[7][0] + n * 336
+    if n in memo:
+        return memo[n] != 'free'
+    memo[n] = 'busy'
+    hit = d[b + 0x14] > 2
+    if not hit and d[b + 0x15] != 0xFF:
+        hit = _slot_hits(d, st, owned, rowof, u16(d, b + 0x12), d[b + 0x15])
+    for k in range(6):
+        if hit:
+            break
+        c = u16(d, b + 0x110 + 2 * k)
+        if c == 0xFFFF:
+            continue
+        if c >= n8:
+            hit = True
+            break
+        e = st[8][0] + c * 80
+        ty = u16(d, e + 0x4C)
+        if ty == 33:
+            hit = _slot_hits(d, st, owned, rowof, u16(d, e), u16(d, e + 4))
+        elif ty == 3:
+            hit = obj_may_hit(d, st, owned, rowof, u16(d, e + 4), memo)
+        else:
+            for z in range(0, 0x4C, 2):
+                v = u16(d, e + z)
+                if (v >= 20000 and v - 20000 < n7) or (v >= 1000 and v in rowof):
+                    hit = True
+                    break
+    for k in range(4):
+        if hit:
+            break
+        c = u16(d, b + 0x100 + 2 * k)
+        if c and c != 0xFFFF:
+            hit = obj_may_hit(d, st, owned, rowof, c, memo)
+    memo[n] = 'hits' if hit else 'free'
+    return hit
+
+
+def named_untimed(d, st, owned, rowof):
+    """human #123773: per action row, its damaging untimed rows that an object (sub-table 7 +0x12 / +0x15) or a type-33 component (sub-table 8
+    +0x00 / +0x04) names; None when sub-tables 7 / 8 do not check out (then every untimed row may fire). Same rule as auto_moves.h AmParse."""
+    u16 = ymf.u16
+    o0 = st[0][0]
+    n7, n8 = u16(d, o0 + 30), u16(d, o0 + 34)
+    if u16(d, o0 + 32) != 336 or n7 * 336 != st[7][1] or (st[8][1] and (u16(d, o0 + 36) != 80 or n8 * 80 != st[8][1])):
+        return None
+    named = set()
+    for q in range(n7):
+        b = st[7][0] + q * 336
+        r = rowof.get(u16(d, b + 0x12))
+        if r is not None:
+            named.add((r, d[b + 0x15]))
+    for c in range(n8):
+        e = st[8][0] + c * 80
+        if u16(d, e + 0x4C) == 33:
+            r = rowof.get(u16(d, e))
+            if r is not None:
+                named.add((r, u16(d, e + 4)))
+    nhb = st[2][1] // ymf.HB
+    out = []
+    for r, idx in enumerate(owned):
+        n = 0
+        for k, i in enumerate(idx):
+            if i >= nhb:
+                continue
+            b = st[2][0] + i * ymf.HB
+            if u16(d, b + 8) == 0xFFFF and (u16(d, b + 0x10) or u16(d, b + 0x12)) and (r, k) in named:
+                n += 1
+        out.append(n)
+    return out
+
+
+def generate():
+    lines = ['// Generated by tools/gen_boss_move_facts.py (user #22349); do not edit.',
+             '// Static own-window facts; runtime exact action records supply chain-aware hit labels.',
+             '// hits = hit windows of the move\'s own hitbox rows (0 = unknown: no own timed rows, e.g. projectile or shared hitboxes);',
+             '// rows with the same (start frame, hit group) are one hit, as in the game\'s own per-action power sum (RVA 0x78EADF).',
+             '// attack = the action row has an attack block (+0x13C / +0x142 set): an unclassified (kind 0) catalogue move with it is an attack.',
+             '// great = action row +0x04 bit 0x2000 = GreatAttack (unblockable). Sources: notes/yoritomo-hits-and-unblockable.md,',
+             '// notes/yoritomo-hit-source-22305.md. Only the bosses listed here are grouped by hits; the others keep the old groups.',
+             '#pragma once', '#include <stdint.h>',
+             'typedef struct { uint32_t chr, id; unsigned char hits, great, attack, grab, nohit, proj; } N3MoveFact;  // grab: runtime only (auto_moves.h AmGrabs, #44217); nohit: known 0 hits (#126246); proj: runtime only, hits through a spawned object (AmObjDmg, #126342)',
+             'static const N3MoveFact kN3MoveFacts[] = {']
+    for chr_id, rel in sorted(BOSSES.items()):
+        path = data_file(rel)
+        if not path:
+            return None
+        allx = list(ymf.facts(path))
+        # user #22709: a spawn at frame 0 in (nearly) every action of the boss (Nuribotoke 44@0) is a standing body / weapon object, not a
+        # projectile of that move: it does not make the move's hit count unknown. Anything else spawned still does.
+        cnt = {}
+        for x in allx:
+            for sp in set(x['spawns'].split()):
+                if sp.endswith('@0'):
+                    cnt[sp] = cnt.get(sp, 0) + 1
+        ambient = {sp for sp, n in cnt.items() if n * 10 >= len(allx) * 8}
+        d, st, owned = ymf.load(path)
+        rowof = {}
+        for r in range(len(owned)):
+            rowof.setdefault(ymf.u16(d, st[1][0] + r * ymf.REC + 0xC), r)
+        memo = {}
+        live_untimed = named_untimed(d, st, owned, rowof)
+        for xi, x in enumerate(allx):
+            udmg = x['untimed_dmg_rows'] if live_untimed is None else live_untimed[xi]
+            if not (x['attack'] or x['n_rows'] or x['unblockable']):
+                continue
+            hits = x['hits'] if isinstance(x['hits'], int) else 0
+            may_spawn = [sp for sp in x['spawns'].split() if sp not in ambient and obj_may_hit(d, st, owned, rowof, 20000 + int(sp.split('@')[0]), memo)]
+            if may_spawn or udmg:
+                hits = 0  # spawned objects / projectiles add hits that are not in the file: total unknown, not guessed
+                # human #123773: an untimed row with power and element 0 deals no damage whoever fires it (auto_moves.h AmWindows)
+            # other bosses rarely set the +0x13C / +0x142 attack block (Hino-enma: most real attacks do not): a timed hit window counts too
+            atk = int(bool(x['attack'] or (chr_id != 16102 and (x['hits'] or x['unblockable']))))
+            # human #126246: known 0 hits (auto_moves.h AmParse nohit): an attack (block or GreatAttack) with no damaging own row, timed or
+            # untimed, and no spawn that may hit
+            nohit = int(bool((x['attack'] or x['unblockable']) and not x['windows'] and not udmg and not may_spawn and not hits))
+            lines.append('    {%du, %su, %d, %d, %d%s},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], atk, ', 0, 1' if nohit else ''))
+    lines += ['};',
+              '#define N3_MOVE_FACT_COUNT ((int)(sizeof kN3MoveFacts / sizeof kN3MoveFacts[0]))',
+              'static inline const N3MoveFact* N3MoveFactFind(uint32_t chr, uint32_t id) {',
+              '    for (int i = 0; i < N3_MOVE_FACT_COUNT; ++i)',
+              '        if (kN3MoveFacts[i].chr == chr && kN3MoveFacts[i].id == id) return &kN3MoveFacts[i];',
+              '    return 0;', '}',
+              '// 1 = this boss has game-data facts, so its attacks are grouped by hits / unblockable',
+              'static inline int N3MoveFactsBoss(uint32_t chr) {',
+              '    for (int i = 0; i < N3_MOVE_FACT_COUNT; ++i) if (kN3MoveFacts[i].chr == chr) return 1;',
+              '    return 0;', '}', '']
+    return '\n'.join(lines)
+
+
+def main(argv):
+    text = generate()
+    if text is None:
+        print('action file not extracted (data/extract/lfm/archive_01); nothing generated', file=sys.stderr)
+        return 0 if '--check' in argv else 1
+    if '--check' in argv:
+        old = open(OUT, encoding='utf-8').read() if os.path.exists(OUT) else ''
+        if old != text:
+            print('mod/boss_move_facts.h is out of date: run py -I tools/gen_boss_move_facts.py')
+            return 1
+        print('boss_move_facts.h up to date')
+        return 0
+    with open(OUT, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+    print('wrote %s' % OUT)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
