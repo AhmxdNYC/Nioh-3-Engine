@@ -25,8 +25,13 @@ EXTERN L1Wait:PROC
 PUBLIC caveFps, caveScale, caveLim, caveTier, caveMenu, caveL1
 PUBLIC vrr_minNs, vrr_maxNs, vrr_pNear, vrr_getDelta60, l1_callee
 PUBLIC vrr_enable, vrr_tier, vrr_capCur, vrr_arm, vrr_cap, vrr_fpsOut, vrr_scale, vrr_last
+PUBLIC vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs, vrr_floorOn, vrr_floorEnters
 PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
 PUBLIC tg_cap
+PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
+PUBLIC caveHold, vrr_hold60
+PUBLIC vrr_dtShift
+PUBLIC vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_clampLostNs
 
 .data
 ALIGN 16
@@ -34,6 +39,34 @@ vrr_prev        dq 0            ; previous frame start (ns, G+7D8)
 vrr_acc120      REAL8 0.0       ; 120 Hz tick carry
 vrr_acc60       REAL8 0.0       ; 60 Hz tick carry
 vrr_last        dq 0            ; last clamped interval (ns), diagnostics
+; Tier120Floor (GitHub #98): in the 120 tier, after HoldNs of frames slower than the floor the caves act as the
+; 60 tier (60 cap, fps 60, tier 60 to GetFps) for ProbeNs, then re-measure. 0 = off.
+vrr_floorNs      dq 0           ; 1e9 / floor fps; 0 = off
+; GovFpsFix (GitHub #98): P8d feeds the frame governor 0x5AF670 threshold edi = fps*1000/30.
+gov_getFps       dq 0           ; the game GetFps (stock call target at P8d)
+gov_obj          dq 0           ; governor object (rbx at P8d), read by the trace
+gov_fix          dd 0           ; 1 = call the stock GetFps instead of returning the tier
+gov_fps          dd 0           ; last value handed to the threshold
+; HoldWindowFix (GitHub #98): real 60 Hz ticks this frame (own carry), read by caveHold @P10
+vrr_accH         REAL8 0.0
+vrr_hold60       dd 1
+; DtSmooth (GitHub #98): EMA of the clamped frame interval; 0 = raw interval (stock VRR)
+vrr_ema          dq 0
+; GH #155: frames the armed tier fell back to stock because the game overrode G[620] (event / time effect), frames
+; armed anyway under TimeEffectArm (120 tier, G[620] == 60 = the time effect's tier/2), frames whose interval was
+; clamped to the tier's longest (and the time lost to that clamp). The game thread writes; the OSD reads.
+vrr_clampLostNs  dq 0
+vrr_teArm        dd 0           ; 1 = stay armed through the 120 tier's time effect (G[620] == 60)
+vrr_ovrFrames    dd 0
+vrr_ovrVal       dd 0           ; last overriding G[620]
+vrr_teFrames     dd 0
+vrr_clampFrames  dd 0
+vrr_dtShift      dd 0
+vrr_floorHoldNs  dq 0
+vrr_floorProbeNs dq 0
+vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
+vrr_floorOn      dd 0
+vrr_floorEnters  dd 0
 c_1e9           REAL8 1.0e9
 c_120           REAL8 120.0
 c_60            REAL8 60.0
@@ -90,12 +123,65 @@ lIdx:
     lea     rdx, vrr_arm
     cmp     dword ptr [rdx+r9*4], 0
     je      lStock
+    xor     edx, edx                            ; edx = 1 on TimeEffectArm frames (the floor skips them)
     cmp     eax, r8d                            ; event / time-effect override (G[620] != tier) -> stock
+    je      lOvrOk
+    inc     dword ptr [vrr_ovrFrames]
+    mov     dword ptr [vrr_ovrVal], eax
+    cmp     r9d, 2                              ; GH #155 TimeEffectArm: only the 120 tier's time effect (60);
+    jne     lStock                              ; events set 30 and stay stock
+    cmp     eax, 60
     jne     lStock
+    cmp     dword ptr [vrr_teArm], 0
+    je      lStock
+    inc     dword ptr [vrr_teFrames]
+    mov     edx, 1
+lOvrOk:
     test    rcx, rcx
     je      lStock
     mov     rax, qword ptr [rdi+7D8h]
     sub     rax, rcx
+    cmp     r9d, 2
+    jne     fNo
+    test    edx, edx                            ; the floor's 60 tier would turn the effect's
+    jne     fNo                                 ; half-rate step (tier/G[620] = 2) into 1; keep the 120 tier
+    cmp     qword ptr [vrr_floorNs], 0
+    je      fNo
+    mov     rdx, rax                            ; accounting interval, capped at the 120 tier's longest
+    cmp     rdx, qword ptr [vrr_maxNs+16]
+    jle     f0
+    mov     rdx, qword ptr [vrr_maxNs+16]
+f0:
+    cmp     dword ptr [vrr_floorOn], 0
+    jne     fOn
+    cmp     rax, qword ptr [vrr_floorNs]
+    jle     fFast
+    add     qword ptr [vrr_lowAcc], rdx
+    jmp     fChk
+fFast:
+    sub     qword ptr [vrr_lowAcc], rdx
+    jge     fChk
+    mov     qword ptr [vrr_lowAcc], 0
+fChk:
+    mov     rdx, qword ptr [vrr_lowAcc]
+    cmp     rdx, qword ptr [vrr_floorHoldNs]
+    jl      fNo
+    mov     dword ptr [vrr_floorOn], 1
+    mov     qword ptr [vrr_lowAcc], 0
+    lock inc dword ptr [vrr_floorEnters]
+    jmp     fUse
+fOn:
+    add     qword ptr [vrr_lowAcc], rdx
+    mov     rdx, qword ptr [vrr_lowAcc]
+    cmp     rdx, qword ptr [vrr_floorProbeNs]
+    jl      fUse
+    mov     dword ptr [vrr_floorOn], 0          ; probe: measure the 120 tier again
+    mov     qword ptr [vrr_lowAcc], 0
+    jmp     fNo
+fUse:
+    mov     r9d, 1                              ; act as the 60 tier
+    mov     dword ptr [vrr_tier], 60
+fNo:
     lea     rdx, vrr_minNs
     cmp     rax, qword ptr [rdx+r9*8]
     jge     a1
@@ -104,8 +190,25 @@ a1:
     lea     rdx, vrr_maxNs
     cmp     rax, qword ptr [rdx+r9*8]
     jle     a2
+    inc     dword ptr [vrr_clampFrames]
+    sub     rax, qword ptr [rdx+r9*8]
+    add     qword ptr [vrr_clampLostNs], rax
     mov     rax, qword ptr [rdx+r9*8]
 a2:
+    mov     ecx, dword ptr [vrr_dtShift]        ; DtSmooth: game dt = EMA(interval), weight 1/2^shift (#98:
+    test    ecx, ecx                            ; uneven per-frame dt misses the hold->MA check; a steady dt
+    je      sm0                                 ; at the same mean fps does not)
+    mov     rdx, qword ptr [vrr_ema]
+    test    rdx, rdx
+    jne     sm1
+    mov     rdx, rax
+sm1:
+    sub     rax, rdx
+    sar     rax, cl
+    add     rdx, rax
+    mov     qword ptr [vrr_ema], rdx
+    mov     rax, rdx
+sm0:
     mov     qword ptr [vrr_last], rax
     lea     rdx, vrr_cap
     mov     edx, dword ptr [rdx+r9*4]
@@ -126,6 +229,14 @@ a3:
     mulsd   xmm0, xmm1
     cvtsd2ss xmm0, xmm0
     movss   dword ptr [vrr_scale], xmm0         ; scaleCorr = fps_i * interval
+    movapd  xmm0, xmm1                          ; HoldWindowFix: 60 Hz ticks with their own carry (any tier)
+    mulsd   xmm0, qword ptr [c_60]
+    addsd   xmm0, qword ptr [vrr_accH]
+    cvttsd2si ecx, xmm0
+    cvtsi2sd xmm2, ecx
+    subsd   xmm0, xmm2
+    movsd   qword ptr [vrr_accH], xmm0
+    mov     dword ptr [vrr_hold60], ecx
     movapd  xmm0, xmm1
     mulsd   xmm0, qword ptr [c_120]
     addsd   xmm0, qword ptr [vrr_acc120]
@@ -150,6 +261,7 @@ l60z:
     mov     dword ptr [rdx+NEAR_TICKS60], 0
     jmp     lDone
 lStock:
+    mov     qword ptr [vrr_ema], 0              ; DtSmooth restarts from the next armed frame
     mov     dword ptr [vrr_scale], 3F800000h
     mov     dword ptr [vrr_fpsOut], 0
     mov     dword ptr [vrr_capCur], r8d
@@ -204,10 +316,44 @@ lR:
 caveLim ENDP
 
 ; ---- caveTier (P8a-d, P9): integer value must stay the tier -------------------------------------------------------
+; ---- caveGov (P8d): caveTier, or the stock GetFps when gov_fix; records rbx/eax for the GovTrace log -------------
+; Entered by `call` like the original GetFps call, so the ABI is the original call's (volatile regs may be clobbered).
+caveGov PROC
+    mov     qword ptr [gov_obj], rbx
+    cmp     dword ptr [gov_fix], 0
+    je      gTier
+    sub     rsp, 28h                            ; entry rsp = 8 mod 16; home space + realign
+    call    qword ptr [gov_getFps]
+    add     rsp, 28h
+    jmp     gOut
+gTier:
+    mov     eax, dword ptr [vrr_tier]
+gOut:
+    mov     dword ptr [gov_fps], eax
+    ret
+caveGov ENDP
+
 caveTier PROC
     mov     eax, dword ptr [vrr_tier]
     ret
 caveTier ENDP
+
+; ---- caveHold (P10, HoldWindowFix, GitHub #98): replaces `mov ecx,[rbx+20h]; inc ecx` in the player notice-list walk.
+; The game ages each notice by 1 per walk (once per frame) and drops it after 30, a window of 0.5 s at 60 fps but only
+; ~0.27 s at 112 fps, so a held attack's notice can expire before its transition. While VRR is armed the age grows by
+; this frame's real 60 Hz ticks (0, 1 or 2 with carry), so the window stays 0.5 s at any fps; stock frames add 1.
+; ecx only; the flags are dead (the next `test al,al` sets them).
+caveHold PROC
+    mov     ecx, dword ptr [rbx+20h]
+    cmp     dword ptr [vrr_fpsOut], 0
+    je      hInc
+    cmp     dword ptr [vrr_hold60], 0   ; min(ticks,1): never faster than stock (sub-60 fps keeps the stock window)
+    jne     hInc
+    ret
+hInc:
+    inc     ecx
+    ret
+caveHold ENDP
 
 ; ---- caveMenu (P7, optional): GetDelta60 for menu hold timers, quantised to 0.25 with carry while armed -----------
 ; Unlike the (never-applied) script version this keeps the Win64 ABI for the inner call (16-byte alignment and
@@ -2123,4 +2269,29 @@ caveRDWake PROC FRAME
     mov rax, qword ptr [rd_resume]
     jmp rax
 caveRDWake ENDP
+
+; =================================================================================================================
+; FWP: frame-wait park. Site 19B2726 = cold block of RenderWaitForFrame's job spin 4A4F1C
+; (`mov rcx,[rdi+1C8h]` 7 bytes -> jmp here). rdi = wait object (GfxDevice+1EE360), rbx/rsi/rdi callee-saved and
+; preserved by FwpRound; volatile registers are dead (the native loop head 4A4F3B reloads rdx/eax). JMP-entered: rsp is
+; 16-aligned in the spin's body and its 20h outgoing home area is dead, so the call reuses it (no own stack). The unwind
+; info describes the inherited native frame (mov [rsp+8],rbx / mov [rsp+10h],rsi / push rdi / sub rsp,20h), as
+; caveRDWake does. FwpRound returns once bit 0 of [job] is clear (or after its safety bound); the native recheck at
+; 4A4F3B decides, exactly as before.
+EXTERN FwpRound:PROC
+PUBLIC caveFwp, fwp_resume
+fwpdata SEGMENT ALIGN(16) READ WRITE 'DATA'
+fwp_resume  DQ 0                ; Nioh3+4A4F3B (the spin's loop head), taken from the site's own jne
+fwpdata ENDS
+.code
+caveFwp PROC FRAME
+    .pushreg rdi
+    .allocstack 20h
+    .savereg rbx, 30h
+    .savereg rsi, 38h
+    .endprolog
+    mov     rcx, rdi
+    call    FwpRound
+    jmp     qword ptr [fwp_resume]
+caveFwp ENDP
 END
