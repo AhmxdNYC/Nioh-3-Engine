@@ -48,6 +48,7 @@
 #include "osd.h"
 #include "crashreport.h"
 #include "reportsend.h"
+#include "crashupload.h"
 #include "menu_style.h"
 #include "pad_family.h"
 #include "padcard.h"
@@ -1494,14 +1495,16 @@ int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
-    int n = 3 + PageRowsBody(out + 3, selectable);
+    int top = 3;
+    if (g_pages.page == pRoot) out[top++] = kShareDataRow;  // 1.8.41: data-sharing opt-in at the top of the first page
+    int n = top + PageRowsBody(out + top, selectable);
     bool reset = false, ownReset = false;
-    for (int i = 3; i < n; ++i) {
+    for (int i = top; i < n; ++i) {
         reset |= ResettableRow(out[i]);
         ownReset |= out[i] == kCamRowFirst + kCamReset || out[i] == kVrsRowFirst + vrsmenu::kRowReset;
     }
     if (g_pages.page != pRoot && reset && !ownReset) {
-        const bool back = n > 3 && (out[n - 1] == kBackRow || out[n - 1] == kClose);
+        const bool back = n > top && (out[n - 1] == kBackRow || out[n - 1] == kClose);
         if (back) out[n] = out[n - 1];
         out[back ? n - 1 : n] = kResetPageRow; ++n;
     }
@@ -1510,7 +1513,10 @@ int PageRows(int* out, bool selectable) {
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
     return n;
 }
-int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
+int FirstOwnRow(const int* rows, int n) {  // never lands on 'Share data': opting in takes a deliberate move onto it
+    const int i = n > 3 && rows[3] == kShareDataRow ? 4 : 3;
+    return n > i ? rows[i] : n ? rows[0] : kBackRow;
+}
 int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
 
 void EnterPage(int page) {
@@ -2297,6 +2303,12 @@ void Change(int id, int dir) {
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
     if (id == kPlayerLogRow) { ChangePlayerLog(dir); return; }
+    if (id == kShareDataRow) {  // A flips, Right = ON, Left = OFF
+        const bool on = dir > 0 ? true : dir < 0 ? false : !crashupload::ShareData();
+        if (on != crashupload::ShareData()) crashupload::SetShareData(on);
+        MLOG("Share data row -> %d", on ? 1 : 0);
+        return;
+    }
     if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
     if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
         if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
@@ -3008,6 +3020,7 @@ void RowLabel(int id, char* out, int cap) {
     else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
     else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
     else if (id == kPlayerLogRow) snprintf(out, (size_t)cap, "Player log");
+    else if (id == kShareDataRow) snprintf(out, (size_t)cap, "Share data");
     else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
     else snprintf(out, (size_t)cap, "row");
 }
@@ -3789,6 +3802,13 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kShareDataRow) {
+            if (id == g_sel) selRow = nb;
+            const bool on = crashupload::ShareData();
+            put(body, nb, 128, id == g_sel ? "> Share data" : "  Share data", "", on ? "ON" : "OFF (default)",
+                id == g_sel ? cWhite : cGray, on ? cGreen : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kPlayerLogRow) {  // human #128100
             if (id == g_sel) selRow = nb;
             const int v = PlayerLogGet();
@@ -3945,7 +3965,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it. Needs Share data ON." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kResetPageRow) {
         snprintf(what, sizeof(what), "Restore this page's editable settings to the values shipped with the mod.");
@@ -3969,7 +3989,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_reverseNote);
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
-        snprintf(what, sizeof(what), "%s", g_reportNote);
+        snprintf(what, sizeof(what), "%s", crashupload::ShareData() ? g_reportNote : "Sending needs 'Share data' ON (top of the first mod menu page). It is off by default.");
         snprintf(effect, sizeof(effect), "A / Enter opens a text box (keyboard, controller key grid or Steam keyboard). A copy stays in Nioh3Reports beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
@@ -3987,6 +4007,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kShareDataRow) {
+        snprintf(what, sizeof(what), "Off by default: nothing is sent. On: crash reports go to the mod's feedback site automatically, and the Report box can send.");
+        snprintf(effect, sizeof(effect), "Sends: crash details, game/mod versions and settings, PC specs (CPU, GPU, RAM, OS), fps, recent mod logs and button presses, a random ID. No names, paths or Steam ID.");
     } else if (g_sel == kPlayerLogRow) {  // human #128100
         snprintf(what, sizeof(what), "%s", g_plogNote[0] ? g_plogNote : "Writes Nioh3PlayerLog.txt in the game folder: your button presses, moves, fps on every line, and a once-a-second game clock line that shows slow motion.");
         snprintf(effect, sizeof(effect), "A switches; Right = ON, Left = OFF. Starts and stops at once. Off by default. Send the file with a report.");

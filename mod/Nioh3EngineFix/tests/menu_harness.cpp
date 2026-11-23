@@ -84,6 +84,12 @@ bool CopyReportUrl() { return true; }
 void OpenReportUrl() { ++g_urlOpens; }
 void OpenReportFolder(const char* path) { ++g_folderOpens; snprintf(g_folderPath, sizeof g_folderPath, "%s", path ? path : ""); }
 }
+namespace crashupload {  // 1.8.41 data-sharing opt-in (menu 'Share data' row)
+bool g_share = false;
+int g_shareSets = 0;
+bool ShareData() { return g_share; }
+void SetShareData(bool on) { g_share = on; ++g_shareSets; }
+}
 namespace reportsend {  // #64882: the Report box hands its text here
 int g_sends = 0;
 std::string g_lastText, g_lastVia;
@@ -255,9 +261,23 @@ int main() {
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
-    // #38437 top rows: Mod menu, Close, Report; then Display Overlays, Camera settings, Settings, Close
-    CHECK(rootN == 10 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
-          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kSaveFilesRow && rows[7] == kUpdatePageRow && rows[8] == kReverseModsRow && rows[9] == kClose);
+    // #38437 top rows: Mod menu, Close, Report; 1.8.41 Share data (root only); then Display Overlays, Camera settings, Settings, Close
+    CHECK(rootN == 11 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kShareDataRow && rows[4] == kPageRow + pDisplay &&
+          rows[5] == kPageRow + pCamera && rows[6] == kPageRow + pSettings && rows[7] == kSaveFilesRow && rows[8] == kUpdatePageRow && rows[9] == kReverseModsRow && rows[10] == kClose);
+    {  // 1.8.41 data-sharing opt-in: OFF by default, never the landing row, A flips, Left / Right set, nothing else touches it
+        CHECK(!crashupload::g_share && crashupload::g_shareSets == 0 && FirstOwnRow(rows, rootN) == kPageRow + pDisplay);
+        Change(kShareDataRow, -1); CHECK(!crashupload::g_share && crashupload::g_shareSets == 0);   // already off: no write
+        Change(kShareDataRow, 0);  CHECK(crashupload::g_share && crashupload::g_shareSets == 1);
+        Change(kShareDataRow, 1);  CHECK(crashupload::g_share && crashupload::g_shareSets == 1);
+        Change(kShareDataRow, -1); CHECK(!crashupload::g_share && crashupload::g_shareSets == 2);
+        char lab[64]; RowLabel(kShareDataRow, lab, sizeof lab); CHECK(!strcmp(lab, "Share data"));
+        crashupload::g_shareSets = 0;
+        osd::drawnTexts.clear(); osd::drawnTextX.clear(); osd::drawnTextY.clear(); osd::drawnTextColor.clear(); osd::drawnTextScale.clear(); osd::drawnRects.clear();
+        DrawImpl(1920u, 1080u);  // the row is on the drawn first page, showing OFF
+        bool seen = false; for (auto& t : osd::drawnTexts) seen |= t.find("Share data") != std::string::npos;
+        if (!seen) for (auto& t : osd::drawnTexts) printf("  ROOT[%s]\n", t.c_str());
+        CHECK(seen);
+    }
     CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
     // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
     for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pOvHud, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
@@ -627,8 +647,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 13 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPlayerRow && rows[6] == kPageRow + pDisplay &&
-          rows[7] == kPageRow + pCamera && rows[8] == kPageRow + pSettings && rows[9] == kSaveFilesRow && rows[10] == kUpdatePageRow && rows[11] == kReverseModsRow && rows[12] == kClose);
+    CHECK(bossN == 14 && rows[3] == kShareDataRow && rows[4] == kRematchRow && rows[5] == kPracticeRow && rows[6] == kPlayerRow && rows[7] == kPageRow + pDisplay &&
+          rows[8] == kPageRow + pCamera && rows[9] == kPageRow + pSettings && rows[10] == kSaveFilesRow && rows[11] == kUpdatePageRow && rows[12] == kReverseModsRow && rows[13] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -786,7 +806,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==11 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kPlayerRow && rows[7]==kSaveFilesRow && rows[8]==kUpdatePageRow && rows[9]==kReverseModsRow && rows[10]==kClose);
+    CHECK(g_pages.page==pRoot && n==12 && rows[3]==kShareDataRow && rows[4]==kPageRow+pSettings && rows[5]==kRematchRow && rows[6]==kPracticeRow && rows[7]==kPlayerRow && rows[8]==kSaveFilesRow && rows[9]==kUpdatePageRow && rows[10]==kReverseModsRow && rows[11]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly
