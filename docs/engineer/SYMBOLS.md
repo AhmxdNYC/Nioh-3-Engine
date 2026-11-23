@@ -10,7 +10,7 @@ Read this together with [CONTRIBUTING.md](../../CONTRIBUTING.md), [symbols/READM
 [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md) and [docs/code-map.md](../code-map.md). This page does not repeat their column rules; it explains how the pieces fit.
 
 Conventions: paths are repo-relative and given without line numbers. "Current source" means the v1.8.39 tree. Where a file exists there but not
-yet in this repository's `mod/` copy, it is marked "(source not yet in the public copy)".
+yet in this repository's `mod/` copy, it is marked "".
 
 ## 1. The build we describe
 
@@ -23,7 +23,7 @@ The shipped `Nioh3.exe` has its `.text` encrypted by the Steam DRM stub. The cod
   memory-layout PE where file offset equals RVA. You make it from your own install and never share it.
 - The mods wait for decryption before they scan (`[General] DecryptWaitSeconds` in `mod/Nioh3EngineFix/Nioh3EngineFix.ini`, default 60).
 - A second known variant exists: the same v2.02 code with the Steam wrapper removed (SizeOfImage `0x52C1000`). `mod/shared/known_build.h`
-  (source not yet in the public copy) classifies the module as Steam, stripped or unknown. The stripped case is accepted by hashing the first 64 KB of mapped `.text` (SHA-256, constant in the header).
+  classifies the module as Steam, stripped or unknown. The stripped case is accepted by hashing the first 64 KB of mapped `.text` (SHA-256, constant in the header).
 
 ## 2. The database: `symbols/symbols.tsv`
 

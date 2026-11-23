@@ -4,7 +4,7 @@
 It covers what to install, how each of the four mods is built, where files go in the game folder, how settings
 and logs work, how to put a dev build over a release and roll back, and how releases are packaged.
 **Truth source.** The current source tree (release 1.8.x). The `mod/` folder in this public repository is an older
-copy, so where a file or feature exists only in the current source it is marked *(source not yet in the public copy)*.
+copy, so where a file or feature exists only in the current source it is marked.
 **Read next.** [CONTRIBUTING.md](../../CONTRIBUTING.md) (decompiling workflow), [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md)
 (what must never be committed), [docs/code-map.md](../code-map.md), [research/README.md](../../research/README.md).
 
@@ -26,7 +26,7 @@ Shared code lives in `mod/shared/` (stroke-font text, `known_build.h`, the versi
 `nioh3_version.rc`) and in `mod/*.h` at the top of `mod/` (boss move tables, menu navigation, the
 BossRematch menu bridge header). `mod/settings/` is the settings catalog (section 6).
 
-`mod/shared/known_build.h` and `mod/shared/nioh3_version.rc` are *(source not yet in the public copy)*.
+`mod/shared/known_build.h` and `mod/shared/nioh3_version.rc` are.
 
 Every mod refuses to patch an unknown build. The check is the PE timestamp `0x6AA7C106` and `SizeOfImage`
 `0x52FB000` (Steam exe) or `0x52C1000` (Steam wrapper removed); see `mod/shared/known_build.h`.
@@ -161,7 +161,7 @@ mod\Nioh3BossRematch\build.bat
 Output: `bin\Nioh3BossRematch.asi` plus `Nioh3BossRematch.ini` and `Nioh3BossRematch_bosses.tsv` copied into `bin\`.
 It compiles `main sites hooks bosslog rematch training ui remote gamerva keepgear loot_clear` with the same MSVC flags
 plus `/DBR_SOULCORE=1` (soul-core forms; the release gate refuses an ASI built without it), then links. `keepgear.cpp`
-and `loot_clear.cpp` are *(source not yet in the public copy)*.
+and `loot_clear.cpp` are.
 
 Before compiling it runs `tools/check_fixed_rvas.py` (warn-only) to list hard-coded game addresses that are not found
 by a byte pattern. Game sites are described in `sites.json`; `tools/derive_sites.py` derives patterns and `gen_rvas.py` +
@@ -194,7 +194,7 @@ mod\Nioh3Training\build.bat        (Windows)    or    sh mod/Nioh3Training/build
 It runs `py -m ziglang cc -target x86_64-windows-gnu -shared -O2 -fms-extensions -Xclang -fasync-exceptions -Wall src/training.c -o Nioh3Training.asi -lgdi32 -lmsimg32`,
 then copies `data/boss-action-record.tsv` to `Nioh3Training_action_records.tsv`. `training.c` includes the headers in
 `src/`, so a change to any `src/*.h` rebuilds it.
-`mod/Nioh3Training/build.bat` is *(source not yet in the public copy)*; `build.sh` is there and works from Git Bash.
+`mod/Nioh3Training/build.bat` is; `build.sh` is there and works from Git Bash.
 
 Two flags matter:
 
@@ -229,7 +229,7 @@ rows have something to load.
 | `mod/settings/test_catalog.py` | Settings catalog guard (section 6) | `py -I mod/settings/test_catalog.py` (needs `git` history). |
 | `release/tests/`, `release/test_publish_github.py` | Installer, restore, PDB scrub, publish guard | `py -I -m unittest` style or run directly. |
 | `tools/updater/test_*.py`, `updater_selftest.py` | Updater | `py -m unittest discover -s tools/updater -v` |
-| `tools/testhub/hub.py` | Catalog of test lanes (`offline`, `native`, `dump`, `release`, `device`...) | `py -I -B tools/testhub/hub.py` prints the catalog and runs nothing; `run offline` runs the five small checks. *(source not yet in the public copy)* |
+| `tools/testhub/hub.py` | Catalog of test lanes (`offline`, `native`, `dump`, `release`, `device`...) | `py -I -B tools/testhub/hub.py` prints the catalog and runs nothing; `run offline` runs the five small checks. |
 
 Device tests (anything that starts the game) are not part of any offline suite.
 Several native tests need a decrypted dump (`NIOH3_HUD_DUMP`, `test_patterns.py`) and skip or fail without one.
@@ -342,7 +342,7 @@ mod/settings/catalog.json  --generate_catalog.py-->  mod/<Mod>/src/settings_cata
   `Manual` kinds (free-form paths and lists) are read-only in the menu and never rewritten.
 - `mod/Nioh3EngineFix/tools/generate_menu_defaults.py` embeds the shipped ini values (plus Training `[Practice]`) in
   `src/menu_shipped_defaults.h`. It backs the menu's "reset to defaults" so a reset never copies a player's edited ini.
-  `build.bat` fails with "packaged menu defaults stale" if you forget to regenerate it. *(`menu_shipped_defaults.h` is not yet in the public copy.)*
+  `build.bat` fails with "packaged menu defaults stale" if you forget to regenerate it.
 - `py -I mod/settings/test_catalog.py` is a guard test. It compares the protected parts of the menu source (the item enum, the page
   order `kOrder`, the experimental ini keys, the Remote command lookup, and the add-on provider callbacks) with the **last
   released commit** pinned in `RELEASE` at the top of the file. Rows may be *added*; removing, renaming or reordering a
@@ -437,7 +437,7 @@ Two separate pieces:
    (`[Update] CountUpdate`, `--no-count`).
 
 `tools/updater/stage_site.py` stages immutable payloads plus a manifest (it deploys nothing). `site/` holds the website API
-and `version.json` *(source not yet in the public copy)*.
+and `version.json`.
 
 ---
 
@@ -456,13 +456,13 @@ build 4 ASIs  ->  release gates  ->  full-install zip + combined (update) zip + 
 | Profiles | `release/make_profiles.py` | Section 6.3. |
 | Legacy EngineFix-only zip | `release/package.py` (`--final`, `--full`, `--allow-stale`, `--out`) | Builds `Nioh3EngineFix-<ver>[-rc].zip` with `dinput8.dll`, the ASI, the profile ini, README/USER_GUIDE, `PROFILE.txt`, `SHA256SUMS.txt` and optional shaders. `--final` refuses provisional entries. The loader and shader replacements are local-only inputs, never committed. |
 | Combined offline candidate | `release/package_final.py --loader PATH` | Builds `Nioh3-<ver>-combined-rc.zip` from the four ASIs plus updater and re-verifies every archived hash. Treat it as an older flow: it asserts `[SaveFiles]` defaults that the current ini no longer has, so verify before relying on it. |
-| Fresh-install zip | `release/full_install_zip.py build / check / check-tag` | Rule: every GitHub release carries `Nioh3-<ver>-full-install.zip` that installs from scratch (loader, four ASIs, inis, installer, `INSTALL.txt`, `SHA256SUMS.txt`). `check` and `check-tag` refuse a zip that is missing any `REQUIRED` file. *(source not yet in the public copy)* |
+| Fresh-install zip | `release/full_install_zip.py build / check / check-tag` | Rule: every GitHub release carries `Nioh3-<ver>-full-install.zip` that installs from scratch (loader, four ASIs, inis, installer, `INSTALL.txt`, `SHA256SUMS.txt`). `check` and `check-tag` refuse a zip that is missing any `REQUIRED` file. |
 | Public assets | `tools/updater/pack_public_assets.py` | Builds the asset folder (combined zip with `Nioh3Updater.exe` at its root and also as its own file, the `.tsv` lists, `stable.json`). The player settings files are deliberately **not** in the update zip, so unzipping it over the game folder cannot overwrite them. Refuses if `news` does not start with the new version or repeats the previous release's. |
 | Publish gate | `tools/updater/updater.py: publish_gate` | Refuses a package missing the four ASIs or `Nioh3CamKiProbe.ini`, or a BossRematch ASI built without the `SoulCoreForms` marker. |
 | PDB path scrub | `release/scrub_pdb.py` | Writes a distinct PE copy with PDB pathnames replaced by a bare file name, so no home path ships in an ASI. Refuses a result that still contains path markers. |
-| Publish | `release/publish_github.py --tag vX.Y.Z --notes FILE --dir OUT [--dry-run]` | The only allowed target is the public repository; it refuses any other `--repo`, uploads every file in `SHA256SUMS.txt`, marks it Latest and re-checks the GitHub digests. A bare `gh release create` from a private checkout goes to the wrong repository. *(source not yet in the public copy)* |
-| Source export | `tools/export_public.py` | Dry run by default: overlays the mod source onto a worktree of the public branch and gates for binaries, personal paths, newer-in-public files and soul-core code. A separate manual step pushes. *(source not yet in the public copy)* |
-| Setup programs | `tools/setup/` (`build-setup.ps1`, `build_linux.py`) | One-click `Nioh3-Setup.exe` / `.pyz` embedding the full-install zip. *(source not yet in the public copy)* |
+| Publish | `release/publish_github.py --tag vX.Y.Z --notes FILE --dir OUT [--dry-run]` | The only allowed target is the public repository; it refuses any other `--repo`, uploads every file in `SHA256SUMS.txt`, marks it Latest and re-checks the GitHub digests. A bare `gh release create` from a private checkout goes to the wrong repository. |
+| Source export | `tools/export_public.py` | Dry run by default: overlays the mod source onto a worktree of the public branch and gates for binaries, personal paths, newer-in-public files and soul-core code. A separate manual step pushes. |
+| Setup programs | `tools/setup/` (`build-setup.ps1`, `build_linux.py`) | One-click `Nioh3-Setup.exe` / `.pyz` embedding the full-install zip. |
 
 Per release, also: add a bullet changelog entry (the `MODLOG.md` entry is checked by `check_release.py`), and
 **bump `RELEASE` in `mod/settings/test_catalog.py` to the commit you shipped**, otherwise the catalog guard compares against stale history.

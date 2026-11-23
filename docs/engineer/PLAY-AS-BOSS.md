@@ -12,7 +12,7 @@ How to read the evidence tags used below:
 | **static** | Proven by disassembly only, never run |
 | **guess** | Inference or an idea, not checked |
 
-Source paths are repo-relative. The mod source in this public copy is an older snapshot (2026-11-02) than the current release (v1.8.39). Where a file or feature exists in the current source but not here it is marked *(source not yet in the public copy)*. Most `notes/` files cited are development notes that are not published; the published research is under [research/](../../research/README.md). Published ones used here: `research/input-thread.md`, `research/boss-exe-strings.md`, `research/gamelogic.md`.
+Source paths are repo-relative. The mod source in this public copy is an older snapshot (2026-11-02) than the current release (v1.8.39). Where a file or feature exists in the current source but not here it is marked. Most `notes/` files cited are development notes that are not published; the published research is under [research/](../../research/README.md). Published ones used here: `research/input-thread.md`, `research/boss-exe-strings.md`, `research/gamelogic.md`.
 
 Related reading already in this repo: [README.md](../../README.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md) (what must never be committed: no game bytes, no decompiler dumps, no game text), [docs/code-map.md](../code-map.md), [docs/subsystems/animation.md](../subsystems/animation.md), [docs/subsystems/mission-logic.md](../subsystems/mission-logic.md), [research/input-thread.md](../../research/input-thread.md), [symbols/symbols.tsv](../../symbols/symbols.tsv).
 
@@ -162,10 +162,10 @@ Position `+0x110`, facing rows `+0x120..`, HP/Ki as above, side object `+0xB0`, 
 | Mechanism | Where | Status |
 |---|---|---|
 | **Virtual pad** over a named pipe | `mod/Nioh3EngineFix/src/vpad.cpp`, `[Debug] VirtualPad = 1` (exclusive) or `2` (merge). Pipe `\\.\pipe\nioh3vpad`, one text line per command: `press`, `hold`, `release`, `stick L\|R x y [ms]`, `trigger`, `key`, `menu get\|set`, `state`, `ping`. It hooks the game's `XInputGetState` IAT slot, so the game cannot tell it from a real pad. | **live**. Walked the player 367 units unfocused. |
-| `pad <btn hex> <lt> <rt> <lx> <ly> <rx> <ry>` sets a whole state in one step; used by the input recorder/replayer `tools/testmatrix/padrec.py` | `vpad_core.h` | *(source not yet in the public copy)* |
+| `pad <btn hex> <lt> <rt> <lx> <ly> <rx> <ry>` sets a whole state in one step; used by the input recorder/replayer `tools/testmatrix/padrec.py` | `vpad_core.h` | |
 | **Keep running unfocused** | `[Debug] KeepRunningUnfocused = 1`; retargets the three `IsAppActive` pad/pause callers (`0x436758`, `0x436A20`, `0x89B2FD`) to a thunk | **live** |
 | **Button masking while a form plays** | `FormBlockPad` (default `0xFF4F`), `FormBlockRT`, `FormBlockLS` in `bosslog.cpp`: an IAT hook on `XInputGetState` clears buttons and triggers so the player cannot act while hidden. The IAT slot is taken on the first form start so it sits outside EngineFix's pad hooks. Keyboard is not masked. | **live** (shipped) |
-| **Queued d-pad pulse** | `mod/Nioh3BossRematch/src/press_queue.h` replays a soul-core press as a 120 ms d-pad pulse through the XInput hook | *(source not yet in the public copy)* |
+| **Queued d-pad pulse** | `mod/Nioh3BossRematch/src/press_queue.h` replays a soul-core press as a 120 ms d-pad pulse through the XInput hook | |
 | **Pad/trigger observation** | EngineFix `padlat.cpp`, `inputhist.h`, `padviz.h` | live |
 
 Take-away: **injecting a full controller state at the XInput layer is solved and live-tested.** Mapping those buttons onto something other than the player's own character is not.
@@ -221,7 +221,7 @@ Two different things are in play. Keep them apart.
 2. **Hide the player** (`[Spirit] FormHide = 4`: zero the native character fade controller at `[[actor+0x20]]+0x240`, because no combination of `B440/B444/85860` hides every part; see `notes/formhide4-native-fade-*.md`). `FormHide 1..3` are earlier modes (native `SetHideModel`, direct byte).
 3. **Puppet the yokai on the player's position** (`FormPin`), or for travelling cores **warp the hidden player onto the yokai every frame** (`FormFollowSeal`, using the non-player warp `0x669AB8` plus rotation rows). The camera keeps following the player, so it follows the yokai.
 4. Mask all pad input (`FormBlockPad`), end the form when the attack ends (`SealEndOnHit`, `SealEndOnIdle`, `FormHideUntilEnd` watches the Living Artifact flag and the actor table), unhide.
-5. Camera: `mod/Nioh3CamKiProbe` follows the yokai's Y (vertical follow) using `mod/shared/soul_camera_vertical.h` *(source not yet in the public copy)*, 20 ms exponential follow and a smoothstep entry/exit.
+5. Camera: `mod/Nioh3CamKiProbe` follows the yokai's Y (vertical follow) using `mod/shared/soul_camera_vertical.h`, 20 ms exponential follow and a smoothstep entry/exit.
 
 Also in this feature: `FormCrouchCancel`, per-core `FormCoresOff` (which cores transform, keyed by character id), `[Spirit] FormHideDelayMs`, the `Player > Soul core tuning` page (`soul_core_tuning_menu.h`), and `FastThrow` (motion-rate hook, confirmed only for seal animation ids). `spirit_upgrade.h` migrates old inis.
 
@@ -229,7 +229,7 @@ Status: this is a puppet and presentation layer. The yokai plays its own seal mo
 
 ### 6.2 Core item to yokai character (live, read-only)
 
-The mapping is read from the game's own tables, with no hardcoded core ids (`mod/Nioh3BossRematch/src/form_core_equipment.h` *(source not yet in the public copy)*; `notes/soulcore-core-to-seal-*.md`):
+The mapping is read from the game's own tables, with no hardcoded core ids (`mod/Nioh3BossRematch/src/form_core_equipment.h`; `notes/soulcore-core-to-seal-*.md`):
 
 1. Core item row in the item master (`GameData+0x68`, stride `0x1A0`, ~3362 rows): `+0x152` u16 item id, `+0x64` category `900000000` for soul cores (119 rows), `+0x180` u16 core-parameter key.
 2. Core-parameter row (`GameData+0x118`, stride `0x54`, 84 rows): `+0x0C` key, `+0x18` Yang item (the Summoning Seal), `+0x1C` Yin item (talisman).
@@ -241,7 +241,7 @@ The mapping is read from the game's own tables, with no hardcoded core ids (`mod
 
 ### 6.3 Equipping cores and shortcuts
 
-The Training mod can equip a core from its menu (`mod/Nioh3Training/src/soul_core_swap.h`, `soul_core_swap_game.h`, *source not yet in the public copy*). It replays the shrine handler's valid path in order: `0x2285C48` (the game's own "can this core go in this slot" check, which can refuse), `0x216B9D0` (old shortcut), `0x21607A4` and `0x2183744` and `0x215F85C` (write slot, rebuild list), `0x2182968` (move the shortcut), then the HUD refresh. All steps on the game thread. **live**.
+The Training mod can equip a core from its menu (`mod/Nioh3Training/src/soul_core_swap.h`, `soul_core_swap_game.h`). It replays the shrine handler's valid path in order: `0x2285C48` (the game's own "can this core go in this slot" check, which can refuse), `0x216B9D0` (old shortcut), `0x21607A4` and `0x2183744` and `0x215F85C` (write slot, rebuild list), `0x2182968` (move the shortcut), then the HUD refresh. All steps on the game thread. **live**.
 
 Item shortcut script natives are `Item::SetShortCut` `0x23A210C`, `Item::FindShortCut` `0x23A191C`, `Player::GetActiveItemShortcut` `0x23A8474`, `Player::IsItemSetActiveShortCutSlotDirection` `0x23AA098`. Guardian-spirit natives (script level, mission-driven): `Player::AddGuardianSpirit` (`0x23A7714`), `EquipGuardianSpirit` (`0x23A7FF4`), `DelGuardianSpirit`, `HasGuardianSpirit`, `GuardianSpiritForceLost/Return`. The seal test showed the seal yokai is **not** a guardian-spirit spawn (`0x2916C5C` is mission-script only and never ran).
 
@@ -282,7 +282,7 @@ Script natives `Player::IsNiohTenshin` (`0x23AA2F4`), `ForceEndNiohTenshin` (`0x
 
 ### 7.3 Protecting the process
 
-`mod/Nioh3EngineFix/src/aichainguard.h` *(source not yet in the public copy)* is a vectored-exception guard for the boss-AI chain walker (`0x3103B8`) copy loop at `0x310698`. When an action's runtime slice claims more rows than are mapped, the guard resumes at the loop exit instead of crashing. Forcing odd actions on bosses is the kind of change that exposes bad slices. Read it before you rely on forcing ids on bosses you have not tested.
+`mod/Nioh3EngineFix/src/aichainguard.h` is a vectored-exception guard for the boss-AI chain walker (`0x3103B8`) copy loop at `0x310698`. When an action's runtime slice claims more rows than are mapped, the guard resumes at the loop exit instead of crashing. Forcing odd actions on bosses is the kind of change that exposes bad slices. Read it before you rely on forcing ids on bosses you have not tested.
 
 ---
 

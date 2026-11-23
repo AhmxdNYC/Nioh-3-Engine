@@ -8,7 +8,7 @@ named pipes and are used only for behaviour that cannot be faked.
 may need a game file you cannot rebuild from your own install.
 
 Source cited here is the v1.8.39 tree. Paths are repo-relative and carry no line numbers. Where a file exists in that
-tree but not yet in this public copy, it is marked **(source not yet in the public copy)**. See
+tree but not yet in this public copy, it is marked. See
 [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md) for what never ships (game bytes, decompiled dumps, text tables) and
 [CONTRIBUTING.md](../../CONTRIBUTING.md) for the decompiling side. The map of the code under test is
 [docs/code-map.md](../code-map.md).
@@ -107,7 +107,7 @@ Test files with no runner: about 25 `*_test.cpp` and `*_harness.cpp` files (for 
 any `run_*.py` (unverified: a runner that globs could still pick one up). Their header comment usually gives a build line
 you can run by hand. They are **not** covered by the regression suite in section 8 unless you add a runner.
 
-Most of this directory is **(source not yet in the public copy)**: the public copy holds roughly 120 of the 190 files.
+Most of this directory is: the public copy holds roughly 120 of the 190 files.
 
 ### 4.2 Nioh3BossRematch (`mod/Nioh3BossRematch/tests`, about 60 files, plus `mod/tests`)
 
@@ -127,7 +127,7 @@ Run from `mod/Nioh3BossRematch`: `py -I tests/<name>.py`. The wrapper compiles p
 
 In the current tree the BossRematch tests live under `mod/Nioh3BossRematch/tests`. The public copy still keeps an older
 layout under `mod/tests`. The `*_offline.py` fixtures listed above, `test_fight_result.py`, `test_white_dot.py`,
-`test_roster_ownership.py` and `test_selftest_hold.py` are **(source not yet in the public copy)**.
+`test_roster_ownership.py` and `test_selftest_hold.py` are.
 
 ### 4.3 Nioh3Training (`mod/Nioh3Training/tests`, about 75 files)
 
@@ -151,12 +151,12 @@ Training is plain C (`src/training.c` plus headers). Tests compile with zig (`-O
 * Fixtures live in `mod/Nioh3Training/tests/fixtures`.
 
 Many of the newer Training tests (the native-entry family, the session-end tests, the `*_test.c` files for style meter,
-fight log, player clock and speed) are **(source not yet in the public copy)**.
+fight log, player clock and speed) are.
 
 ### 4.4 Shared code (`mod/shared/tests`)
 
 `run_gdi_stroke_tests.py` builds `gdi_stroke_test.c` with MSVC: the vector text and shape renderer used by overlays.
-`known_build_test.c` covers `mod/shared/known_build.h` (**source not yet in the public copy**).
+`known_build_test.c` covers `mod/shared/known_build.h`.
 
 ## 5. Generated files and dump checks
 
@@ -170,8 +170,8 @@ each generator has a check mode that exits non-zero if the committed file differ
 | Site table | `mod/Nioh3BossRematch/tools/derive_sites.py` (exercised by `test_sites.py`) | `sites.json` against `src/sites_gen.h` |
 | Menu catalogue | `py -I mod/settings/generate_catalog.py --check` | `mod/settings/catalog.json` against the menu sources |
 | Profiles | `py -I release/make_profiles.py --check` | `release/profiles.json` |
-| Boss catalogue | `py -I tools/rematch_catalog.py --check` | `mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv` and its CSV against a rebuild (source not yet in the public copy) |
-| Move and arena tables | `tools/gen_boss_moves.py`, `tools/gen_move_motion.py`, `tools/gen_summon_rows.py` | compared inside `run_move_toggle_tests.py` (source not yet in the public copy) |
+| Boss catalogue | `py -I tools/rematch_catalog.py --check` | `mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv` and its CSV against a rebuild |
+| Move and arena tables | `tools/gen_boss_moves.py`, `tools/gen_move_motion.py`, `tools/gen_summon_rows.py` | compared inside `run_move_toggle_tests.py` |
 | Fixed RVAs | `py -I tools/check_fixed_rvas.py` | lists every hard-coded `base + 0xRVA` that is not resolved by pattern; exit 1 unless the use is in `tools/fixed_rvas_allow.txt`. `--tests` includes test sources. `--json` output feeds `tools/aob_audit.py`, which proposes a unique byte pattern for each |
 
 **Dump checks.** `mod/Nioh3EngineFix/tests/test_patterns.py [dump]`, `mod/Nioh3BossRematch/tests/test_sites.py [dump]` and
@@ -204,16 +204,16 @@ location). Never commit or share the dump.
   `test_restore_vanilla.py` (the "Restore Vanilla Game" and "Put the mod back" shortcuts), `test_scrub_pdb.py` (PE privacy:
   debug-path scrubbing, malformed files, no overwrite). Plain `unittest`, standard library only.
   `release/test_publish_github.py` checks that the publisher refuses any repository other than the public one
-  (source not yet in the public copy).
+ .
 * **Updater.** `tools/updater/test_updater.py`, `updater_selftest.py`, `test_exe_e2e.py` (manifest validation, SHA-256
   mismatch rejection, settings preservation, rollback, no-op repeat); `verify-offline.py` in the repo root runs the staged
-  payload scenario end to end with no network. (source not yet in the public copy)
+  payload scenario end to end with no network.
 
 ## 7. Other offline tools worth knowing
 
 * `tools/testhub/hub.py`: a catalogue and a five-check offline suite (`py -I -B tools/testhub/hub.py run offline`).
   `plan all` prints commands for every lane without running anything. Only the offline lane is executable; native, dump,
-  device and release lanes are plans. (source not yet in the public copy)
+  device and release lanes are plans.
 * `tools/testmatrix`: synthetic-input tests (`test_tm_stats.py`, `test_pm_time.py`, `test_process_cpu_window.py`,
   `test_guard.ps1`, `test_pinned_benchmark.ps1`) for the statistics and harness-safety code.
 * `tools/bench/test_*.py`, `tools/test_chain_hits.py`, `tools/test_hit_labels.py`, `tools/row_display_name_test.py`:
@@ -240,7 +240,7 @@ and each build is checked for that explicitly. Every candidate build gets these 
    plus `tests/run_*.py` for Training. Each file runs as `py -I <file>` from the mod directory with the MSVC environment
    loaded (600 s timeout per test), one log per test, one line per test: `head PASS|FAIL <mod:file> | <last line>`.
    The MSVC setup path is a constant at the top of the file; edit it for your machine.
-   (source not yet in the public copy)
+  
 3. **Generated-file and catalogue checks** from sections 5 and 6, and a "no hard-coding" audit (below).
 
 **How regsuite decides a single test.** It FAILS if the exit code is non-zero, or if the output contains a failure
@@ -305,7 +305,7 @@ is hidden from it, so typing in another window never reaches the game. A press l
 reply comes after release. `VirtualPadIdleReleaseSec` (default 600) releases held inputs if the controller goes quiet.
 The client is `tools/testmatrix/vpad.py` (one command, `run <file>`, `wait-pipe`, `in-game`, `title-continue`,
 `selftest`; exit codes 0 ok, 1 mod said `err`, 2 no pipe, 3 owner process gone, 4 timeout) and `vpad.ps1` for PowerShell
-wrappers (source not yet in the public copy).
+wrappers.
 
 **Boss Rematch pipe commands** (one per line, one reply line):
 
@@ -367,7 +367,7 @@ save folder, copies the inis and the Boss Rematch ASI, sets `Pipe = 1` in the Bo
 EngineFix ini, launches through Steam, waits for the VirtualPad pipe, presses through title and Continue until `field=1`,
 runs the walk test as a child process, copies logs and the CSV into a run folder, then restores inis, ASI and saves exactly,
 releases the lock and relaunches the game for the player with VirtualPad off. Time limit: 14 minutes. Both files are
-(source not yet in the public copy), as is `tools/testmatrix/vpad.py`.
+, as is `tools/testmatrix/vpad.py`.
 
 ### 9.3 Fight-now tests and related scripts
 

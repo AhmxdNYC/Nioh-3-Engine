@@ -6,7 +6,7 @@ crash and report plumbing) and `Nioh3CamKiProbe.asi` (a small camera add-on) for
 **Truth source.** The current source tree (release label 1.8.39). Defaults are the ones in
 `mod/Nioh3EngineFix/Nioh3EngineFix.ini`, which match `mod/Nioh3EngineFix/src/menu_shipped_defaults.h` (generated from the
 packaged ini). Where a file is missing from this repository's `mod/` copy (a 2026-11-02 snapshot) the feature is marked
-**(source not yet in the public copy)**. Files present in both trees may also be older here.
+. Files present in both trees may also be older here.
 
 Related pages, not repeated here: [docs/BENCHMARKS.md](../BENCHMARKS.md) (the only checked fps/load numbers),
 [docs/WHY_NIOH_RUNS_BADLY.md](../WHY_NIOH_RUNS_BADLY.md), [docs/subsystems/](../subsystems/README.md) (what each engine
@@ -80,7 +80,7 @@ example `B`, `PP` and `[GpuOpt] Barriers` at 0) that do not match the ini or the
 | **Timer resolution** | `TR = 0`, live row "Steady timer resolution" | The game's HID pad threads wrap every `Sleep` in `timeBeginPeriod(1)/timeEndPeriod(1)`. TR holds 1 ms once and skips those pairs. No effect under Proton. | `src/timerres.cpp`; `stats/s TR:` line. |
 | **FG presenter** | `FG = 1`, `FGOnWine = 0` | FSR frame-generation presenter thread sleeps on a high-resolution timer instead of spinning on the clock (about 0.2 core less with in-game FG on). | `call` site `0x3777A40`. |
 | **FGC copy guard** | `FGC = 0`; `[Menu] FrameGenToggle = 3` enables it under Proton | The game's FidelityFX backend skips a missing texture everywhere except its copy job, which reads address `0x90` and crashes on the first generated frame (a known vkd3d-proton report). FGC skips that copy. | `patches.json` groups `FGC` and `FGP`. `FrameGenToggle` is otherwise **status-only** for every value: change frame generation in the game's own Options. |
-| **Held attack fix** | `[General] HoldKeyGap = 0` (mode `3` = fix) **(source not yet in the public copy)** | At a high fps *setting* the game counts button-hold time by the setting, not real fps, so under load a held attack can miss its martial art and swing a heavy first. Mode 3 counts by the real clock. Modes 1 and 2 are developer experiments that change move timing. | `src/holdkeygap.cpp` patches the input class's held-getter vtable slot (verified equal to `0x901BA4`) to return `max(stock, real seconds held * 60)`. Only a small manual in-game count exists; no fps claim. `tests/run_holdkeygap_harness.py`. |
+| **Held attack fix** | `[General] HoldKeyGap = 0` (mode `3` = fix) | At a high fps *setting* the game counts button-hold time by the setting, not real fps, so under load a held attack can miss its martial art and swing a heavy first. Mode 3 counts by the real clock. Modes 1 and 2 are developer experiments that change move timing. | `src/holdkeygap.cpp` patches the input class's held-getter vtable slot (verified equal to `0x901BA4`) to return `max(stock, real seconds held * 60)`. Only a small manual in-game count exists; no fps claim. `tests/run_holdkeygap_harness.py`. |
 
 Background research: [research/frame-timing.md](../../research/frame-timing.md), [research/input-thread.md](../../research/input-thread.md).
 
@@ -104,7 +104,7 @@ what was actually measured.
 | `P1E7 = 1` | Prefetch of the next texture's streaming object in the loop at `0x1E7050`. | `src/drawprep.cpp` |
 | `MA = 1` | 25 locked "atomic load" idioms (`lock cmpxchg` against zero) on the main thread become plain loads. | group `MA` |
 | `S1 = 1` | `PAUSE` in the main thread's end-of-frame spin on the submit thread. | group `S1` |
-| `MW`, `RD`, `FWP` (all 0) | Experimental waits: paired meshlet completion wait, paired renderer-drain wait, frame-wait park (`FWP = 1` park, `2` measure the stock spin only). | `src/meshletwait.h`, `drainwait.h`; `framewaitpark.h` **(source not yet in the public copy)**; harnesses `tests/run_fwp_harness.py`, `meshletwait_harness.cpp` |
+| `MW`, `RD`, `FWP` (all 0) | Experimental waits: paired meshlet completion wait, paired renderer-drain wait, frame-wait park (`FWP = 1` park, `2` measure the stock spin only). | `src/meshletwait.h`, `drainwait.h`; `framewaitpark.h`; harnesses `tests/run_fwp_harness.py`, `meshletwait_harness.cpp` |
 
 ### 3.2 Logic thread and job workers
 
@@ -162,8 +162,8 @@ Most of these keys matter only under Wine/Proton, where per-file-read overhead i
 | `LC = 0`, `LW = 1` | In-flight limit of the two resource-load managers (10 -> 16, or 11..64); `LW` replaces their three `Sleep(1)` polls with an event wait capped at 1 ms. | groups `LC`, `LW` |
 | `RWb = 1` | The resource-state spin wakes a ResourceLoad worker once per 256 spins instead of every spin. | `0x1A3146A` |
 | `LoadOnlyCpuFixes = 0` | GF, W6 and RWb are active only while a level loads (a 10 ms thread watches the load-window byte `G+58Ah`); stock code while playing. | `src/loadonly.cpp` |
-| `Inflate = 0` (`2` = verify) | libdeflate in place of the game's zlib 1.1.4 for its 16 KiB chunks, same bytes out, falls back to the game on error. **(source not yet in the public copy)** | `src/zinflate.cpp`, `third_party/` |
-| `FileLinger = 0` (`FileLingerMax = 32`, `FileLingerFree = 24`) | Keep released archive handles open instead of close/reopen per streaming touch. Off by default (more hitches on one device, neutral on another). **(source not yet in the public copy)** | `src/fhlinger.cpp` |
+| `Inflate = 0` (`2` = verify) | libdeflate in place of the game's zlib 1.1.4 for its 16 KiB chunks, same bytes out, falls back to the game on error. | `src/zinflate.cpp`, `third_party/` |
+| `FileLinger = 0` (`FileLingerMax = 32`, `FileLingerFree = 24`) | Keep released archive handles open instead of close/reopen per streaming touch. Off by default (more hitches on one device, neutral on another). | `src/fhlinger.cpp` |
 | `[General] AutoContinueLoad = 0` | Closes the post-load tip page as soon as the game would accept a press (one call site, `0x1CECAED`, made to read "pressed"). Live menu row "Skip loading tip screen". | `src/autocont.cpp` |
 | `[Memory] LM = 0` | Load-memory sweeper: once a second `VirtualAlloc(MEM_RESET)` on dead pages of free heap chunks, with a start-up self-test that disables it on failure. | `src/loadmem.cpp` |
 | `[Profiler] LoadStats`, `LoadGates`, `ReadProbe` | Measurement of each load window (section 11). | `loadstats.cpp`, `readprobe.cpp` |
@@ -213,7 +213,7 @@ Research: [research/renderer/](../../research/renderer/00-map.md), [research/gpu
 ### 6.2 Extra performance (changes the look): `[ExtraPerf]`
 
 `Enabled = 1` installs hooks that pass the game's values through until a level is set. Every key is live from the menu page
-"Extra performance (changes the look)" (`src/extraperf.cpp`, `extraperf.asm`; `extraperf_menu.h` **(source not yet in the public copy)**).
+"Extra performance (changes the look)" (`src/extraperf.cpp`, `extraperf.asm`; `extraperf_menu.h`).
 Each drives an engine control (a render-config field the game refills per frame, a quality-table result or a fraction), not a draw skip.
 
 `Preset`: 0 = use the keys, 1 Performance, 2 Potato, 3 Risky, 4 Extreme, 5 Extreme HQ. Per key: `XCLD` cloud steps, `XFOG`/`XFOGS`
@@ -222,7 +222,7 @@ terrain tessellation, `XPRT` GPU particle share, `XAO` ambient occlusion, `XPOST
 `XSHARP` FSR sharpening, `XRES` internal render scale (restart), `RenderDistance` (live; characters excluded by default). `XHALF*`
 (alternate-frame compute reuse) is off unless `XHALF_Force = 1` because it made lighting flicker; its draw-level skips live in `src/skipfx.cpp`.
 
-### 6.3 Variable-rate shading **(source not yet in the public copy)**
+### 6.3 Variable-rate shading
 
 `[Perf] VrsCeiling` (`0` off, `1` whole-frame 2x2, `2` 4x4 where supported, `3` selective) with `VrsLayouts`, `VrsRate`,
 `VrsSkipSkinned`, `VrsKeepCharacters`, `VrsGBufferMotion1x1`, `VrsWideExclude`. Mode 3 captures per-PSO metadata at creation
@@ -239,7 +239,7 @@ shown. Never on handhelds or Proton. `src/rebar.cpp`. The fix is a BIOS setting,
 
 ## 7. Crash guards (default on, restart to change)
 
-All except `FGC` are **(source not yet in the public copy)**. Each guard verifies the code bytes at start, acts only on the exact
+All except `FGC` are. Each guard verifies the code bytes at start, acts only on the exact
 fault, and leaves every other fault to the normal crash report.
 
 | Key | Guards against | Mechanism | Source |
@@ -259,12 +259,12 @@ fault, and leaves every other fault to the normal crash report.
 | Feature | Key (default) | What it does | Source |
 |---|---|---|---|
 | **Crash report** | `[Debug] CrashReport = 1`, `CrashDump = 0` | On an unhandled exception, abort/terminate/invalid parameter or the engine's fatal popup, writes `Nioh3EngineFix-crash-<date>.txt` and `-latest.txt` beside the `.asi`: exception, module+offset stack, registers, mod build hashes, loaded modules, last mod state, last log lines. A helper thread with its own stack writes it, so stack overflow works; stock crash handling then continues. | `src/crashreport.cpp` |
-| Crash blame | (part of the above) | Names the owner of each frame: our mods, the game, Windows, a GPU driver, a proxy DLL in the game folder (mod loaders, injectors) or an injected overlay. Classes come from paths and version resources; nothing is hardcoded per mod. **(source not yet in the public copy)** | `src/crashblame.cpp` |
-| GPU removal reason | `[Debug] Dred = 0` | Adds `GetDeviceRemovedReason` to crash records; DRED breadcrumbs only when `Dred = 1` (costs GPU time). **(source not yet in the public copy)** | `src/devremoved.cpp` |
-| **Automatic crash upload** | `[Report] CrashUpload = 1`, `CrashUrl` | Each crash is also written as JSON to `Nioh3CrashReports\pending\` and posted without a prompt (once at crash time, then by a low-priority thread on later launches until accepted). A 4xx answer moves the record to `rejected\`. No names or user paths. **(source not yet in the public copy)** | `src/crashupload.cpp` |
-| **Report box** | `[Report] Url`, `ReportUrl`, `SteamKeyboard = 1` | The menu "Report" row opens a text box (on a controller: Steam's keyboard, else a built-in key grid). Send writes the snapshot, adds log tails and the last menu/input edges, scrubs user and computer names, home paths and 17-digit ids, keeps a copy in `Nioh3Reports\`, and POSTs JSON with WinHTTP (works under Wine). Body cap 256 KB; the game thread never waits. **(source not yet in the public copy)** | `src/reportsend.cpp`, `menu_reportbox.h` |
-| Performance snapshot | (part of reports) | Last ~10 s of fps, 1 % low and frame time, a CPU-bound / GPU-bound verdict, hardware, the game settings that matter (decoded on v2.02), the mod's perf keys, per-thread CPU. One float per frame; no new hook. **(source not yet in the public copy)** | `src/perfsnap.cpp` |
-| Input ring | (part of reports) | Last 150 controller, hotkey and menu edges kept in memory for crash records; typed report-box characters are ignored. **(source not yet in the public copy)** | `src/inputlog.cpp` |
+| Crash blame | (part of the above) | Names the owner of each frame: our mods, the game, Windows, a GPU driver, a proxy DLL in the game folder (mod loaders, injectors) or an injected overlay. Classes come from paths and version resources; nothing is hardcoded per mod. | `src/crashblame.cpp` |
+| GPU removal reason | `[Debug] Dred = 0` | Adds `GetDeviceRemovedReason` to crash records; DRED breadcrumbs only when `Dred = 1` (costs GPU time). | `src/devremoved.cpp` |
+| **Automatic crash upload** | `[Report] CrashUpload = 1`, `CrashUrl` | Each crash is also written as JSON to `Nioh3CrashReports\pending\` and posted without a prompt (once at crash time, then by a low-priority thread on later launches until accepted). A 4xx answer moves the record to `rejected\`. No names or user paths. | `src/crashupload.cpp` |
+| **Report box** | `[Report] Url`, `ReportUrl`, `SteamKeyboard = 1` | The menu "Report" row opens a text box (on a controller: Steam's keyboard, else a built-in key grid). Send writes the snapshot, adds log tails and the last menu/input edges, scrubs user and computer names, home paths and 17-digit ids, keeps a copy in `Nioh3Reports\`, and POSTs JSON with WinHTTP (works under Wine). Body cap 256 KB; the game thread never waits. | `src/reportsend.cpp`, `menu_reportbox.h` |
+| Performance snapshot | (part of reports) | Last ~10 s of fps, 1 % low and frame time, a CPU-bound / GPU-bound verdict, hardware, the game settings that matter (decoded on v2.02), the mod's perf keys, per-thread CPU. One float per frame; no new hook. | `src/perfsnap.cpp` |
+| Input ring | (part of reports) | Last 150 controller, hotkey and menu edges kept in memory for crash records; typed report-box characters are ignored. | `src/inputlog.cpp` |
 | **Update check** | `[Update] Check = 1`, `Url` | Background HTTPS fetch of a small version json; only the parsed numeric version reaches the HUD (a line under the pause hint). The "Update + Page" menu row opens the website and shows the updater in the game folder. No identifiers, cookies or redirects; silent offline. | `src/updatecheck.cpp`, `updatecheck_core.h` |
 | Reverse Mods row | (menu) | Same effect as the "Restore Vanilla Game" script: marks the mods off for the next start. | `menu.cpp` `DoReverseMods` |
 
@@ -293,8 +293,8 @@ and on generated frames, with no external files. The menu draws through the same
 |---|---|---|
 | `[Menu] ControllerDisplay = 0`, `Size`, `Opacity`, `PressColor`, `ControllerDisplayX/Y` | Live controller picture: pressed buttons light, sticks move, triggers fill. `ButtonStyle` picks the skin (PlayStation = DualSense, Xbox = Xbox). Fed from the game's `XInputGetState` import *before* the menu masks anything. Art credits: [CREDITS.md](../../CREDITS.md). | `src/padviz.h`, `padviz_atlas*.h`, `padviz_png.h`, `tools/gen_padviz_atlas.py` |
 | `InputDisplay = 0`, `InputDisplaySide`, `InputDisplayRows = 20` | Fighting-game style input history (newest on top: frames held, direction, buttons). Read-only. | `src/inputhist.h`, `inputhist_draw.h`, `inputhist_dpad.h` |
-| `PadDebug = 0` | Shows the raw pad as the mod reads it and whether a mod is hiding the pad from the game. **(source not yet in the public copy)** | `paddebug.h` |
-| `ButtonStyle = Auto` | Footer glyphs follow the connected pad family (PlayStation, Nintendo by position, else Xbox). **(family detection source not yet in the public copy)** | `pad_family.h`, `padcard.h` |
+| `PadDebug = 0` | Shows the raw pad as the mod reads it and whether a mod is hiding the pad from the game. | `paddebug.h` |
+| `ButtonStyle = Auto` | Footer glyphs follow the connected pad family (PlayStation, Nintendo by position, else Xbox). | `pad_family.h`, `padcard.h` |
 
 A DualShock/DualSense read through the game's own HID path does not go through XInput, so the pad-latency probe (`src/padlat.cpp`) cannot see it.
 
@@ -320,7 +320,7 @@ settings?" warning. `1` skips both (the warning is treated as No); `2` only logs
 |---|---|
 | Optimize | Preset row, then CPU / GPU / Game / Frame Gen groups. Rows map to ini keys through `settings_catalog.h` (generated from `mod/settings/catalog.json`, checked by `mod/settings/test_catalog.py`). A row that is not live says "next launch" or why it is unavailable. |
 | Display Overlays | Controller overlay, Frame meter (the Training add-on's meter: style, size, per-row toggles), Input display, FPS counter, Time of day / Weather (these write Training's persistent sky stats and show "needs Training" without it), Game HUD. |
-| Game HUD | `HideGameHud` master plus per-widget hides (`HideHudPlayerBars`, `Style`, `Stance`, `Items`, `Guardian`, `Amrita`, `Money`, `BossBar`, `Minimap`, `EnemyBars`, `LockOn`, `Weapons`, `SoulCores`). One shared "should I show" check at `0xF0228` makes every HUD widget virtual return 0; the first 8 bytes are swapped atomically (`src/hudhide.h`). Per-element patterns: `hud_patterns.h` **(source not yet in the public copy)**. |
+| Game HUD | `HideGameHud` master plus per-widget hides (`HideHudPlayerBars`, `Style`, `Stance`, `Items`, `Guardian`, `Amrita`, `Money`, `BossBar`, `Minimap`, `EnemyBars`, `LockOn`, `Weapons`, `SoulCores`). One shared "should I show" check at `0xF0228` makes every HUD widget virtual return 0; the first 8 bytes are swapped atomically (`src/hudhide.h`). Per-element patterns: `hud_patterns.h`. |
 | Camera settings | Left/right, down/up, distance, lens and reset. Writes `Nioh3CamKiProbe.ini` (section 12); applies within 2 s. Also the motion blur / DoF / bloom option (`XPOST`). |
 | Save files | Native (no Python) save-slot library: first-idle-title backup, named copies, switch/backup actions gated to the title screen. Keys `[SaveFiles] Enabled`, `LiveTitle`, `Native = 1`. `src/savefiles.cpp`, `savelib.cpp`, `titlegate_core.h`. Real saves are never changed by setup. |
 | Game | "Player log" toggles the Training add-on's player logging (exports `Nioh3Training_PlayerLogGet/Set`). |

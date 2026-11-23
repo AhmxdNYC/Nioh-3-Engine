@@ -14,6 +14,6 @@ Start here if you are joining the project to work on the code. Read in this orde
 Also read [CONTRIBUTING.md](../../CONTRIBUTING.md), [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md) and
 [docs/subsystems/](../subsystems/).
 
-**Note on the source.** These docs describe the current release (1.8.39). The `mod/` folder in this repository is an
-older snapshot (2026-11-02), so features marked *(source not yet in the public copy)* are described here but their code
-is not in this repository yet.
+**Note on the source.** These docs describe release 1.8.39, and `mod/` in this repository is synced to that release.
+A few pages still mention an "older snapshot": that predates the sync. Some project tools outside `mod/` (for example
+the boss catalog generator `tools/rematch_catalog.py` and `tools/setup/`) are not published yet.
