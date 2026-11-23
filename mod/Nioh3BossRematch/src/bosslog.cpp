@@ -4195,7 +4195,15 @@ static bool FormSteerBodyPos(uint64_t seal, float* p) {
     uint64_t ai = 0, comp = 0;
     if (!seal || !Rd(seal + 0x3B0, ai) || !ai || !Rd(ai + 0x30, comp) || !comp) return false;
     if (!Copy(p, comp + 0x70, 16)) return false;
-    return std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]);
+    if (!std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2])) return false;
+    // human #130553: +0x70 is still 0 on the first sample. That read is ~2.5 km from the actor
+    // (log 22:40:25, 253808 cm) and armed the stick at the spawn. The body stays near the actor;
+    // a not-ready controller does not. A real lunge is about 1 m.
+    float root[4] = {};
+    if (!Copy(root, seal + 0x110, 12) || !std::isfinite(root[0]) || !std::isfinite(root[1]) || !std::isfinite(root[2])) return false;
+    const float rx = p[0] - root[0], ry = p[1] - root[1], rz = p[2] - root[2];
+    if (sqrtf(rx * rx + ry * ry + rz * rz) > 500.f) return false;
+    return true;
 }
 // human #130495. True once this form's yokai body has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
@@ -4209,6 +4217,12 @@ static bool FormSteerTick(double now) {
     if (!g_fh4.steerHave) { memcpy(g_fh4.steerP0, p, sizeof(p)); g_fh4.steerHave = true; return false; }
     const float dx = p[0] - g_fh4.steerP0[0], dy = p[1] - g_fh4.steerP0[1], dz = p[2] - g_fh4.steerP0[2];
     const float d = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (d > 1500.f) {  // the saved point was still the zero controller; start over at the real body
+        memcpy(g_fh4.steerP0, p, sizeof(p));
+        g_fh4.steerD = 0;
+        Log("FormSteer: ignored a %.0f cm jump and re-anchored on the body t=%.3f", d, now);
+        return false;
+    }
     if (d > g_fh4.steerD) g_fh4.steerD = d;
     const int cm = g_formSteerCm.load();
     if (cm > 0 && d >= (float)cm) {
