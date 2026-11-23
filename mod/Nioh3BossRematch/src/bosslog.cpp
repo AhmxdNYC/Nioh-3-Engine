@@ -2715,6 +2715,11 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
+// human #130495: [Spirit] FormSteer=1. Remember where the yokai first stood. Once it moves FormSteerCm
+// (default 80) in any direction, the left stick steers for the rest of that form (yokai pinned to the player).
+// Attacks stay blocked. 0 = off. FormBlockLS is put back when the form ends.
+std::atomic<int> g_formSteer{0}, g_formSteerCm{80};
+int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
 // follow frame of a seal, write the player's facing rows (the facing at the press) into the seal before the player starts copying the seal.
 std::atomic<int> g_fhFaceOnSpawn{1};
@@ -3080,6 +3085,8 @@ struct Fh4State {
     int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
     float sealP0[4] = {};
     double followT0 = 0;
+    bool steer = false;  // human #130495: yokai left its spawn spot, left stick steers
+    float steerD = 0;    // farthest cm from that spot this form
 };
 Fh4State g_fh4;
 bool PickFormActive() { return g_fh4.owner != 0; }
@@ -3301,6 +3308,7 @@ void* g_fh4AlphaOrig = nullptr;
 float g_plOutK8 = 0.f, g_plOutK6 = 0.f;
 // All helpers below run with g_fh4Lock held. No stale-root restore on replacement.
 void Fh4Restore(uint64_t player) {
+    if (g_fh4.steer) g_fbLS.store(g_fbLSIni);  // human #130495: next form blocks the stick again
     FormBlockSet(false);  // input comes back even when the hide restore below has to retry
     bool ok = true;
     if (player == g_fh4.owner && player == FkPlayer()) {
@@ -3321,6 +3329,8 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
+    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && g_fh4.steerD > 0.5f)
+        Log("FormSteer: yokai moved only %.0f cm (need %d), stick stayed off", g_fh4.steerD, g_formSteerCm.load());
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
@@ -4127,6 +4137,24 @@ void AttackCancelInstall() {
     Log("AttackCancel: %s at +%llX (soul cores skip HasSkill(0xEDC9) in the item gate; deny bits kept)", g_scForms.load() ? "on" : "ready, soul core forms OFF (gate unpatched)", (unsigned long long)(s + 20 - g_base));
     AttackCancelSkillInstall();
 }
+// human #130495. True once this form's yokai has moved FormSteerCm from its first spot. Does not move anyone.
+static bool FormSteerTick(double now) {
+    if (g_formSteer.load() <= 0 || !g_fh4.seal) return false;
+    if (g_fh4.steer) return true;
+    float p[4] = {};
+    if (!Copy(p, g_fh4.seal + 0x110, 16) || !std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2])) return false;
+    if (g_fh4.followT0 <= 0) { memcpy(g_fh4.sealP0, p, sizeof(p)); g_fh4.followT0 = now; return false; }
+    const float dx = p[0] - g_fh4.sealP0[0], dy = p[1] - g_fh4.sealP0[1], dz = p[2] - g_fh4.sealP0[2];
+    const float d = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (d > g_fh4.steerD) g_fh4.steerD = d;
+    const int cm = g_formSteerCm.load();
+    if (cm > 0 && d >= (float)cm) {
+        g_fh4.steer = true;
+        Log("FormSteer: yokai moved %.0f cm from spawn -> left stick steers, attacks stay off t=%.3f", d, now);
+        return true;
+    }
+    return false;
+}
 // 0 = pin seal to player, 1 = follow the seal, 2 = neither (auto probe running). Runs under g_fh4Lock.
 int Fh4FollowDecide(double now) {
     const int m = g_fhFollow.load();
@@ -4570,6 +4598,7 @@ void FormHide4Tick(uint64_t player) {
             if (!Fh4Apply(player)) g_fh4Fault.store(true);
             if (g_fh4.seal) {
                 Fh4Timer tm;
+                const bool steer = FormSteerTick(now);
                 const int fd = Fh4FollowDecide(now);
                 // human #58223: in the SealExitRevealMs wait after the last hit the player stays where the yokai was at that hit (the
                 // old instant ghost exit = the player left airborne), instead of riding it down for 200 ms
@@ -4583,7 +4612,9 @@ void FormHide4Tick(uint64_t player) {
                     const int hs = live >= 0 ? live : ps >= 0 ? ps ^ (g_fbStyleQ.load() ? 1 : 0) : FbStyleNow();
                     if (styleAt != g_ghostReqAt.load() || hs != heldStyle) { styleAt = g_ghostReqAt.load(); heldStyle = hs;
                         Log("FormFollow end: style %d (press %d, switch %s, A95C %d) %s t=%.3f", hs, ps, g_fbStyleQ.load() ? "queued" : "none", FbStyleNow(), hs == 0 ? "samurai -> ground" : "ninja -> airborne", now); } }
-                if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load() && heldStyle != 0) {
+                const bool exitHold = gq && gq == g_fh4.seal && now < g_ghostReqAt.load();
+                if (steer && !exitHold) { g_fbLS.store(0); FormPin(player, g_fh4.seal); }
+                else if (fd == 1 && exitHold && heldStyle != 0) {
                     static double heldAt = -1; static float hold[4] = {};
                     if (heldAt != g_ghostReqAt.load() && Copy(hold, player + 0x110, 16)) {
                         heldAt = g_ghostReqAt.load();
@@ -7496,6 +7527,10 @@ void Register(bool boss, bool rm, bool inv) {
     { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xFF4F", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
+    g_fbLSIni = g_fbLS.load();
+    g_formSteer.store(IniInt(L"Spirit", L"FormSteer", 0));  // human #130495
+    g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 80));
+    Log("FormSteer=%d cm=%d", g_formSteer.load(), g_formSteerCm.load());
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
         const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
         g_fccMs.store(ms < 0 ? 0 : ms > 1000 ? 1000 : ms);

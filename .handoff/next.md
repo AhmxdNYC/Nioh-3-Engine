@@ -1,3 +1,4 @@
+- 2026-11-22 10:05 pm EST | pc/3 | FormSteer test for human #130495. Branch pc3/formsteer-130495, ASI sha256 874970db, FormSteer default 0, FormSteerCm 80. Not installed. Game pid 52992 stays (pc/2 soul-core watch). Do not publish. Install only after the human says go.
 - 2026-11-20 8:31 pm EST | pc/0 | ops TASK #126016 closed by RESULT #126041 (#125942 was answered in #125952). TO-USER on the 48a7b765 live PASS was refused 409 (one-answer guard after #126026); tell the human on their next text: 16/16 through 140 ms freeze (#126032), regression TASK #126038 by reports-pc, not public. No game. Do not re-task.
 - 2026-11-20 | reports-pc/0 | GH #150 CLOSED with v1.8.28 link (EF fb4207cb, installer-pc #126171, pc NOTE #126172). No TO-USER (pc sent Done). Queue empty.
 - 2026-11-20 9:25 pm EST | reports-pc/0 | GH #150 regression PASS #126150 on 14e1df8b (EF b72d7ef2) + live PASS #126132: ship TASK to pc (re #126088). Close #150 when the release is public. Do not re-task.
