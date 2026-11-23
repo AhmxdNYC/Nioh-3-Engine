@@ -64,13 +64,13 @@ Everything else is opt-in or a diagnostic (profilers under `[Profiler]`, never o
 3. Unit harness in `tests/` (zig cc `-O0`: `-O2` defines NDEBUG and removes asserts).
 4. Measure it (performance-measurement.md). Record the verdict in `release/profiles.json` with the device, numbers
    and test id in `why`.
-5. Run `py -I tools/docs/gen_perf_features.py` to refresh the table below, and `--check` in regression.
+5. Refresh the table below from the ini comment and the `release/profiles.json` entry in the same change. The generator that produced this table is not published in this repository.
 
 ## Every setting
 
 <!-- BEGIN GENERATED: gen_perf_features.py -->
 
-_Generated from `mod/Nioh3EngineFix/Nioh3EngineFix.ini` + `release/profiles.json` by `tools/docs/gen_perf_features.py`. Do not edit by hand; edit the ini comment / profile entry and rerun._
+_Generated from `mod/Nioh3EngineFix/Nioh3EngineFix.ini` + `release/profiles.json`. The generator is not in this repository. Edit the ini comment and the profile entry, then update this table in the same change._
 
 `shipped` = the value in the release zip (profile override applied). `-1` = auto by OS (Proton vs Windows), `2` = installed but switched off (live menu row), `0` = stock game code. `evidence` is the profile's status and measured reason where one exists.
 
