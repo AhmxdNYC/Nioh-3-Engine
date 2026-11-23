@@ -12,6 +12,7 @@ Start here if you are joining the project to work on the code. Read in this orde
 | [FEATURES-BOSS-TRAINING.md](FEATURES-BOSS-TRAINING.md) | Every gameplay feature: Boss Match / rematch, Fight now, Train in arena, the boss catalog, Training mode, move controls, frame meter, style meter, soul cores and transformation, Player log. |
 | [FEATURES-ENGINEFIX.md](FEATURES-ENGINEFIX.md) | Every Nioh3EngineFix feature (performance, pacing, loading, PSO/shader work, overlays, menu, reports, updater) plus Nioh3CamKiProbe. |
 | [TESTS.md](TESTS.md) | Offline tests and harnesses, the base-vs-candidate regression rule, the no-hardcode audit, and the live in-game test scripts. |
+| [TODO.md](../../TODO.md) | Open work for contributors, by area. |
 | [PLAY-AS-BOSS.md](PLAY-AS-BOSS.md) | Starter brief for a "play as a boss" mod: what is known about spawning, actors, input, forcing actions, AI, the game's own transformation mechanic and the camera, plus suggested approaches and the missing reverse engineering. |
 
 Also read [CONTRIBUTING.md](../../CONTRIBUTING.md), [PUBLIC_EXCLUSIONS.md](../../PUBLIC_EXCLUSIONS.md) and
