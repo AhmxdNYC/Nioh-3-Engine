@@ -2749,8 +2749,8 @@ std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // 5129B moved 93-154 cm there, and the moving core 5216E moved 430-1300 cm while the stick stayed
 // off, because that travel happened during the attack. FormSteerTravelCm (default 300) arms the
 // stick when the root leaves its start by that far, attack or not. Attacks stay blocked.
-// FormBlockLS is put back when the form ends. The three keys are re-read about twice a second.
-std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{3};
+// FormBlockLS is put back when the form ends. The keys are re-read about twice a second.
+std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{8};
 int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
 // follow frame of a seal, write the player's facing rows (the facing at the press) into the seal before the player starts copying the seal.
@@ -4247,8 +4247,8 @@ static void FormSteerPoll(double now) {
     g_formSteerMove.store(move);
     Log("FormSteer live on=%d cm=%d travel=%d move=%d (was on=%d cm=%d travel=%d move=%d)", on, cm, travel, move, wasOn, wasCm, wasTravel, wasMove);
 }
-// human #130685 / #130692. While the stick steers, one ground step of the player is multiplied by
-// FormSteerMove (3 = three times as far). 1 leaves the game's own step. The attack still cannot walk the yokai.
+// human #130685 / #130692 / #130698. While the stick steers, one ground step of the player is multiplied by
+// FormSteerMove (8 = eight times as far). 1 leaves the game's own step. The attack still cannot walk the yokai.
 static void FormSteerBoost(uint64_t player) {
     const int mul = g_formSteerMove.load();
     float p[4] = {};
@@ -7737,7 +7737,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_formSteer.store(IniInt(L"Spirit", L"FormSteer", 0));  // human #130495
     g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 10));  // human #130513: first try 10 cm, then live edits
     g_formSteerTravelCm.store(IniInt(L"Spirit", L"FormSteerTravelCm", 300));  // human #130619: moving yokai, not the 150 cm attack
-    g_formSteerMove.store(IniInt(L"Spirit", L"FormSteerMove", 3));  // human #130692: 3 = the stick moves the yokai three times as far
+    g_formSteerMove.store(IniInt(L"Spirit", L"FormSteerMove", 8));  // human #130698: 8 = the stick moves the yokai eight times as far
     Log("FormSteer=%d cm=%d travel=%d move=%d", g_formSteer.load(), g_formSteerCm.load(), g_formSteerTravelCm.load(), g_formSteerMove.load());
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
         const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
