@@ -2715,12 +2715,11 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
-// human #130495 / #130513 / #130536: [Spirit] FormSteer=1. Remember where the yokai BODY first stood.
-// The attack root (chr+0x110) lunges with the swing and does not count. The body is the physics controller
-// the warp already writes, [[chr+3B0]+30]+0x70 (669C40). Same split as SealHitAtkOnly: a body is not an attack.
-// Once that body moves FormSteerCm (first try 10) in any direction, the left stick steers for the rest of that
-// form (yokai pinned to the player). Attacks stay blocked. 0 = off. FormBlockLS is put back when the form ends.
-// Both keys are re-read from the ini file about twice a second (raw read, not the profile cache) so the cm can change live.
+// human #130495 / #130513 / #130570: [Spirit] FormSteer=1. Remember where the yokai first stood.
+// Live 22:45:40: bind act 0xC53 moved that spot 46 cm in 50 ms (gap 0) and the form ended still on the attack.
+// Idle is action 0x1 (SealEndOnIdle: C53 -> 0x1). The attack does not arm the stick. The stick arms only once
+// the seal is idle and still >= FormSteerCm from the spawn sample. Attacks stay blocked. 0 = off.
+// FormBlockLS is put back when the form ends. Both keys are re-read from the ini about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10};
 int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
@@ -3092,6 +3091,7 @@ struct Fh4State {
     float steerD = 0;    // farthest cm the body moved from that spot this form
     float steerP0[4] = {};  // human #130536: body spawn, not the attack root and not the follow probe
     bool steerHave = false;
+    bool steerAtkNoted = false;  // one log per form while the attack moves the spot and the body is not idle
 };
 Fh4State g_fh4;
 bool PickFormActive() { return g_fh4.owner != 0; }
@@ -3334,8 +3334,8 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && g_fh4.steerD > 0.5f)
-        Log("FormSteer: body moved only %.0f cm (need %d), stick stayed off", g_fh4.steerD, g_formSteerCm.load());
+    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted))
+        Log("FormSteer: stick stayed off (farthest %.0f cm, need %d, attack-only=%d)", g_fh4.steerD, g_formSteerCm.load(), g_fh4.steerAtkNoted ? 1 : 0);
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
@@ -4220,11 +4220,22 @@ static bool FormSteerTick(double now) {
     if (d > 1500.f) {  // the saved point was still the zero controller; start over at the real body
         memcpy(g_fh4.steerP0, p, sizeof(p));
         g_fh4.steerD = 0;
+        g_fh4.steerAtkNoted = false;
         Log("FormSteer: ignored a %.0f cm jump and re-anchored on the body t=%.3f", d, now);
         return false;
     }
     if (d > g_fh4.steerD) g_fh4.steerD = d;
     const int cm = g_formSteerCm.load();
+    // human #130570. The attack action moves this spot (22:45:40, act 0xC53, 46 cm, gap 0) while the
+    // yokai they see stays put. Idle is action 0x1. Arm only after the attack, if the body is still far.
+    const uint32_t act = PlayerActId(g_fh4.seal);
+    if (act != 1) {
+        if (cm > 0 && d >= (float)cm && !g_fh4.steerAtkNoted) {
+            g_fh4.steerAtkNoted = true;
+            Log("FormSteer: attack 0x%X moved %.0f cm, not the body, stick stays off t=%.3f", act, d, now);
+        }
+        return false;
+    }
     if (cm > 0 && d >= (float)cm) {
         g_fh4.steer = true;
         float gap = -1.f;
@@ -4233,7 +4244,7 @@ static bool FormSteerTick(double now) {
             const float ax = atk[0] - p[0], ay = atk[1] - p[1], az = atk[2] - p[2];
             gap = sqrtf(ax * ax + ay * ay + az * az);
         }
-        Log("FormSteer: body moved %.0f cm from spawn (attack root %.0f cm off the body) -> left stick steers, attacks stay off t=%.3f", d, gap, now);
+        Log("FormSteer: idle body still %.0f cm from spawn (attack root %.0f cm off) -> left stick steers, attacks stay off t=%.3f", d, gap, now);
         return true;
     }
     return false;
