@@ -1,0 +1,33 @@
+rva	kind	name	signature	description	confidence	source
+0x20cf68	function	KeyInputCondition		Key-input gate on the player action vtable +0x120. Up to 3 checks (button, type, arg) through the input object vtable +0xB0, with fallback KeyInputFallback for button 1. Live 11-19: this returns 0 on the long martial-art holds (held frames under-count) and 1 on the normal ones.	high	notes/hold-re-120730.md §ROOT CAUSE
+0x20dad4	function	MoveSpeedTick		Per-slot move tick: speed = base x mult stored at ctrl+0xDC4, step at ctrl+0x40 = speed x frame scale ctrl+0xDC0, written at MoveSpeedTick_StoreStep.	medium	notes/step-writer-128506.md
+0x20de6c	label	MoveSpeedTick_StoreStep		Store of the per-slot step inside MoveSpeedTick.	medium	notes/step-writer-128506.md
+0x20dfc0	function	MoveKeyScan		Move branch-key scan (this, moveRes, time t, slot). Fires keys in [t, t+step). Half-step split when Is30Fps (0x20e8f8) is true. Callers AnimKeyScanTick, 0x236224c, 0x9e4eac.	high	notes/hold-re-120730.md §scanner
+0x20fc38	function	MoveKeyRangeCheck		Range-key helper used by MoveKeyScan on the same [t, t+step) window.	medium	notes/hold-re-120730.md §scanner
+0x20fd30	function	MoveKeyTime		Returns one key's time from the move resource. MoveKeyScan compares it to the current anim time.	medium	notes/hold-re-120730.md §scanner
+0x2e992c	function	KeyCondSlotC0		Player action vtable +0xC0. The 11-19 note cites 0x2e9934, which is 8 bytes inside this 20-byte entry.	medium	notes/hold-re-120730.md §GATE PROBE
+0x35bc68	function	SetMoveBody		Set-move body. SetMoveWrapper returns into the top of this function.	medium	notes/hold-re-120730.md §scanner
+0x47fbf0	function	AnimKeyScanTick		Calls MoveKeyScan at AnimKeyScanTick_Call with the current anim time.	medium	notes/hold-re-120730.md §scanner
+0x47fc2b	label	AnimKeyScanTick_Call		Call site of MoveKeyScan inside AnimKeyScanTick.	medium	notes/hold-re-120730.md §scanner
+0x4f54c4	function	SetMoveWrapper		Generic set-move wrapper (vtable data ref 0x4e57448). The branch decision is upstream in MoveKeyScan.	medium	notes/hold-re-120730.md §scanner
+0x4f5526	label	SetMoveWrapper_Return		Return from SetMoveWrapper into SetMoveBody.	medium	notes/hold-re-120730.md §scanner
+0x7c6160	function	MoveSpeedKeyTime		Time of one speed key in the move resource, read by MoveSpeedMultWriter.	medium	notes/step-writer-128506.md
+0x8fee3c	function	KeyFlagSlotE8		Player action vtable +0xE8. Live 11-19: returns 1 in long holds and 2 in normal holds (flag bit 15 of ctrl+0xA8).	high	notes/hold-re-120730.md §GATE PROBE
+0x901ba4	function	HeldFramesAtSetting		Input vtable +0x140. Returns frames held times 60 divided by the fps setting at settings+0x614. Live 11-19: at a 120 setting and ~90 real fps this under-counts by 1-3, so a held>=12 key misses.	high	notes/hold-re-120730.md §ROOT CAUSE
+0xa022ec	function	KeyFlagSlotF0		Player action vtable +0xF0. The 11-19 note cites 0xa02308, which is inside this entry.	medium	notes/hold-re-120730.md §GATE PROBE
+0x133af0	function	MoveSpeedMultWriter		Writes the move speed multiplier from up to 5 speed keys. A key inside [t, t+delta) sets mult = percent/100 and the remaining duration.	medium	notes/step-writer-128506.md
+0x133cf8	function	MoveSpeedKeyPercent		Percent value of speed key i in the move resource.	medium	notes/step-writer-128506.md
+0x134e68	function	MoveSpeedBase		Product of 19 speed modifiers, world scale, and partner sync. Returns 0 while ctrl+0x488 or ctrl+0x48C is > 0 (freeze).	medium	notes/step-writer-128506.md
+0x13507c	label	InputVtB0_Site		Site the 11-19 hold note calls input vtable +0xB0. functions.tsv places it inside MoveSpeedBase, then HeldInputDispatch.	medium	notes/hold-re-120730.md §ROOT CAUSE
+0x1350b4	function	HeldInputDispatch		Next function after the input vtable +0xB0 site. HeldFramesAtSetting is the getter it reaches.	medium	notes/hold-re-120730.md §ROOT CAUSE
+0x13555c	function	MoveSpeedWorldScale		World scale multiplied into MoveSpeedBase.	medium	notes/step-writer-128506.md
+0x43619c	function	HeldFramesSettingUser		One of the callers of the same 60/fps-setting conversion as HeldFramesAtSetting.	medium	notes/hold-re-120730.md §ROOT CAUSE
+0x9e4eac	function	MoveKeyScanCaller9E4EAC		Caller of MoveKeyScan.	medium	notes/hold-re-120730.md §scanner
+0x11718b0	function	KeyInputFallback		Fallback input check used by KeyInputCondition for button 1, type <= 1 or 0xD.	medium	notes/hold-re-120730.md §GATE PROBE
+0x236224c	function	MoveKeyScanCaller236224C		Caller of MoveKeyScan.	medium	notes/hold-re-120730.md §scanner
+0x38fe698	vtable	PlayerActionVtable		Player action vtable. Slots used by the hold scan: +0xC0 KeyCondSlotC0, +0xE8 KeyFlagSlotE8, +0xF0 KeyFlagSlotF0, +0x120 KeyInputCondition, +0x128 ConditionListEvaluate5, +0x138 ConditionCheckSlotParamThunk.	high	notes/hold-re-120730.md §GATE PROBE
+0x38feba8	vtable	InputObjectVtable		Input-object vtable. Slot +0x140 is HeldFramesAtSetting.	high	notes/hold-re-120730.md §ROOT CAUSE
+0x38feef8	vtable	SpeedModifierVtable		One of the 19 move-speed modifier vtables read by MoveSpeedBase.	medium	notes/step-writer-128506.md
+0x38fef30	vtable	SpeedModifierVtable2		One of the 19 move-speed modifier vtables read by MoveSpeedBase.	medium	notes/step-writer-128506.md
+0x38fef68	vtable	SpeedModifierGateVtable		Move-speed modifier vtable that gates on the byte at obj+0x10.	medium	notes/step-writer-128506.md
+0x38fefa0	vtable	SpeedModifierVtable3		One of the 19 move-speed modifier vtables read by MoveSpeedBase.	medium	notes/step-writer-128506.md
