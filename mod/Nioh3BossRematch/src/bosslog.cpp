@@ -2715,13 +2715,15 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
-// human #130495 / #130513 / #130570: [Spirit] FormSteer=1. Remember where the yokai first stood.
-// Live 22:45:40: bind act 0xC53 moved that spot 46 cm in 50 ms (gap 0) and the form ended still on the attack.
-// Idle is action 0x1 (SealEndOnIdle: C53 -> 0x1). The attack does not arm the stick, and its landing
-// (46-83 cm, log 22:44-22:56) is not the spot that counts. The stick arms only once the seal is idle
-// and the body has then moved FormSteerCm. Attacks stay blocked. 0 = off.
-// FormBlockLS is put back when the form ends. Both keys are re-read from the ini about twice a second.
-std::atomic<int> g_formSteer{0}, g_formSteerCm{10};
+// human #130495 / #130513 / #130570 / #130619: [Spirit] FormSteer=1.
+// The attack does not arm the stick. Idle is action 0x1. FormSteerCm arms only after that, if the
+// physics body has then moved. A landing of 46-83 cm stays off. 0 = off.
+// The character root (chr+0x110) is the spot the player follows. On 11-22 11:12 pm the still core
+// 5129B moved 93-154 cm there, and the moving core 5216E moved 430-1300 cm while the stick stayed
+// off, because that travel happened during the attack. FormSteerTravelCm (default 300) arms the
+// stick when the root leaves its start by that far, attack or not. Attacks stay blocked.
+// FormBlockLS is put back when the form ends. The three keys are re-read about twice a second.
+std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300};
 int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
 // follow frame of a seal, write the player's facing rows (the facing at the press) into the seal before the player starts copying the seal.
@@ -3093,6 +3095,9 @@ struct Fh4State {
     float steerP0[4] = {};  // human #130536: body spawn, not the attack root and not the follow probe
     bool steerHave = false;
     bool steerAtkNoted = false;  // one log per form while the attack moves the spot and the body is not idle
+    float steerRoot0[4] = {};    // human #130619: chr+0x110 at the first sample, not slid during the attack
+    float steerRootD = 0;        // farthest cm that root moved from steerRoot0
+    bool steerRootHave = false;
 };
 Fh4State g_fh4;
 bool PickFormActive() { return g_fh4.owner != 0; }
@@ -3335,8 +3340,9 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted))
-        Log("FormSteer: stick stayed off (farthest %.0f cm, need %d, attack-only=%d)", g_fh4.steerD, g_formSteerCm.load(), g_fh4.steerAtkNoted ? 1 : 0);
+    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted || g_fh4.steerRootD > 0.5f))
+        Log("FormSteer: stick stayed off (body %.0f cm, root %.0f cm, need %d, travel %d, attack-only=%d)",
+            g_fh4.steerD, g_fh4.steerRootD, g_formSteerCm.load(), g_formSteerTravelCm.load(), g_fh4.steerAtkNoted ? 1 : 0);
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
@@ -4182,13 +4188,17 @@ static void FormSteerPoll(double now) {
     next = now + 0.5;
     const int on = FormSteerFileInt("FormSteer", g_formSteer.load()) > 0 ? 1 : 0;
     int cm = FormSteerFileInt("FormSteerCm", g_formSteerCm.load());
+    int travel = FormSteerFileInt("FormSteerTravelCm", g_formSteerTravelCm.load());
     if (cm < 0) cm = 0;
     if (cm > 100000) cm = 100000;
-    const int wasOn = g_formSteer.load(), wasCm = g_formSteerCm.load();
-    if (on == wasOn && cm == wasCm) return;
+    if (travel < 0) travel = 0;
+    if (travel > 100000) travel = 100000;
+    const int wasOn = g_formSteer.load(), wasCm = g_formSteerCm.load(), wasTravel = g_formSteerTravelCm.load();
+    if (on == wasOn && cm == wasCm && travel == wasTravel) return;
     g_formSteer.store(on);
     g_formSteerCm.store(cm);
-    Log("FormSteer live on=%d cm=%d (was on=%d cm=%d)", on, cm, wasOn, wasCm);
+    g_formSteerTravelCm.store(travel);
+    Log("FormSteer live on=%d cm=%d travel=%d (was on=%d cm=%d travel=%d)", on, cm, travel, wasOn, wasCm, wasTravel);
 }
 // human #130536. chr+0x110 is the attack root (the lunge). The yokai body is the physics controller
 // [[chr+3B0]+30], and 669C40 writes its position at +0x70. A missing body does not fall back to the attack.
@@ -4213,6 +4223,26 @@ static bool FormSteerTick(double now) {
         return false;
     }
     if (g_fh4.steer) return true;
+    // human #130619. chr+0x110 is the spot the player follows. 5129B stayed under 160 cm.
+    // 5216E passed 400 cm in the first second, during the attack, and the stick stayed off.
+    float root[4] = {};
+    if (Copy(root, g_fh4.seal + 0x110, 12) && std::isfinite(root[0]) && std::isfinite(root[1]) && std::isfinite(root[2])) {
+        if (!g_fh4.steerRootHave) {
+            memcpy(g_fh4.steerRoot0, root, sizeof(root));
+            g_fh4.steerRootHave = true;
+        } else {
+            const float rdx = root[0] - g_fh4.steerRoot0[0], rdy = root[1] - g_fh4.steerRoot0[1], rdz = root[2] - g_fh4.steerRoot0[2];
+            const float rootD = sqrtf(rdx * rdx + rdy * rdy + rdz * rdz);
+            if (rootD > g_fh4.steerRootD && rootD < 3000.f) g_fh4.steerRootD = rootD;
+            const int travelCm = g_formSteerTravelCm.load();
+            if (travelCm > 0 && rootD >= (float)travelCm && rootD < 3000.f) {
+                g_fh4.steer = true;
+                g_fh4.steerD = rootD;
+                Log("FormSteer: yokai moved %.0f cm from where it started -> left stick steers t=%.3f", rootD, now);
+                return true;
+            }
+        }
+    }
     float p[4] = {};
     if (!FormSteerBodyPos(g_fh4.seal, p)) return false;
     if (!g_fh4.steerHave) { memcpy(g_fh4.steerP0, p, sizeof(p)); g_fh4.steerHave = true; return false; }
@@ -7632,7 +7662,8 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbLSIni = g_fbLS.load();
     g_formSteer.store(IniInt(L"Spirit", L"FormSteer", 0));  // human #130495
     g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 10));  // human #130513: first try 10 cm, then live edits
-    Log("FormSteer=%d cm=%d", g_formSteer.load(), g_formSteerCm.load());
+    g_formSteerTravelCm.store(IniInt(L"Spirit", L"FormSteerTravelCm", 300));  // human #130619: moving yokai, not the 150 cm attack
+    Log("FormSteer=%d cm=%d travel=%d", g_formSteer.load(), g_formSteerCm.load(), g_formSteerTravelCm.load());
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
         const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
         g_fccMs.store(ms < 0 ? 0 : ms > 1000 ? 1000 : ms);
