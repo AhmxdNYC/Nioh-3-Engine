@@ -341,14 +341,28 @@ int main() {
     CHECK((uint32_t)dims == 100, "XRES must not shrink a < 128 px size");
     g_dimW = 960;
     g_dimH = 540;
+    rd(&dims);
+    const uint64_t held = dims;
+    CHECK((uint32_t)dims == 576 && (uint32_t)(dims >> 32) == 324, "XRES 4 on 960x540 -> %ux%u", (uint32_t)dims,
+          (uint32_t)(dims >> 32));
     ApplyPreset(kPresetExtreme);
-    CHECK(ResLevel() == 3 && MatchPreset() == kPresetExtreme, "Extreme preset = XRES 3 (%d / match %d)", ResLevel(), MatchPreset());
+    CHECK(ResLevel() == 4 && PendingRes() == 3 && ResRestartNeeded() && MatchPreset() == kPresetExtreme,
+          "Extreme preset must not resize live (running %d pending %d match %d)", ResLevel(), PendingRes(), MatchPreset());
+    rd(&dims);
+    CHECK(dims == held, "Extreme preset changed the live render size");
     CHECK(RdPct() == 70, "Extreme preset changed RenderDistance to %d", RdPct());
     ApplyPreset(kPresetRisky);
-    CHECK(ResLevel() == 0 && MatchPreset() == kPresetRisky, "Risky preset = XRES 0 (%d / match %d)", ResLevel(), MatchPreset());
+    CHECK(ResLevel() == 4 && PendingRes() == 0 && ResRestartNeeded() && MatchPreset() == kPresetRisky,
+          "Risky preset must not resize live (running %d pending %d match %d)", ResLevel(), PendingRes(), MatchPreset());
+    rd(&dims);
+    CHECK(dims == held, "Risky preset changed the live render size");
     ApplyPreset(kPresetGame);
     rd(&dims);
-    CHECK(dims == ((540ull << 32) | 960), "game preset: dims untouched");
+    CHECK(dims == held && ResLevel() == 4 && PendingRes() == 0, "game preset changed the live render size");
+    SetResLevel(0);
+    CHECK(ResLevel() == 0 && PendingRes() == 0 && !ResRestartNeeded(), "SetResLevel 0 did not clear the pending scale");
+    rd(&dims);
+    CHECK(dims == ((540ull << 32) | 960), "SetResLevel 0 left the scale on");
 
     // ---- meshlet LOD cave
     std::vector<uint8_t> obj(0xA200, 0);
@@ -456,13 +470,17 @@ int main() {
     prop(0xA3DAE7DAu, &cm, 4, 100, &got);
     CHECK(got == 60000, "x1.00 scaled ViewDistance to %u", got);
     const int pct = RdPct();
+    const int running = ResLevel();
     ApplyPreset(kPresetExtreme);
-    CHECK(RdPct() == pct && ResLevel() == 3, "ApplyPreset Extreme moved RenderDistance to %d", RdPct());
+    CHECK(RdPct() == pct && ResLevel() == running && PendingRes() == 3 && ResRestartNeeded(),
+          "ApplyPreset Extreme moved the running scale to %d (distance %d)", ResLevel(), RdPct());
     SetSharpLevel(2);
     ApplyPreset(kPresetExtremeHQ);
-    CHECK(SharpLevel() == 2 && ResLevel() == 0 && RdPct() == pct, "ApplyPreset Extreme HQ: sharp %d XRES %d", SharpLevel(), ResLevel());
+    CHECK(SharpLevel() == 2 && ResLevel() == running && PendingRes() == 0 && !ResRestartNeeded() && RdPct() == pct,
+          "ApplyPreset Extreme HQ: sharp %d running %d pending %d", SharpLevel(), ResLevel(), PendingRes());
     ApplyPreset(kPresetExtreme);
-    CHECK(SharpLevel() == 2 && MatchPreset() == kPresetExtreme, "XSHARP must not affect the preset match");
+    CHECK(SharpLevel() == 2 && MatchPreset() == kPresetExtreme && PendingRes() == 3 && ResLevel() == running,
+          "XSHARP must not affect the preset match");
     SetSharpLevel(0);
     ApplyPreset(kPresetGame);
     SetRdPct(100);

@@ -1696,8 +1696,13 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     }
     if (id == kEpPre) {
         const int m = extraperf::MatchPreset();
-        snprintf(buf, n, "%s", extraperf::PresetName(m));
-        color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        if (extraperf::ResRestartNeeded()) {
+            snprintf(buf, n, "%s (restart needed)", extraperf::PresetName(m));
+            color = cYellow;
+        } else {
+            snprintf(buf, n, "%s", extraperf::PresetName(m));
+            color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        }
         return;
     }
     if (id == kRd) {
@@ -1846,7 +1851,7 @@ void StartSave() {
                 (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, g_ini.c_str()),
                 GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, g_ini.c_str()) == 1);
             add(L"ExtraPerf", L"XHALF", std::to_wstring(half));
-            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::ResLevel()));
+            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::PendingRes()));  // #80507: running scale stays; save the pick for next launch
             add(L"ExtraPerf", L"Preset", L"0");
         }
         wchar_t rd[16];

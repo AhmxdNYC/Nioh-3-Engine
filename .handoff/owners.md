@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-23 2:32 pm EST: pc/0. Ally +131CA9 render-size guard is offline only, not installed. Live EF 0c05109e, CamKi 1ccc9c3a, TR 88c03a89, BR 7d8f87e2. No Nioh. Lock free. Do not publish. Next is Death Veil #60.
 - CURRENT 2026-11-23 2:18 pm EST: pc/0. Soul-camera vertical follow PASS. CamKi 1ccc9c3a installed (93d20f9d). EF 0c05109e, TR 88c03a89, BR 7d8f87e2. VirtualPad 0, Pipe 0. Lock 381 free. No Nioh. No test-active. Do not publish.
 - CURRENT 2026-11-20 4:57 am EST: pc/0 continue. No pc2/ally BLOCKED. #122380 default = no 4-core test (NOTE #123508). Do not publish. Do not task PC2. reports-pc and ops capped until 5:20 am EST. No Nioh from this slot.
 - CURRENT 2026-11-20 4:44 am EST: pc/0. ops and reports-pc are capped until 5:20 am EST (#123363, #123357). Hourly patrol done: C: 13.6 GB free, lock 381 free, no task sent (NOTE #123425). Do not re-run it before 5:20. GH #142 save ask stays posted (comment 7036144352). Do not publish. Do not task PC2. No Nioh from this slot.

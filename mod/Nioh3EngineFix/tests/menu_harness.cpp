@@ -111,6 +111,8 @@ void SetLevel(int, int) {}
 const char* PresetName(int) { return "OFF"; }
 void ApplyPreset(int) {}
 int MatchPreset() { return 0; }
+int PendingRes() { return 0; }
+bool ResRestartNeeded() { return false; }
 int RdPct() { return 0; }
 float RdMul() { return 1.f; }
 void SetRdPct(int) {}
