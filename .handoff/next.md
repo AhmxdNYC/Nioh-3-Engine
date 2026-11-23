@@ -1757,3 +1757,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-22 7:33 pm EST | pc/2 #130308 | human said yes: symbol DB catch-up queued in open.md for after usage reset (no work started).
 - 2026-11-22 7:45 pm EST | pc/2 #130325 | TASK #130328 to gx-pc: public perf docs + LIVE-TO-RE.md (docs only). On its RESULT: verify public commit, TO-USER Done. Open.md item #130321 doc part now owned by gx-pc.
 - 2026-11-22 | pc/2 #130383 | Public Nioh-3-Engine: collaborator Zack7214 invited (write, invite 345604386, pending accept); main protected: 1 approving PR review, enforce_admins=false (owner/agent pushes still direct), no force-push/delete. gx-pc docs 1a6648c1 verified.
+- 2026-11-22 | pc/2 #130389 | public Nioh-3-Engine TODO.md added (625d2b9, b5f718a), linked from README + docs/engineer/README.md. Symbol DB catch-up item there says maintainer does it (open.md).
