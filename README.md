@@ -186,7 +186,8 @@ Per-subsystem write-ups (what it does, data structures, hot addresses, threads, 
 
 
 ## Currently open
-nContributor to-do list by area: [TODO.md](TODO.md).
+
+Contributor to-do list by area: [TODO.md](TODO.md).
 
 As of 2026-10-29. See section 5 of [docs/WHY_NIOH_RUNS_BADLY.md](docs/WHY_NIOH_RUNS_BADLY.md) for the full list with expected gains.
 
