@@ -162,6 +162,22 @@ int main(void) {
         bad[0x60] = 0xB9;
         if (ShrineIdFromCode(bad, 0x1125DB0, &g, &id)) return 11;
     }
+    {
+        soulcamera::Spring rise;
+        float peak = 0.f;
+        for (int i = 0; i < 18; ++i) { // 0.30 s at 120, 60 Hz
+            const float y = rise.Step(120.f, 1.f / 60.f, true, 1);
+            if (y > peak) peak = y;
+        }
+        if (peak < 84.f) return 12; // a short jump must reach 70% of the seal height
+        soulcamera::Spring spike;
+        spike.Step(0.f, 1.f / 60.f, true, 2);
+        const float s1 = spike.Step(200.f, 1.f / 60.f, true, 2);
+        const float s2 = spike.Step(0.f, 1.f / 60.f, true, 2);
+        if (s1 > 20.f || s2 > 20.f || s1 < -20.f || s2 < -20.f) return 13;
+        for (int i = 0; i < 30; ++i) rise.Step(0.f, 1.f / 60.f, false, 0);
+        if (rise.y > 1.f || rise.y < -1.f) return 14;
+    }
     printf("probe_test ok\n");
     return 0;
 }

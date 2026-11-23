@@ -23,10 +23,14 @@ struct Spring {
         if(!std::isfinite(dt)||dt<=0)return y;
         dt=(std::min)(dt,.1f);
         if(active!=wasActive || (active && session!=id)) {
-            blendStart=y;blendVelocity=v;elapsed=0;blending=true;started=true;maxStep=0;
+            blendStart=y;blendVelocity=v;elapsed=0;started=true;maxStep=0;
             wasActive=active;session=active?id:0;
             pending=false;hasTarget=false;
-            if(active)rejectedSpikes=0;
+            if(active){
+                // A rise follows the spring immediately. The old 0.7 s enter
+                // blend held a short jump down to about 15% of the seal height.
+                rejectedSpikes=0;blending=false;filtered=y;filterVelocity=v;
+            }else blending=true;
         }
         // A >80-unit isolated sample is held for one frame. A persistent new
         // height is accepted on confirmation, then eased by the spring (no cap).
@@ -37,9 +41,9 @@ struct Spring {
             } else {pendingTarget=target;pending=true;++rejectedSpikes;}
         }
         // Exact critically damped update: a stationary step's error halves in
-        // 0.25 s ((1+w*t)*exp(-w*t)=0.5). Preserve velocity across target changes.
+        // 0.06 s ((1+w*t)*exp(-w*t)=0.5). Preserve velocity across target changes.
         if(active) {
-            constexpr float omega=1.67834699f/.25f;
+            constexpr float omega=1.67834699f/.06f;
             const float error=filtered-lastTarget, j=filterVelocity+omega*error;
             const float decay=std::exp(-omega*dt);
             filtered=lastTarget+(error+j*dt)*decay;
@@ -48,15 +52,14 @@ struct Spring {
         const float previous=y;
         if(blending) {
             if(!started)elapsed+=dt;
-            const float t=(std::min)(elapsed/.7f,1.f);
+            constexpr float blendSec=.20f; // release only
+            const float t=(std::min)(elapsed/blendSec,1.f);
             const float w=t*t*t*(t*(6*t-15)+10);
-            const float dw=30*t*t*(t-1)*(t-1)/.7f;
-            const float goal=active?filtered:0, goalV=active?filterVelocity:0;
-            // Smootherstep handover plus a dying tangent preserves the applied
-            // velocity on interrupted enter/exit, not just the position.
+            const float dw=30*t*t*(t-1)*(t-1)/blendSec;
+            const float goal=0.f, goalV=0.f;
             y=blendStart+(goal-blendStart)*w+blendVelocity*elapsed*(1-w);
             v=goalV*w+(goal-blendStart)*dw+blendVelocity*(1-w-elapsed*dw);
-            if(t==1){blending=false;finished=true;}
+            if(t==1){blending=false;finished=true;filtered=0;filterVelocity=0;}
         } else {y=active?filtered:0;v=active?filterVelocity:0;}
         maxStep=(std::max)(maxStep,std::fabs(y-previous));return y;
     }
