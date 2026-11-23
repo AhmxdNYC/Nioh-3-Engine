@@ -410,7 +410,54 @@ static void KiPerfect(void) {
     SmOnHit(&s, &c, 2000, 2, 2);
     CHECK(near(SmOnKiEx(&s, &c, 2100, 0), c.ki) && s.kiPerfects == 1);
 }
+// Weapon switch: a hit with another weapon than the last hit, within switchMs of it; once per switch; unknown slot = nothing.
+static void WeaponSwitch(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(SmWeaponHit(&s, &c, 0, 0) == 0.f);                                  // first hit: nothing to compare
+    CHECK(SmWeaponHit(&s, &c, 500, 0) == 0.f);                                // same weapon
+    CHECK(near(SmWeaponHit(&s, &c, 1500, 1), c.swap) && s.swapHits == 1);     // switched within 3 s
+    CHECK(SmWeaponHit(&s, &c, 1800, 1) == 0.f);                               // once per switch
+    CHECK(SmWeaponHit(&s, &c, 1800 + c.switchMs + 1, 0) == 0.f);              // too slow: not a fluid switch
+    CHECK(SmWeaponHit(&s, &c, 9000, -1) == 0.f && s.hitSlot == 0);            // unknown slot: ignored, memory kept
+    CHECK(near(SmWeaponHit(&s, &c, 9500, 1), 0.f) == 1);                      // 9000 was not remembered: last known hit is too old
+    CHECK(near(SmWeaponHit(&s, &c, 10000, 0), c.swap) && s.swapHits == 2);
+}
+static void GuardianSummon(void) {  // summoned guardian spirit: its own hits score inside the summon window, bonus once
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmSummon m; SmSummonReset(&m); float b = 0.f;
+    CHECK(SmSummonHits(&s, &c, &m, 100, 2, &b) == 0.f && b == 0.f && s.hits == 0);       // no summon: ally hits are not ours
+    SmSummonOpen(&m, 1000, 77, 17076);
+    const float p = SmSummonHits(&s, &c, &m, 1500, 2, &b);
+    CHECK(near(p, c.hit * (1.f + c.multiPct / 100.f)) && near(b, c.gs) && s.hits == 2 && s.gsHits == 1 && s.lastHit == 1500 && s.lastScore == 1500);
+    CHECK(SmSummonHits(&s, &c, &m, 1000 + c.gsSummonMs, 1, &b) > 0.f && b == 0.f && s.gsHits == 1);   // later hits: points, no second bonus
+    CHECK(SmSummonHits(&s, &c, &m, 1001 + c.gsSummonMs, 1, &b) == 0.f && s.hits == 3);               // window over
+    SmSummonOpen(&m, 20000, 78, 17076); m.paid = 1;                                                 // the player's own hits already paid it
+    CHECK(SmSummonHits(&s, &c, &m, 20100, 1, &b) > 0.f && b == 0.f && s.gsHits == 1);
+    SmCfg z = c; z.gsSummonMs = 0; SmSummonOpen(&m, 30000, 79, 17076);
+    CHECK(SmSummonHits(&s, &z, &m, 30001, 1, &b) == 0.f);                                          // 0 = off
+}
+static void Combo(void) {  // combo: hits within comboMs, broken by a gap or a hit taken; milestone bonus every comboStep hits
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); uint32_t m = 0;
+    CHECK(c.comboStep == 10 && c.comboBase == 25 && c.comboInc == 15 && c.comboMax == 100);
+    CHECK(near(SmComboMilestone(&c, 10), 25) && near(SmComboMilestone(&c, 20), 40) && near(SmComboMilestone(&c, 50), 85) && near(SmComboMilestone(&c, 60), 100) && near(SmComboMilestone(&c, 200), 100));
+    CHECK(SmComboMilestone(&c, 9) == 0.f && SmComboMilestone(&c, 15) == 0.f && SmComboMilestone(&c, 0) == 0.f);
+    double t = 0; float b = 0;
+    for (int i = 0; i < 9; ++i) { b += SmComboHits(&s, &c, t, 1, &m); t += 1000; }
+    CHECK(s.combo == 9 && b == 0.f);
+    const float before = s.pts + s.rank * 1000.f;
+    CHECK(near(SmComboHits(&s, &c, t, 1, &m), 25) && m == 10 && s.comboBonuses == 1 && s.lastScore == t && s.pts + s.rank * 1000.f != before);
+    SmComboTick(&s, &c, t + c.comboMs); CHECK(s.combo == 10);              // still inside the window
+    SmComboTick(&s, &c, t + c.comboMs + 1); CHECK(s.combo == 0 && s.comboBest == 10);  // gap: combo over, best kept
+    t += c.comboMs + 1000;
+    SmComboHits(&s, &c, t, 3, &m); CHECK(s.combo == 3 && m == 0);           // multi-hit: 3 hits at once
+    SmOnDamaged(&s, &c, t + 10); CHECK(s.combo == 0 && s.comboBest == 10);  // getting hit breaks it
+    SmComboHits(&s, &c, t + 20, 12, &m); CHECK(s.combo == 12 && m == 10 && s.comboBonuses == 2);  // one tick through a milestone
+    SmCfg z = c; z.comboBase = 0; z.comboMax = 0; SmState q; SmReset(&q);
+    CHECK(SmComboHits(&q, &z, 0, 20, &m) == 0.f && q.combo == 20);         // bonus off: still counts
+}
 int main(void) {
+    Combo();
+    GuardianSummon();
+    WeaponSwitch();
     Defaults(); Promotion(); Cap(); Variety(); Damage(); Decay(); Dodge(); Visible(); Clamp(); KiGate(); Tuning(); Startup(); Counter(); Skills(); Style(); StyleSoul(); MoveFmt(); Swap(); Pops(); Motion(); StyleIdle(); NinGate(); KiPerfect(); Ramp(); GuardianSpirit(); MartialArt();
     printf("style_meter_test: all %d checks passed\n", g_checks);
     return 0;
