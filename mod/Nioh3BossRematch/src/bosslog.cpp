@@ -2715,10 +2715,11 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
-// human #130495: [Spirit] FormSteer=1. Remember where the yokai first stood. Once it moves FormSteerCm
-// (default 80) in any direction, the left stick steers for the rest of that form (yokai pinned to the player).
+// human #130495 / #130513: [Spirit] FormSteer=1. Remember where the yokai first stood. Once it moves FormSteerCm
+// (first try 10) in any direction, the left stick steers for the rest of that form (yokai pinned to the player).
 // Attacks stay blocked. 0 = off. FormBlockLS is put back when the form ends.
-std::atomic<int> g_formSteer{0}, g_formSteerCm{80};
+// Both keys are re-read from the ini file about twice a second (raw read, not the profile cache) so the cm can change live.
+std::atomic<int> g_formSteer{0}, g_formSteerCm{10};
 int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
 // follow frame of a seal, write the player's facing rows (the facing at the press) into the seal before the player starts copying the seal.
@@ -4137,9 +4138,59 @@ void AttackCancelInstall() {
     Log("AttackCancel: %s at +%llX (soul cores skip HasSkill(0xEDC9) in the item gate; deny bits kept)", g_scForms.load() ? "on" : "ready, soul core forms OFF (gate unpatched)", (unsigned long long)(s + 20 - g_base));
     AttackCancelSkillInstall();
 }
+// human #130513: the profile API caches the ini, so an outside edit would not show up. Read the file itself.
+static int FormSteerFileInt(const char* key, int fallback) {
+    const wchar_t* path = IniPath();
+    if (!path || !path[0]) return fallback;
+    HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return fallback;
+    char buf[32768];
+    DWORD n = 0;
+    const BOOL ok = ReadFile(h, buf, sizeof(buf) - 1, &n, nullptr);
+    CloseHandle(h);
+    if (!ok || n == 0 || n >= sizeof(buf)) return fallback;
+    if (n >= 2 && (unsigned char)buf[0] == 0xFF && (unsigned char)buf[1] == 0xFE) return fallback;
+    buf[n] = 0;
+    const size_t klen = strlen(key);
+    for (char* line = buf; line && *line; ) {
+        char* nl = strchr(line, '\n');
+        if (nl) *nl = 0;
+        char* s = line;
+        while (*s == ' ' || *s == '\t' || *s == '\r') ++s;
+        if (*s != ';' && *s != '[' && strncmp(s, key, klen) == 0) {
+            s += klen;
+            while (*s == ' ' || *s == '\t') ++s;
+            if (*s == '=') {
+                ++s;
+                while (*s == ' ' || *s == '\t') ++s;
+                return (int)strtol(s, nullptr, 0);
+            }
+        }
+        line = nl ? nl + 1 : nullptr;
+    }
+    return fallback;
+}
+static void FormSteerPoll(double now) {
+    static double next = 0;
+    if (now < next) return;
+    next = now + 0.5;
+    const int on = FormSteerFileInt("FormSteer", g_formSteer.load()) > 0 ? 1 : 0;
+    int cm = FormSteerFileInt("FormSteerCm", g_formSteerCm.load());
+    if (cm < 0) cm = 0;
+    if (cm > 100000) cm = 100000;
+    const int wasOn = g_formSteer.load(), wasCm = g_formSteerCm.load();
+    if (on == wasOn && cm == wasCm) return;
+    g_formSteer.store(on);
+    g_formSteerCm.store(cm);
+    Log("FormSteer live on=%d cm=%d (was on=%d cm=%d)", on, cm, wasOn, wasCm);
+}
 // human #130495. True once this form's yokai has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
-    if (g_formSteer.load() <= 0 || !g_fh4.seal) return false;
+    if (g_formSteer.load() <= 0 || !g_fh4.seal) {
+        if (g_fh4.steer) { g_fh4.steer = false; g_fbLS.store(g_fbLSIni); }
+        return false;
+    }
     if (g_fh4.steer) return true;
     float p[4] = {};
     if (!Copy(p, g_fh4.seal + 0x110, 16) || !std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2])) return false;
@@ -4382,6 +4433,7 @@ void FormHide4Tick(uint64_t player) {
     }
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
+    FormSteerPoll(now);  // human #130513: FormSteer / FormSteerCm follow the ini while the game stays open
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
         const int pr = FormHideSealPresent(g_fhEnd.actorGlobal, gs);
         if (pr == 0 || now - g_ghostT.load() > 20) {
@@ -7529,7 +7581,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     g_fbLSIni = g_fbLS.load();
     g_formSteer.store(IniInt(L"Spirit", L"FormSteer", 0));  // human #130495
-    g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 80));
+    g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 10));  // human #130513: first try 10 cm, then live edits
     Log("FormSteer=%d cm=%d", g_formSteer.load(), g_formSteerCm.load());
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
         const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
