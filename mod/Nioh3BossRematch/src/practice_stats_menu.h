@@ -14,7 +14,7 @@ constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' 
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
 // human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
-constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 24;  // human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 25;  // 24 = boss fight result card; human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
 bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
 bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
@@ -64,10 +64,11 @@ const StyRow kSty[kStyN] = {
     {"Style slow move bonus:", 100, 1, {0, 25, 50, 75, 100, 150, 200, 300, -1}, "Extra points for slow, committed moves (late first hit). 100% = double points for the slowest. Saved."},
     {"Style repeat penalty:", 80, 1, {10, 25, 40, 50, 60, 70, 80, 90, 100, -1}, "Points kept each time you repeat the same move (100% = no penalty, lower = vary your moves more). Saved."},
     {"Style drain ramp:", 150, 1, {0, 5, 10, 20, 30, 50, 75, 100, 150, 200, -1}, "Extra drain per idle second after the delay (0% = steady drain). Saved."},
-    {"Style meter left/right:", 880, 4, {}, "Where the meter sits across the screen (its right edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},  // human #128855
-    {"Style meter up/down:", 352, 4, {}, "Where the meter sits down the screen (the rank letter's middle): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
+    {"Style meter left/right:", 200, 4, {}, "Where the meter sits across the screen (its right edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},  // human #128855
+    {"Style meter up/down:", 270, 4, {}, "Where the meter sits down the screen (the rank letter's middle): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
     {"Style meter opacity:", 100, 1, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole style meter is. 100% = solid. Applies at once. Saved."},
     {"Style meter always on:", 0, 0, {}, "ON = the meter stays on screen all the time (rank D, empty bar when idle). OFF = it shows only while you fight. Applies at once. Saved."},  // human #129172
+    {"Boss fight result card:", 1, 0, {}, "ON = when a boss dies, a card shows your average style rank for the fight (first hit on the boss to its death) and what you used, until you press A or Enter. Needs the style meter ON. Fight length is never scored. Saved."},
 };
 const char* StyLabel(int what) { return kSty[what].label; }
 int StyDefault(int what) { return kSty[what].def; }

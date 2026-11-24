@@ -468,7 +468,10 @@ drops one rank. It works in any fight, not only Training. Off by default (`Style
 How it works (`style_meter.h` pure state machine, `style_meter_game.h` glue, `style_meter_draw.h` drawing, `style_meter_fx.h` pop-ups and
 motion; tests `tests/style_meter_test.c`, `style_meter_demo.c`): fed once per frame-probe pump tick from the game clock.
 Events: **hit** (the player's hit took HP, from the hit-apply hook), **dodge** (an enemy hit window opened and closed while the player had
-i-frames and took no damage), **Ki pulse** (within `KiHitMs` of a landed hit; a pulse after a whiff scores 0), **startup bonus** (a slower
+i-frames and took no damage), **deflect** (the same, during the universal Samurai deflect: the move's action-row skill word
+`[[ctrl+0xE8]+0x20]+0xDC` is in `DeflectSkill`, default `0x67D2`, seen live on all 15 directional deflect actions and never on an attack frame;
+`DeflectPts`. The deflect-guard bytes `ctrl+0xEA7` / `+0xEA8` from an outside model never came up live and are only logged), **counter by avoiding** (the same during a skill move: action-row skill word, Spirit Force
+or ninjutsu gauge spent; one counter per move together with the hit counter), **Ki pulse** (within `KiHitMs` of a landed hit; a pulse after a whiff scores 0), **startup bonus** (a slower
 first hit window earns up to `1 + StartupBonusPct%`), **counter**, **soul core**, **ninjutsu**, **martial art**, **guardian spirit**,
 **weapon swap**, **style switch** (only in combat, once per landed hit). Repeating the same action id among the last 8 uses multiplies
 points by `RepeatPct` (floor `RepeatFloorPct`); further hits of one swing get `MultiHitPct`. After `DecayDelayMs` the gauge drains
@@ -495,11 +498,26 @@ Layout and look keys (all live):
 | `BarColor` | `RRGGBB`, empty | Fill colour for `BarStyle = 1` (empty = A89A6C game gold; example purple 8C64C8). Ini only. |
 
 Scoring keys: `HitPts` 20, `DodgePts` 45, `KiPts` 30, `KiPerfectPts` 15, `CounterPts` 30, `NinjutsuPts` 20, `SoulCorePts` 40,
-`StyleSwitchPts` 15, `WeaponSwapPts` 25 (+`WeaponSwapMs` 600), `GuardianSpiritPts` 25 (+`GuardianSpiritMs` 1000), `MartialArtPts` (unset =
+`StyleSwitchPts` 15, `WeaponSwapPts` 25 (weapon switch: a hit with another weapon slot than the last hit, which was at most `WeaponSwitchMs` 3000 ago; any way of switching), `GuardianSpiritPts` 25 (+`GuardianSpiritMs` 1000), `MartialArtPts` (unset =
 `NinjutsuPts`), `RepeatPct` 80, `RepeatFloorPct` 40, `MultiHitPct` 100, `DecayDelayMs` 500, `DecayPerSec` 30, `DecayRankPct` 50,
 `DecayRampPct` 150, `DrainPct` 100, `CombatMs` 8000, `DamageGraceMs` 1500, `StartupMinFrames` 15, `StartupMaxFrames` 60, `RankPts`,
 `RankPtsPct`, `PopUps`, `Motion`, `PopUpMs` 1200, `ShakePts` 40, `MoveLog` (one "STYLE MOVE" log line per player move). The menu
 (Player page, Style rows) exposes the common ones through `Nioh3Training_StyleGet/Set`.
+
+**Boss fight result card** (`style_result.h` pure fight tracker and grade, `style_result_draw.h` card; tests `tests/style_result_test.c`,
+`tests/style_result_demo.c`). On with the meter (`ResultCard = 1`). The fight starts at the player's first hit that takes HP off a boss slot
+(the hit-apply hook's victim is a `BvActor`) and ends when every boss hit in it is dead (death flag `+0x48`, or gone after HP 0) and no other
+boss slot is alive; a boss hit within `ResultEndDelayMs` (3000) of that (a next form, a second boss) continues the same fight. The player
+dying, loading, or a hit boss leaving alive drops the fight with no card. Every tick adds `rank + gauge` (D = 0 .. SSS full = 7, idle = 0)
+times the game-clock step, so pause, menus and loading do not count and fight length is never part of the score. Grade R needs
+`floor(average) >= R` **and** at least `ResultHoldPct` (50) % of the fight at R or higher, so a short SSS burst does not carry a fight. Before grading,
+every hit taken subtracts `ResultHitPenalty` (25 = 0.25) from the average, so 4 hits cost a full grade.
+The card (own click-through window, centred, `ResultScalePct` 140; stays until the player presses A or Enter, armed 0.8 s after it appears; `ResultShowMs` > 0 adds a timeout; follows `StyleMeterScale` / `StyleMeterOpacity`) shows the grade with
+the meter's rank-up motion, average, peak, fight time (shown only), time at each rank, and the counts: different moves that landed, martial
+arts (and how many different), ninjutsu, soul cores, guardian spirit, weapon swap attacks, style switches, hits, counters, clean dodges, deflects, Ki
+pulses (perfect), hits taken. One `STYLE RESULT` log line per card. Menu: Player page "Boss fight result card" (`StyleGet/Set` what 24).
+
+**Recorded drawing** (`[StyleMeter] DrawInGame`, default 1): the meter and the result card hand their finished premultiplied BGRA bitmaps to Nioh3EngineFix (`Nioh3EngineFix_LayerSet/LayerHide/LayerLive`, `osd.cpp`: layer 0 meter, 1 card), which draws each as one textured quad into the game's own frame under the FPS counter and mod menu, so OBS Game Capture records them. Without that API, or while the EngineFix overlay is not drawing, they fall back to their own topmost layered windows (Display / Window Capture only). A layer not refreshed for 1 s is hidden.
 
 ---
 
