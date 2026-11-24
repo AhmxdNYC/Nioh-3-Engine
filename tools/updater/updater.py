@@ -19,12 +19,86 @@ import urllib.request
 import uuid
 import time
 
-ALLOWED = {f"Nioh3{x}.{ext}" for x in
-           ("EngineFix", "BossRematch", "Training", "CamKiProbe")
-           for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+# Name lists the mods read at startup. They are data, not player settings, so an update may replace them.
+# .ini files stay out of that set on purpose: update() never overwrites an existing ini.
+NAME_LISTS = (
+    "Nioh3BossRematch_bosses.tsv",
+    "Nioh3Training_actionsets.tsv",
+    "Nioh3Training_action_records.tsv",
+    "Nioh3Training_arenas.tsv",
+    "Nioh3Training_bgm.tsv",
+)
+# Shipped 1.8.1 updater.exe allow-list. A manifest that names any other file makes that build
+# raise "Unapproved or duplicate filename" inside validate(), before it downloads or writes anything.
+SHIPPED_181_ALLOWED = {f"Nioh3{x}.{ext}" for x in
+                       ("EngineFix", "BossRematch", "Training", "CamKiProbe")
+                       for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+ALLOWED = SHIPPED_181_ALLOWED | set(NAME_LISTS)
+# A 1.8.2 package is refused unless every menu ASI and the new camera ini are named.
+# The three player settings files are not required here: the update zip must not replace them.
+REQUIRED_PUBLISH = (
+    "Nioh3EngineFix.asi", "Nioh3Training.asi", "Nioh3BossRematch.asi", "Nioh3CamKiProbe.asi",
+    "Nioh3CamKiProbe.ini",
+)
+
+
+# 1.8.2 and 1.8.3 shipped Boss Rematch a32e9ae4, built without soul-core forms.
+BR_ASI = "Nioh3BossRematch.asi"
+SOULCORE_MARKER = b"SoulCoreForms"
+
+
+def boss_rematch_soul_cores(data):
+    """Raise unless these Boss Rematch bytes include soul-core forms.
+
+    data is the ASI bytes, or a path whose file is the ASI.
+    """
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        blob = bytes(data)
+    else:
+        blob = Path(data).read_bytes()
+    if SOULCORE_MARKER not in blob:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi has no SoulCoreForms (stale build, soul cores missing)"
+        )
+
+
+def _payload_map(names):
+    if isinstance(names, dict):
+        return {str(name): payload for name, payload in names.items()}
+    present = {}
+    for item in names:
+        if isinstance(item, (bytes, bytearray)):
+            raise ValueError("package refused: release gate was given bytes without a file name")
+        if isinstance(item, Path):
+            present[item.name] = item
+        else:
+            present[str(item)] = None
+    return present
+
+
+def publish_gate(names):
+    """Refuse a package that omits a required file or ships a stale Boss Rematch.
+
+    names is a dict of filename to bytes or path, or an iterable of paths.
+    A bare name, with no bytes, is refused: that is how 1.8.2 shipped without soul cores.
+    """
+    present = _payload_map(names)
+    missing = [name for name in REQUIRED_PUBLISH if name not in present]
+    if missing:
+        raise ValueError("package refused, missing: " + ", ".join(missing))
+    payload = present.get(BR_ASI)
+    if payload is None:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi bytes were not given to the release gate"
+        )
+    boss_rematch_soul_cores(payload)
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
-FALLBACK_MANIFEST_URL = "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/latest/download/stable.json"
 MAX_FILE = 128 * 1024 * 1024
+# #121461 updates badge: after an update that changed files, one POST of the two version numbers
+# (no install id, machine id, path or account). Only for the official manifest, and only when the
+# player opted in with the in-game 'Share data' row (Nioh3EngineFix.ini [Report] ShareData = 1, off by
+# default); --no-count or [Update] CountUpdate = 0 also turns it off. Never blocks or fails an update.
+COUNT_URL = "https://nioh3-mod-feedback.vercel.app/api/updates"
 
 
 def https(url):
@@ -40,8 +114,20 @@ class SecureRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def count_update(old, new, url=COUNT_URL, opener=None):
+    """Best effort; returns True when the counter answered 2xx."""
+    try:
+        body = json.dumps({"schema": 1, "from": old, "to": new}).encode("utf-8")
+        req = urllib.request.Request(https(url), data=body, method="POST",
+                                     headers={"User-Agent": "Nioh3Updater/1", "Content-Type": "application/json"})
+        with (opener or urllib.request.build_opener(SecureRedirect())).open(req, timeout=5) as r:
+            return 200 <= r.status < 300
+    except Exception:
+        return False
+
+
 def fetch(url, limit=MAX_FILE):
-    # GET only; no cookies, telemetry, machine identifiers or uploads.
+    # GET only; no cookies, machine identifiers or uploads (the one update count is count_update).
     req = urllib.request.Request(https(url), headers={"User-Agent": "Nioh3Updater/1"})
     with urllib.request.build_opener(SecureRedirect()).open(req, timeout=30) as r:
         https(r.geturl())
@@ -78,10 +164,27 @@ def game_running():
                                 capture_output=True, text=True)
         names = [r[0].lower() for r in csv.reader(io.StringIO(result.stdout)) if r]
         return any(n in ("nioh3.exe", "nioh3") for n in names)
-    # ps includes Wine/Proton Windows exe arguments; fail closed if ps fails.
-    output = subprocess.run(["ps", "-eo", "args="], check=True,
-                            capture_output=True, text=True).stdout
-    return bool(re.search(r"(?i)(?:^|[\s/\\])nioh3(?:\.exe)?(?:\s|$)", output))
+    return proc_game_running(Path("/proc"))
+
+
+def proc_game_running(proc):
+    # Match only a process argument whose basename is Nioh3.exe (Wine/Proton
+    # keeps the Windows path in argv). A bare "nioh3" word in another
+    # program's arguments (shell, editor, file manager) is not the game.
+    if not proc.is_dir():
+        raise RuntimeError("Cannot verify game is closed on this platform")
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            args = (entry / "cmdline").read_bytes().split(b"\0")
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # process exited
+        except PermissionError:
+            raise RuntimeError("Cannot inspect all processes; cannot verify game is closed")
+        if any(a.replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower() == b"nioh3.exe" for a in args):
+            return True
+    return False
 
 
 def ensure_stopped():
@@ -169,20 +272,6 @@ def installed_version(root):
     return next(iter(versions)).decode("ascii") if versions else None
 
 
-def load_manifest(url, progress=print):
-    """Website manifest first; if it cannot be read, the GitHub release copy. An explicit URL has no fallback."""
-    urls = [url] if url != MANIFEST_URL else [MANIFEST_URL, FALLBACK_MANIFEST_URL]
-    last = None
-    for u in urls:
-        try:
-            return validate(json.loads(fetch(u, 65536)))
-        except Exception as e:
-            last = e
-            if u != urls[-1]:
-                progress("Website update list unavailable; trying the GitHub release...")
-    raise last
-
-
 def version_tuple(value):
     return tuple(int(part) for part in value.split("."))
 
@@ -196,7 +285,7 @@ def update(root, manifest_url=MANIFEST_URL, progress=print):
             if json.loads(j.read_text(encoding="utf-8"))["state"] == "prepared":
                 raise RuntimeError(f"Interrupted update: roll back {j.parent.name} first")
         progress("Checking for updates...")
-        m = load_manifest(manifest_url, progress)
+        m = validate(json.loads(fetch(manifest_url, 65536)))
         current = installed_version(root)
         if current and version_tuple(current) > version_tuple(m["version"]):
             progress(f"Already newer: installed {current}; public stable {m['version']}. No files changed.")
@@ -249,7 +338,7 @@ def update(root, manifest_url=MANIFEST_URL, progress=print):
             except Exception:
                 restore(root, backup)
                 raise
-            return {"version": m["version"], "changed": len(changed), "backup": backup.name}
+            return {"version": m["version"], "changed": len(changed), "backup": backup.name, "from": current}
 
 
 def rollback(root, backup_id):
@@ -331,6 +420,53 @@ def pause():
         input()
 
 
+def share_data_on(dirs=()):
+    """1.8.41 opt-in: True only when a Nioh3EngineFix.ini in one of dirs says [Report] ShareData = 1
+    (the in-game 'Share data' row; off by default). Missing file, key or a bad value = off. Never raises."""
+    for d in dirs:
+        try:
+            f = Path(d) / "Nioh3EngineFix.ini"
+            if not f.is_file():
+                continue
+            section = ""
+            for line in f.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+                t = line.split(";", 1)[0].strip()
+                if t.startswith("[") and t.endswith("]"):
+                    section = t[1:-1].strip().lower()
+                elif section == "report" and "=" in t:
+                    k, v = (x.strip() for x in t.split("=", 1))
+                    if k.lower() == "sharedata":
+                        return v == "1"
+        except Exception:
+            continue
+    return False
+
+
+def count_enabled(no_count=False, config=None, dirs=()):
+    """Opt-in (1.8.41): counts only when the player turned on 'Share data' in the mod menu
+    ([Report] ShareData = 1 in Nioh3EngineFix.ini next to the updater or in the game folder).
+    Then still off with --no-count or [Update] CountUpdate = 0 in the given config, else in a
+    Nioh3Updater.ini next to the updater or in the game folder (any file saying 0 wins).
+    Never raises: an unreadable file or a bad value means do not count."""
+    if no_count or not share_data_on(dirs):
+        return False
+    try:
+        if config is not None:
+            files = [Path(config)]
+        else:
+            files = [Path(d) / "Nioh3Updater.ini" for d in dirs]
+        for f in files:
+            if f.is_file():
+                settings = configparser.ConfigParser(interpolation=None)
+                with f.open(encoding="utf-8-sig") as fh:
+                    settings.read_file(fh)
+                if not settings.getboolean("Update", "CountUpdate", fallback=True):
+                    return False
+        return True
+    except Exception:
+        return False
+
+
 def manifest_url(explicit=None, config=None):
     """Explicit URL wins; an explicitly requested config must exist and be valid."""
     if explicit:
@@ -350,6 +486,7 @@ def main(argv=None):
     p.add_argument("--manifest", metavar="HTTPS_URL", help="Use this HTTPS release manifest")
     p.add_argument("--config", type=Path, help="Read [Update] ManifestUrl from this INI")
     p.add_argument("--no-pause", action="store_true", help="For scripted use")
+    p.add_argument("--no-count", action="store_true", help="Do not add this update to the public update count")
     p.add_argument("--self-test", action="store_true", help="Test update/rollback on generated temporary files only")
     args = p.parse_args(argv)
     try:
@@ -370,6 +507,9 @@ def main(argv=None):
             print(f"Ready: version {result['version']}; {result['changed']} files updated. You can launch Nioh 3.")
             if result['backup']:
                 print(f"Backup ID: {result['backup']}")
+                adjacent = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+                if endpoint == MANIFEST_URL and count_enabled(args.no_count, args.config, (adjacent, game)):
+                    count_update(result.get("from"), result["version"])
         return 0
     except (Exception, KeyboardInterrupt) as e:
         print(f"Update stopped: {e or 'Cancelled'}", file=sys.stderr)

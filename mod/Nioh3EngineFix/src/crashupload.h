@@ -16,7 +16,9 @@
 // USERPROFILE / any X:\Users\<name>, \home\<name>, /home/<name>, /Users/<name> -> <user>, USERNAME -> <user>,
 // COMPUTERNAME -> <pc>, the game folder -> <game>, 17-digit Steam ids -> <steamid>, before the record touches the disk.
 //
-// Ini [Report]: CrashUpload = 1 (0 = keep records on disk, never post), CrashUrl = (empty = default endpoint),
+// Opt-in (1.8.41+): nothing is recorded for upload or sent unless the player turns on [Report] ShareData (menu 'Share data',
+// default 0). While it is off, crashes write no record, unsent records are deleted at start, and no install id is created.
+// Ini [Report]: ShareData = 0, CrashUpload = 1 (0 = never post even when sharing is on), CrashUrl = (empty = default endpoint),
 // CrashBypass = (optional Vercel protection-bypass secret, preview tests only), InstallId = (written once).
 // Forced test crash: [Debug] ForceCrashTest = 1 (same as CrashTest = 1, access violation) or CrashTest = 1..6; the record then
 // carries "test": <mode>. Network: WinHTTP (works under Wine/Proton); any failure just leaves the record pending.
@@ -60,6 +62,9 @@ const char* InstallId();
 using PerfJsonFn = size_t (*)(char* out, size_t cap, bool crashPath);
 void SetPerfJson(PerfJsonFn fn);
 size_t PerfJson(char* out, size_t cap, bool crashPath);  // 0 and "" when unset
+// Player opt-in ([Report] ShareData). SetShareData writes the ini, and on ON starts the sender; on OFF drops unsent records.
+bool ShareData();
+void SetShareData(bool on);
 // Shared report/crash identity. Creates [Report] InstallId once; no uploader thread.
 const char* EnsureInstallId(const wchar_t* iniPath);
 

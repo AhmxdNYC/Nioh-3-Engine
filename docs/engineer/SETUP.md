@@ -375,7 +375,7 @@ rows that say "Saved."). Frame generation is status-only: the mod never changes 
 | `Nioh3Training.cmd` | developer, read by Training | game folder | Command file, one command per line, consumed on the game thread (see the top of `training.c`). |
 | `Nioh3CamKiProbe.log` | CamKiProbe | next to the `.asi` | Append mode. |
 | `Nioh3PlayerLog.txt` (+ `.old`) | Training | next to the `.asi` | `[Record] PlayerLog = 1` (button edges `PAD`, action ids `ACT`, `SET` header, `WPN`), `PlayerClock = 1` adds one `CLK` line per second (game speed vs wall clock, fps). New file per start. Off by default. EngineFix's Report attaches it. |
-| `Nioh3CrashReports\pending\crash-*.json` | EngineFix `crashupload.cpp` | beside the `.asi` | Written on a crash; contains no user names or paths. Posted to `[Report] CrashUrl` unless `CrashUpload = 0`. |
+| `Nioh3CrashReports\pending\crash-*.json` | EngineFix `crashupload.cpp` | beside the `.asi` | Written on a crash only when `[Report] ShareData = 1` (menu 'Share data', off by default); contains no user names or paths. Posted to `[Report] CrashUrl` unless `CrashUpload = 0`. |
 | `Nioh3Reports\report-<time>.json` | EngineFix `reportsend.cpp` | beside the `.asi` | Local copy of what the menu's Report box sent: your note plus tails of the mod logs. |
 | `Nioh3EngineFix.rebarnotice` | EngineFix | beside the `.asi` | Marker so the Resizable BAR notice shows once. Delete to see it again. |
 | `Nioh3BossRematch_favorites.txt` | BossRematch | beside the `.asi` | Menu favourites. |

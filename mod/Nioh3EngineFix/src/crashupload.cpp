@@ -31,6 +31,9 @@ char g_bypass[128];
 char g_id[33];
 char g_ver[48];
 bool g_upload = true, g_known = false;
+volatile LONG g_share = 0;         // [Report] ShareData: the player's opt-in (menu 'Share data'); 0 = nothing recorded for upload, nothing sent
+wchar_t g_ini[MAX_PATH * 2];       // EngineFix ini (ShareData / InstallId writes)
+bool Uploading() { return g_upload && g_share; }
 int g_test = 0;
 uintptr_t g_base = 0;
 DWORD g_startTick = 0;
@@ -920,7 +923,7 @@ bool SendFile(const wchar_t* full, const wchar_t* name, DWORD timeoutMs, bool* a
 }
 
 int SendAll(DWORD timeoutMs) {
-    if (!g_upload || InterlockedCompareExchange(&g_sending, 1, 0) != 0) return 0;
+    if (!Uploading() || InterlockedCompareExchange(&g_sending, 1, 0) != 0) return 0;
     wchar_t pat[MAX_PATH * 2];
     swprintf(pat, MAX_PATH * 2, L"%scrash-*.json", g_pendDir);
     WIN32_FIND_DATAW fd;
@@ -994,6 +997,7 @@ DWORD WINAPI SenderThread(LPVOID) {
 }
 
 void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, const char* const* ring, int ringN, unsigned budget) {
+    if (!g_share) { Logf("CRASHUPLOAD: data sharing is off: no crash record kept for upload"); return; }
     // The engine's own "Fatal error" popup (or abort) right after an exception we already recorded is the same crash: one record.
     if (!er && g_lastExcTick && GetTickCount() - g_lastExcTick < 120000) {
         Logf("CRASHUPLOAD: follow-up (%.60s) of the recorded crash, no second record", reason ? reason : "");
@@ -1041,10 +1045,38 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         return;
     }
     Logf("CRASHUPLOAD: crash record %ls (%u bytes)", name, (unsigned)n);
-    if (budget && g_upload) {
+    if (budget && Uploading()) {
         bool acc = false;
         SendFile(full, name, budget, &acc);
     }
+}
+
+volatile LONG g_senderOn = 0, g_infoOn = 0;
+void StartSender() {
+    if (!InterlockedExchange(&g_infoOn, 1)) {  // OS / game / mod list: gathered only once the player shares data
+        if (HANDLE h = CreateThread(nullptr, 128 * 1024, InfoThread, nullptr, 0, nullptr)) CloseHandle(h);
+        else InterlockedExchange(&g_infoOn, 0);
+    }
+    if (InterlockedExchange(&g_senderOn, 1)) return;
+    if (HANDLE h = CreateThread(nullptr, 128 * 1024, SenderThread, nullptr, 0, nullptr)) CloseHandle(h);
+    else InterlockedExchange(&g_senderOn, 0);
+}
+
+void DropPending() {
+    wchar_t pat[MAX_PATH * 2];
+    swprintf(pat, MAX_PATH * 2, L"%scrash-*.json", g_pendDir);
+    WIN32_FIND_DATAW fd;
+    int n = 0;
+    HANDLE h = FindFirstFileW(pat, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        wchar_t full[MAX_PATH * 2];
+        swprintf(full, MAX_PATH * 2, L"%s%s", g_pendDir, fd.cFileName);
+        if (DeleteFileW(full)) ++n;
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+    if (n) Logf("CRASHUPLOAD: data sharing is off: deleted %d unsent crash record(s)", n);
 }
 
 }  // namespace
@@ -1064,7 +1096,9 @@ void Start(const StartInfo& info) {
     swprintf(g_pendDir, MAX_PATH * 2, L"%spending\\", g_rootDir);
     g_delayMs = info.startDelayMs;
     if (info.iniPath) {
+        wcsncpy_s(g_ini, info.iniPath, _TRUNCATE);
         g_upload = GetPrivateProfileIntW(L"Report", L"CrashUpload", 1, info.iniPath) != 0;
+        g_share = GetPrivateProfileIntW(L"Report", L"ShareData", 0, info.iniPath) != 0;  // opt-in only: missing / 0 = off
         wchar_t w[512] = {};
         GetPrivateProfileStringW(L"Report", L"CrashUrl", L"", w, 512, info.iniPath);
         if (w[0]) wcsncpy_s(g_url, w, _TRUNCATE);
@@ -1074,7 +1108,8 @@ void Start(const StartInfo& info) {
         g_delayMs = (int)GetPrivateProfileIntW(L"Report", L"CrashSendDelayMs", (UINT)info.startDelayMs, info.iniPath);
         if (g_delayMs < 0) g_delayMs = 0;
     }
-    EnsureInstallId(info.iniPath);
+    if (g_share) EnsureInstallId(info.iniPath);
+    else DropPending();  // records queued before the opt-in existed are never sent
     {  // redaction table, longest first
         struct { const wchar_t* env; const char* to; } src[3] = {{L"USERPROFILE", "<user>"}, {L"USERNAME", "<user>"}, {L"COMPUTERNAME", "<pc>"}};
         g_redN = 0;
@@ -1099,11 +1134,10 @@ void Start(const StartInfo& info) {
             for (int k = i + 1; k < g_redN; ++k)
                 if (g_red[k].len > g_red[i].len) { Redact t = g_red[i]; g_red[i] = g_red[k]; g_red[k] = t; }
     }
-    if (HANDLE h = CreateThread(nullptr, 128 * 1024, InfoThread, nullptr, 0, nullptr)) CloseHandle(h);
-    if (HANDLE h = CreateThread(nullptr, 128 * 1024, SenderThread, nullptr, 0, nullptr)) CloseHandle(h);
+    if (g_share) StartSender();
     char u[600];
     ToUtf8(g_url, u, sizeof u);
-    Logf("CRASHUPLOAD: armed (upload %d, url %s, bypass %s, id %.8s..., send scan in %d ms)", g_upload ? 1 : 0, u, g_bypass[0] ? "set" : "none", g_id, g_delayMs);
+    Logf("CRASHUPLOAD: armed (share data %d, upload %d, url %s, bypass %s, id %.8s..., send scan in %d ms)", g_share ? 1 : 0, g_upload ? 1 : 0, u, g_bypass[0] ? "set" : "none", g_id, g_delayMs);
 }
 
 void OnCrash(const char* reason, const _EXCEPTION_RECORD* er, const _CONTEXT* ctx, const char* const* logRing, int ringLines, unsigned sendBudgetMs) {
@@ -1121,6 +1155,15 @@ size_t PerfJson(char* out, size_t cap, bool crashPath) {
     return g_perfFn ? g_perfFn(out, cap, crashPath) : 0;
 }
 
+bool ShareData() { return g_share != 0; }
+void SetShareData(bool on) {
+    InterlockedExchange(&g_share, on ? 1 : 0);
+    if (g_ini[0]) WritePrivateProfileStringW(L"Report", L"ShareData", on ? L"1" : L"0", g_ini);
+    Logf("CRASHUPLOAD: data sharing %s by the player", on ? "ON" : "OFF");
+    if (on) { EnsureInstallId(nullptr); if (g_started) StartSender(); }
+    else if (g_started) DropPending();
+}
+
 int SendPendingNow() { return SendAll(10000); }
 int PendingCount() { return CountPending(false); }
 void ScrubForTest(const char* in, char* out, unsigned cap) { Scrub(in, out, cap); }
@@ -1129,7 +1172,7 @@ const char* InstallId() { return g_id; }
 const char* EnsureInstallId(const wchar_t* iniPath) {
     static SRWLOCK lock = SRWLOCK_INIT;
     AcquireSRWLockExclusive(&lock);
-    if (!g_id[0]) LoadInstallId(iniPath);
+    if (!g_id[0]) LoadInstallId(iniPath ? iniPath : g_ini[0] ? g_ini : nullptr);
     ReleaseSRWLockExclusive(&lock);
     return g_id;
 }

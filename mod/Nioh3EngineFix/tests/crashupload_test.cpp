@@ -1,7 +1,7 @@
 // Offline check of the automatic crash upload (crashupload.cpp, bridge #64881). No game.
 // usage: crashupload_test <ini> record   -> fake access violation -> one pending record, scrubbed, printed path
 //        crashupload_test <ini> send     -> SendPendingNow; prints "sent N pending M"
-// The ini should point [Report] CrashUrl at a local `py api/crash.py 8792` and set CrashSendDelayMs = 600000.
+// The ini must set [Report] ShareData = 1 (opt-in; 0 = no record, no send). The ini should point [Report] CrashUrl at a local `py api/crash.py 8792` and set CrashSendDelayMs = 600000.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <cstdio>
@@ -94,12 +94,12 @@ int wmain(int argc, wchar_t** argv) {
     fixture(L"Nioh3Training.log", training);
     crashupload::Start(si);
     crashupload::SetPerfJson(g_bigPerf ? &BigPerf : &FakePerf);
-    CHECK(strlen(crashupload::InstallId()) == 32);
-    if (wcscmp(argv[2], L"send") == 0) {
+    if (wcscmp(argv[2], L"send") == 0) {  // also the opt-out check (no ShareData: nothing sent, no id)
         const int sent = crashupload::SendPendingNow();
         printf("sent %d pending %d\n", sent, crashupload::PendingCount());
         return 0;
     }
+    CHECK(strlen(crashupload::InstallId()) == 32);
     Sleep(3500);  // info thread (os / game / mods)
     CHECK(LoadLibraryW(L"gameoverlayrenderer64.dll") != nullptr);
     CHECK(LoadLibraryW(L"System32\\excluded-system.dll") != nullptr);
