@@ -79,6 +79,8 @@ int main(){
  actor(456,0x16127,10000);PressGhostBegin({456},false);check(g_pressGhosts.back().tail==2.f);PressGhostForget(456);
  actor(456,0x16127,10000);g_ghostKeepSpeed=true;PressGhostBegin({456},false);g_ghostKeepSpeed=false;check(g_pressGhosts.back().tail==g_pressGhosts.back().base);PressGhostForget(456);check(g_pressGhosts.empty());
  actor(456,0x16127,10000);PressGhostBegin({456},true);clockNow=33;PressGhostTick();check(g_pressGhosts.empty());
+ // TASK #136075 (crash 11-25 4:54 pm after E0E94's native despawn): a despawned actor gets no ghost and no +0x248 write
+ actor(456,0x16127,10000);{const float one=1.f;WrBytes(10000+0x248,&one,4);}dead.insert(456);PressGhostBegin({456},true);check(g_pressGhosts.empty()&&fade(10000)==1);dead.clear();
  clockNow=40;check(SealExitReplayQueue(456,123)==1);const double firstAt=g_fxPlay[0].at;const float firstX=g_fxPlay[0].r.blk[12];
  clockNow=40.1;check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==1);
  check(g_fxPlay[0].at==firstAt&&g_fxPlay[0].r.blk[12]==firstX);

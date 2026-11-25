@@ -6170,7 +6170,15 @@ void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
     std::set<uint64_t> unique(actors.begin(), actors.end());
     for (uint64_t actor : unique) {
         PressGhost g; g.actor=actor; g.at=Now(); g.hideAt=g_ghostHideAt.load();
-        if (!actor || actor==FkPlayer() || !Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
+        if (!actor || actor==FkPlayer()) continue;
+        // TASK #136075 (crash 11-25 4:54 pm, 0xC0000005 Nioh3.exe+12B678 right after 'native despawn transition' of E0E94 whose seal was
+        // already gone): never read or write a despawned actor. Its memory is freed/reused, so GhostHideSeal's +0x20 -> +0x248 write
+        // landed in another game object. Only an actor still in the actor table (1) gets a ghost; gone (0) or unreadable (-1) is skipped.
+        if (const int pr = FormHideSealPresent(ActorTableGlobal(), actor); pr != 1) {
+            Log("PressGhost: actor=%llX skipped (%s) - no hide/fade/speed on it", (unsigned long long)actor, pr == 0 ? "despawned" : "actor table unreadable");
+            continue;
+        }
+        if (!Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
         float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
         g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
         g.base=g_sealMul.load()>0?g_sealMul.load():1.f; g.ramp=g_tailRampMs.load();
