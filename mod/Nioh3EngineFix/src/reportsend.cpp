@@ -505,7 +505,7 @@ void Start(const StartInfo& info) {
     if (GetEnvironmentVariableW(L"USERNAME", v, MAX_PATH * 2)) g_user = Utf8(v);
     if (GetEnvironmentVariableW(L"COMPUTERNAME", v, MAX_PATH * 2)) g_pc = Utf8(v);
     if (GetEnvironmentVariableW(L"USERPROFILE", v, MAX_PATH * 2)) g_profile = Utf8(v);
-    LoadInstallId(info.iniPath);
+    if (crashupload::ShareData()) LoadInstallId(info.iniPath);  // opt-in: no install id until the player shares data
     g_started = true;
     RLOG("ready: endpoint %s, install id %.8s..., bypass %s, steam keyboard %d", g_urlA, g_id, g_bypass[0] ? "set" : "none",
          g_steamWanted ? 1 : 0);
@@ -517,6 +517,8 @@ bool Send(const char* playerText, const char* via, char* msg, size_t cap) {
     while (!t.empty() && (t.back() == ' ' || t.back() == '\n')) t.pop_back();
     if (t.empty()) { if (msg) snprintf(msg, cap, "Type what went wrong first."); return false; }
     if (!g_started) { if (msg) snprintf(msg, cap, "Report sender is not running."); return false; }
+    if (!crashupload::ShareData()) { if (msg) snprintf(msg, cap, "Not sent: turn on 'Share data' at the top of the mod menu first."); return false; }
+    if (!g_id[0]) LoadInstallId(nullptr);
     int idle = (int)State::Sending;
     for (;;) {  // one send at a time
         int cur = g_state.load();

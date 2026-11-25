@@ -17,9 +17,21 @@
 //        and Samurai/Ninja style byte chr +0xA95C. Weapon item ids / skill ids are not mapped yet (no proven offset).
 //   CLK  lines add  dtfps N (the engine's fps-for-dt G+0x614: under the real fps = the engine clamps dt) and  load N
 //        (counted frames with the loading flag GameState()[2] set).
+// GH #178: with PlayerClock, each SPD line is followed by one SPDW line naming the cause of the slow stretch (player_speed.h):
+//   SPDW  0x61D7  total 0.71x = mods [6 0.71x t 41 vt 38FEF30] x base 1.00x x 684 off  step 0.69x  (min total ..  mdl ..  dc0 ..)
+//   total = [ctrl+0xdc4] channel 0 (the frame step factor), mods = the active speed-modifier slots counted in channel 0
+//   (index, rate [+0xc], timer [+8], vtable rva), base = total / (mods x 684) = MoveSpeedWorldScale or an override, 684 =
+//   [ai+0x684] when the getter applies it. Values from the sample in the middle of the stretch. SEH reads only.
 // Read only: XInputGetState (its own reader, nothing masked or injected), the player's action id and step, the engine
 // update counter. Game thread, every pump tick.
 // 0 = off (default) for both keys: nothing is read or written.
+// #135494 (human #135492): HITSTOP lines (Player log on only). The player's hit-stop = motion speed ctrl+0x3CC below 1 (0.3 on a hit,
+// drained by 0x7D13EC; GH #159). One start + one end line per episode, counted on engine frames (G+0x610 moved):
+//   HITSTOP  start  act 0x61D7  speed 0.30  | fps 80  tier 120  VRR armed 1  HitStopFix 1
+//   HITSTOP  end    act 0x61D7  real 111 ms  frames 9  speed 0.30  | fps 80  tier 120  VRR armed 1  HitStopFix 1  k 1.50
+//   real ms = last normal frame before -> last slow frame (QPC), the same measure as the pc2 A/B poller. act = ACT id at the start.
+//   fps = last 1 s clock window, tier / armed / HitStopFix / k (drain scale) from EngineFix Nioh3EngineFix_HitStopInfo ("-" = no export).
+//   Rate limit: at most 8 episodes logged per second; the next logged start says how many were skipped.
 #ifndef N3_PLAYER_LOG_H
 #define N3_PLAYER_LOG_H
 #include "player_clock.h"
@@ -88,6 +100,7 @@ static int PlOpen(void) {
     g_pl_t0 = GetTickCount();
     PlLine(g_pl_t0, "LOG", "Nioh3 player log (human #122228): PAD = controller edges, ACT = player action id changes, | fps + newest frame ms%s%s", g_pl_xget ? "" : " (no XInput: actions only)",
            g_cfg_pclk ? ", CLK = game clock vs wall clock once a second" : "");
+    PlLine(g_pl_t0, "LOG", "HITSTOP = the player's hit-stop start/end: real ms, engine frames, speed ctrl+0x3CC, fps, VRR tier/armed, HitStopFix (#135494)");
     PlSetup();
     Log("PLAYERLOG: writing %s (pad %s)", p, g_pl_xget ? "XInputGetState" : "missing");
     return 1;
@@ -137,6 +150,99 @@ static void PlWpn(DWORD now) {
     if (!me) { PlLine(now, "WPN", "no player"); return; }
     PlLine(now, "WPN", "slot %d  style %s  (weapon/skill ids not mapped yet)", ws, sty == 0 ? "Samurai" : sty == 1 ? "Ninja" : "?");
 }
+// #135494 hit-stop episodes (see the header)
+typedef struct { int on, logged, skip, nWin; uint32_t cnt, frames, act; double tPrev, t0, tLast; float minSpd; DWORD win; int seeded; } PlHs;
+static PlHs g_pl_hs;
+static int (*p_efHsInfo)(int*, int); static int g_pl_hs_try;
+static void PlHsSuffix(char* b, size_t n, int withK) {
+    if (!p_efHsInfo && !g_pl_hs_try) { g_pl_hs_try = 1; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); p_efHsInfo = ef ? (int (*)(int*, int))GetProcAddress(ef, "Nioh3EngineFix_HitStopInfo") : 0; }
+    int v[5] = {0, 0, 0, 0, 0};
+    if (!p_efHsInfo || p_efHsInfo(v, 5) < 5) { snprintf(b, n, "| fps %d  tier -  VRR armed -  HitStopFix -", g_pl_clk.fps); return; }
+    const int l = snprintf(b, n, "| fps %d  tier %d  VRR armed %d  HitStopFix %s", g_pl_clk.fps, v[3], v[2] ? 1 : 0, !v[1] ? "n/a" : v[0] ? "1" : "0");
+    if (withK && l > 0 && (size_t)l < n) snprintf(b + l, n - (size_t)l, "  k %.2f", v[4] / 1000.0);
+}
+static void PlHitStop(DWORD now, uint64_t ctrl, uint32_t cnt, double ms) {
+    PlHs* h = &g_pl_hs;
+    if (!h->seeded) { h->seeded = 1; h->cnt = cnt; h->tPrev = ms; return; }
+    if (cnt == h->cnt) return;  // same engine frame
+    const uint32_t k = cnt - h->cnt; h->cnt = cnt;
+    float sp = 1.0f; __try { sp = *(volatile float*)(ctrl + 0x3CC); } __except (EXCEPTION_EXECUTE_HANDLER) { sp = 1.0f; }
+    const int slow = sp > 0.0f && sp < 0.999f && k <= PLCLK_MAX_STEP;
+    char sx[128];
+    if (slow) {
+        if (!h->on) {
+            h->on = 1; h->t0 = h->tPrev; h->frames = 0; h->minSpd = sp; h->act = ActIdOf(ctrl);
+            if (now - h->win >= 1000) { h->win = now; h->nWin = 0; }
+            h->logged = h->nWin < 8;
+            if (h->logged) {
+                ++h->nWin; PlHsSuffix(sx, sizeof sx, 0);
+                char sk[40] = ""; if (h->skip) snprintf(sk, sizeof sk, "  (%d skipped)", h->skip);
+                PlLine(now, "HITSTOP", "start  act 0x%X  speed %.2f%s  %s", h->act, sp, sk, sx); h->skip = 0;
+            } else ++h->skip;
+        }
+        h->frames += k; h->tLast = ms; if (sp < h->minSpd) h->minSpd = sp;
+    } else if (h->on) {
+        h->on = 0;
+        if (h->logged) {
+            PlHsSuffix(sx, sizeof sx, 1);
+            PlLine(now, "HITSTOP", "end    act 0x%X  real %.0f ms  frames %u  speed %.2f%s  %s", h->act, h->tLast - h->t0, h->frames, h->minSpd,
+                   k > PLCLK_MAX_STEP ? "  (cut: load/stall)" : "", sx);
+        }
+    }
+    h->tPrev = ms;
+}
+// GH #178 SPDW reader: SEH reads of ctrl's speed slots (no game calls). Each slot's vfunc code is matched once per vtable
+// (PlSpdCodeActive / PlSpdCodeRate); an unrecognised vtable is logged as '?' with its rva.
+static PlSpdSamp g_pl_wsamp;
+static struct { uint64_t vt; uint8_t act, rate; float one; } g_pl_wvt[16];
+static int g_pl_wvtN;
+static __attribute__((noinline)) void PlwKinds(uint64_t vt, uint8_t* act, uint8_t* rate, float* one) {
+    for (int i = 0; i < g_pl_wvtN; ++i) if (g_pl_wvt[i].vt == vt) { *act = g_pl_wvt[i].act; *rate = g_pl_wvt[i].rate; *one = g_pl_wvt[i].one; return; }
+    uint8_t a = 0, r = 0; float o = 1.0f;
+    __try {
+        const uint64_t fa = *(volatile uint64_t*)(vt + 0x18), fr = *(volatile uint64_t*)(vt + 0x20);
+        uint8_t b[25]; int32_t d = 0;
+        for (int i = 0; i < 16; ++i) b[i] = *(volatile uint8_t*)(fa + i);
+        if (PlSpdCodeActive(b, &d) && *(volatile float*)(fa + 12 + (int64_t)d) == 0.0f) a = 1;
+        for (int i = 0; i < 25; ++i) b[i] = *(volatile uint8_t*)(fr + i);
+        r = (uint8_t)PlSpdCodeRate(b, &d);
+        if (r == 2) o = *(volatile float*)(fr + 20 + (int64_t)d);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { a = 0; r = 0; }
+    if (g_pl_wvtN < 16) { g_pl_wvt[g_pl_wvtN].vt = vt; g_pl_wvt[g_pl_wvtN].act = a; g_pl_wvt[g_pl_wvtN].rate = r; g_pl_wvt[g_pl_wvtN].one = o; ++g_pl_wvtN; }
+    *act = a; *rate = r; *one = o;
+}
+static __attribute__((noinline)) int PlwRead(uint64_t ctrl, PlSpdMods* m) {
+    __try {
+        m->total = *(volatile float*)(ctrl + 0xDC4); m->dc0 = *(volatile float*)(ctrl + 0xDC0);
+        for (int i = 0; i < PLSPD_SLOTS; ++i) {
+            const uint64_t o = *(volatile uint64_t*)(ctrl + 0x6B8 + (uint64_t)i * 8);
+            m->st[i] = PLSPD_OFF; m->vt[i] = 0; m->timer[i] = 0.0f; m->rate[i] = 1.0f;
+            if (!o) continue;
+            const uint64_t vt = *(volatile uint64_t*)o;
+            m->vt[i] = (uint32_t)(vt - (uint64_t)B);
+            m->timer[i] = *(volatile float*)(o + 8);
+            uint8_t ak = 0, rk = 0; float one = 1.0f;
+            PlwKinds(vt, &ak, &rk, &one);
+            if (ak && !(m->timer[i] > 0.0f)) continue;  // default check: inactive
+            if (!ak || !rk) { m->st[i] = PLSPD_UNK; continue; }
+            m->rate[i] = (rk == 2 && *(volatile uint8_t*)(o + 0x10)) ? one : *(volatile float*)(o + 0xC);
+            m->st[i] = PLSPD_ON;
+        }
+        m->on684 = 0; m->f684 = 1.0f; m->mdl = -1.0f;
+        const uint64_t chr = *(volatile uint64_t*)(ctrl + 0xE0);
+        if (chr) {
+            const uint64_t ai = *(volatile uint64_t*)(chr + 0x3B0), mdl = *(volatile uint64_t*)(chr + 0x3A0);
+            if (mdl) m->mdl = *(volatile float*)(mdl + 0x3018);
+            if (ai) {
+                m->f684 = *(volatile float*)(ai + 0x684);
+                const uint64_t a = *(volatile uint64_t*)(ctrl + 0xE8);
+                const uint64_t fl = a ? *(volatile uint64_t*)(a + 0x20) : 0;
+                m->on684 = *(volatile uint8_t*)(chr + 0xACC8) && fl && (*(volatile uint64_t*)fl & 0x400000000000000ull);
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
 // #127933 game clock sample (once per pump tick; counts a frame only when the engine update counter moved)
 static void PlClock(DWORD now) {
     static double s_qpf;
@@ -162,15 +268,27 @@ static void PlClock(DWORD now) {
     const double wall0 = g_pl_clk.lastWall;
     { const uint8_t* gs = GameState(); if (gs && gs[2] && cnt != g_pl_clk.cnt) ++g_pl_loadN; }  // #128517 loading frames this window
     const int win = PlClkSample(&g_pl_clk, (double)q.QuadPart * s_qpf, cnt, step, eng, &l);
+    if (g_cfg_plog && animOk) PlHitStop(now, ctrl, cnt, (double)q.QuadPart * s_qpf);  // #135494
     // #128463 move speed: once per counted engine frame (counter moved, not a re-seed), the player's anim time [ctrl+0x60]
     if (g_cfg_pclk && ok0 && g_pl_clk.cnt != cnt0) {
         const uint32_t k = g_pl_clk.cnt - cnt0;
         const uint32_t a = animOk ? ActIdOf(ctrl) : 0xFFFFFFFFu;
         PlSpdEvt e;
-        if (!animOk || a == 0xFFFFFFFFu || k > PLCLK_MAX_STEP || g_pl_clk.stalls != st0) { const PlSpd z = {0}; g_pl_spd = z; }
-        else if (PlSpdFrame(&g_pl_spd, a, anim, step, k, g_pl_clk.lastWall - wall0, &e))
+        const int wasSlow = g_pl_spd.slow;
+        if (!animOk || a == 0xFFFFFFFFu || k > PLCLK_MAX_STEP || g_pl_clk.stalls != st0) { const PlSpd z = {0}; g_pl_spd = z; PlSpdSampReset(&g_pl_wsamp); }
+        else if (PlSpdFrame(&g_pl_spd, a, anim, step, k, g_pl_clk.lastWall - wall0, &e)) {
             PlLine(now, "SPD", "slow 0x%X %.0f ms  anim %.2fx (min %.2fx)  step %.2fx  t %.1f -> %.1f", e.act, e.ms, e.rate, e.minRate,
                    e.stepRate, e.t0, e.t1);
+            const PlSpdMods* w = PlSpdSampMid(&g_pl_wsamp);  // GH #178 cause of the stretch, middle sample
+            char wl[640];
+            if (w) { PlSpdWFormat(wl, sizeof wl, e.act, w, e.stepRate, g_pl_wsamp.minTotal); PlLine(now, "SPDW", "%s", wl); }
+            else PlLine(now, "SPDW", "0x%X  no read", e.act);
+            PlSpdSampReset(&g_pl_wsamp);
+        }
+        if (g_pl_spd.slow) {  // GH #178: sample ctrl's speed factors every counted frame of the stretch
+            if (!wasSlow) PlSpdSampReset(&g_pl_wsamp);
+            PlSpdMods m; if (PlwRead(ctrl, &m)) PlSpdSampAdd(&g_pl_wsamp, &m);
+        } else if (wasSlow) PlSpdSampReset(&g_pl_wsamp);
     }
     if (!win || !g_cfg_pclk) return;
     char x[96] = "";

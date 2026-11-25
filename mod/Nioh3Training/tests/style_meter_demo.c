@@ -26,12 +26,12 @@ int main(int argc, char** argv) {
     const int H = 1080, VW = 1000, VH = 1000;                 // video crop around the meter (right side of a 1920x1080 screen)
     const SmCanvas c = SmCanvasGeom(H, 1);
     const int rx = 1920 * 1690 / 1920, cy = 1080 * 380 / 1080;
-    const int left = rx - c.g.w - c.mx, top = cy - SM_LETTER_H_1080P / 2 - c.g.pad - c.my;
+    const int left = rx - c.g.w - c.mx, top = cy - (int)(SM_LETTER_H_1080P * SM_SIZE_K) / 2 - c.g.pad - c.my;
     const int cropX = 1920 - VW - 20, cropY = 0;
     static const Ev ev[] = {
         {600, "Perfect Ki", 30, 15}, {1000, "Ninjutsu", 20}, {1700, "Weapon Swap", 12, 25}, {1720, "Counter", 10, 30}, {2500, "Soul Core", 40},
-        {2550, "Style Switch", 15}, {3400, "Clean Dodge", 45}, {3420, "Ki Pulse", 30}, {4300, "Ninjutsu", 20}, {4320, "Ninjutsu", 20},
-        {5000, "Weapon Swap", 14, 25}, {5050, "Counter", 9, 30}, {5070, "Soul Core", 40},
+        {2550, "Style Switch", 15}, {3400, "Dodge!", 45}, {3420, "Ki Pulse", 30}, {4300, "Ninjutsu", 20}, {4320, "Ninjutsu", 20},
+        {4900, "30 Hit Combo", 55}, {5000, "Weapon Swap", 14, 25}, {5050, "Counter", 9, 30}, {5070, "Soul Core", 40},
     };
     static const double rankT[] = {0, 1300, 2200, 3000, 3800, 4600, 5300};  // D C B A S SS SSS
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
         st.rank = shownBar.rank; st.now = t; st.lifeMs = SM_POP_LIFE_MS; eased = shownBar.g; st.gauge = eased;
         st.scale = 1.f; st.upMs = t - rankUpT; st.prevRank = upFrom; SmShake(t - shakeT, &st.dx, &st.dy); st.glow = SmGlow(rank, t);
         st.npops = q.n; memcpy(st.pops, q.p, sizeof st.pops);
+        st.combo = 2 + n / 5; st.comboA = 1.f; st.mile = (st.combo / 10) * 10; st.milePts = st.mile >= 20 ? 40 : 25; st.mileMs = st.mile ? ((n / 5) % 5) * 300.0 : -1; st.mileA = st.mile ? 1.f : 0.f;  // human: combo counter preview
         SmCompose(mem, px, &c, &st); GdiFlush();
         for (int y = 0; y < VH; ++y) for (int x = 0; x < VW; ++x) {
             const int sxp = cropX + x, syp = cropY + y;
@@ -73,6 +74,6 @@ int main(int argc, char** argv) {
         FILE* f = fopen(path, "wb"); if (!f) { printf("cannot write %s\n", path); return 1; }
         fprintf(f, "P6\n%d %d\n255\n", VW, VH); fwrite(fr, 1, (size_t)VW * VH * 3, f); fclose(f);
     }
-    printf("demo: %d frames %dx%d in %s (canvas %dx%d, pf %d)\n", 7 * 30, VW, VH, out, c.w, c.h, c.pf);
+    printf("demo: %d frames %dx%d in %s (canvas %dx%d, box %dx%d, pad %d, pf %d)\n", 7 * 30, VW, VH, out, c.w, c.h, c.g.w, c.g.h, c.g.pad, c.pf);
     return 0;
 }

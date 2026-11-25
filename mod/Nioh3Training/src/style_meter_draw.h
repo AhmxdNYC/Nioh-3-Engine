@@ -15,13 +15,57 @@ static float g_sm_letter_dx[SM_RANKS];
 #endif
 // #127175 bar fill colour per rank (D grey .. SSS red). #127238 letters are now cream like the words, so the colours that used to be
 // read from the old letter sprites are kept here instead.
-static const uint32_t g_sm_rank_rgb[SM_RANKS] = {0xD8DEE6u, 0xD7DDE5u, 0xE6AD50u, 0xE58037u, 0xE64430u, 0xE64431u, 0xE63C2Au};
+// Rank colours (human: each rank its own colour, medal-style): D stone, C bronze, B silver, A gold, S platinum (icy white-blue),
+// SS pure platinum (pearl sheen, pink -> white -> cyan), SSS prismatic (full hue sweep). The letter sprites are tinted once at load
+// (SmLetterTint) and the bar fills in the same colour; SS / SSS are gradients (SmRankRgbAt), these are their average for flat uses.
+static const uint32_t g_sm_rank_rgb[SM_RANKS] = {0xA8A29Au, 0xD0874Au, 0xB8C0CAu, 0xFFC63Au, 0xC8E2FFu, 0xF4E2F6u, 0xFF6FB4u};
 // #127259 the bar fills in the letters' colour (cream, style/word_letters.py FILL 236,232,222), the same at every rank.
 // SM_BAR_RANK_RGB 1 brings back the per-rank colours above.
 #ifndef SM_BAR_RANK_RGB
-#define SM_BAR_RANK_RGB 0
+#define SM_BAR_RANK_RGB 1
 #endif
 #define SM_LETTER_RGB 0xECE8DEu
+// human: the in-battle meter (letter, bar, pop-ups) 20% smaller than the 1.8.39 size at StyleMeterScale 100
+#ifndef SM_SIZE_K
+#define SM_SIZE_K 0.8f
+#endif
+static uint32_t SmHsv(float h, float sat, float v) {  // h 0..1 -> 0xRRGGBB
+    h -= floorf(h); const float c = v * sat, x = c * (1.f - fabsf(fmodf(h * 6.f, 2.f) - 1.f)), m = v - c; float r, g, b;
+    const int i = (int)(h * 6.f) % 6;
+    r = i == 0 || i == 5 ? c : i == 1 || i == 4 ? x : 0.f; g = i == 1 || i == 2 ? c : i == 0 || i == 3 ? x : 0.f; b = i == 3 || i == 4 ? c : i == 2 || i == 5 ? x : 0.f;
+    return ((uint32_t)((r + m) * 255.f + .5f) << 16) | ((uint32_t)((g + m) * 255.f + .5f) << 8) | (uint32_t)((b + m) * 255.f + .5f);
+}
+// colour of `rank` at position t (0..1 along the letter's height / the bar's length)
+static uint32_t SmRankRgbAt(int rank, float t) {
+    if (t < 0.f) t = 0.f; if (t > 1.f) t = 1.f;
+    if (rank == 6) return SmHsv(0.95f - 0.80f * t, 0.62f, 1.f);  // SSS: magenta -> red -> gold -> green -> cyan -> blue
+    if (rank == 5) {  // SS pearl: soft pink -> white -> soft cyan
+        const uint32_t a = t < 0.5f ? 0xFFD2EEu : 0xFFFFFFu, b = t < 0.5f ? 0xFFFFFFu : 0xC4F0FFu; const float u = t < 0.5f ? t * 2.f : (t - 0.5f) * 2.f;
+        const unsigned r = (unsigned)(((a >> 16) & 255) + (((float)((b >> 16) & 255)) - ((a >> 16) & 255)) * u), g = (unsigned)(((a >> 8) & 255) + (((float)((b >> 8) & 255)) - ((a >> 8) & 255)) * u),
+                       bl = (unsigned)((a & 255) + (((float)(b & 255)) - (a & 255)) * u);
+        return (r << 16) | (g << 8) | bl;
+    }
+    return g_sm_rank_rgb[rank < 0 ? 0 : rank > 6 ? 6 : rank];
+}
+// recolours the cream letter sprites (premultiplied BGRA) to their rank colour: each channel scaled by colour / cream, so the dark outline
+// stays dark and the anti-aliased edges keep their shape
+static void SmLetterTint(uint8_t* px, UINT w) {
+    const float cr = 236.f, cg = 232.f, cb = 222.f;
+    for (int i = 0; i < SM_RANKS; ++i) {
+        const int* L = sm_atlas_letter[i];
+        for (int y = 0; y < L[3]; ++y) {
+            const uint32_t c = SmRankRgbAt(i, L[3] > 1 ? (float)y / (float)(L[3] - 1) : 0.f);
+            const float fr = (float)((c >> 16) & 255) / cr, fg = (float)((c >> 8) & 255) / cg, fb = (float)(c & 255) / cb;
+            for (int x = 0; x < L[2]; ++x) {
+                uint8_t* p = &px[((size_t)(L[1] + y) * w + (size_t)(L[0] + x)) * 4];
+                const float a = p[3]; if (a <= 0) continue;
+                float b = p[0] * fb, g = p[1] * fg, r = p[2] * fr;
+                if (b > a) b = a; if (g > a) g = a; if (r > a) r = a;
+                p[0] = (uint8_t)(b + .5f); p[1] = (uint8_t)(g + .5f); p[2] = (uint8_t)(r + .5f);
+            }
+        }
+    }
+}
 static int g_sm_letter_ink[SM_RANKS][4];  // #127353 solid-ink box (sprite px: x0 y0 x1 y1), used to keep katana cuts on the letter
 static void SmLetterInk(const uint8_t* px, UINT w) {
     for (int i = 0; i < SM_RANKS; ++i) {
@@ -89,7 +133,7 @@ static int SmAtlasLoad(void) {
         g_sm_atlas_dc = CreateCompatibleDC(scr); ReleaseDC(0, scr);
         if (g_sm_atlas_bmp && px && g_sm_atlas_dc) {
             hr = IWICFormatConverter_CopyPixels(cv, 0, w * 4, w * 4 * h, (BYTE*)px);
-            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); SmLetterDehalo((uint8_t*)px, w); SmLetterInk((const uint8_t*)px, w); ok = 1; }
+            if (SUCCEEDED(hr)) { SelectObject(g_sm_atlas_dc, g_sm_atlas_bmp); GdiFlush(); SmLetterDehalo((uint8_t*)px, w); SmLetterTint((uint8_t*)px, w); SmLetterInk((const uint8_t*)px, w); ok = 1; }
         }
     } else if (SUCCEEDED(hr)) hr = E_FAIL;
     if (cv) IWICFormatConverter_Release(cv);
@@ -130,7 +174,7 @@ static SmGeo SmGeom(int H) {
     SmGeo g; int lw = 0, lh = 0, ww = 0, wh = 0;
     for (int i = 0; i < SM_RANKS; ++i) { if (sm_atlas_letter[i][2] > lw) lw = sm_atlas_letter[i][2]; if (sm_atlas_letter[i][3] > lh) lh = sm_atlas_letter[i][3];
         if (sm_atlas_word[i][2] > ww) ww = sm_atlas_word[i][2]; if (sm_atlas_word[i][3] > wh) wh = sm_atlas_word[i][3]; }
-    g.k = (float)H / 1080.f * (float)g_cfg_sm_scale / 100.f * (float)SM_LETTER_H_1080P / (float)lh;
+    g.k = (float)H / 1080.f * (float)g_cfg_sm_scale / 100.f * SM_SIZE_K * (float)SM_LETTER_H_1080P / (float)lh;
     g.pad = (int)(8 * g.k) + 2;
     const int gw = sm_atlas_gauge_bg[2] > ww ? sm_atlas_gauge_bg[2] : ww;
     const float lwk = lw * SM_LK;
@@ -156,12 +200,14 @@ typedef struct {
     SmPop pops[SM_POPS]; int npops;  // p[0] oldest
     double now; int lifeMs;
     double upMs; int prevRank;   // #127299 ms since the shown rank stepped up (<0 / large = none), the rank before it
+    int combo; float comboA;     // human: combo count shown under the pop-ups (< 2 = none) and its opacity (fades after the combo ends)
+    int mile, milePts; float mileA; double mileMs;  // human: last combo milestone banner (hits, bonus), its opacity, ms since it was reached
 } SmDrawSt;
 // #127289 pop-up text size as a share of pf (human: in proportion with the shorter bar, #127273 SM_BAR_WK)
 #ifndef SM_POP_K
 #define SM_POP_K 0.72f
 #endif
-typedef struct { SmGeo g; int w, h, mx, my, pf, popH, pp; } SmCanvas;  // pp = pop-up font px
+typedef struct { SmGeo g; int w, h, mx, my, pf, popH, pp, comboH, cp; } SmCanvas;  // pp = pop-up font px, cp = combo font px
 static SmCanvas SmCanvasGeom(int H, int pops) {
     SmCanvas c; c.g = SmGeom(H);
     int lw = 0, lh = 0;
@@ -172,7 +218,9 @@ static SmCanvas SmCanvasGeom(int H, int pops) {
     c.popH = pops ? (int)(c.pp * 1.25f) * SM_POPS + c.g.pad : 0;
     c.mx = (int)(lw * c.g.k * 0.34f) + (int)(10.f * (float)H / 1080.f) + 2;
     c.my = (int)(lh * c.g.k * 0.34f) + (int)(10.f * (float)H / 1080.f) + 2;
-    c.w = c.g.w + 2 * c.mx; c.h = c.g.h + c.my + c.popH + c.my / 2;
+    c.cp = (int)(c.pp * 1.45f * 2.5f + 0.5f);  // human: combo counter row under the pop-ups (2.5x the first size), then the milestone banner
+    c.comboH = (int)(c.cp * 1.25f) + (int)(c.pp * 1.15f * 1.35f) + c.g.pad;
+    c.w = c.g.w + 2 * c.mx; c.h = c.g.h + c.my + c.popH + c.comboH + c.my / 2;
     return c;
 }
 // premultiplied 'over' of one text coverage mask (tpx R channel, white-on-black GDI text) at (ox, oy), colour col, opacity a
@@ -238,7 +286,7 @@ static void SmBarGame(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh
         }
     }
 }
-static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, float gauge, uint32_t rgb, double now) {
+static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, float gauge, uint32_t rgb, double now, int grad) {
     unsigned cr = (rgb >> 16) & 0xFF, cg = (rgb >> 8) & 0xFF, cb = rgb & 0xFF;
     if (!rgb) { cr = 0xF5; cg = 0xCD; cb = 0x8B; }
     {   // lift dark / grey letters so the fill reads on a dark track
@@ -258,6 +306,7 @@ static void SmBar(uint32_t* px, int W, int H, int x0, int y0, int bw, int bh, fl
             if (rim || x == 0 || x == bw - 1) { SmPxOver(d, 200, 200, 210, 150); continue; }
             if (x >= fw) { SmPxOver(d, 18, 18, 24, 190); }
             else {
+                if (grad >= 0) { const uint32_t gc = SmRankRgbAt(grad, bw > 1 ? (float)x / (float)(bw - 1) : 0.f); cr = (gc >> 16) & 255; cg = (gc >> 8) & 255; cb = gc & 255; }
                 const float shade = v < 0.4f ? 1.f + (0.4f - v) * 0.9f : 1.f - (v - 0.4f) * 0.55f;   // bright upper band, darker bottom
                 unsigned r = (unsigned)(cr * shade), g = (unsigned)(cg * shade), b = (unsigned)(cb * shade);
                 if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
@@ -812,7 +861,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
 #ifdef SM_BAR_STYLE
     if (barW > 0 && SM_BAR_STYLE) SmBarGame(px, w, h, barX, barY, barW, barH, st->gauge); else
 #endif
-    if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now);
+    if (barW > 0) SmBar(px, w, h, barX, barY, barW, barH, st->gauge, SM_BAR_RANK_RGB ? g_sm_rank_rgb[rank] : SM_LETTER_RGB, st->now, SM_BAR_RANK_RGB && rank >= 5 ? rank : -1);
     // #127364 no shared bar flash on rank-up
     if (st->npops > 0 && c->popH > 0) {  // newest on top, older lines under it
         const int TW = w, TH = (int)(c->pp * 1.25f);
@@ -848,6 +897,58 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             SelectObject(tdc, of); SelectObject(tdc, ob);
         }
         if (fn) DeleteObject(fn);
+        if (tb) DeleteObject(tb);
+        if (tdc) DeleteDC(tdc);
+    }
+    // human: combo counter, its own row under the pop-ups: "<n>" in the rank colour, then "Hits"
+    if ((st->combo >= 2 && st->comboA > 0.f) || st->mileA > 0.f) {
+        const int TW = w, TH = (int)(c->cp * 1.3f);
+        BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+        bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = TW; bi.bmiHeader.biHeight = -TH;
+        bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+        uint32_t* tpx = 0; HDC tdc = CreateCompatibleDC(mem);
+        HBITMAP tb = tdc ? CreateDIBSection(tdc, &bi, DIB_RGB_COLORS, (void**)&tpx, 0, 0) : 0;
+        HFONT fn = CreateFontW(-c->cp, 0, 0, 0, FW_HEAVY, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
+        HFONT fw = CreateFontW(-(int)(c->cp * 0.42f), 0, 0, 0, FW_BOLD, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
+        HFONT fm = CreateFontW(-(int)(c->pp * 1.15f), 0, 0, 0, FW_HEAVY, TRUE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia");
+        if (tb && tpx && fn && fw && fm) {
+            HGDIOBJ ob = SelectObject(tdc, tb), of = SelectObject(tdc, fn);
+            SetBkMode(tdc, TRANSPARENT); SetTextColor(tdc, RGB(255, 255, 255));
+            char num[16]; snprintf(num, sizeof num, "%d", st->combo); const char* word = " Hits";
+            SIZE s1 = {0, 0}, s2 = {0, 0}; GetTextExtentPoint32A(tdc, num, (int)strlen(num), &s1);
+            SelectObject(tdc, fw); GetTextExtentPoint32A(tdc, word, (int)strlen(word), &s2);
+            const int x0 = (TW - (int)(s1.cx + s2.cx)) / 2, ox = (int)(mid - TW / 2.f), oy = gaugeBottom + c->popH;
+            int rank2 = st->rank < 0 ? 0 : st->rank > 6 ? 6 : st->rank;
+            // a milestone flashes the number white, then it eases back to the rank colour
+            const float fl = st->mileMs >= 0 && st->mileMs < 450 ? 1.f - (float)(st->mileMs / 450.0) : 0.f;
+            const uint32_t rc = SmRankRgbAt(rank2, 0.5f);
+            const uint32_t numC = ((uint32_t)SmMix((rc >> 16) & 255, 255, fl) << 16) | ((uint32_t)SmMix((rc >> 8) & 255, 255, fl) << 8) | SmMix(rc & 255, 255, fl);
+            for (int part = 0; part < 2 && st->combo >= 2 && st->comboA > 0.f; ++part) {
+                SelectObject(tdc, part ? fw : fn);
+                memset(tpx, 0, (size_t)TW * TH * 4);
+                RECT r = {x0 + (part ? (int)s1.cx : 0), part ? (int)(s1.cy - s2.cy) - (int)(c->cp * 0.08f) : 0, TW, TH};
+                DrawTextA(tdc, part ? word : num, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+                SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, st->comboA * 0.8f);  // shadow
+                SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0xE6EAF0u : numC, st->comboA);
+            }
+            if (st->mileA > 0.f && st->mile > 0) {  // "20 Hit Combo! +40": hits in gold, bonus in white-silver, under the counter
+                SelectObject(tdc, fm);
+                char l1[40], l2[16]; snprintf(l1, sizeof l1, "%d Hit Combo!", st->mile); snprintf(l2, sizeof l2, " +%d", st->milePts);
+                SIZE a1 = {0, 0}, a2 = {0, 0}; GetTextExtentPoint32A(tdc, l1, (int)strlen(l1), &a1); GetTextExtentPoint32A(tdc, l2, (int)strlen(l2), &a2);
+                const float in = st->mileMs < 180 ? (float)(st->mileMs / 180.0) : 1.f;
+                const int mx0 = (TW - (int)(a1.cx + a2.cx)) / 2, my = oy + (int)(c->cp * 1.2f) + (int)((1.f - in) * c->pp * 0.6f);
+                for (int part = 0; part < 2; ++part) {
+                    memset(tpx, 0, (size_t)TW * TH * 4);
+                    RECT r = {mx0 + (part ? (int)a1.cx : 0), 0, TW, TH}; DrawTextA(tdc, part ? l2 : l1, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, my + 2, 0x000000, st->mileA * in * 0.8f);
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox, my, part ? 0xE6EAF0u : 0xFFD27Au, st->mileA * in);
+                }
+            }
+            SelectObject(tdc, of); SelectObject(tdc, ob);
+        }
+        if (fn) DeleteObject(fn);
+        if (fw) DeleteObject(fw);
+        if (fm) DeleteObject(fm);
         if (tb) DeleteObject(tb);
         if (tdc) DeleteDC(tdc);
     }

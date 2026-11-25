@@ -13,14 +13,18 @@
 // Sprites: style/rank_atlas.png (approved set #126376) embedded with .incbin, decoded once with WIC (ole32 loaded at run time; no new link deps).
 #include "style_meter.h"
 #include "style_meter_fx.h"  // #127085 pop-ups + motion
+#include "style_result.h"    // boss fight result card (average rank first boss hit -> boss death)
 #include "style_atlas_gen.h"
 #define COBJMACROS
 #include <wincodec.h>
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
+#define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
+#define SM_DEF_Y 270
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
+static int g_cfg_sm_ingame = 1;  // DrawInGame: 1 = meter + result card drawn into the game's frames by Nioh3EngineFix (OBS Game Capture records them)
 static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen (rank D, empty bar) between hits
 #define SM_BAR_HK_DEF 1.7f  // = style_meter_draw.h default (#127273)
 static float g_sm_bar_hk = SM_BAR_HK_DEF;  // human #129225 [StyleMeter] BarHeightPct (100 = 1.7x sprite gauge height), live
@@ -48,6 +52,15 @@ static void SmFxPop2(const char* label, float pts, float bonus) {
 }
 static void SmFxPop(const char* label, float pts) { SmFxPop2(label, pts, 0.f); }
 static HWND g_sm_game;
+// Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
+static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
+static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr_hitpen = SR_HIT_PENALTY; static int g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
+static SrFight g_sr; static int g_sr_hp0[SR_BOSSES];
+static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
+static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
+static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
+static SrResult g_sr_card; static double g_sr_cardT = -1e18; static LONG g_sr_cardGen;
+static HWND g_sr_wnd;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
     g_cfg_sm_x = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterX", -1, ini); if (g_cfg_sm_x < -1 || g_cfg_sm_x > 1100) g_cfg_sm_x = -1;  // human #129276: >1000 lets the visible bar reach the mini map edge (box padding hangs off-screen)
@@ -66,10 +79,25 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_popms = (int)GetPrivateProfileIntA("StyleMeter", "PopUpMs", SM_POP_LIFE_MS, ini); if (g_cfg_sm_popms < 300 || g_cfg_sm_popms > 5000) g_cfg_sm_popms = SM_POP_LIFE_MS;
     g_cfg_sm_shakepts = (int)GetPrivateProfileIntA("StyleMeter", "ShakePts", SM_SHAKE_PTS, ini); if (g_cfg_sm_shakepts < 1) g_cfg_sm_shakepts = SM_SHAKE_PTS;  // #127003: on with the style meter (SmFeed only runs when StyleMeter=1)
     g_cfg_sm_scale = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterScale", 100, ini); if (g_cfg_sm_scale < 25 || g_cfg_sm_scale > 400) g_cfg_sm_scale = 100;
+    g_cfg_sm_ingame = (int)GetPrivateProfileIntA("StyleMeter", "DrawInGame", 1, ini) != 0;
     g_cfg_sm_alpha = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterOpacity", 100, ini); if (g_cfg_sm_alpha < 20 || g_cfg_sm_alpha > 100) g_cfg_sm_alpha = 100;
+    g_cfg_sr = (int)GetPrivateProfileIntA("StyleMeter", "ResultCard", 1, ini) ? 1 : 0;
+    g_cfg_sr_hitpen = (int)GetPrivateProfileIntA("StyleMeter", "ResultHitPenalty", SR_HIT_PENALTY, ini); if (g_cfg_sr_hitpen < 0 || g_cfg_sr_hitpen > 700) g_cfg_sr_hitpen = SR_HIT_PENALTY;
+    g_cfg_sr_scale = (int)GetPrivateProfileIntA("StyleMeter", "ResultScalePct", SR_SCALE_PCT, ini); if (g_cfg_sr_scale < 50 || g_cfg_sr_scale > 300) g_cfg_sr_scale = SR_SCALE_PCT;
+    g_cfg_sr_hold = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPct", SR_HOLD_PCT, ini); if (g_cfg_sr_hold < 0 || g_cfg_sr_hold > 100) g_cfg_sr_hold = SR_HOLD_PCT;
+    g_cfg_sr_delay = (int)GetPrivateProfileIntA("StyleMeter", "ResultEndDelayMs", SR_END_DELAY_MS, ini); if (g_cfg_sr_delay < 0 || g_cfg_sr_delay > 20000) g_cfg_sr_delay = SR_END_DELAY_MS;
+    g_cfg_sr_show = (int)GetPrivateProfileIntA("StyleMeter", "ResultShowMs", SR_SHOW_MS, ini); if (g_cfg_sr_show != 0 && (g_cfg_sr_show < 2000 || g_cfg_sr_show > 600000)) g_cfg_sr_show = SR_SHOW_MS;  // 0 = until confirm
     SmCfg c; SmCfgDefaults(&c);
     c.hit = (float)(int)GetPrivateProfileIntA("StyleMeter", "HitPts", SM_HIT_PTS, ini);
     c.dodge = (float)(int)GetPrivateProfileIntA("StyleMeter", "DodgePts", SM_DODGE_PTS, ini);
+    c.deflect = (float)(int)GetPrivateProfileIntA("StyleMeter", "DeflectPts", SM_DEFLECT_PTS, ini);
+    {   // DeflectSkill = "0x67D2" or a comma list of skill words (hex) that are the universal deflect; empty / bad = the default
+        char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "DeflectSkill", "", buf, sizeof buf, ini);
+        uint32_t v[SM_DEFLECT_SKILLS]; int n = 0; const char* p = buf;
+        while (*p && n < SM_DEFLECT_SKILLS) { while (*p == ' ' || *p == ',') ++p; if (!*p) break; char* e; const unsigned long x = strtoul(p, &e, 16); if (e == p || x == 0 || x > 0xFFFF) { n = -1; break; } v[n++] = (uint32_t)x; p = e; }
+        if (n > 0) { for (int i = 0; i < n; ++i) g_sm_defl[i] = v[i]; g_sm_ndefl = n; }
+        else { g_sm_defl[0] = SM_DEFLECT_SKILL; g_sm_ndefl = 1; if (buf[0]) Log("STYLE METER: DeflectSkill '%s' ignored (hex skill words, e.g. 0x67D2)", buf); }
+    }
     c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
     c.kiPerfect = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPerfectPts", SM_KI_PERFECT_PTS, ini);  // #127075
     c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
@@ -94,8 +122,13 @@ static void SmReadIni(const char* ini, int reset) {
     c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
     c.swap = (float)(int)GetPrivateProfileIntA("StyleMeter", "WeaponSwapPts", SM_SWAP_PTS, ini);          // #127057
     c.swapMs = (int)GetPrivateProfileIntA("StyleMeter", "WeaponSwapMs", SM_SWAP_MS, ini);
+    c.switchMs = (int)GetPrivateProfileIntA("StyleMeter", "WeaponSwitchMs", SM_SWITCH_MS, ini);
     c.gs = (float)(int)GetPrivateProfileIntA("StyleMeter", "GuardianSpiritPts", SM_GS_PTS, ini);         // #127213
     c.gsMs = (int)GetPrivateProfileIntA("StyleMeter", "GuardianSpiritMs", SM_GS_MS, ini);
+    c.gsSummonMs = (int)GetPrivateProfileIntA("StyleMeter", "GuardianSummonMs", SM_GS_SUMMON_MS, ini);
+    c.comboMs = (int)GetPrivateProfileIntA("StyleMeter", "ComboMs", SM_COMBO_MS, ini); c.comboStep = (int)GetPrivateProfileIntA("StyleMeter", "ComboStep", SM_COMBO_STEP, ini);
+    c.comboBase = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonus", SM_COMBO_BASE, ini); c.comboInc = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusStep", SM_COMBO_INC, ini);
+    c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
@@ -156,8 +189,9 @@ static const SmMenuKey sm_menu_keys[] = {
     {"NinjutsuPts", SM_NIN_PTS, 0, 200}, {"SoulCorePts", SM_SOUL_PTS, 0, 200}, {"StyleSwitchPts", SM_STYLE_PTS, 0, 200},
     {"WeaponSwapPts", SM_SWAP_PTS, 0, 200}, {"StartupBonusPct", SM_STARTUP_PCT, 0, 500}, {"RepeatPct", SM_REPEAT_PCT, 0, 100},
     {"DecayRampPct", SM_DECAY_RAMP_PCT, 0, 200},
-    {"StyleMeterX", 880, 0, 1100, 1}, {"StyleMeterY", 352, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (880/352 = the -1 default place)
+    {"StyleMeterX", SM_DEF_X, 0, 1100, 1}, {"StyleMeterY", SM_DEF_Y, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (SM_DEF_X / Y = the -1 default place)
     {"AlwaysOn", 0, 0, 1},  // human #129172 index 23
+    {"ResultCard", 1, 0, 1},  // index 24: boss fight result card (style_result.h)
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
 static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
@@ -194,7 +228,16 @@ static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
             if (atk != me) InterlockedIncrement(&g_sm_taken);
             return;
         }
-        if (((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) == me) InterlockedIncrement(&g_sm_hits);
+        const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
+        int ally = 0;
+        if (atk && atk != me) { const int tm = ActorTeam(me); ally = tm >= 0 && ActorTeam(atk) == tm; }  // human: summoned guardian spirit (filtered by SmFeed's summon window)
+        if (atk == me || ally) {
+            InterlockedIncrement(atk == me ? &g_sm_hits : &g_sm_allyHits);
+            if (g_cfg_sr) for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss
+                const uint64_t a = g_slot_act[s]; uint64_t bs = 0;
+                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) { InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); break; }
+            }
+        }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
 }
 // FpTick, before FmFeed: an enemy (boss slot) hit window is open this tick (same rule as the frame meter's 'active' cell).
@@ -422,6 +465,11 @@ static void SmFeed(double gdt) {
     const int gsMark = pl ? SmGsStep(&gsm, g_sm_clock, run, sfCur, g_smc.gsMs) : 0;
     if (!pl) SmGsReset(&gsm);
     if (run != gsPtsRun) { gsPtsRun = run; gsPts = 0.f; }
+    static SmSummon gsum; static int gsumInit;
+    if (!gsumInit) { gsumInit = 1; SmSummonReset(&gsum); }
+    if (gsMark) SmSummonOpen(&gsum, g_sm_clock, run, act);  // any guardian spirit spend: its spirit's own hits may follow
+    const LONG allyHits = InterlockedExchange(&g_sm_allyHits, 0), allyMask = InterlockedExchange(&g_sr_allyMask, 0);
+    const int summonLive = SmSummonLive(&gsum, &g_smc, g_sm_clock);
     // #127295 martial art: the move's action row carries the game's skill word (SmSkillWord) and it is not a guardian spirit / ninjutsu move
     static SmMaMove mam; static uint64_t ninRun; static int ninMove;
     if (run != ninRun) { ninRun = run; ninMove = 0; }
@@ -455,19 +503,54 @@ static void SmFeed(double gdt) {
     }
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
     const int fight = g_pst_live != 0;
+    // Dodge / Deflect / Counter. Deflect: the move's action-row skill word (SmSkillWord) is in DeflectSkill (the universal Samurai deflect;
+    // the deflect-guard bytes ctrl+0xEA7 / +0xEA8 of the outside model #37168 never came up live, so they are only logged). Other skill
+    // move (counter): any other skill word, or this move spent Spirit Force (guardian spirit) / a ninjutsu gauge. Every clean avoid also logs the guard bytes seen in its window and how far the player moved
+    // (actor+0x110 position), so a short live session can confirm the signal or replace it.
+    uint8_t avNow = 0;  // bit 0 ea5 auto-guard, 1 ea7, 2 ea8 (deflect guard), 3 eaa
+    if (pl && g_fp[FP_PL].ctrl) { const uint64_t c = g_fp[FP_PL].ctrl;
+        __try { avNow = (uint8_t)((*(volatile uint8_t*)(c + 0xEA5) ? 1 : 0) | (*(volatile uint8_t*)(c + 0xEA7) ? 2 : 0) | (*(volatile uint8_t*)(c + 0xEA8) ? 4 : 0) | (*(volatile uint8_t*)(c + 0xEAA) ? 8 : 0)); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { avNow = 0; } }
+    int deflectNow = 0;
+    if (pl && skill > 0) for (int i = 0; i < g_sm_ndefl; ++i) if ((skw & 0xFFFFu) == g_sm_defl[i]) deflectNow = 1;
+    const int skillNow = pl && !deflectNow && (skill > 0 || gsm.gs || ninMove);
+    static uint64_t ctrPaidRun;  // the move that already counted as a counter (hit counter or avoid counter: one per move)
+    static int avIn; static uint8_t avFl; static float avP0[3], avMove; static int avHave;
+    {   float p3[3]; int hp = 0;
+        if (pl) __try { for (int k = 0; k < 3; ++k) p3[k] = *(volatile float*)(g_fp[FP_PL].a + 0x110 + 4 * k); hp = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { hp = 0; }
+        if (g_sm_enemy && !avIn) { avIn = 1; avFl = 0; avMove = 0.f; avHave = hp; if (hp) memcpy(avP0, p3, sizeof avP0); }
+        if (avIn || g_sm.dodge.inWin) { avFl |= avNow;
+            if (hp && avHave) { const float dx = p3[0] - avP0[0], dy = p3[1] - avP0[1], dz = p3[2] - avP0[2]; const float d = sqrtf(dx * dx + dy * dy + dz * dz); if (d > avMove) avMove = d; } }
+    }
+    uint64_t srHit[SR_BOSSES]; int nSrHit = 0;
+    {   const LONG m = InterlockedExchange(&g_sr_hitMask, 0) | (summonLive ? allyMask : 0);
+        if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) { const uint64_t a = BvActor(s); if (a) srHit[nSrHit++] = a; }
+        if (!g_cfg_sr && g_sr.on) SrReset(&g_sr);
+    }
+    const int srWas = g_sr.on;
     AcquireSRWLockExclusive(&g_sm_lock);
+    for (int i = 0; i < nSrHit; ++i) { const int k = SrBossIdx(&g_sr, srHit[i]); SrBossHit(&g_sr, &g_sm, srHit[i]); if (k < 0) { const int j = SrBossIdx(&g_sr, srHit[i]); if (j >= 0) g_sr_hp0[j] = 0; } }
     const int r0 = g_sm.rank, a0 = g_sm.active;
-    const int dodge = SmDodgeStep(&g_sm.dodge, g_sm_enemy, ifr, taken > 0);
+    const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
+    const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr);
-    const float psw = hits > 0 ? SmSwapHit(&g_sm, &g_smc, g_sm_clock, rsT) : 0.f;
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
+    (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
+    const float psw = hits > 0 ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     if (gsMark) g_sm.gsUses++;
     gsPts += ph;
-    const float pgs = SmGsPay(&g_sm, &g_smc, &gsm, g_sm_clock, gsPts);  // #127213 value = the move's own points so far
+    const float pgs0 = SmGsPay(&g_sm, &g_smc, &gsm, g_sm_clock, gsPts);  // #127213 value = the move's own points so far
+    if (pgs0 > 0.f && gsm.run == gsum.run) gsum.paid = 1;  // the player's own hits paid this move's bonus
+    float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
+    const float pgs = pgs0 + sumB;
+    // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
+    if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
+    // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
+    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)hits + (summonLive ? (int)allyHits : 0), &comboMile);
     if (maMark) g_sm.maUses++;
     const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
     if (pma > 0.f) g_sm_maRun = run;
@@ -476,35 +559,86 @@ static void SmFeed(double gdt) {
     for (LONG i = 0; i < soul && i < 8; ++i) pc = (pc < 0 ? 0 : pc) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 1);
     if (sty) ps = SmOnStyle(&g_sm, &g_smc, g_sm_clock);
     if (ki) pk = SmOnKiEx(&g_sm, &g_smc, g_sm_clock, kiPerf);
+    float pp = -1.f;
     if (dodge) pd = SmOnDodge(&g_sm, &g_smc, g_sm_clock);
+    if (ctrHit) ctrPaidRun = run;
+    if (deflect) pp = SmOnDeflect(&g_sm, &g_smc, g_sm_clock);
+    float pac = -1.f;
+    if (avCtr) { pac = SmOnAvoidCounter(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun); ctrPaidRun = run; }
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
+    SmComboTick(&g_sm, &g_smc, g_sm_clock);
+    InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
+    if (g_sr.on) {  // fight result: moves that landed, martial arts that scored, then this tick's time at the meter's value
+        if (hits > 0) SrMove(&g_sr, act);
+        if (pma > 0.f) SrMartialArt(&g_sr, act);
+        SrTick(&g_sr, &g_sm, &g_smc, dt);
+    }
+    SrResult srRes; int srDone = 0;
     const int vis = pl && (g_cfg_sm_always || SmVisible(&g_sm, &g_smc, g_sm_clock, fight));  // human #129172
     const int r1 = g_sm.rank, a1 = g_sm.active; const float gg = SmGauge(&g_sm, &g_smc);
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
+    if (g_sr.on) {  // boss deaths / player death / a boss leaving alive (actor table reads, still under the lock for SrFinish's counters)
+        SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+        for (int i = 0; i < g_sr.nBoss; ++i) {
+            const uint64_t a = g_sr.boss[i];
+            if (!ActorInTable(a)) { now[i].gone = 1; now[i].dead = g_sr_hp0[i]; continue; }
+            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx);
+            now[i].dead = d; g_sr_hp0[i] = mx && c == 0;
+        }
+        int other = 0;
+        for (int s = 0; s < N3T_SLOTS && !other; ++s) {
+            if (!g_slot_act[s]) continue;
+            const uint64_t a = BvActor(s); if (!a || SrBossIdx(&g_sr, a) >= 0) continue;
+            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx); if (!d && !(mx && c == 0)) other = 1;
+        }
+        int pdead = 0;
+        if (!g_sr.ending) {  // once every boss is down the result stands (dying after the kill still gets the card)
+            const uint64_t me = PlayerChar(); const uint8_t* lgs = GameState();
+            if (!me || (lgs && lgs[2])) pdead = 1;
+            else { int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); pdead = d; }
+        }
+        const int st = SrStep(&g_sr, now, pdead, other, SmWallMs(), g_cfg_sr_delay);
+        if (st == 1) Log("STYLE RESULT: every boss of the fight is down, card in %d ms unless a next boss / form is hit", g_cfg_sr_delay);
+        else if (st == 2) { srRes = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen); srDone = 1; SrReset(&g_sr); }
+        else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s, %.1f s in)", pdead ? "player died or left" : "a boss left without dying", g_sr.ms / 1000.0); SrReset(&g_sr); }
+    }
     ReleaseSRWLockExclusive(&g_sm_lock);
+    if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
+    if (srDone) {
+        char b[700]; SrFmt(b, sizeof b, &srRes); Log("STYLE RESULT: %s", b);
+        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+    }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
-        if (ctrHit && g_smc.counter > 0.f) { SmFxPop2("Counter", ph - g_smc.counter > 0.f ? ph - g_smc.counter : 0.f, g_smc.counter); big += g_smc.counter; }  // #127171 hit value, then the counter bonus
+        if (ctrHit && g_smc.counter > 0.f) { SmFxPop2("Counter!", ph - g_smc.counter > 0.f ? ph - g_smc.counter : 0.f, g_smc.counter); big += g_smc.counter; }  // #127171 hit value, then the counter bonus
         if (pk > 0.f) { const int pf = kiPerf && g_smc.kiPerfect > 0.f && pk > g_smc.kiPerfect; SmFxPop2(pf ? "Perfect Ki" : "Ki Pulse", pf ? pk - g_smc.kiPerfect : pk, pf ? g_smc.kiPerfect : 0.f); big += pk; }
-        if (pd > 0.f) { SmFxPop("Clean Dodge", pd); big += pd; }
+        if (pd > 0.f) { SmFxPop("Dodge!", pd); big += pd; }
+        if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
+        if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
-        if (psw > 0.f) { SmFxPop2("Weapon Swap", ph, psw); big += psw; }  // the swap attack's hit value, then the swap bonus
-        if (pgs > 0.f) { SmFxPop2("Guardian Spirit", gsPts, pgs); big += pgs; }  // #127213 the skill's own points, then the bonus
+        if (psw > 0.f) { SmFxPop2("Weapon Switch", ph, psw); big += psw; }  // the swap attack's hit value, then the swap bonus
+        if (pgs0 > 0.f) { SmFxPop2("Guardian Spirit", gsPts, pgs0); big += pgs0; }  // #127213 the skill's own points, then the bonus
+        if (sumB > 0.f) { SmFxPop2("Guardian Spirit", psum, sumB); big += sumB; }  // human: summoned spirit's first hit (its points, then the bonus)
+        if (pcombo > 0.f) {  // human: announced under the combo counter (not a pop-up line, which got lost among the others)
+            InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
+            big += pcombo; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
-    if (hits > 0 || ki || dodge || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
+    if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
         static int evl;
         if (evl++ < 4000) {
             char e[400]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
+            if (allyHits > 0) n += snprintf(e + n, sizeof e - n, summonLive ? " summoned spirit hit x%ld +%.1f" : " ally hit x%ld (no summon window, not scored)", (long)allyHits, psum);
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
             if (swapEv) n += snprintf(e + n, sizeof e - n, " weapon slot -> %d", wslot);
-            if (psw > 0.f) n += snprintf(e + n, sizeof e - n, " swap attack +%.0f", psw);
+            if (psw > 0.f) n += snprintf(e + n, sizeof e - n, " weapon switch +%.0f", psw);
             if (gsMark) n += snprintf(e + n, sizeof e - n, " spirit force %.1f->%.1f/%.1f", gsm.base, sfCur, sfMax);
             if (pgs > 0.f) n += snprintf(e + n, sizeof e - n, " guardian spirit +%.0f", pgs);
             if (maMark) n += snprintf(e + n, sizeof e - n, " skill row 0x%X%s", skw, mam.other ? " (guardian spirit / ninjutsu move)" : "");
@@ -513,7 +647,8 @@ static void SmFeed(double gdt) {
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki%s +%.0f", kiPerf ? " perfect" : "", pk);
             else if (ki) n += snprintf(e + n, sizeof e - n, " ki +0 (no hit in %d ms)", g_smc.kiHitMs);
-            if (dodge) n += snprintf(e + n, sizeof e - n, " dodge +%.0f", pd);
+            if (avoid) n += snprintf(e + n, sizeof e - n, " %s +%.0f (guard bytes ea5 %d ea7 %d ea8 %d eaa %d, moved %.2f m, skill move %d word 0x%X)", deflect ? "deflect" : avCtr ? "counter (avoid)" : "dodge", deflect ? pp : avCtr ? pac : pd,
+                avFl & 1, (avFl >> 1) & 1, (avFl >> 2) & 1, (avFl >> 3) & 1, avMove / 100.f, g_sm.dodge.sawSkill, skw);
             if (taken > 0) n += snprintf(e + n, sizeof e - n, " damaged x%ld", (long)taken);
             Log("STYLE EVENT: t %.0f act %u%s -> %s%s %.0f/%.0f", g_sm_clock, act, e, sm_rank_name[r1], a1 ? "" : " (idle)", gp, g_smc.rankPts[r1]);
         }
@@ -524,17 +659,42 @@ static void SmFeed(double gdt) {
         if (lines++ < 400) Log("STYLE METER: rank %s%s -> %s%s (hits %u dodges %u ki %u damaged %u, fight %d, act %u)", sm_rank_name[r0], a0 ? "" : " (idle)",
             sm_rank_name[r1], a1 ? "" : " (idle)", nh, nd, nk, nt, fight, act);
     }
+    if (!g_sm_enemy && !g_sm.dodge.inWin) avIn = 0;
     // FmFeed's early return (frame meter off) leaves the hook's pulses set; they are consumed here so a stale pulse is not a window next tick
     for (int s = 0; s <= N3T_SLOTS; ++s) g_fp[s].pulse = g_fp[s].pulseUb = g_fp[s].pulseGrab = 0;
 }
 // ---- drawing (own thread) ----
 #include "style_meter_draw.h"
+#include "style_result_draw.h"
 static BOOL CALLBACK SmFind(HWND h, LPARAM lp) { (void)lp;
-    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_sm_wnd || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_sm_wnd || h == g_sr_wnd || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
     g_sm_game = h; return FALSE;
 }
-static void SmRender(HWND wnd, const SmCanvas* c, const SmDrawSt* st) {
+// In-game drawing (DrawInGame = 1): the finished bitmap goes to Nioh3EngineFix, which draws it into the game's own frame, so OBS Game
+// Capture, the Steam recorder and screenshots include it (a topmost window over the game is not part of the game's image). Without
+// Nioh3EngineFix, or while its overlay is not drawing, the meter and the card use their own topmost windows as before.
+typedef int (*EfLayerSetFn)(int id, int x, int y, int w, int h, int refW, int refH, const void* px, int stride, float alpha);
+static EfLayerSetFn p_efLayerSet; static void (*p_efLayerHide)(int); static int (*p_efLayerLive)(void);
+enum { SM_LAYER_METER = 0, SM_LAYER_CARD = 1 };
+static int SmLayerOk(void) {
+    static ULONGLONG nextTry; static int said = -1;
+    if (!g_cfg_sm_ingame) return 0;
+    if (!p_efLayerSet) {
+        const ULONGLONG t = GetTickCount64(); if (t < nextTry) return 0; nextTry = t + 3000;
+        HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
+        if (!ef) return 0;
+        p_efLayerHide = (void (*)(int))GetProcAddress(ef, "Nioh3EngineFix_LayerHide"); p_efLayerLive = (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_LayerLive");
+        EfLayerSetFn set = (EfLayerSetFn)GetProcAddress(ef, "Nioh3EngineFix_LayerSet");
+        if (!set || !p_efLayerHide || !p_efLayerLive) { if (said != 2) { said = 2; Log("STYLE METER: Nioh3EngineFix has no layer API (older version) - own window, not recorded by OBS Game Capture"); } nextTry = t + 600000; return 0; }
+        p_efLayerSet = set;
+    }
+    const int live = p_efLayerLive() != 0;
+    if (live != said) { said = live; Log(live ? "STYLE METER: drawing into the game's frames through Nioh3EngineFix (OBS Game Capture records it)" : "STYLE METER: Nioh3EngineFix overlay not drawing - own window"); }
+    return live;
+}
+static void SmLayerHide(int id) { if (p_efLayerHide) p_efLayerHide(id); }
+static void SmRender(HWND wnd, const SmCanvas* c, const SmDrawSt* st, int lay, int cx, int cy, int refW, int refH) {
     const int w = c->w, h = c->h;
     HDC scr = GetDC(0), mem = CreateCompatibleDC(scr);
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
@@ -548,7 +708,8 @@ static void SmRender(HWND wnd, const SmCanvas* c, const SmDrawSt* st) {
         GdiFlush();
         POINT src = {0, 0}; SIZE sz = {w, h};
         BLENDFUNCTION bf = {AC_SRC_OVER, 0, (BYTE)(255 * g_cfg_sm_alpha / 100), AC_SRC_ALPHA};  // human #128855 opacity
-        UpdateLayeredWindow(wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
+        if (lay) p_efLayerSet(SM_LAYER_METER, cx, cy, w, h, refW, refH, px, w * 4, (float)g_cfg_sm_alpha / 100.f);
+        else UpdateLayeredWindow(wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
         SelectObject(mem, ob);
     }
     if (bmp) DeleteObject(bmp);
@@ -559,6 +720,77 @@ static LRESULT CALLBACK SmProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_PAINT) { PAINTSTRUCT ps; BeginPaint(h, &ps); EndPaint(h, &ps); return 0; }
     return DefWindowProcW(h, msg, wp, lp);
 }
+// Confirm for the result card: XInput A on any pad (xinput1_4 directly, like SmPadNow; Steam Input presents PlayStation pads as XInput, so
+// Cross works through it), or Enter on the keyboard. Polled from the draw thread only while the game window is in front.
+static int SrConfirmDown(void) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (GetAsyncKeyState(VK_RETURN) & 0x8000) return 1;
+    if (xgs) for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x1000)) return 1; }  // XINPUT_GAMEPAD_A
+    return 0;
+}
+// Result card window (draw thread): shows the newest g_sr_card until the player presses confirm (A / Enter; ResultShowMs > 0 also times it
+// out), centred near the top of the game window. While the game is unfocused, loading or in a menu the card hides and comes back after.
+// The panel is composed once per card / size; only the grade letter's motion is redrawn, then just the fade.
+static void SrCardTick(int ok, int lay) {
+    static LONG gen; static SrResult r; static double t0 = -1e18, closeT = -1e18; static int shown, w, h, settled, closed = 1, wasDown = 1, sawUp, wasLay = -1, dirty;
+    static HDC mem; static HBITMAP bmp; static uint32_t* px; static uint32_t* base; static RECT last;
+    AcquireSRWLockShared(&g_smfx_lock);
+    if (g_sr_cardGen != gen) { gen = g_sr_cardGen; r = g_sr_card; t0 = g_sr_cardT; w = 0; closed = 0; wasDown = 1; sawUp = 0; }
+    ReleaseSRWLockShared(&g_smfx_lock);
+    const double now = SmWallMs(), age = now - t0;
+    if (!closed && ok && shown && age >= SR_ARM_MS) {
+        if (SrConfirmEdge(SrConfirmDown(), &wasDown, &sawUp)) { closed = 1; closeT = now; Log("STYLE RESULT: card closed by the player (confirm)"); }
+    } else if (!closed) wasDown = 1;  // a press must start while the card is up and armed
+    const float a = SrCardAlpha(age, g_cfg_sr_show, closed ? now - closeT : -1.0);
+    if (lay != wasLay) { if (shown) { if (wasLay == 1) SmLayerHide(SM_LAYER_CARD); else if (g_sr_wnd) ShowWindow(g_sr_wnd, SW_HIDE); } shown = 0; dirty = 1; wasLay = lay; }
+    if (!ok || a <= 0.f || !g_cfg_sr || !g_sm_game) { if (shown) { if (lay) SmLayerHide(SM_LAYER_CARD); else ShowWindow(g_sr_wnd, SW_HIDE); shown = 0; } return; }
+    if (!g_sr_wnd) {
+        WNDCLASSEXW wc = {sizeof wc}; wc.lpfnWndProc = SmProc; wc.hInstance = GetModuleHandleW(0); wc.lpszClassName = L"Nioh3TrainingStyleResult";
+        RegisterClassExW(&wc);
+        g_sr_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
+        if (!g_sr_wnd) { Log("STYLE RESULT: card window failed (%lu)", GetLastError()); g_cfg_sr = 0; return; }
+    }
+    RECT cr; GetClientRect(g_sm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_sm_game, &o);
+    if (cr.right <= 0 || cr.bottom <= 0) return;
+    int pct = g_cfg_sr_scale;  // ResultScalePct (its own size, not the meter's), but always fits the window
+    { const float kf = (float)cr.bottom / 1080.f, mx1 = 0.9f * cr.bottom / SR_CARD_H / kf * 100.f, mx2 = 0.9f * cr.right / SR_CARD_W / kf * 100.f;
+      if (pct > mx1) pct = (int)mx1; if (pct > mx2) pct = (int)mx2; }
+    const SrGeo g = SrGeom(cr.bottom, pct);
+    if (g.w != w || g.h != h || !mem) {
+        if (bmp) DeleteObject(bmp); if (mem) DeleteDC(mem); free(base); bmp = 0; mem = 0; base = 0; px = 0;
+        BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+        bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = g.w; bi.bmiHeader.biHeight = -g.h;
+        bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+        HDC scr = GetDC(0); mem = CreateCompatibleDC(scr); ReleaseDC(0, scr);
+        bmp = mem ? CreateDIBSection(mem, &bi, DIB_RGB_COLORS, (void**)&px, 0, 0) : 0;
+        base = (uint32_t*)malloc((size_t)g.w * g.h * 4);
+        if (!bmp || !px || !base) { if (bmp) DeleteObject(bmp); if (mem) DeleteDC(mem); free(base); bmp = 0; mem = 0; base = 0; px = 0; w = 0; return; }
+        SelectObject(mem, bmp);
+        __try { SrComposeBase(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(px, 0, (size_t)g.w * g.h * 4); }
+        memcpy(base, px, (size_t)g.w * g.h * 4);
+        w = g.w; h = g.h; settled = 0; dirty = 1;
+    }
+    if (!settled) {
+        __try { SrComposeFrame(mem, px, base, &g, &r, age); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); }
+        if (age > SR_FADE_IN_MS + SM_UP_MS + 200) settled = 1;  // the letter's motion is over: the frame stays as it is
+        dirty = 1;
+    }
+    const RECT want_r = {o.x + (cr.right - g.w) / 2, o.y + (cr.bottom - g.h) / 2, 0, 0};  // centred
+    const float alpha = a * (float)g_cfg_sm_alpha / 100.f;
+    if (lay) {  // in-game: the image only when it changed; otherwise just the fade / position / keep-alive
+        GdiFlush();
+        if (p_efLayerSet(SM_LAYER_CARD, want_r.left - o.x, want_r.top - o.y, g.w, g.h, cr.right, cr.bottom, dirty ? (const void*)px : 0, g.w * 4, alpha) || !dirty) dirty = 0;
+        shown = 1; last = want_r;
+        return;
+    }
+    if (!shown || want_r.left != last.left || want_r.top != last.top) {
+        SetWindowPos(g_sr_wnd, HWND_TOPMOST, want_r.left, want_r.top, g.w, g.h, SWP_NOACTIVATE | SWP_SHOWWINDOW); last = want_r; shown = 1; }
+    HDC scr = GetDC(0); POINT src = {0, 0}; SIZE sz = {g.w, g.h};
+    BLENDFUNCTION bf = {AC_SRC_OVER, 0, (BYTE)(255.f * alpha), AC_SRC_ALPHA};
+    UpdateLayeredWindow(g_sr_wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
+    ReleaseDC(0, scr);
+}
 static DWORD WINAPI SmThread(LPVOID p) {
     (void)p;
     __try { SmAtlasLoad(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_sm_atlas_dc = 0; Log("STYLE METER: atlas decode faulted, text fallback"); }
@@ -567,7 +799,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
     g_sm_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
     if (!g_sm_wnd) { Log("STYLE METER: overlay window failed (%lu), meter not drawn", GetLastError()); return 0; }
     Log("STYLE METER: overlay window ready");
-    int shown = 0, lastRank = -1, lastGauge = -1, seenRank = -1; RECT last = {0};
+    int shown = 0, lastRank = -1, lastGauge = -1, seenRank = -1, wasLay = 0; RECT last = {0};
     float eased = 0.f; SmShownBar bar = {-1, 0.f}; int upFrom = -1; double lastT = SmWallMs(), rankUpT = -1e18;
     for (;;) {
         Sleep(33);
@@ -577,15 +809,20 @@ static DWORD WINAPI SmThread(LPVOID p) {
         const int gameOk = g_sm_game && !IsIconic(g_sm_game);
         const int fg = gameOk && (GetForegroundWindow() == g_sm_game || g_cfg_fm_unfocused);
         const uint8_t* lgs = GameState(); const int loading = lgs && lgs[2];
-        const int want = g_cfg_sm && g_sm_vis && gameOk && fg && !loading && !GateMenuOpen();
-        if (!want) { if (shown) { ShowWindow(g_sm_wnd, SW_HIDE); shown = 0; } continue; }
+        const int menu = GateMenuOpen();
+        const int lay = SmLayerOk();
+        SrCardTick(g_cfg_sm && gameOk && fg && !loading && !menu, lay);
+        if (lay != wasLay) { if (shown) { if (wasLay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); } shown = 0; wasLay = lay; }
+        const int want = g_cfg_sm && g_sm_vis && gameOk && fg && !loading && !menu;
+        if (!want) { if (shown) { if (lay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_sm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_sm_game, &o);
         if (cr.right <= 0 || cr.bottom <= 0) continue;
         const SmCanvas cv = SmCanvasGeom(cr.bottom, g_cfg_sm_pops); const SmGeo g = cv.g;
-        // default anchor from rank_atlas.json: right edge at 1690/1920 of the width, letter centre at 380/1080 of the height
-        const int rx = g_cfg_sm_x >= 0 ? cr.right * g_cfg_sm_x / 1000 : cr.right * 1690 / 1920;
-        const int cy = g_cfg_sm_y >= 0 ? cr.bottom * g_cfg_sm_y / 1000 : cr.bottom * 380 / 1080;
-        const int left = o.x + rx - g.w, top = o.y + cy - (int)(SM_LETTER_H_1080P * SM_LK * (float)cr.bottom / 1080.f * (float)g_cfg_sm_scale / 100.f) / 2 - g.pad;
+        // human: default place top left, below the game's health / Ki bars and the FPS counter, away from the fight: box right edge at 200/1000
+        // of the width (room for the widest pop-ups), letter centre at 270/1000 of the height
+        const int rx = g_cfg_sm_x >= 0 ? cr.right * g_cfg_sm_x / 1000 : cr.right * SM_DEF_X / 1000;
+        const int cy = g_cfg_sm_y >= 0 ? cr.bottom * g_cfg_sm_y / 1000 : cr.bottom * SM_DEF_Y / 1000;
+        const int left = o.x + rx - g.w, top = o.y + cy - (int)(SM_LETTER_H_1080P * SM_LK * SM_SIZE_K * (float)cr.bottom / 1080.f * (float)g_cfg_sm_scale / 100.f) / 2 - g.pad;
         RECT want_r = {left - cv.mx, top - cv.my, left - cv.mx + cv.w, top - cv.my + cv.h};  // same meter position, margin around it
         const int rank = (int)g_sm_rank, gauge = (int)g_sm_gauge;
         // #127085 motion: rank-up bounce (seen here), shake (big bonus, game thread), glow at S+, eased fill
@@ -606,16 +843,30 @@ static DWORD WINAPI SmThread(LPVOID p) {
             st.scale = 1.f; st.upMs = now - rankUpT; st.prevRank = upFrom; SmShake(now - shakeT, &st.dx, &st.dy); st.glow = 0.f;  // #127149 glow removed
         } else eased = (float)gauge;
         st.gauge = eased;
-        const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS);
+        {   // human: combo counter; after the combo ends the last count fades out over 1 s
+            static int cmbShow; static double cmbEnd = -1.0;
+            const int cmb = (int)g_sm_combo;
+            if (cmb >= 2) { cmbShow = cmb; cmbEnd = -1.0; } else if (cmbShow && cmbEnd < 0) cmbEnd = now;
+            float ca = cmbShow ? (cmbEnd < 0 ? 1.f : 1.f - (float)((now - cmbEnd) / 1000.0)) : 0.f;
+            if (ca <= 0.f) { ca = 0.f; cmbShow = 0; cmbEnd = -1.0; }
+            st.combo = cmbShow; st.comboA = ca;
+            static LONG mileGen; static double mileT = -1e18;  // milestone banner: 1.6 s, then fades over 0.6 s
+            if (g_sm_comboMileGen != mileGen) { mileGen = g_sm_comboMileGen; mileT = now; }
+            const double ma = now - mileT;
+            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts;
+            st.mileA = ma < 0 ? 0.f : ma < 1600 ? 1.f : ma < 2200 ? 1.f - (float)((ma - 1600) / 600.0) : 0.f;
+        }
+        const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS) || (st.comboA > 0.f && st.comboA < 1.f) || (st.mileMs >= 0 && st.mileMs < 2300);
         const int gpx = (int)(sm_atlas_gauge_fill[2] * g.k) * gauge / 1000;  // redraw only when the gauge moves a pixel (or something animates)
         if (!shown || memcmp(&want_r, &last, sizeof last)) {
-            SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, cv.w, cv.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            if (!lay) SetWindowPos(g_sm_wnd, HWND_TOPMOST, want_r.left, want_r.top, cv.w, cv.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want_r; shown = 1; lastRank = -1;
         }
         static int wasAnim, lastAlpha = -1;
-        if (showRank != lastRank || gpx != lastGauge || anim || wasAnim || g_cfg_sm_alpha != lastAlpha) {
-            lastRank = showRank; lastGauge = gpx; wasAnim = anim; lastAlpha = g_cfg_sm_alpha;
-            __try { SmRender(g_sm_wnd, &cv, &st); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-        }
+        static int lastCombo = -1;
+        if (showRank != lastRank || gpx != lastGauge || anim || wasAnim || g_cfg_sm_alpha != lastAlpha || st.combo != lastCombo) {
+            lastRank = showRank; lastGauge = gpx; wasAnim = anim; lastAlpha = g_cfg_sm_alpha; lastCombo = st.combo;
+            __try { SmRender(g_sm_wnd, &cv, &st, lay, want_r.left - o.x, want_r.top - o.y, cr.right, cr.bottom); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        } else if (lay) p_efLayerSet(SM_LAYER_METER, want_r.left - o.x, want_r.top - o.y, cv.w, cv.h, cr.right, cr.bottom, 0, 0, (float)g_cfg_sm_alpha / 100.f);  // keep it alive
     }
 }

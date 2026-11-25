@@ -31,6 +31,7 @@ PUBLIC tg_cap
 PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
 PUBLIC caveHold, vrr_hold60
 PUBLIC vrr_dtShift
+PUBLIC caveHitStop, vrr_hsK, vrr_hsOn, hs_callee
 PUBLIC vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_clampLostNs
 
 .data
@@ -62,6 +63,13 @@ vrr_ovrVal       dd 0           ; last overriding G[620]
 vrr_teFrames     dd 0
 vrr_clampFrames  dd 0
 vrr_dtShift      dd 0
+; HitStopFix (GH #159): the motion hit-stop timers (ctrl+0x3C8 / +0x3D0, drained by 0x7D13EC from the motion step 0x20DAD4)
+; lose a fixed amount per engine frame, sized for the stock frame (1/tier s). While VRR is armed a frame is the real
+; interval, so the drain is scaled by tier * interval: hit-stop then lasts the stock time at any fps instead of N frames.
+vrr_hsK          REAL4 1.0      ; drain scale this frame (1.0 = stock)
+vrr_hsOn         dd 0           ; [VRR] HitStopFix
+hs_callee        dq 0           ; 0x7D13EC (taken from the P11 original call)
+c_tiers          REAL8 30.0, 60.0, 120.0
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
 vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
@@ -215,6 +223,11 @@ sm0:
     mov     dword ptr [vrr_capCur], edx
     cvtsi2sd xmm1, rax
     divsd   xmm1, qword ptr [c_1e9]             ; xmm1 = interval seconds
+    lea     rdx, c_tiers                        ; HitStopFix: k = tier * interval (r9 = this frame's tier index)
+    movsd   xmm0, qword ptr [rdx+r9*8]
+    mulsd   xmm0, xmm1
+    cvtsd2ss xmm0, xmm0
+    movss   dword ptr [vrr_hsK], xmm0
     movsd   xmm0, qword ptr [c_1e9]
     cvtsi2sd xmm2, rax
     divsd   xmm0, xmm2
@@ -263,6 +276,7 @@ l60z:
 lStock:
     mov     qword ptr [vrr_ema], 0              ; DtSmooth restarts from the next armed frame
     mov     dword ptr [vrr_scale], 3F800000h
+    mov     dword ptr [vrr_hsK], 3F800000h
     mov     dword ptr [vrr_fpsOut], 0
     mov     dword ptr [vrr_capCur], r8d
     mov     dword ptr [rdi+614h], r8d           ; the replaced instruction
@@ -337,6 +351,16 @@ caveTier PROC
     mov     eax, dword ptr [vrr_tier]
     ret
 caveTier ENDP
+
+; ---- caveHitStop (P11, GH #159): replaces `call 0x7D13EC` (hit-stop drain, xmm1 = this step's local time) ----------------
+; Same call semantics: scale xmm1 by vrr_hsK (1.0 on stock frames or with HitStopFix=0), then tail-jump to the stock callee.
+caveHitStop PROC
+    cmp     dword ptr [vrr_hsOn], 0
+    je      hsGo
+    mulss   xmm1, dword ptr [vrr_hsK]
+hsGo:
+    jmp     qword ptr [hs_callee]
+caveHitStop ENDP
 
 ; ---- caveHold (P10, HoldWindowFix, GitHub #98): replaces `mov ecx,[rbx+20h]; inc ecx` in the player notice-list walk.
 ; The game ages each notice by 1 per walk (once per frame) and drops it after 30, a window of 0.5 s at 60 fps but only

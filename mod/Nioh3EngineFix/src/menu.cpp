@@ -48,6 +48,7 @@
 #include "osd.h"
 #include "crashreport.h"
 #include "reportsend.h"
+#include "crashupload.h"
 #include "menu_style.h"
 #include "pad_family.h"
 #include "padcard.h"
@@ -842,7 +843,7 @@ bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
 }
 
 // ---- items ----------------------------------------------------------------------------------------------------------
-enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
+enum Id { kVrr, kHitStop, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA, kXBPO, kXW1B, kXRPA, kXAS, kXPJH, kXTR,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
@@ -877,6 +878,7 @@ struct ItemDef {
 #define E_CPU_NEXT "Picture unchanged. Applies at the next launch (save to ini). CPU only: no fps change on the Ally."
 const ItemDef kItems[kCount] = {
     {"Smoother frame pacing", "(VRR)", "Game speed stays real below the fps cap instead of the whole game slowing down.", "Changes timing, not the picture. Applies now. Auto-suspended while an online session is detected (VRROnline)."},
+    {"Fix hit slow-mo", "(HitStopFix)", "After a hit, the short freeze (hit-stop) lasts the game's normal time at any fps instead of longer below the cap.", "Only matters while Smoother frame pacing is on. Changes timing, not the picture. Applies now."},
     {"Message thread sleeps, not spins", "(W3)", "The window-message thread sleeps (<=1 ms) instead of spinning a CPU core.", E_CPU},
     {"Message wait style (Proton)", "(W3 mode)", "Proton only. Sleep 1 ms = few wake-ups; MsgWait = Windows wait (~24k wakes/s on Wine).", "Picture unchanged. Applies now."},
     {"Render wait timeout", "(R1)", "The game thread waits for the GPU with a timeout per round. 0 = stock busy poll.", "Picture unchanged. Applies now. CPU only: no fps change on the Ally."},
@@ -1009,7 +1011,7 @@ const OrderEnt kOrder[] = {
     {kVrs, "Extra performance (changes the look)"}, {kEpPre, nullptr}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
     {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr}, {kEp10, nullptr},
     {kEp11, nullptr}, {kRd, nullptr}, {kSharp, nullptr},
-    {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
+    {kVrr, "Performance fixes (safe)"}, {kHitStop, nullptr}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
     {kXX1, nullptr}, {kXE1, nullptr}, {kXM2, nullptr}, {kXJ1, nullptr}, {kXS1, nullptr}, {kXWG, nullptr}, {kXTG, nullptr},
@@ -1338,7 +1340,7 @@ int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
     if (id == kRd || id == kSharp) return pSGpu;  // #67225 / #67772: with the other look rows, not on the camera page
-    if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
+    if (id == kVrr || id == kHitStop || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine || id == kFwp) return (id == kL1Wine || id == kFwp) ? pSCpu : -1;
     const int sp = SettingsPage(id);
     if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
@@ -1494,14 +1496,16 @@ int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
-    int n = 3 + PageRowsBody(out + 3, selectable);
+    int top = 3;
+    if (g_pages.page == pRoot) out[top++] = kShareDataRow;  // 1.8.41: data-sharing opt-in at the top of the first page
+    int n = top + PageRowsBody(out + top, selectable);
     bool reset = false, ownReset = false;
-    for (int i = 3; i < n; ++i) {
+    for (int i = top; i < n; ++i) {
         reset |= ResettableRow(out[i]);
         ownReset |= out[i] == kCamRowFirst + kCamReset || out[i] == kVrsRowFirst + vrsmenu::kRowReset;
     }
     if (g_pages.page != pRoot && reset && !ownReset) {
-        const bool back = n > 3 && (out[n - 1] == kBackRow || out[n - 1] == kClose);
+        const bool back = n > top && (out[n - 1] == kBackRow || out[n - 1] == kClose);
         if (back) out[n] = out[n - 1];
         out[back ? n - 1 : n] = kResetPageRow; ++n;
     }
@@ -1510,7 +1514,10 @@ int PageRows(int* out, bool selectable) {
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
     return n;
 }
-int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
+int FirstOwnRow(const int* rows, int n) {  // never lands on 'Share data': opting in takes a deliberate move onto it
+    const int i = n > 3 && rows[3] == kShareDataRow ? 4 : 3;
+    return n > i ? rows[i] : n ? rows[0] : kBackRow;
+}
 int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
 
 void EnterPage(int page) {
@@ -1526,6 +1533,7 @@ bool Available(int id) {
     if (id == kVrs) return gpuopt::VrsSupport() == 1;
     switch (id) {
         case kVrr: return g_host.vrrEnable != nullptr;
+        case kHitStop: return g_host.hitStopOn != nullptr;  // GH #159: P11 installed
         case kW3: return g_host.w3Enable != nullptr;
         case kW3Mode: return g_host.w3Enable && g_host.w3UseSleep;
         case kR1: return g_host.r1Timeout != nullptr;
@@ -1566,6 +1574,7 @@ const char* NaText(int id) {
     if (id == kRd) return "render-distance hook was not found - see the log";
     if (id == kEpPre || IsEp(id) || id == kSharp) return "extra-performance hook was not found - see the log";
     if (id == kAutoCont) return "tip-page hook was not found - see the log";
+    if (id == kHitStop) return "hit-stop patch (P11) not installed: needs VRR - see the log";
     if (!g_host.knownBuild) return "this game version is not supported";
     return "hook was not found - see the log";
 }
@@ -1573,6 +1582,7 @@ const char* NaText(int id) {
 bool LiveBool(int id) {
     switch (id) {
         case kVrr: return *g_host.vrrEnable != 0;
+        case kHitStop: return *g_host.hitStopOn != 0;
         case kW3: return *g_host.w3Enable != 0;
         case kW3Mode: return *g_host.w3UseSleep != 0;
         case kL1: return *g_host.l1Enable != 0;
@@ -1726,7 +1736,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = changed ? cYellow : (v ? cGreen : cGray);
     };
     switch (id) {
-        case kVrr: case kW3: case kL1: case kF1: case kWk: onoff(LiveBool(id)); break;
+        case kVrr: case kHitStop: case kW3: case kL1: case kF1: case kWk: onoff(LiveBool(id)); break;
         case kW3Mode:
             snprintf(buf, n, "%s", *g_host.w3UseSleep ? "Sleep 1 ms" : "MsgWait");
             color = *g_host.w3UseSleep ? cGreen : cYellow;
@@ -1819,6 +1829,7 @@ void StartSave() {
     };
     auto b = [](bool v) { return std::wstring(v ? L"1" : L"0"); };
     if (Available(kVrr)) add(L"Patches", L"VRR", b(LiveBool(kVrr)));
+    if (Available(kHitStop)) add(L"VRR", L"HitStopFix", b(LiveBool(kHitStop)));  // GH #159
     if (Available(kW3)) add(L"Patches", L"W3", b(LiveBool(kW3)));
     if (Visible(kW3Mode) && Available(kW3Mode)) add(L"Patches", L"W3WineSleep", b(LiveBool(kW3Mode)));
     if (Available(kR1)) {
@@ -2055,6 +2066,7 @@ void SetAutoContinue(bool on) {
 void SetLiveBool(int id, bool v) {
     switch (id) {
         case kVrr: *g_host.vrrEnable = v ? 1u : 0u; break;
+        case kHitStop: InterlockedExchange(reinterpret_cast<volatile LONG*>(g_host.hitStopOn), v ? 1 : 0); break;
         case kW3: InterlockedExchange(g_host.w3Enable, v ? 1 : 0); break;
         case kW3Mode: InterlockedExchange(g_host.w3UseSleep, v ? 1 : 0); break;
         case kL1: InterlockedExchange(g_host.l1Enable, v ? 1 : 0); break;
@@ -2082,6 +2094,7 @@ void SyncConfigFromLive(int id) {
 }
 char g_configReply[256] = "";
 int g_configReplyRow = -1;
+void LogItem(int id);
 void ApplyConfigValue(int index) {
     if (index < 0 || index >= kConfigN) return;
     const auto& d = kConfigSettings[index];
@@ -2096,7 +2109,14 @@ void ApplyConfigValue(int index) {
         else if (!strcmp(d.key, "StartupPopupDelay")) o.popupDelay = (float)atof(v.c_str());
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
-        if (!strcmp(d.key, "ButtonStyle")) {
+        if (!strcmp(d.key, "HitStopFix")) {  // GH #159: catalog row (and 'menu set HitStopFix') -> vrr_hsOn live
+            if (Available(kHitStop)) {
+                SetLiveBool(kHitStop, atoi(v.c_str()) != 0);
+                LogItem(kHitStop);
+                snprintf(g_configReply, sizeof(g_configReply), LiveBool(kHitStop) ? "Hit slow-mo fix on now. Save to keep it." : "Hit slow-mo fix off now. Save to keep it.");
+            } else
+                snprintf(g_configReply, sizeof(g_configReply), "Hit-stop patch (P11) is not installed this session; save for the next launch.");
+        } else if (!strcmp(d.key, "ButtonStyle")) {
             g_btnStyleIni = pad_family::ParseStyle(v.c_str());  // UO #10: Auto or an override
             RefreshButtonStyle();
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
@@ -2302,6 +2322,12 @@ void Change(int id, int dir) {
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
     if (id == kPlayerLogRow) { ChangePlayerLog(dir); return; }
+    if (id == kShareDataRow) {  // A flips, Right = ON, Left = OFF
+        const bool on = dir > 0 ? true : dir < 0 ? false : !crashupload::ShareData();
+        if (on != crashupload::ShareData()) crashupload::SetShareData(on);
+        MLOG("Share data row -> %d", on ? 1 : 0);
+        return;
+    }
     if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
     if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
         if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
@@ -2386,7 +2412,7 @@ void Change(int id, int dir) {
             o.maxLatency = v;
             break;
         }
-        case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: SetLiveBool(id, !LiveBool(id)); break;
+        case kVrr: case kHitStop: case kW3: case kW3Mode: case kL1: case kF1: case kWk: SetLiveBool(id, !LiveBool(id)); break;
         case kR1: {
             int v = (int)*g_host.r1Timeout;
             if (dir == 0) v = v ? 0 : (int)(g_host.r1Default ? g_host.r1Default : 2);
@@ -2626,6 +2652,7 @@ bool RemoteValue(int id, int& v) {
     }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
+        case kHitStop: v = LiveBool(kHitStop) ? 1 : 0; return true;  // GH #159 live vrr_hsOn
         case kR1: v = (int)*g_host.r1Timeout; return true;
         case kLat: v = o.maxLatency; return true;
         case kGpu: v = gpuopt::Batching() ? 1 : 0; return true;
@@ -2713,6 +2740,11 @@ void RunRemote(RemoteReq& q) {
                 g_cfg.freezeGame = q.value ? 1 : 0;
                 g_dirty = true;
                 LogItem(id);
+                break;
+            case kHitStop:  // GH #159: 'menu set HitStopFix 0|1' writes vrr_hsOn live
+                SetLiveBool(kHitStop, q.value != 0);
+                g_dirty = true;
+                LogItem(kHitStop);
                 break;
             case kHint:
                 g_cfg.pauseHint = std::clamp(q.value, 0, 2);
@@ -3013,6 +3045,7 @@ void RowLabel(int id, char* out, int cap) {
     else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
     else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
     else if (id == kPlayerLogRow) snprintf(out, (size_t)cap, "Player log");
+    else if (id == kShareDataRow) snprintf(out, (size_t)cap, "Share data");
     else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
     else snprintf(out, (size_t)cap, "row");
 }
@@ -3794,6 +3827,13 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kShareDataRow) {
+            if (id == g_sel) selRow = nb;
+            const bool on = crashupload::ShareData();
+            put(body, nb, 128, id == g_sel ? "> Share data" : "  Share data", "", on ? "ON" : "OFF (default)",
+                id == g_sel ? cWhite : cGray, on ? cGreen : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kPlayerLogRow) {  // human #128100
             if (id == g_sel) selRow = nb;
             const int v = PlayerLogGet();
@@ -3950,7 +3990,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it. Needs Share data ON." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kResetPageRow) {
         snprintf(what, sizeof(what), "Restore this page's editable settings to the values shipped with the mod.");
@@ -3974,7 +4014,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_reverseNote);
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
-        snprintf(what, sizeof(what), "%s", g_reportNote);
+        snprintf(what, sizeof(what), "%s", crashupload::ShareData() ? g_reportNote : "Sending needs 'Share data' ON (top of the first mod menu page). It is off by default.");
         snprintf(effect, sizeof(effect), "A / Enter opens a text box (keyboard, controller key grid or Steam keyboard). A copy stays in Nioh3Reports beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
@@ -3992,6 +4032,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kShareDataRow) {
+        snprintf(what, sizeof(what), "Off by default: nothing is sent. On: crash reports go to the mod's feedback site automatically, and the Report box can send.");
+        snprintf(effect, sizeof(effect), "Sends: crash details, game/mod versions and settings, PC specs (CPU, GPU, RAM, OS), fps, recent mod logs and button presses, a random ID. No names, paths or Steam ID.");
     } else if (g_sel == kPlayerLogRow) {  // human #128100
         snprintf(what, sizeof(what), "%s", g_plogNote[0] ? g_plogNote : "Writes Nioh3PlayerLog.txt in the game folder: your button presses, moves, fps on every line, and a once-a-second game clock line that shows slow motion.");
         snprintf(effect, sizeof(effect), "A switches; Right = ON, Left = OFF. Starts and stops at once. Off by default. Send the file with a report.");

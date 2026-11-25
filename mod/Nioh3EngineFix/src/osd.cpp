@@ -534,6 +534,25 @@ float g_menuScale = 0;    // text scale of the menu quads (0 = none this frame)
 int g_nPad = 0;           // padviz.h controller display: quads [g_nMain, g_nPad) use g_padScale, [g_nPad, g_n) the menu scale
 float g_padScale = 0;
 
+// ---- external image layers (C API at the end of this file): finished premultiplied BGRA bitmaps from Nioh3Training (style
+// meter, boss fight result card), drawn into the game's own frame so OBS Game Capture / screenshots record them (a separate
+// topmost window is not part of the game's swapchain). One textured quad each, under the FPS counter and the mod menu.
+constexpr int kLayers = 2;
+constexpr int kLayerMax = 4096;   // largest side accepted
+constexpr int kLayerStaleMs = 1000;  // a layer the caller stopped refreshing (thread stuck, module gone) is hidden
+struct ExtLayer {
+    uint8_t* px = nullptr;  // w * h * 4 (caller's image, rows packed); guarded by g_layerLock
+    int w = 0, h = 0, cap = 0;
+    int x = 0, y = 0, refW = 1, refH = 1;  // top-left in the caller's game-window client pixels, and that client size
+    float alpha = 0;
+    uint64_t gen = 0, stampMs = 0;
+    bool on = false;
+};
+SRWLOCK g_layerLock = SRWLOCK_INIT;
+ExtLayer g_layer[kLayers];
+int g_layerInst[kLayers];  // instance index of each layer's quad this frame (-1 = not drawn)
+volatile LONG g_layerFail = 0;  // GPU resources for a layer could not be created: the caller keeps its own window
+
 constexpr uint32_t kWhite = 0xFFFFFFFF, kGray = 0xFFB4B4B4, kGreen = 0xFF6CFF6C, kYellow = 0xFF40E6FF,
                    kOrange = 0xFF3C8CFF, kCyan = 0xFFFFE08C, kRed = 0xFF5050FF, kPanel = 0xA0000000;
 
@@ -893,6 +912,14 @@ struct Ctx {
     ID3D12Resource* tex[2] = {};
     ID3D12Resource* texUp[2] = {};  // staging buffer, released once the copy's fence value passed
     uint64_t texUpVal[2] = {};
+    // external layers: SRV heap slots 3 + i; one default-heap texture (exact image size) + one staging buffer each
+    ID3D12Resource* ltex[kLayers] = {};
+    ID3D12Resource* lstage[kLayers] = {};
+    uint8_t* lmap[kLayers] = {};
+    UINT lpitch[kLayers] = {};
+    int lw[kLayers] = {}, lh[kLayers] = {};
+    uint64_t lgen[kLayers] = {}, lstageVal[kLayers] = {};
+    bool lready[kLayers] = {};  // texture holds an image and is in PIXEL_SHADER_RESOURCE
     DXGI_FORMAT psoFmt = DXGI_FORMAT_UNKNOWN;
     uint64_t frame = 0;
     int64_t lastPresent = 0;
@@ -1014,6 +1041,11 @@ void DestroyCtx(Ctx& c) {
         SafeRelease(c.tex[i]);
         SafeRelease(c.texUp[i]);
     }
+    for (int i = 0; i < kLayers; ++i) {
+        if (c.lstage[i] && c.lmap[i]) c.lstage[i]->Unmap(0, nullptr);
+        SafeRelease(c.lstage[i]);
+        SafeRelease(c.ltex[i]);
+    }
     SafeRelease(c.srv);
     SafeRelease(c.pso);
     SafeRelease(c.rs);
@@ -1091,7 +1123,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     c.rtvInc = c.dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     D3D12_DESCRIPTOR_HEAP_DESC sh{};
     sh.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    sh.NumDescriptors = 3;
+    sh.NumDescriptors = 3 + kLayers;
     sh.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     CHECK(c.dev->CreateDescriptorHeap(&sh, IID_PPV_ARGS(&c.srv)), "CreateDescriptorHeap(SRV)");
     c.srvInc = c.dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1102,7 +1134,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         nd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         nd.Texture2D.MipLevels = 1;
         D3D12_CPU_DESCRIPTOR_HANDLE h = c.srv->GetCPUDescriptorHandleForHeapStart();
-        for (int i = 0; i < 3; ++i, h.ptr += c.srvInc) c.dev->CreateShaderResourceView(nullptr, &nd, h);
+        for (int i = 0; i < 3 + kLayers; ++i, h.ptr += c.srvInc) c.dev->CreateShaderResourceView(nullptr, &nd, h);
     }
 
     D3D12_HEAP_PROPERTIES hp{};
@@ -1318,6 +1350,134 @@ bool EnsurePadTexture(Ctx& c, int skin) {
     return true;
 }
 
+// external layer i: (re)creates its texture when the image size changes and records the copy of a new image into this frame's
+// command list. Called after the frame slot's fence wait. false = nothing drawable for it this frame.
+bool UpdateLayer(Ctx& c, int i, const ExtLayer& L) {
+    static bool logged = false;
+    if (c.ltex[i] && (c.lw[i] != L.w || c.lh[i] != L.h)) {
+        WaitIdle(c, 500);  // in-flight frames still sample the old texture / read the old staging buffer
+        if (c.lmap[i]) c.lstage[i]->Unmap(0, nullptr);
+        SafeRelease(c.lstage[i]);
+        SafeRelease(c.ltex[i]);
+        c.lmap[i] = nullptr;
+        c.lready[i] = false;
+        c.lgen[i] = 0;
+    }
+    if (!c.ltex[i]) {
+        D3D12_HEAP_PROPERTIES hp{};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC td{};
+        td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        td.Width = (UINT64)L.w;
+        td.Height = (UINT)L.h;
+        td.DepthOrArraySize = 1;
+        td.MipLevels = 1;
+        td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        td.SampleDesc.Count = 1;
+        td.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        HRESULT hr = c.dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                                    IID_PPV_ARGS(&c.ltex[i]));
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{};
+        UINT64 total = 0;
+        if (SUCCEEDED(hr)) {
+            c.dev->GetCopyableFootprints(&td, 0, 1, 0, &fp, nullptr, nullptr, &total);
+            D3D12_HEAP_PROPERTIES up{};
+            up.Type = D3D12_HEAP_TYPE_UPLOAD;
+            D3D12_RESOURCE_DESC bd{};
+            bd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            bd.Width = total;
+            bd.Height = 1;
+            bd.DepthOrArraySize = 1;
+            bd.MipLevels = 1;
+            bd.SampleDesc.Count = 1;
+            bd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            hr = c.dev->CreateCommittedResource(&up, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                IID_PPV_ARGS(&c.lstage[i]));
+            D3D12_RANGE none{0, 0};
+            if (SUCCEEDED(hr)) hr = c.lstage[i]->Map(0, &none, (void**)&c.lmap[i]);
+        }
+        if (FAILED(hr) || !c.lmap[i]) {
+            if (!logged) OLOG("external layer %d: texture %dx%d failed (hr %08lX) - layers off", i, L.w, L.h, (unsigned long)hr);
+            logged = true;
+            InterlockedExchange(&g_layerFail, 1);
+            if (c.lstage[i] && c.lmap[i]) c.lstage[i]->Unmap(0, nullptr);
+            c.lmap[i] = nullptr;
+            SafeRelease(c.lstage[i]);
+            SafeRelease(c.ltex[i]);
+            return false;
+        }
+        c.lpitch[i] = fp.Footprint.RowPitch;
+        c.lw[i] = L.w;
+        c.lh[i] = L.h;
+        c.lstageVal[i] = 0;
+        D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
+        sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        sd.Texture2D.MipLevels = 1;
+        D3D12_CPU_DESCRIPTOR_HANDLE h = c.srv->GetCPUDescriptorHandleForHeapStart();
+        h.ptr += (SIZE_T)(3 + i) * c.srvInc;
+        c.dev->CreateShaderResourceView(c.ltex[i], &sd, h);
+        static int created = 0;
+        if (created++ < 8) OLOG("external layer %d: %dx%d texture ready", i, L.w, L.h);
+    }
+    // a new image: only when the staging buffer's last copy is done (else this frame draws the previous image)
+    if (L.gen != c.lgen[i] && c.fence->GetCompletedValue() >= c.lstageVal[i]) {
+        const size_t row = (size_t)L.w * 4;
+        for (int y = 0; y < L.h; ++y) memcpy(c.lmap[i] + (size_t)y * c.lpitch[i], L.px + (size_t)y * row, row);
+        D3D12_RESOURCE_BARRIER br{};
+        br.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        br.Transition.pResource = c.ltex[i];
+        br.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        if (c.lready[i]) {
+            br.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+            br.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+            c.cl->ResourceBarrier(1, &br);
+        }
+        D3D12_TEXTURE_COPY_LOCATION dst{}, src{};
+        dst.pResource = c.ltex[i];
+        dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dst.SubresourceIndex = 0;
+        src.pResource = c.lstage[i];
+        src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src.PlacedFootprint.Offset = 0;
+        src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        src.PlacedFootprint.Footprint.Width = (UINT)L.w;
+        src.PlacedFootprint.Footprint.Height = (UINT)L.h;
+        src.PlacedFootprint.Footprint.Depth = 1;
+        src.PlacedFootprint.Footprint.RowPitch = c.lpitch[i];
+        c.cl->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+        br.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        br.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        c.cl->ResourceBarrier(1, &br);
+        c.lgen[i] = L.gen;
+        c.lstageVal[i] = c.fenceVal + 1;  // the Signal that follows this frame's ExecuteCommandLists
+        c.lready[i] = true;
+    }
+    return c.lready[i];
+}
+
+// external layers visible this frame: their quads go after the overlay's (g_n grows); g_layerInst[i] = instance index or -1
+void BuildLayers(UINT W, UINT H) {
+    for (int i = 0; i < kLayers; ++i) g_layerInst[i] = -1;
+    if (g_layerFail) return;
+    const uint64_t nowMs = GetTickCount64();
+    AcquireSRWLockShared(&g_layerLock);
+    for (int i = 0; i < kLayers; ++i) {
+        const ExtLayer& L = g_layer[i];
+        if (!L.on || !L.px || L.w <= 0 || L.h <= 0 || L.alpha <= 0.0f || nowMs - L.stampMs > (uint64_t)kLayerStaleMs) continue;
+        if (g_n >= kMaxInst) break;
+        // caller pixels -> back buffer pixels (the same when the back buffer matches the client area); whole pixels keep it sharp
+        const float sx = (float)W / (float)L.refW, sy = (float)H / (float)L.refH;
+        const float x = std::floor(L.x * sx + 0.5f), y = std::floor(L.y * sy + 0.5f);
+        const float w = std::floor(L.w * sx + 0.5f), h = std::floor(L.h * sy + 0.5f);
+        const uint32_t a = (uint32_t)std::clamp(L.alpha * 255.0f + 0.5f, 0.0f, 255.0f);
+        g_layerInst[i] = g_n;
+        g_inst[g_n++] = {x, y, w, h, kSprite, 0x00FFFFFFu | (a << 24), 0, 0, 1, 1};
+    }
+    ReleaseSRWLockShared(&g_layerLock);
+}
+
 // returns true when something was drawn
 bool DrawFrame(Ctx& c, int64_t now) {
     const UINT idx = c.sc3->GetCurrentBackBufferIndex();
@@ -1335,6 +1495,8 @@ bool DrawFrame(Ctx& c, int64_t now) {
         if (W < 64 || H < 64) break;
         if (!EnsurePso(c, bd.Format)) { c.ok = false; break; }
         BuildOverlay(W, H, now);
+        int nOverlay = g_n;  // quads [0, nOverlay) are the overlay's; the external layers' follow
+        BuildLayers(W, H);
         if (g_n == 0) break;
         const int slot = (int)(c.frame % kRing);
         if (c.fence->GetCompletedValue() < c.slotVal[slot]) {
@@ -1360,6 +1522,18 @@ bool DrawFrame(Ctx& c, int64_t now) {
         c.cl->ResourceBarrier(1, &br);
         for (int i = 0; i < 2; ++i)  // staging buffers of finished atlas uploads
             if (c.texUp[i] && c.fence->GetCompletedValue() >= c.texUpVal[i]) SafeRelease(c.texUp[i]);
+        for (int i = 0; i < kLayers; ++i) {  // external layers: upload a new image (read under the lock; skipped while the caller writes)
+            if (g_layerInst[i] < 0) continue;
+            bool ok = false;
+            if (TryAcquireSRWLockShared(&g_layerLock)) {
+                const ExtLayer& L = g_layer[i];
+                if (L.px && L.w > 0 && L.h > 0) ok = UpdateLayer(c, i, L);
+                ReleaseSRWLockShared(&g_layerLock);
+            } else {
+                ok = c.lready[i];
+            }
+            if (!ok) g_layerInst[i] = -1;
+        }
         if (g_padSkin >= 0 && g_nPad > g_nMain && !EnsurePadTexture(c, g_padSkin)) {
             // no atlas on the GPU: drop the pad group (the menu quads after it move down)
             const int drop = g_nPad - g_nMain;
@@ -1368,6 +1542,9 @@ bool DrawFrame(Ctx& c, int64_t now) {
             g_n -= drop;
             g_nPad = g_nMain;
             g_padSkin = -1;
+            nOverlay -= drop;
+            for (int i = 0; i < kLayers; ++i)
+                if (g_layerInst[i] >= 0) g_layerInst[i] -= drop;
         }
         D3D12_CPU_DESCRIPTOR_HANDLE rtv = c.rtv->GetCPUDescriptorHandleForHeapStart();
         rtv.ptr += (SIZE_T)slot * c.rtvInc;
@@ -1393,6 +1570,15 @@ bool DrawFrame(Ctx& c, int64_t now) {
         c.cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         D3D12_VERTEX_BUFFER_VIEW vbv{va + off, (UINT)g_n * kInstBytes, kInstBytes};
         c.cl->IASetVertexBuffers(0, 1, &vbv);
+        for (int i = 0; i < kLayers; ++i) {  // external layers first: under the fade, the FPS counter and the mod menu
+            if (g_layerInst[i] < 0) continue;
+            D3D12_GPU_DESCRIPTOR_HANDLE lh = c.srv->GetGPUDescriptorHandleForHeapStart();
+            lh.ptr += (UINT64)(3 + i) * c.srvInc;
+            c.cl->SetGraphicsRootDescriptorTable(2, lh);
+            c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
+            c.cl->DrawInstanced(4, 1, 0, (UINT)g_layerInst[i]);
+        }
+        c.cl->SetGraphicsRootDescriptorTable(2, th);
         if (g_nMain > 0) {
             c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
             c.cl->DrawInstanced(4, (UINT)g_nMain, 0, 0);
@@ -1402,10 +1588,10 @@ bool DrawFrame(Ctx& c, int64_t now) {
             c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
             c.cl->DrawInstanced(4, (UINT)(g_nPad - g_nMain), 0, (UINT)g_nMain);
         }
-        if (g_n > g_nPad) {
+        if (nOverlay > g_nPad) {
             consts[2] = g_menuScale;
             c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
-            c.cl->DrawInstanced(4, (UINT)(g_n - g_nPad), 0, (UINT)g_nPad);
+            c.cl->DrawInstanced(4, (UINT)(nOverlay - g_nPad), 0, (UINT)g_nPad);
         }
         std::swap(br.Transition.StateBefore, br.Transition.StateAfter);
         c.cl->ResourceBarrier(1, &br);
@@ -2164,4 +2350,62 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_FadeAlpha(void) {
     using namespace osd;
     if (!g_ctx.ok || !g_ctx.sc) return -1;
     return (int)(FadeAlphaAt(Qpc()) + 0.5f);
+}
+
+// External image layers (Nioh3Training's style meter = 0, boss fight result card = 1), drawn into the game's frames.
+//   Nioh3EngineFix_LayerSet(id, x, y, w, h, refW, refH, px, stride, alpha)
+//     x, y: top-left in the game window's client pixels, refW x refH that client size (scaled to the back buffer); w x h image size.
+//     px: premultiplied BGRA rows `stride` bytes apart (copied before returning), or null to keep the last image and only move it,
+//     change alpha (0..1) or keep it alive: a layer that is not set again for 1 s is hidden. Returns 1 when accepted.
+//   Nioh3EngineFix_LayerHide(id)  stops drawing it.
+//   Nioh3EngineFix_LayerLive()    1 while the overlay draws into the game's frames (a frame presented in the last 0.5 s and the layer
+//                                 textures work); 0 = use your own window instead.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_LayerSet(int id, int x, int y, int w, int h, int refW, int refH, const void* px,
+                                                             int stride, float alpha) {
+    using namespace osd;
+    if (id < 0 || id >= kLayers || w <= 0 || h <= 0 || w > kLayerMax || h > kLayerMax || refW <= 0 || refH <= 0) return 0;
+    if (px && stride < w * 4) return 0;
+    AcquireSRWLockExclusive(&g_layerLock);
+    ExtLayer& L = g_layer[id];
+    int ok = 1;
+    if (px) {
+        const int need = w * h * 4;
+        if (need > L.cap) {
+            uint8_t* n = (uint8_t*)realloc(L.px, (size_t)need);
+            if (n) { L.px = n; L.cap = need; }
+            else ok = 0;
+        }
+        if (ok) {
+            for (int r = 0; r < h; ++r) memcpy(L.px + (size_t)r * w * 4, (const uint8_t*)px + (size_t)r * stride, (size_t)w * 4);
+            L.w = w;
+            L.h = h;
+            ++L.gen;
+        }
+    } else if (!L.px || L.w != w || L.h != h) {
+        ok = 0;  // no image of that size yet
+    }
+    if (ok) {
+        L.x = x;
+        L.y = y;
+        L.refW = refW;
+        L.refH = refH;
+        L.alpha = alpha < 0 ? 0.0f : alpha > 1 ? 1.0f : alpha;
+        L.stampMs = GetTickCount64();
+        L.on = true;
+    }
+    ReleaseSRWLockExclusive(&g_layerLock);
+    return ok;
+}
+extern "C" __declspec(dllexport) void Nioh3EngineFix_LayerHide(int id) {
+    using namespace osd;
+    if (id < 0 || id >= kLayers) return;
+    AcquireSRWLockExclusive(&g_layerLock);
+    g_layer[id].on = false;
+    ReleaseSRWLockExclusive(&g_layerLock);
+}
+extern "C" __declspec(dllexport) int Nioh3EngineFix_LayerLive(void) {
+    using namespace osd;
+    if (g_layerFail || g_disabled || !g_ctx.ok || !g_ctx.sc) return 0;
+    const int64_t last = g_ctx.lastPresent;
+    return last && Secs(Qpc() - last) < 0.5 ? 1 : 0;
 }
