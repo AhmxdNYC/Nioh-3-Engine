@@ -4041,3 +4041,15 @@ BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
     }
     return TRUE;
 }
+
+// #135494 (human #135492): hit-stop lines in the Player log. Nioh3Training detects the player's hit-stop (ctrl+0x3CC speed) and asks
+// EngineFix for the fix state once per episode. out[0] = HitStopFix live (vrr_hsOn), out[1] = P11 installed, out[2] = VRR armed this frame
+// (measured fps, 0 = stock frame), out[3] = VRR tier (30/60/120), out[4] = drain scale x1000 this frame. Read only. Returns 5 (fields written).
+extern "C" float vrr_hsK;
+extern "C" __declspec(dllexport) int Nioh3EngineFix_HitStopInfo(int* out, int n) {
+    if (!out || n <= 0) return 0;
+    const int v[5] = {vrr_hsOn ? 1 : 0, hs_callee ? 1 : 0, (int)vrr_fpsOut, (int)vrr_tier, (int)(vrr_hsK * 1000.0f + 0.5f)};
+    const int m = n < 5 ? n : 5;
+    for (int i = 0; i < m; ++i) out[i] = v[i];
+    return m;
+}

@@ -20,6 +20,13 @@
 // Read only: XInputGetState (its own reader, nothing masked or injected), the player's action id and step, the engine
 // update counter. Game thread, every pump tick.
 // 0 = off (default) for both keys: nothing is read or written.
+// #135494 (human #135492): HITSTOP lines (Player log on only). The player's hit-stop = motion speed ctrl+0x3CC below 1 (0.3 on a hit,
+// drained by 0x7D13EC; GH #159). One start + one end line per episode, counted on engine frames (G+0x610 moved):
+//   HITSTOP  start  act 0x61D7  speed 0.30  | fps 80  tier 120  VRR armed 1  HitStopFix 1
+//   HITSTOP  end    act 0x61D7  real 111 ms  frames 9  speed 0.30  | fps 80  tier 120  VRR armed 1  HitStopFix 1  k 1.50
+//   real ms = last normal frame before -> last slow frame (QPC), the same measure as the pc2 A/B poller. act = ACT id at the start.
+//   fps = last 1 s clock window, tier / armed / HitStopFix / k (drain scale) from EngineFix Nioh3EngineFix_HitStopInfo ("-" = no export).
+//   Rate limit: at most 8 episodes logged per second; the next logged start says how many were skipped.
 #ifndef N3_PLAYER_LOG_H
 #define N3_PLAYER_LOG_H
 #include "player_clock.h"
@@ -88,6 +95,7 @@ static int PlOpen(void) {
     g_pl_t0 = GetTickCount();
     PlLine(g_pl_t0, "LOG", "Nioh3 player log (human #122228): PAD = controller edges, ACT = player action id changes, | fps + newest frame ms%s%s", g_pl_xget ? "" : " (no XInput: actions only)",
            g_cfg_pclk ? ", CLK = game clock vs wall clock once a second" : "");
+    PlLine(g_pl_t0, "LOG", "HITSTOP = the player's hit-stop start/end: real ms, engine frames, speed ctrl+0x3CC, fps, VRR tier/armed, HitStopFix (#135494)");
     PlSetup();
     Log("PLAYERLOG: writing %s (pad %s)", p, g_pl_xget ? "XInputGetState" : "missing");
     return 1;
@@ -137,6 +145,47 @@ static void PlWpn(DWORD now) {
     if (!me) { PlLine(now, "WPN", "no player"); return; }
     PlLine(now, "WPN", "slot %d  style %s  (weapon/skill ids not mapped yet)", ws, sty == 0 ? "Samurai" : sty == 1 ? "Ninja" : "?");
 }
+// #135494 hit-stop episodes (see the header)
+typedef struct { int on, logged, skip, nWin; uint32_t cnt, frames, act; double tPrev, t0, tLast; float minSpd; DWORD win; int seeded; } PlHs;
+static PlHs g_pl_hs;
+static int (*p_efHsInfo)(int*, int); static int g_pl_hs_try;
+static void PlHsSuffix(char* b, size_t n, int withK) {
+    if (!p_efHsInfo && !g_pl_hs_try) { g_pl_hs_try = 1; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); p_efHsInfo = ef ? (int (*)(int*, int))GetProcAddress(ef, "Nioh3EngineFix_HitStopInfo") : 0; }
+    int v[5] = {0, 0, 0, 0, 0};
+    if (!p_efHsInfo || p_efHsInfo(v, 5) < 5) { snprintf(b, n, "| fps %d  tier -  VRR armed -  HitStopFix -", g_pl_clk.fps); return; }
+    const int l = snprintf(b, n, "| fps %d  tier %d  VRR armed %d  HitStopFix %s", g_pl_clk.fps, v[3], v[2] ? 1 : 0, !v[1] ? "n/a" : v[0] ? "1" : "0");
+    if (withK && l > 0 && (size_t)l < n) snprintf(b + l, n - (size_t)l, "  k %.2f", v[4] / 1000.0);
+}
+static void PlHitStop(DWORD now, uint64_t ctrl, uint32_t cnt, double ms) {
+    PlHs* h = &g_pl_hs;
+    if (!h->seeded) { h->seeded = 1; h->cnt = cnt; h->tPrev = ms; return; }
+    if (cnt == h->cnt) return;  // same engine frame
+    const uint32_t k = cnt - h->cnt; h->cnt = cnt;
+    float sp = 1.0f; __try { sp = *(volatile float*)(ctrl + 0x3CC); } __except (EXCEPTION_EXECUTE_HANDLER) { sp = 1.0f; }
+    const int slow = sp > 0.0f && sp < 0.999f && k <= PLCLK_MAX_STEP;
+    char sx[128];
+    if (slow) {
+        if (!h->on) {
+            h->on = 1; h->t0 = h->tPrev; h->frames = 0; h->minSpd = sp; h->act = ActIdOf(ctrl);
+            if (now - h->win >= 1000) { h->win = now; h->nWin = 0; }
+            h->logged = h->nWin < 8;
+            if (h->logged) {
+                ++h->nWin; PlHsSuffix(sx, sizeof sx, 0);
+                char sk[40] = ""; if (h->skip) snprintf(sk, sizeof sk, "  (%d skipped)", h->skip);
+                PlLine(now, "HITSTOP", "start  act 0x%X  speed %.2f%s  %s", h->act, sp, sk, sx); h->skip = 0;
+            } else ++h->skip;
+        }
+        h->frames += k; h->tLast = ms; if (sp < h->minSpd) h->minSpd = sp;
+    } else if (h->on) {
+        h->on = 0;
+        if (h->logged) {
+            PlHsSuffix(sx, sizeof sx, 1);
+            PlLine(now, "HITSTOP", "end    act 0x%X  real %.0f ms  frames %u  speed %.2f%s  %s", h->act, h->tLast - h->t0, h->frames, h->minSpd,
+                   k > PLCLK_MAX_STEP ? "  (cut: load/stall)" : "", sx);
+        }
+    }
+    h->tPrev = ms;
+}
 // #127933 game clock sample (once per pump tick; counts a frame only when the engine update counter moved)
 static void PlClock(DWORD now) {
     static double s_qpf;
@@ -162,6 +211,7 @@ static void PlClock(DWORD now) {
     const double wall0 = g_pl_clk.lastWall;
     { const uint8_t* gs = GameState(); if (gs && gs[2] && cnt != g_pl_clk.cnt) ++g_pl_loadN; }  // #128517 loading frames this window
     const int win = PlClkSample(&g_pl_clk, (double)q.QuadPart * s_qpf, cnt, step, eng, &l);
+    if (g_cfg_plog && animOk) PlHitStop(now, ctrl, cnt, (double)q.QuadPart * s_qpf);  // #135494
     // #128463 move speed: once per counted engine frame (counter moved, not a re-seed), the player's anim time [ctrl+0x60]
     if (g_cfg_pclk && ok0 && g_pl_clk.cnt != cnt0) {
         const uint32_t k = g_pl_clk.cnt - cnt0;
