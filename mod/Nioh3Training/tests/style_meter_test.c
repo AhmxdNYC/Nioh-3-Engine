@@ -162,11 +162,11 @@ static void Clamp(void) {
 // human #126755: shipped tuning is 2.5x the first (#126785); #127568: now the human's Main PC tuning.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 60.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
+    CHECK(near(c.rankPts[0], 120.f) && near(c.rankPts[1], 180.f) && near(c.deflect, 23.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
-    for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 20.f / 90.f));  // 4 different moves = 80 pts: D (60) full, 20 into C (90)
+    for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 40.f / 180.f));  // 8 different moves = 160 pts: D (120) full, 40 into C (180)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {

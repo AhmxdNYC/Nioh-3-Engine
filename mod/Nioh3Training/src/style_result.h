@@ -24,7 +24,7 @@
 
 #define SR_BOSSES 8
 #define SR_ACTS 192             // distinct move ids remembered per fight (more just stop counting)
-#define SR_HOLD_PCT 50          // [StyleMeter] ResultHoldPct
+#define SR_HOLD_PCT 45          // [StyleMeter] ResultHoldPct (human 2026-11-25: was 50)
 #define SR_END_DELAY_MS 3000    // [StyleMeter] ResultEndDelayMs: wait after the last boss death for a next form / second boss
 #define SR_HIT_PENALTY 25        // [StyleMeter] ResultHitPenalty: average lost per hit taken, in hundredths (25 = 0.25)
 #define SR_SCALE_PCT 140        // [StyleMeter] ResultScalePct: card size (100 = 640 px wide at 1080p)

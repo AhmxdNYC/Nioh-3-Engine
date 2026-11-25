@@ -29,7 +29,7 @@
 #define SM_HIST 8
 #define SM_HIT_PTS 20  // #127568 human Main PC tuning (was 10)
 #define SM_DODGE_PTS 45  // #127568 (was 30)
-#define SM_DEFLECT_PTS 45  // [StyleMeter] DeflectPts (same as a dodge until tuned)
+#define SM_DEFLECT_PTS 23  // [StyleMeter] DeflectPts: human 2026-11-25 half a dodge (was 45) so other defensive options are worth using
 #define SM_DEFLECT_SKILL 0x67D2u  // [StyleMeter] DeflectSkill: action-row skill word of the universal Samurai deflect (live 2026-11-23: one word
                                   // on 15 directional deflect actions 25503..25621, 276 uses, never an attack frame; weapon counters have their own)
 #define SM_DEFLECT_SKILLS 8
@@ -74,7 +74,7 @@ static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS"
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
 static const char* const sm_rank_word[SM_RANKS] = {"Dull", "Cunning", "Bold", "Ardent", "Asura", "Sword Saint", "Heavenly"};
 // human #126755 too easy (SS in ~40 hits), #126766 4x, #126785 4x too hard (C after 52 hits): 2.5x {40, 60, 80, 100, 130, 160, 200}
-static const float sm_rank_pts_default[SM_RANKS] = {60.f, 90.f, 130.f, 180.f, 250.f, 350.f, 500.f};  // #127568 human tuning (was 100 150 200 250 325 400 500)
+static const float sm_rank_pts_default[SM_RANKS] = {120.f, 180.f, 130.f, 180.f, 250.f, 350.f, 500.f};  // human 2026-11-25: D and C twice as long (was 60 90; #127568 was 100 150 200 250 325 400 500)
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
