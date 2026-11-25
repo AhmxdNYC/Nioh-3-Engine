@@ -171,3 +171,17 @@ struct SdhDurTable {
     }
     int At(uint32_t id, float mul) const { const int v = Get(id); return v > 0 ? (int)(v / (mul > 0.f ? mul : 1.f) + 0.5f) : 0; }
 };
+
+// TASK #135803 (human #135779/#135783, live 80D5F on d37fc753: hit burst 1 closed 2.04 s after the press, the SealExitEndPct hold kept
+// the form up to 3.08 s, a ~1 s idle pause before the player turned back). [Spirit] SealExitSettleMs (default 200, -1 = off).
+// The hold of a low-confidence count lets go once the game data says every hit the attack can make is in: the live burst count has reached
+// both the wanted count and the seal's own timed bursts from data, no burst is open, and none opened for settleMs since the last close. Read from the seal's own action file at bind; no per-core ids.
+// Live 16:54 (92e4a695, E0E94: own 2 bursts + 1 spawn event, the spawn never made a burst of its own, the form waited 1.35 s for the
+// despawn): a spawn event does not always hit, so it is not counted. The wanted count is the learned count of FULL forms (every burst,
+// the seal's and its spawns'), so the data adds only the floor of the seal's own timed bursts (untimed-only rows: at least 1).
+static inline int SdhMinBursts(const SdhResult& r) { return r.bursts > 0 ? r.bursts : r.untimed ? 1 : 0; }
+static inline bool SdhHitsSettled(bool shapeOk, const SdhResult& r, int bursts, int want, bool open, int lastCloseMs, int nowMs, int settleMs) {
+    if (!shapeOk || settleMs < 0 || open || lastCloseMs <= 0 || bursts <= 0 || want <= 0) return false;
+    if (bursts < want || bursts < SdhMinBursts(r)) return false;
+    return nowMs - lastCloseMs >= settleMs;
+}

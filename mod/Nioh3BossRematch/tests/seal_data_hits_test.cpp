@@ -56,5 +56,19 @@ int main() {
     for (uint32_t c = 1; c <= 40; ++c) t.Note(0x1000 + c, 100 * c, 1.f);
     assert(t.n == 32 && t.Get(0x1000 + 40) == 4000);                         // full table: replaces a slot, newest readable
     char d[256]; SdhDescribe(r, d, sizeof d); puts(d);
+    {   // TASK #135803: SdhHitsSettled (80D5F: no own window, 1 spawn; live burst 1 closed at 2042 ms, settle 200)
+        SdhResult r; r.chain = 2; r.spawns = 1;
+        assert(SdhMinBursts(r) == 0);
+        assert(!SdhHitsSettled(true, r, 1, 1, false, 2042, 2241, 200) && SdhHitsSettled(true, r, 1, 1, false, 2042, 2242, 200));
+        assert(!SdhHitsSettled(true, r, 1, 1, true, 2042, 3000, 200));    // a burst open
+        assert(!SdhHitsSettled(true, r, 1, 2, false, 2042, 3000, 200));   // learned wants 2
+        assert(!SdhHitsSettled(false, r, 1, 1, false, 2042, 3000, 200));  // data not read at bind
+        assert(!SdhHitsSettled(true, r, 1, 1, false, 2042, 3000, -1));    // off
+        assert(!SdhHitsSettled(true, r, 1, 0, false, 2042, 3000, 200));   // nothing learned
+        SdhResult u; u.untimed = 2; assert(SdhMinBursts(u) == 1);
+        // live E0E94 (16:54): own 2 + 1 spawn that never hit, learned 2 -> released at close 2640 + 200
+        SdhResult o; o.bursts = 2; o.spawns = 1; assert(SdhMinBursts(o) == 2 && SdhHitsSettled(true, o, 2, 2, false, 2640, 2840, 200));
+        assert(!SdhHitsSettled(true, o, 1, 1, false, 2640, 3000, 200));   // own data has 2 timed bursts, 1 seen
+    }
     puts("seal_data_hits_test PASS"); return 0;
 }
