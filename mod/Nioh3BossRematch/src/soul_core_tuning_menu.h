@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 19;  // TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 20;  // TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -30,8 +30,8 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
-                                      "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:"};  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90};
+                                      "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:"};  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -45,7 +45,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
     else if (w == 10 && v <= 0) snprintf(b, n, "OFF");  // human #122288
     else if (w == 7 || w == 8 || w == 15) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");
-    else if ((w == 17 && v < 0) || (w == 18 && v <= 0)) snprintf(b, n, "OFF");  // TASK #135613
+    else if ((w == 17 && v < 0) || (w == 18 && v <= 0) || (w == 19 && v < 0)) snprintf(b, n, "OFF");  // TASK #135613 / #136113
     else if (w == 18) snprintf(b, n, "%d %%", (int)v);
     else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
@@ -385,6 +385,7 @@ const char* SctFooter(int item) {
     case 16: return "The yokai's idle pose ends the form only this long after it appeared (shorter = earlier possible exit). 50 ms steps, 0-3000. [Spirit] SealIdleMinMs. Live, saved.";
     case 17: return "A core whose last hit is a projectile / helper: the form ends this long after that hit starts, the projectile stays visible. OFF = wait for the yokai. 50 ms steps, 0-5000. [Spirit] SealExitOnHelperMs. Live, saved.";
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
+    case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }
