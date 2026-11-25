@@ -793,12 +793,14 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
     SmBlkNote(&q, 0x100, 0xA0, SM_BLK_KI, 12.f);                // guarded: Ki damage, no HP damage call
     SmBlkNote(&q, 0x200, 0xA0, SM_BLK_HP, 0.f);                 // normal hit: HP then Ki (same hit object)
     SmBlkNote(&q, 0x200, 0xA0, SM_BLK_KI, 8.f);
-    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_HP0, 0.f);                // guarded: a 0 HP damage call
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_HP0, 0.f);                // 0 HP damage call: a guard only with the Ki damage below
     SmBlkNote(&q, 0x400, 0xB0, SM_BLK_KI, 5.f);                 // Ki first, HP damage comes in the next tick (still one hit)
-    CHECK(q.n == 4);
-    CHECK(SmBlkTake(&q, o, 4) == 0 && q.n == 4);                // nothing is decided on the tick it was noted
+    SmBlkNote(&q, 0x350, 0xB0, SM_BLK_HP0, 0.f);                // 0 HP call and no Ki damage: the player's deflect / burst counter, not a guard
+    SmBlkNote(&q, 0x360, 0xA0, SM_BLK_KI, 0.f);                 // Ki call with 0: nothing guarded
+    CHECK(q.n == 6);
+    CHECK(SmBlkTake(&q, o, 4) == 0 && q.n == 6);                // nothing is decided on the tick it was noted
     SmBlkNote(&q, 0x400, 0xB0, SM_BLK_HP, 0.f);
-    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_KI, 3.f);                 // late Ki of the 0-HP hit merges
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_KI, 3.f);                 // late Ki of the 0-HP hit merges (a guard: Ki damage, 0 HP)
     SmBlkNote(&q, 0x500, 0xA0, SM_BLK_KI, 1.f);                 // new this tick
     CHECK(SmBlkTake(&q, o, 4) == 2 && q.n == 1);
     CHECK(o[0].hit == 0x100 && near(o[0].ki, 12.f) && o[0].fl == SM_BLK_KI);

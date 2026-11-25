@@ -7,8 +7,9 @@
 //                        The hook is the existing one (HpDmgHookInstall, shared with Infinite health / damage multipliers / KiBreakNoFinisher); with
 //                        StyleMeter 1 it is installed if nothing else did. Fallback when it cannot be installed: HP drops of the boss slots and of the player.
 //   blocked hits         (BlockPct) the same hit apply: the player's hit on a live enemy (not the player, not same team) that did Ki damage (KiDamage
-//                        844604 at 329E9D, PstKiDamage -> SmKiEvent; the existing PstKiHookInstall, installed for this if nothing else did) or
-//                        came to the HP damage call with 0, and did NOT take HP = the enemy guarded it (SmBlkQ, style_meter.h). Needs the HP hook.
+//                        844604 at 329E9D, PstKiDamage -> SmKiEvent; the existing PstKiHookInstall, installed for this if nothing else did)
+//                        and did NOT take HP = the enemy guarded it (SmBlkQ, style_meter.h; a 0 HP call alone is the player's deflect, not a
+//                        guard). Needs the HP hook. Shown as a "Blocked" pop-up. STYLE BLOCKDIAG lines (log only): see SmBd* below.
 //   enemy hit window     g_fp[slot].pulse / open g_fpw windows of the boss slots (BvActor: Training bosses AND native bosses with a HUD HP bar,
 //                        NativeSlotsTick) = the frame meter's 'active' signal.
 //   player i-frames      FmPlayerIfrBits (frame meter I-FR signal); Ki pulse landed FmPlayerKiLanded (frame meter Ki check); action id g_fp[FP_PL].run.act.
@@ -250,6 +251,76 @@ static __attribute__((noinline)) int SmBlkVictim(uint64_t hit, uint64_t me, uint
     __try { if (*(volatile int32_t*)(vst + 0x48) == 1 || *(volatile int64_t*)(vst + 0x58) <= 0) return 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return 1;
 }
+// Blocked-hit diagnostics (log only, STYLE BLOCKDIAG; user 2026-11-25 'humans block, still no points'). Which path a guarded hit takes is
+// not known for normal (human) enemies: the 2026-11-25 log had only 4 Ki-damage-without-HP hits (a boss in its guard action). So:
+//  hit  = every hit apply call of the player's hit on a non-player (HP damage raw, Ki damage) when it has no HP damage, the victim's guard
+//         state is on, or one of the first SM_BD_BASE hits (baseline). Guard state (FMI_GUARDX, frame_meter_iframe.h: 2A36FC without its
+//         game-mode call): status+0x2DC8 bit 11 | bit 48 | ctrl+0xEA5, plus the hit object's result bytes +0x282.. (IFRAMEDM probe fields).
+//  watch = once per tick, each live enemy in the actor table: guard state on / off, and its Ki (status+0x98+0x14) going down while the guard
+//         state is on, with whether a hit apply of the player's hit touched it this tick (no = the guard took a path that misses both hooks).
+#define SM_BD_LINES 500
+#define SM_BD_BASE 40
+static volatile LONG g_sm_bd_lines, g_sm_bd_base;
+static volatile LONG64 g_sm_bd_mark[32]; static volatile LONG g_sm_bd_markN;  // status blocks the player's hits touched since the last tick
+typedef struct { uint64_t s2dc8; float ki; uint8_t ea5, b[6]; int ok; } SmBdGrd;
+static __attribute__((noinline)) void SmBdRead(uint64_t v, uint64_t hit, SmBdGrd* g) {
+    static const int off[6] = {0x282, 0x286, 0x28E, 0x29E, 0x2A0, 0x2AE};
+    memset(g, 0, sizeof *g);
+    __try {
+        const uint64_t st = *(volatile uint64_t*)(v + 0x3A0), ai = *(volatile uint64_t*)(v + 0x3B0), ctrl = ai ? *(volatile uint64_t*)(ai + 8) : 0;
+        if (st) { g->s2dc8 = *(volatile uint64_t*)(st + 0x2DC8); g->ki = *(volatile float*)(st + 0x98 + 0x14); }
+        if (ctrl) g->ea5 = *(volatile uint8_t*)(ctrl + 0xEA5);
+        if (hit) for (int i = 0; i < 6; ++i) g->b[i] = *(volatile uint8_t*)(hit + off[i]);
+        g->ok = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g->ok = 0; }
+}
+static int SmBdOn(const SmBdGrd* g) { return g->ok && ((g->s2dc8 >> 11 & 1) || (g->s2dc8 >> 48 & 1) || g->ea5); }
+static void SmBdMark(uint64_t st) { const LONG i = InterlockedIncrement(&g_sm_bd_markN) - 1; if (i >= 0 && i < 32) InterlockedExchange64(&g_sm_bd_mark[i], (LONG64)st); }
+// One hit apply call of the player's hit on victim actor v (kind 'hp': raw = HP damage, 'ki': amt = Ki damage).
+static __attribute__((noinline)) void SmBdHit(const char* kind, uint64_t hit, uint64_t v, int raw, float amt) {
+    if (g_sm_bd_lines >= SM_BD_LINES || !v) return;
+    SmBdGrd g; SmBdRead(v, hit, &g);
+    const int none = kind[0] == 'h' ? raw <= 0 : 0, on = SmBdOn(&g);
+    if (!none && !on && InterlockedIncrement(&g_sm_bd_base) > SM_BD_BASE) return;
+    if (InterlockedIncrement(&g_sm_bd_lines) > SM_BD_LINES) return;
+    char d[48]; if (kind[0] == 'h') snprintf(d, sizeof d, "HP damage raw %d", raw); else snprintf(d, sizeof d, "Ki damage %.1f", amt);
+    Log("STYLE BLOCKDIAG %s: hit %p victim %p team %d %s | %s (status+2DC8 bit11 %d bit48 %d, ctrl+EA5 %u) | hit +282 %u +286 %u +28E %u +29E %u +2A0 %u +2AE %u | Ki now %.1f",
+        kind, (void*)hit, (void*)v, ActorTeam(v), d,
+        on ? "GUARD ON" : "guard off", (int)(g.s2dc8 >> 11 & 1), (int)(g.s2dc8 >> 48 & 1), g.ea5, g.b[0], g.b[1], g.b[2], g.b[3], g.b[4], g.b[5], g.ki);
+}
+// Once per tick (SmFeed): the enemy watch above. act = the player's action id (log).
+static __attribute__((noinline)) void SmBdWatch(uint32_t act) {
+    static struct { uint64_t a; float ki; uint8_t on; } w[96]; static int nw;
+    uint64_t mk[32]; LONG nm = InterlockedExchange(&g_sm_bd_markN, 0); if (nm > 32) nm = 32;
+    for (LONG i = 0; i < nm; ++i) mk[i] = (uint64_t)InterlockedExchange64(&g_sm_bd_mark[i], 0);
+    if (g_sm_bd_lines >= SM_BD_LINES) return;
+    const uint64_t me = PlayerChar(); if (!me) { nw = 0; return; }
+    const int tm = ActorTeam(me);
+    uint64_t cur[1024]; const int n = Actors(cur, 1024);
+    for (int i = 0; i < n && g_sm_bd_lines < SM_BD_LINES; ++i) {
+        const uint64_t a = cur[i]; uint64_t st = 0;
+        if (!a || a == me || (tm >= 0 && ActorTeam(a) == tm) || !Rd64(a + 0x3A0, &st) || !st) continue;
+        int alive = 0; __try { alive = *(volatile int32_t*)(st + 0x48) != 1 && *(volatile int64_t*)(st + 0x58) > 0; } __except (EXCEPTION_EXECUTE_HANDLER) { alive = 0; }
+        if (!alive) continue;
+        SmBdGrd g; SmBdRead(a, 0, &g); if (!g.ok) continue;
+        const int on = SmBdOn(&g);
+        int k = 0; while (k < nw && w[k].a != a) k++;
+        if (k == nw) { if (nw >= 96) continue; nw++; w[k].a = a; w[k].ki = g.ki; w[k].on = (uint8_t)on; continue; }
+        int hitNow = 0; for (LONG j = 0; j < nm; ++j) if (mk[j] == st) hitNow = 1;
+        const float drop = w[k].ki - g.ki;
+        if (on != w[k].on) { InterlockedIncrement(&g_sm_bd_lines);
+            Log("STYLE BLOCKDIAG watch: enemy %p guard %s (status+2DC8 %016llX, ctrl+EA5 %u), Ki %.1f, player act %u", (void*)a, on ? "ON" : "off", (unsigned long long)g.s2dc8, g.ea5, g.ki, act); }
+        static int big;  // a hit-sized Ki drop (>= 20) no hook saw, guard state off too (in case the guard bits are not the enemy's guard): at most 150
+        if (drop > 0.5f && (on || w[k].on || (!hitNow && drop >= 20.f && big < 150))) { InterlockedIncrement(&g_sm_bd_lines); if (!on && !w[k].on) big++;
+            Log("STYLE BLOCKDIAG watch: enemy %p Ki %.1f -> %.1f (-%.1f) %s; player hit apply on it this tick %d%s, player act %u", (void*)a, w[k].ki, g.ki, drop,
+                on || w[k].on ? "while guarding" : "guard state off", hitNow, hitNow ? "" : " (NO hook saw it)", act); }
+        w[k].ki = g.ki; w[k].on = (uint8_t)on;
+    }
+    for (int k = 0; k < nw; ) {  // forget actors that left the table
+        int f = 0; for (int i = 0; i < n && !f; ++i) f = cur[i] == w[k].a;
+        if (f) k++; else w[k] = w[--nw];
+    }
+}
 // PstKiDamage (Ki damage 844604 at 329E9D, same hit apply, game thread): K = victim status + 0x98, amt = the hit's Ki damage before any mod scaling.
 static void SmKiEvent(uint64_t K, float amt, uint64_t hit) {
     if (!g_cfg_sm || g_smc.blockPct <= 0 || g_hpdmg_hooked != 1 || !(amt > 0.f) || !K || !hit || !g_pst_atk_ok) return;  // no HP hook = no way to tell a guarded hit
@@ -257,6 +328,7 @@ static void SmKiEvent(uint64_t K, float amt, uint64_t hit) {
         const uint64_t me = PlayerChar(); uint64_t st = 0;
         if (!me || (Rd64(me + 0x3A0, &st) && st && st + 0x98 == K)) return;  // Ki damage on the player
         if (((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) != me) return;
+        { uint64_t v = 0; SmBdMark(K - 0x98); if (Rd64(hit + 0x1C8, &v)) SmBdHit("ki", hit, v, 0, amt); }
         if (SmBlkVictim(hit, me, K - 0x98)) SmBlkAdd(hit, K - 0x98, SM_BLK_KI, amt);
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
 }
@@ -274,6 +346,7 @@ static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
         }
         const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
         if (atk == me && g_smc.blockPct > 0) {  // blocked hits: a hit that took HP is never one; a 0 HP call on a live enemy may be
+            { uint64_t v = 0; SmBdMark(hp - 0x38); if (Rd64(hit + 0x1C8, &v)) SmBdHit("hp", hit, v, raw, 0.f); }
             if (raw > 0) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP, 0.f);
             else if (SmBlkVictim(hit, me, hp - 0x38)) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP0, 0.f);
         }
@@ -483,6 +556,7 @@ static void SmFeed(double gdt) {
     SmBlkEv blkEv[4]; int blocked;
     AcquireSRWLockExclusive(&g_sm_blk_lock); blocked = SmBlkTake(&g_sm_blk, blkEv, 4); ReleaseSRWLockExclusive(&g_sm_blk_lock);
     if (g_smc.blockPct <= 0 || g_hpdmg_hooked != 1) blocked = 0;
+    if (g_smc.blockPct > 0 && g_hpdmg_hooked == 1 && pl) SmBdWatch(g_fp[FP_PL].run.act);  // STYLE BLOCKDIAG (log only)
     if (g_hpdmg_hooked != 1 || !g_pst_atk_ok) {  // fallback: HP drops (boss slots = hits, player = damage; an ally's hit on the boss counts too)
         static uint64_t prevB[N3T_SLOTS], prevBa[N3T_SLOTS], prevP, prevPa;
         for (int s = 0; s < N3T_SLOTS; ++s) {
@@ -768,6 +842,7 @@ static void SmFeed(double gdt) {
         if (pk > 0.f) { const int pf = kiPerf && g_smc.kiPerfect > 0.f && pk > g_smc.kiPerfect; SmFxPop2(pf ? "Perfect Ki" : "Ki Pulse", pf ? pk - g_smc.kiPerfect : pk, pf ? g_smc.kiPerfect : 0.f); big += pk; }
         if (pd > 0.f) { SmFxPop("Dodge!", pd); big += pd; }
         if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
+        if (pb > 0.f) SmFxPop("Blocked", pb);  // human: a guarded hit (BlockPct % of the hit); plain hits have no pop-up, this one is shown so it is seen
         if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
