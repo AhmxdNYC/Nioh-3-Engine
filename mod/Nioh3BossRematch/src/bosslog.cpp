@@ -6270,6 +6270,7 @@ void SealEndOnHitTick() {
     static double sess = 0;
     static uint64_t seal = 0;
     static int bursts = 0, want = 0;
+    static int sdhLearned = 0, sdhSealData = 0, sdhHelperData = 0; static bool sdhFromData = false;  // TASK #135148
     static bool open = false, fired = false, countedOpen = false;
     static std::set<uint64_t> previous;
     static double lastNew = -100;
@@ -6313,7 +6314,7 @@ void SealEndOnHitTick() {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
+        sdhFromData = false; sdhLearned = 0; sdhSealData = 0; sdhHelperData = 0; sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
@@ -6336,7 +6337,10 @@ void SealEndOnHitTick() {
         boundId = k >> 4; sid = boundId; want = SealHitsFor(sid); // spawned actor is authoritative, never the latest pad event
         if (const int dm = g_sealHitsData.load(); dm > 0) {  // TASK #135148: count from game data, before the first use
             char dd[320]; const int learned = want, data = SealDataHits(seal, sid, dd, sizeof dd);
-            if (dm == 1 && data > 0) want = data;
+            // live #135148 (13:19, 5129B): data 1 < learned 2, the second burst came from a helper actor, the form ended 1.79 s in with the
+            // attack still going. Data never lowers a learned count; a data-only count is dropped when a helper actor joins (below).
+            sdhLearned = learned; sdhSealData = data; sdhHelperData = 0; sdhFromData = dm == 1 && data > 0;
+            if (sdhFromData) want = (std::max)(data, learned);
             Log("SealHitsData core %X: data %d%s, learned %d -> want %d (%s)", sid, data, data > 0 ? "" : data == 0 ? " (not certain)" : " (unread)",
                 learned, want, dd);
         }
@@ -6357,6 +6361,16 @@ void SealEndOnHitTick() {
         if (!actor || actor == g_fh4.owner || g_sehKidT[k] < sourceSince || g_sehKidT[k] > now) continue;
         if (std::find(sources.begin(), sources.end(), actor) == sources.end()) {
             sources.push_back(actor);
+            // live #135318: 5129B's real hit comes from an actor the seal spawns (65A8A8). Its hits are in ITS loaded action data: read it the
+            // same way and add it. Not certain / unreadable -> the data count is dropped (learned count or idle fallback).
+            if (seal && actor != seal && sdhFromData && want > 0) {
+                char hd[320]; const int h = SealDataHits(actor, sid, hd, sizeof hd);
+                const int before = want;
+                if (h > 0) want = (std::max)(sdhSealData + (sdhHelperData += h), sdhLearned);
+                else { want = sdhLearned; sdhFromData = false; }
+                Log("SealHitsData core %X: helper actor %llX joined, its data %d -> want %d (was %d, learned %d) (%s)", sid, (unsigned long long)actor,
+                    h, want, before, sdhLearned, hd);
+            }
             Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
                 (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal);
         }
