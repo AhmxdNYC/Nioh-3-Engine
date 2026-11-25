@@ -145,6 +145,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.burst = (float)(int)GetPrivateProfileIntA("StyleMeter", "BurstBreakPts", SM_BURST_PTS, ini);  // human: Burst Break
     c.burstMs = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakMs", SM_BURST_MS, ini);
     c.burstSkill = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakSkillOnly", 0, ini);
+    c.burstCtrAct = (uint32_t)GetPrivateProfileIntA("StyleMeter", "BurstCounterAct", (int)SM_BURST_CTR_ACT, ini);  // the burst counter (0 = off)
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
         float v[SM_RANKS]; int n = 0; const char* p = buf;
@@ -162,9 +163,9 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word), burst break %.0f within %d ms%s, blocked hit %d %% of a hit (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word), burst break %.0f within %d ms%s (burst counter act %u), blocked hit %d %% of a hit (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
         1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma,
-        g_smc.burst, g_smc.burstMs, g_smc.burstSkill ? " (skill / guardian spirit hits only)" : "", g_smc.blockPct);
+        g_smc.burst, g_smc.burstMs, g_smc.burstSkill ? " (skill / guardian spirit hits only)" : "", g_smc.burstCtrAct, g_smc.blockPct);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
@@ -642,8 +643,7 @@ static void SmFeed(double gdt) {
         }
     }
     const int r0 = g_sm.rank, a0 = g_sm.active;
-    const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
-    const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
+    int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens; const float lpl0 = g_sm.loopLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
@@ -661,16 +661,25 @@ static void SmFeed(double gdt) {
     float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
     const float pgs = pgs0 + sumB;
     const int plLoop = (hits > 0 || blocked > 0) && g_sm.lpOn && g_sm.lpPen;  // this tick's player hits are a looped use (scored 0)
-    float pbb = 0.f, bbHitPts = 0.f; int bbN = 0; SmBurstEnd bbE[N3T_SLOTS]; int bbR[N3T_SLOTS], bbNew[N3T_SLOTS], bbCand[N3T_SLOTS];
+    float pbb = 0.f, bbHitPts = 0.f; int bbN = 0; SmBurstEnd bbE[N3T_SLOTS]; int bbR[N3T_SLOTS], bbNew[N3T_SLOTS], bbCand[N3T_SLOTS], bbOut[N3T_SLOTS];
+    static double bbCtrT = -1e18;  // the last burst-counter Burst Break (its avoid may close a tick later)
     for (int s = 0; s < N3T_SLOTS; ++s) {  // human: Burst Break (style_meter.h SmBurstStep)
         const int valid = g_fp[s].valid && g_fp[s].a, pbit = s < 32 && (bbPl >> s) & 1, ab = s < 32 && (bbAl >> s) & 1;
-        const int hk = pbit && !plLoop ? (bbSkill ? 2 : 1) : ab ? 2 : 0;  // a looped use's hit breaks nothing
+        const int hk = pbit && !plLoop ? SmBurstHitKind(&g_smc, act, bbSkill) : ab ? SM_BB_HIT_SKILL : 0;
         const int was = bbs[s].on && bbs[s].burst, hitsWas = bbs[s].hits; const uint64_t keyWas = bbs[s].key;
+        bbOut[s] = pbit && was && bbs[s].great;  // diagnosis: a player hit on a burst run whose red attack is already out
         bbR[s] = SmBurstStep(&bbs[s], &g_smc, g_sm_clock, valid, (uint64_t)g_fp[s].run.f0 << 32 | g_fp[s].run.act, g_fp[s].run.act, bbRow[s], bbNext[s], g_fp[s].run.great, hk, pbit ? ph : psum, &bbE[s]);
         bbNew[s] = valid && bbs[s].burst && !(was && bbs[s].key == keyWas);          // this run was just marked a burst run (log)
         bbCand[s] = valid && bbs[s].key == keyWas && bbs[s].hits > hitsWas ? hk : 0;  // a counted hit on the live burst run (log)
-        if (bbR[s] == SM_BB_AWARD) { pbb += SmOnBurst(&g_sm, &g_smc, g_sm_clock); bbN++; bbHitPts += bbE[s].hitPts; }
+        if (bbR[s] == SM_BB_AWARD) { pbb += SmOnBurst(&g_sm, &g_smc, g_sm_clock); bbN++; bbHitPts += bbE[s].hitPts; if (bbE[s].ctr) bbCtrT = g_sm_clock; }
     }
+    // human: a burst counter is also a clean avoid (i-frames in the boss's hit window): that avoid is the Burst Break's, not a "Dodge!" too.
+    // Held while the countered run is live, dropped on its Burst Break, paid after all when the run ends without one.
+    int avHeld = 0, avAte = 0, avBack = 0;
+    for (int s = 0; s < N3T_SLOTS && avoid && !avAte; ++s) if (g_fp[s].valid) { const int h0 = bbs[s].held; if (SmBurstAvoid(&bbs[s], bbCtrT, g_sm_clock, avoid)) { avAte = avoid; avHeld = !h0 && bbs[s].held; } }
+    if (avAte) avoid = SM_AV_NONE;
+    for (int s = 0; s < N3T_SLOTS && !avoid; ++s) if (bbR[s] == SM_BB_MISS && bbE[s].held) avoid = avBack = bbE[s].held;
+    const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
@@ -740,12 +749,17 @@ static void SmFeed(double gdt) {
     {   static int bbl;  // human: Burst Break log (the live test reads these: burst run seen / hit in its wind-up / its end)
         for (int s = 0; s < N3T_SLOTS && bbl < 3000; ++s) {
             if (bbNew[s]) { ++bbl; Log("STYLE BURST: boss %c act 0x%X (%u) is a burst run (row flags 0x%04X, next 0x%X) at t %.0f", 'A' + s, g_fp[s].run.act, g_fp[s].run.act, bbFl[s], bbNext[s], g_sm_clock); }
-            if (bbCand[s]) { ++bbl; Log("STYLE BURST: candidate boss %c act 0x%X hit by %s%s in its wind-up (%.0f ms into the run, player act %u skill word 0x%X gs %d ninjutsu %d i-frame counter %d)", 'A' + s, g_fp[s].run.act,
-                (bbPl >> s) & 1 ? "the player" : "the summoned spirit", bbCand[s] == 2 ? " (skill move)" : "", g_fp_gms - g_fp[s].run.t0, act, skw, gsm.gs, ninMove, ctr); }
+            if (bbCand[s]) { ++bbl; Log("STYLE BURST: candidate boss %c act 0x%X hit by %s%s in its burst run (%.0f ms into the run, player act %u skill word 0x%X gs %d ninjutsu %d i-frame counter %d)", 'A' + s, g_fp[s].run.act,
+                (bbPl >> s) & 1 ? "the player" : "the summoned spirit", bbCand[s] == SM_BB_HIT_CTR ? " (burst counter)" : bbCand[s] == SM_BB_HIT_SKILL ? " (skill move)" : "", g_fp_gms - g_fp[s].run.t0, act, skw, gsm.gs, ninMove, ctr); }
+            if (bbOut[s]) { ++bbl; Log("STYLE BURST2: boss %c act 0x%X hit by the player after its red attack came out (%.0f ms into the run, player act %u (0x%X)%s skill word 0x%X)",
+                'A' + s, bbR[s] ? bbE[s].act : g_fp[s].run.act, g_fp_gms - g_fp[s].run.t0, act, act, g_smc.burstCtrAct && act == g_smc.burstCtrAct ? " = burst counter" : " (not BurstCounterAct)", skw); }
             if (bbR[s]) { ++bbl; const SmBurstEnd* e = &bbE[s];
-                Log("STYLE BURST: %s boss %c act 0x%X -> 0x%X, %d hit%s, last %.0f ms before the end (window %d ms)%s%s%s%s", bbR[s] == SM_BB_AWARD ? "BURST BREAK" : "no break,", 'A' + s, e->act, e->newAct, e->hits, e->hits == 1 ? "" : "s", e->ago, g_smc.burstMs,
-                    e->great ? " | unblockable collider already out" : "", e->cont ? " | the next action continues the burst (row next / burst row)" : "", e->late ? " | too late" : "", e->noSkill ? " | not a skill hit (BurstBreakSkillOnly)" : ""); }
+                Log("STYLE BURST: %s boss %c act 0x%X -> 0x%X, %d hit%s, last %.0f ms before the end (window %d ms)%s%s%s%s%s", bbR[s] == SM_BB_AWARD ? "BURST BREAK" : "no break,", 'A' + s, e->act, e->newAct, e->hits, e->hits == 1 ? "" : "s", e->ago, g_smc.burstMs,
+                    e->ctr ? " | burst counter" : "", e->great ? " | unblockable collider already out" : "", e->cont ? " | the next action continues the burst (row next / burst row)" : "", e->late ? " | too late" : "", e->noSkill ? " | not a skill hit (BurstBreakSkillOnly)" : ""); }
         }
+        if (avAte && bbl < 3000) { ++bbl; Log("STYLE BURST2: %s (avoid %d) taken by the burst counter: %s", avAte == SM_AV_DEFLECT ? "deflect" : avAte == SM_AV_COUNTER ? "counter (avoid)" : "dodge", avAte,
+            avHeld ? "held until the countered red attack ends (paid if it is no Burst Break)" : "same event as the Burst Break, not paid"); }
+        if (avBack && bbl < 3000) { ++bbl; Log("STYLE BURST2: held avoid %d paid after all (the countered red attack ended without a Burst Break)", avBack); }
     }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
