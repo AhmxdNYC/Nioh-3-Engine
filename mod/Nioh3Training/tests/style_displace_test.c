@@ -118,7 +118,7 @@ static void PreHit(void) {
 }
 // Paying: replaces the avoid, a loop step of the use, variety pseudo id; off / clamp.
 static void Pay(void) {
-    SmCfg sc; SmCfgDefaults(&sc); SmDispCfg c; SmDispCfgDefaults(&c); SmState s; SmReset(&s);
+    SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; SmDispCfg c; SmDispCfgDefaults(&c); SmState s; SmReset(&s);
     SmOnHitUse(&s, &sc, 100, 25601, 1, -1.f, 0, 0);
     CHECK(SmOnDisplace(&s, &sc, &c, 100, 25601, 1) == c.pts && s.varN == 2);
     // the same use looped (A A A with LoopReps 2): its hit scored 0, so does the displacement

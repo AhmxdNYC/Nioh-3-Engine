@@ -205,11 +205,14 @@ static inline float SmOnDisplace(SmState* s, const SmCfg* c, const SmDispCfg* dc
     s->lastEvent = t;
     // same use as the counter hit: that hit already stepped the loop (SmLoopUse returns its verdict). A follow-up of another use stepped
     // the loop with its own key; SmLoopUse here would start a new use and reset its multi-hit count, so the displacement is one pseudo step.
-    if (s->lpOn && s->lpRun == use ? s->lpPen : SmLoopEvent(s, c, SM_LOOP_DISPLACE)) return 0.f;
+    // tier (human 2026-11-25): S+ looped = 0, A = LoopHalfPct %, D..B / zero-Ki loop on a human boss = full
+    const int tier = s->lpOn && s->lpRun == use ? s->lpPen : SmLoopEvent(s, c, SM_LOOP_DISPLACE);
     (void)act;
     if (dc->pts <= 0.f) return 0.f;
-    SmAdd(s, c, dc->pts); s->lastScore = t;
+    const float p = SmLoopScale(s, c, tier, dc->pts);
+    if (!(p > 0.f)) return 0.f;
+    SmAdd(s, c, p); s->lastScore = t;
     SmVarietyMove(s, c, t, SM_VAR_DISPLACE);
-    return dc->pts;
+    return p;
 }
 #endif

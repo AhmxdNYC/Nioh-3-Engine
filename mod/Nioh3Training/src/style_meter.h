@@ -33,6 +33,9 @@
 // skill move (act / run, the same use as that move's hits). A looped one scores 0 and costs loopPts like a looped attack use. Bonuses
 // that belong to a use (counter, startup, weapon switch, guardian spirit / martial art, combo feed, Burst Break hit) are not paid for a
 // looped use; Ki pulses, ninjutsu, soul core and style switches are not in the sequence.
+// Rank tiers (human 2026-11-25): all of the above is the S..SSS rule (LoopFullRank). At A (LoopHalfRank) a looped use / avoid scores
+// LoopHalfPct % (50) and nothing is taken off; at D..B looping costs nothing. Exception: while a human boss is at zero Ki (zero-Ki loop,
+// the glue sets s->lpFree) looping costs nothing at any rank. The sequence is still counted in every case.
 // Move variety (human 2026-11-25): a run keeps the set of distinct player moves that scored (SmVarietyMove: the act id of every new player
 // use that scored a hit or a blocked hit, not looped / penalized uses, not unknown ids, not the summoned spirit's hits; plus pseudo ids
 // SM_VAR_DODGE .. SM_VAR_KI for a scored dodge / deflect / avoid counter / Ki pulse, fed by the game glue). Each time the distinct count
@@ -95,6 +98,12 @@
 #define SM_LOOP_DEFLECT 0xFFFFFF02u
 #define SM_LOOP_COUNTER 0xFFFFFF03u  // an avoid counter with no move key (SmOnAvoidCounter; the game glue passes the move)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
+// human 2026-11-25: the loop penalty depends on the rank when the looped use starts: D..B none (the use scores in full), A = the use
+// scores LoopHalfPct % (no points taken off), S and up = scores 0 and costs LoopPenaltyPts. Ranks 0 D .. 6 SSS.
+#define SM_LOOP_HALF_RANK 3  // [StyleMeter] LoopHalfRank: from this rank a looped use scores LoopHalfPct % (3 = A)
+#define SM_LOOP_FULL_RANK 4  // [StyleMeter] LoopFullRank: from this rank a looped use scores 0 and costs LoopPenaltyPts (4 = S)
+#define SM_LOOP_HALF_PCT 50  // [StyleMeter] LoopHalfPct
+#define SM_LOOP_FREE_KI_MS 1000  // [StyleMeter] LoopFreeKiMs: zero-Ki loops on a human boss are free while its Ki is <= 0 and this long after
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 #define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up
 #define SM_BURST_MS 1500    // ... BurstBreakMs: the boss's burst action must end within this of the hit that broke it
@@ -139,6 +148,7 @@ typedef struct {
     int comboMs, comboStep, comboBase, comboInc, comboMax;  // human: combo window / milestone size / milestone bonus (0 base = no bonus)
     float ma;                             // #127295 martial art bonus (default = nin)
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
+    int loopHalfRank, loopFullRank, loopHalfPct;  // human: rank tiers of the loop penalty (below half = none; 7 = never)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
     uint32_t burstCtrAct;                 // the player's burst counter action id (its hit breaks a red attack that is already out; 0 = off)
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
@@ -177,7 +187,10 @@ typedef struct {
     uint32_t combo, comboBest, comboBonuses;  // human: landed hits in the current combo / longest combo / milestone bonuses paid
     double comboT;          // game ms of the combo's last hit
     uint32_t lpA, lpB; int lpN1, lpN2;   // loop penalty: act of the last / the one before use, trailing period-1 / period-2 run lengths (uses)
-    uint64_t lpRun; int lpOn, lpPen, lpHits;  // the current player use (own run key), it is a looped use, its hits so far (multi-hit cap)
+    uint64_t lpRun; int lpOn, lpPen, lpHits;  // the current player use (own run key), its loop tier (SM_LP_*), its hits so far (multi-hit cap)
+    int lpFree;             // human: set by the game glue each tick: a human boss is at zero Ki (zero-Ki loop): looping costs nothing at any rank
+    uint32_t loopHalfs, loopFrees;  // looped uses scored at LoopHalfPct % (rank A) / looped uses forgiven (rank D..B or a zero-Ki loop)
+    float loopHalfLost;     // points the rank-A tier did not pay (shown in the "Repetitive!" pop-up)
     uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
     uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
@@ -196,6 +209,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->burst = (float)SM_BURST_PTS; c->burstMs = SM_BURST_MS; c->burstSkill = 0; c->burstCtrAct = SM_BURST_CTR_ACT;
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
+    c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     c->blockPct = SM_BLOCK_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
@@ -221,6 +235,9 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->comboBase < 0) c->comboBase = 0; if (c->comboInc < 0) c->comboInc = 0; if (c->comboMax < c->comboBase) c->comboMax = c->comboBase;
     if (c->ma < 0) c->ma = 0;
     if (c->loopReps < 0) c->loopReps = 0; if (c->loopReps == 1) c->loopReps = 2; if (c->loopReps > 7) c->loopReps = 7;
+    if (c->loopFullRank < 0) c->loopFullRank = 0; if (c->loopFullRank > 7) c->loopFullRank = 7;
+    if (c->loopHalfRank < 0) c->loopHalfRank = 0; if (c->loopHalfRank > c->loopFullRank) c->loopHalfRank = c->loopFullRank;
+    if (c->loopHalfPct < 0) c->loopHalfPct = 0; if (c->loopHalfPct > 100) c->loopHalfPct = 100;
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
@@ -263,21 +280,38 @@ static inline int SmLoopStep(SmState* s, const SmCfg* c, uint32_t act) {
     s->lpN1 = n1; s->lpN2 = n2; s->lpB = s->lpA; s->lpA = act;
     return c->loopReps > 0 && (n1 > c->loopReps || n2 > 2 * c->loopReps);
 }
+// Tier of a looped use (human 2026-11-25), from the rank when it starts: SM_LP_NONE below loopHalfRank (D..B: scores in full),
+// SM_LP_HALF below loopFullRank (A: scores loopHalfPct %, nothing taken off), SM_LP_FULL from it (S..SSS: scores 0, costs loopPts).
+// A zero-Ki loop on a human boss (s->lpFree, set by the glue) is always SM_LP_NONE. The loop sequence itself is counted either way.
+enum { SM_LP_NONE = 0, SM_LP_HALF = 1, SM_LP_FULL = 2 };
+static inline int SmLoopTier(SmState* s, const SmCfg* c, int looped) {
+    if (!looped) return SM_LP_NONE;
+    if (s->lpFree || s->rank < c->loopHalfRank) { s->loopFrees++; return SM_LP_NONE; }
+    if (s->rank < c->loopFullRank) { s->loopHalfs++; return SM_LP_HALF; }
+    return SM_LP_FULL;
+}
 static inline void SmLoopPay(SmState* s, const SmCfg* c) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts); }
-// A player use (act, run key): the first call of a new run steps the loop (and pays a looped use's penalty); returns 1 = it is looped.
+// A player use (act, run key): the first call of a new run steps the loop (and pays a looped use's penalty); returns its tier (SM_LP_*).
 static inline int SmLoopUse(SmState* s, const SmCfg* c, uint32_t act, uint64_t run) {
     if (!s->lpOn || run != s->lpRun) {
-        s->lpOn = 1; s->lpRun = run; s->lpHits = 0; s->lpPen = SmLoopStep(s, c, act);
-        if (s->lpPen) SmLoopPay(s, c);
+        s->lpOn = 1; s->lpRun = run; s->lpHits = 0; s->lpPen = SmLoopTier(s, c, SmLoopStep(s, c, act));
+        if (s->lpPen == SM_LP_FULL) SmLoopPay(s, c);
     }
     return s->lpPen;
 }
-// A one-shot move with no use of its own (pseudo act id): one step; returns 1 = looped (penalty paid). The current use is untouched, so
-// the further hits of an attack that a dodge happened in stay that attack's use.
+// A one-shot move with no use of its own (pseudo act id): one step; returns its tier (SM_LP_FULL: penalty paid). The current use is
+// untouched, so the further hits of an attack that a dodge happened in stay that attack's use.
 static inline int SmLoopEvent(SmState* s, const SmCfg* c, uint32_t act) {
-    const int pen = SmLoopStep(s, c, act);
-    if (pen) SmLoopPay(s, c);
+    const int pen = SmLoopTier(s, c, SmLoopStep(s, c, act));
+    if (pen == SM_LP_FULL) SmLoopPay(s, c);
     return pen;
+}
+// Points of a one-shot move of tier `tier`: 0 when full, loopHalfPct % when half (the part not paid goes to s->loopHalfLost).
+static inline float SmLoopScale(SmState* s, const SmCfg* c, int tier, float pts) {
+    if (tier == SM_LP_FULL) return 0.f;
+    if (tier != SM_LP_HALF) return pts;
+    const float p = pts * (float)c->loopHalfPct / 100.f;
+    s->loopHalfLost += pts - p; return p;
 }
 // Move variety: a new run (fight start / death / load). The meter itself is untouched.
 static inline void SmVarietyReset(SmState* s) { s->varN = 0; s->varMile = 0; s->varLastPts = 0.f; }
@@ -319,12 +353,14 @@ static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t
     float f, bonus = 0.f;
     if (!summon) {  // loop penalty / multi-hit cap, per player use (own run key)
         SmLoopUse(s, c, act, run);
-        if (s->lpPen || (c->multiHitCap > 0 && s->lpHits >= c->multiHitCap)) {  // scores 0, no decay refresh, no combo
-            if (!s->lpPen) s->cappedHits++;
+        if (s->lpPen == SM_LP_FULL || (c->multiHitCap > 0 && s->lpHits >= c->multiHitCap)) {  // scores 0, no decay refresh, no combo
+            if (s->lpPen != SM_LP_FULL) s->cappedHits++;
             s->hits++; s->lastEvent = s->lastHit = t; return 0.f;
         }
         s->lpHits++;
     }
+    const int pct0 = pct;
+    if (!summon && s->lpPen == SM_LP_HALF) pct = pct * c->loopHalfPct / 100;  // rank A: a looped use scores loopHalfPct % (still a scored hit / combo)
     if (s->useOn && act == s->useAct && run == s->useRun) f = s->useFactor * (float)c->multiPct / 100.f;
     else {
         f = SmVariety(s, c, act) * SmStartupMult(c, startupF);
@@ -335,6 +371,7 @@ static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t
         if (act != SM_ACT_NONE && act != 0) { s->hist[s->histPos] = act; s->histPos = (s->histPos + 1) % SM_HIST; if (s->histN < SM_HIST) s->histN++; }
     }
     const float p = (c->hit * f + bonus) * (float)pct / 100.f;
+    if (pct != pct0) s->loopHalfLost += (c->hit * f + bonus) * (float)(pct0 - pct) / 100.f;
     SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
     s->countedHits++;
     return p;
@@ -459,13 +496,15 @@ static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
 // Clean dodge / deflect: still counted when looped (it happened), but a looped one scores 0 and costs loopPts (no decay refresh).
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) {
     s->dodges++; s->lastEvent = t;
-    if (SmLoopEvent(s, c, SM_LOOP_DODGE)) return 0.f;
-    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+    const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_DODGE), c->dodge);
+    if (!(p > 0.f)) return 0.f;
+    SmAdd(s, c, p); s->lastScore = t; return p;
 }
 static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) {
     s->deflects++; s->lastEvent = t;
-    if (SmLoopEvent(s, c, SM_LOOP_DEFLECT)) return 0.f;
-    SmAdd(s, c, c->deflect); s->lastScore = t; return c->deflect;
+    const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_DEFLECT), c->deflect);
+    if (!(p > 0.f)) return 0.f;
+    SmAdd(s, c, p); s->lastScore = t; return p;
 }
 // Counter by avoiding: dodge points; count = 1 when this move has not been counted as a counter yet (the hit counter may have been first).
 // act / run = the skill move (a loop step of that use, shared with its hits: a looped move's avoid scores 0, the penalty is paid once).
@@ -473,14 +512,16 @@ static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) {
 static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, int count, uint32_t act, uint64_t run) {
     if (count) s->counterAvoids++;
     s->lastEvent = t;
-    if (SmLoopUse(s, c, act, run)) return 0.f;
-    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+    const float p = SmLoopScale(s, c, SmLoopUse(s, c, act, run), c->dodge);
+    if (!(p > 0.f)) return 0.f;
+    SmAdd(s, c, p); s->lastScore = t; return p;
 }
 static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) {
     if (count) s->counterAvoids++;
     s->lastEvent = t;
-    if (SmLoopEvent(s, c, SM_LOOP_COUNTER)) return 0.f;
-    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+    const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_COUNTER), c->dodge);
+    if (!(p > 0.f)) return 0.f;
+    SmAdd(s, c, p); s->lastScore = t; return p;
 }
 // #127065 / #127075 ninjutsu gate: n gauge drops this tick -> 1 if it is a new throw. One per throw (drops within SM_NIN_GAP_MS of the
 // last one are the same throw, e.g. two +20 10 ms apart, act 34000 -> 34052), and only in Ninja mode (style 1; -1 = unknown is allowed).

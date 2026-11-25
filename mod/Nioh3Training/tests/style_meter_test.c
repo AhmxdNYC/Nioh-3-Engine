@@ -460,6 +460,7 @@ static float Use(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t ru
 static void Loop(void) {  // loop penalty: period 1 / period 2 past loopReps cycles cost loopPts per use, hits score 0
     SmCfg c; RealDefaults(&c);
     CHECK(c.loopReps == 2 && near(c.loopPts, 10.f) && c.multiHitCap == 4);
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank (the rank tiers: LoopTiers())
     {   // the default (2): A A fine, the 3rd A costs; A B A B fine, the 5th use costs
         SmCfg d = c; d.hit = 10.f; d.repeatPct = 100; d.multiPct = 100; d.startupPct = 0; d.counter = 0.f; SmState u; SmReset(&u);
         CHECK(near(SmOnHit(&u, &d, 10, 7, 1), 10.f) && near(SmOnHit(&u, &d, 20, 7, 2), 10.f) && SmOnHit(&u, &d, 30, 7, 3) == 0.f && u.loopPens == 1);
@@ -513,6 +514,7 @@ static void LoopAvoid(void) {  // human 2026-11-25: dodges / deflects / avoid co
     SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f; c.multiHitCap = 0;
     for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
     CHECK(c.loopReps == 2 && near(c.loopPts, 10.f));
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank
     SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);  // 10 in
     // deflect x3: the 3rd scores 0 and costs 10 (still counted as a deflect), no decay refresh
     CHECK(near(SmOnDeflect(&s, &c, 10), c.deflect) && near(SmOnDeflect(&s, &c, 20), c.deflect));
@@ -625,7 +627,7 @@ static void MultiChain(void) {
     for (int i = 0; i <= SM_CHAIN_WAIT; ++i) k4 = SmChainStep(&ch, r4, 25369, -1, 0);
     CHECK(k4 == r4);  // never readable: a new use after SM_CHAIN_WAIT ticks
     // loop penalty sees one use per cast: three casts in a row with the default LoopReps 2 -> the 3rd costs
-    SmCfg l = c; l.loopReps = 2; SmState q; SmReset(&q); SmChainReset(&ch);
+    SmCfg l = c; l.loopReps = 2; l.loopFullRank = l.loopHalfRank = 0; SmState q; SmReset(&q); SmChainReset(&ch);
     for (int i = 0; i < 3; ++i) { ChainPlay(&q, &l, &ch, &t, ir, 3); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); }
     CHECK(q.loopPens == 1 && q.countedHits == 8);
 }
@@ -647,10 +649,44 @@ static void LoopReplay(SmState* s, const SmCfg* c, SmChain* ch, double* t, const
         }
     }
 }
+// human 2026-11-25 rank tiers: D..B no penalty, A = 50 % points (nothing taken off), S+ = 0 and -10; a zero-Ki loop on a human boss is free.
+static void LoopTiers(void) {
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f; c.multiHitCap = 0;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopHalfRank == 3 && c.loopFullRank == 4 && c.loopHalfPct == 50);
+    SmState s; uint64_t r = 1;
+    for (int rk = 0; rk < SM_RANKS; ++rk) {  // A A A at each rank: the 3rd is looped
+        SmReset(&s); s.active = 1; s.rank = rk; s.pts = 500.f;
+        CHECK(near(Use(&s, &c, 10, 7, r++), 10.f) && near(Use(&s, &c, 20, 7, r++), 10.f));
+        const float p0 = s.pts; const float p = Use(&s, &c, 30, 7, r);
+        const float p2 = Use(&s, &c, 31, 7, r++);  // 2nd hit of the same use: same tier, no second penalty
+        if (rk < 3) CHECK(near(p, 10.f) && near(p2, 10.f) && s.loopPens == 0 && s.loopHalfs == 0 && s.loopFrees == 1 && near(s.pts, p0 + 20.f));
+        else if (rk == 3) CHECK(near(p, 5.f) && near(p2, 5.f) && s.loopPens == 0 && s.loopHalfs == 1 && near(s.loopHalfLost, 10.f) && near(s.pts, p0 + 10.f));
+        else CHECK(p == 0.f && p2 == 0.f && s.loopPens == 1 && near(s.pts, p0 - 10.f));
+    }
+    // rank A: a looped use still feeds the combo (countedHits), a looped S use does not
+    SmReset(&s); s.active = 1; s.rank = 3; s.pts = 500.f; Use(&s, &c, 10, 7, r++); Use(&s, &c, 20, 7, r++); Use(&s, &c, 30, 7, r++); CHECK(s.countedHits == 3);
+    SmReset(&s); s.active = 1; s.rank = 4; s.pts = 500.f; Use(&s, &c, 10, 7, r++); Use(&s, &c, 20, 7, r++); Use(&s, &c, 30, 7, r++); CHECK(s.countedHits == 2);
+    // avoids: deflect x3 at A = half, at S = 0 and -10, at B = full
+    SmReset(&s); s.active = 1; s.rank = 3; s.pts = 500.f; SmOnDeflect(&s, &c, 10); SmOnDeflect(&s, &c, 20);
+    CHECK(near(SmOnDeflect(&s, &c, 30), c.deflect * 0.5f) && s.loopPens == 0);
+    SmReset(&s); s.active = 1; s.rank = 4; s.pts = 500.f; SmOnDodge(&s, &c, 10); SmOnDodge(&s, &c, 20);
+    CHECK(SmOnDodge(&s, &c, 30) == 0.f && s.loopPens == 1);
+    SmReset(&s); s.active = 1; s.rank = 2; s.pts = 500.f; SmOnDodge(&s, &c, 10); SmOnDodge(&s, &c, 20);
+    CHECK(near(SmOnDodge(&s, &c, 30), c.dodge) && s.loopPens == 0);
+    // zero-Ki loop on a human boss: free at SSS too, the sequence still counts (penalty back as soon as it ends)
+    SmReset(&s); s.active = 1; s.rank = 6; s.pts = 500.f; s.lpFree = 1;
+    for (int i = 0; i < 6; ++i) CHECK(near(Use(&s, &c, 10.0 * i, 7, r++), 10.f));
+    CHECK(s.loopPens == 0 && s.lpN1 == 6 && s.loopFrees == 4);
+    s.lpFree = 0; CHECK(Use(&s, &c, 100, 7, r++) == 0.f && s.loopPens == 1);
+    // ini clamp: half rank never above the full rank
+    SmCfg q = c; q.loopFullRank = 2; q.loopHalfRank = 5; q.loopHalfPct = 150; SmCfgClamp(&q); CHECK(q.loopHalfRank == 2 && q.loopHalfPct == 100);
+}
 static void LoopOneCast(void) {
     SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
     for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
     CHECK(c.loopReps == 2);
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank
     // Switch Glaive Lightning Blade (X+LB), log 08:23:33: 25616 (LB, 5 f, no skill row) -> 25376 (6 f, skill word 0xF53B, no hit) ->
     // 25377 (85 f, 0xF53B, the counter slash): hit + avoid counter at 9127 ms, hit + avoid counter at 9728 ms (two boss windows)
     const LoopEv lb1[2] = {{13, 1, 1}, {49, 1, 1}};
@@ -908,7 +944,7 @@ static void MoveVariety(void) {
     SmVarietyMove(&r, &d, t, SM_VAR_COUNTER); SmVarietyMove(&r, &d, t, SM_VAR_KI); CHECK(r.varN == 4 && r.varBonuses == 1);
     SmOnBlockedHit(&r, &d, t, 77, run++, -1.f, 0); CHECK(r.varN == 5 && r.varBonuses == 2);  // a blocked hit scores, so it counts
     // a looped (penalized) use does not count: A A, a new run, then the 3rd A in a row
-    SmState l; SmReset(&l); SmCfg lc; RealDefaults(&lc); CHECK(lc.loopReps == 2);
+    SmState l; SmReset(&l); SmCfg lc; RealDefaults(&lc); CHECK(lc.loopReps == 2); lc.loopFullRank = lc.loopHalfRank = 0;
     SmOnHitUse(&l, &lc, 0, 50, 1, -1.f, 0, 0); SmOnHitUse(&l, &lc, 10, 50, 2, -1.f, 0, 0); SmVarietyReset(&l);
     SmOnHitUse(&l, &lc, 20, 50, 3, -1.f, 0, 0); CHECK(l.lpPen && l.varN == 0);
     // VarietyBonus 0: off (the count still runs); clamp
@@ -920,7 +956,7 @@ static void MoveVariety(void) {
 }
 int main(void) {
     MoveVariety();
-    Loop(); LoopAvoid(); MultiCap(); MultiChain(); LoopOneCast();
+    Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();
     Blocked(); BlockQueue();
