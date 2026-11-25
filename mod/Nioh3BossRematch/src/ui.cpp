@@ -239,6 +239,14 @@ void GateReqTick() {  // UI worker only. user #6789: Return gate used in the are
     rematch::UiGatePage();
     Log("Menu: Return gate page opened");
 }
+// human #135018: soul core pair keys (F2 next, Shift+F2 previous, F6 flag; F9 is Nioh3Training's debug freeze key) with the menu closed; both the standalone and the
+// Engine Fix hosted loops call this every ~33 ms. Only while the game window is in front.
+void SoulPairKeys() {
+    const HWND fgw = GetForegroundWindow(); DWORD fpid = 0; if (fgw) GetWindowThreadProcessId(fgw, &fpid);
+    const bool mine = fpid == GetCurrentProcessId();
+    const bool f9 = KeyEdge(VK_F2), f6 = KeyEdge(VK_F6), sh = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+    rematch::SoulPairTick(mine && f9 && !sh, mine && f9 && sh, mine && f6);
+}
 #include "menu_bridge_impl.h"
 
 UINT VkFromName(const wchar_t* s);
@@ -288,6 +296,7 @@ DWORD WINAPI UiThread(void*) {
     bool shown = false;
     for (;;) {
         GateReqTick();
+        SoulPairKeys();  // human #135018
         if (g_hostRequested.load()) { HostedTick(); Sleep(33); continue; }
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
