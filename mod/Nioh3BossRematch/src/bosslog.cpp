@@ -7,6 +7,7 @@
 #include "seal_use_gate.h"
 #include "press_queue.h"
 #include "form_core_equipment.h"
+#include "seal_data_hits.h"
 #include "../../shared/soul_camera_vertical.h"
 
 #include <intrin.h>
@@ -5438,6 +5439,50 @@ void SealIdleEndTick() {
 // apart; instead each core has a burst count: [SealHits] <chrId hex>=N (seeded 5129B=2, A2ACB=2, ally trace #57014). When burst N closes we
 // queue the despawn (681E9C). A core with no count is learned: the bursts of a form that ended by itself are written to [SealHits], so its
 // next form ends on the hit; until then SealEndOnIdle stays the fallback.
+// human #135146 / TASK #135148: [Spirit] SealHitsData (default 1): the core's hit count is read from the seal's loaded action data at bind
+// (seal_data_hits.h; same memory path as Training auto_moves_game.h AmLoadImg: action object P = [[[chr+0x3B0]+8]+0xE8], file descriptor
+// X = [P+0x30], X +0x88 action objects / +0x90 row pointers / u16 +0x98 count, object +0x40 hitbox row pointer array, u16 +0x48 first,
+// +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
+std::atomic<int> g_sealHitsData{1};
+int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
+    desc[0] = 0;
+    uint64_t ai = 0, ctrl = 0, P = 0, X = 0, A = 0, RP = 0; uint32_t curId = 0; uint16_t n = 0;
+    if (!Rd(seal + 0x3B0, ai) || !ai || !Rd(ai + 8, ctrl) || !ctrl || !Rd(ctrl + 0xE8, P) || !P || !Rd(P, curId)) { snprintf(desc, cap, "no action object"); return -1; }
+    if (!Rd(P + 0x30, X) || !X || !Rd(X + 0x88, A) || !A || !Rd(X + 0x90, RP) || !RP || !Rd(X + 0x98, n) || !n || n > 2048) {
+        snprintf(desc, cap, "descriptor %llX unreadable (n %u)", (unsigned long long)X, n); return -1;
+    }
+    std::vector<uint64_t> rp(n);
+    if (!Copy(rp.data(), RP, 8u * n)) { snprintf(desc, cap, "row pointers unreadable"); return -1; }
+    uint64_t stride = 0, r0 = 0;
+    if (Rd(A + 0x20, r0) && r0 == rp[0]) {
+        if (n == 1) stride = 0xF0;
+        else for (uint64_t sd = 8; sd <= 0x800 && !stride; sd += 8) { uint64_t r1 = 0; if (Rd(A + sd + 0x20, r1) && r1 == rp[1]) stride = sd; }
+    }
+    if (!stride) { snprintf(desc, cap, "action objects do not match the row pointers"); return -1; }
+    std::vector<SdhAction> acts(n);
+    std::vector<std::vector<uint8_t>> rows(n);
+    for (int k = 0; k < n; ++k) {
+        const uint64_t o = A + (uint64_t)k * stride; uint8_t row[SDH_ROW]; uint64_t rk = 0, h = 0; uint16_t fc[2] = {0, 0};
+        if (!Rd(o + 0x20, rk) || rk != rp[k] || !Copy(row, rp[k], SDH_ROW)) { snprintf(desc, cap, "action %d unreadable", k); return -1; }
+        SdhAction& a = acts[k];
+        a.id = SdhU16(row, 0xC); a.next = SdhU16(row, 0xE0);
+        for (int e = 0; e < SDH_EVENTS; ++e) { a.ev[e] = SdhU16(row, 0x40 + 6 * e); a.evFrame[e] = SdhU16(row, 0x42 + 6 * e); }
+        Rd(o + 0x40, h); Copy(fc, o + 0x48, 4);
+        const int cnt = fc[1] > SDH_MAXROWS ? SDH_MAXROWS : fc[1];
+        if (h) rows[k].resize((size_t)cnt * SDH_HB);
+        for (int i = 0; i < cnt && h; ++i) {
+            uint64_t q = 0;
+            if (!Rd(h + 8u * (uint64_t)(fc[0] + i), q) || !q || !Copy(rows[k].data() + (size_t)i * SDH_HB, q, SDH_HB)) { snprintf(desc, cap, "action %X hitbox row %d unreadable", a.id, i); return -1; }
+            ++a.nhb;
+        }
+        a.hb = rows[k].empty() ? nullptr : rows[k].data();
+    }
+    const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
+    char d[200]; SdhDescribe(r, d, sizeof d);
+    snprintf(desc, cap, "bound in %X, file %llX %u actions: %s", curId, (unsigned long long)X, n, d);
+    (void)sid;
+    return r.certain() ? r.bursts : 0;
+}
 std::atomic<int> g_sehMode{0};
 uint64_t g_sehKid[8] = {};
 double g_sehKidT[8] = {};
@@ -6289,6 +6334,12 @@ void SealEndOnHitTick() {
         uint32_t k = 0;
         if (!Rd(seal, k) || !(k >> 4)) { seal = 0; censusComplete = false; return; }
         boundId = k >> 4; sid = boundId; want = SealHitsFor(sid); // spawned actor is authoritative, never the latest pad event
+        if (const int dm = g_sealHitsData.load(); dm > 0) {  // TASK #135148: count from game data, before the first use
+            char dd[320]; const int learned = want, data = SealDataHits(seal, sid, dd, sizeof dd);
+            if (dm == 1 && data > 0) want = data;
+            Log("SealHitsData core %X: data %d%s, learned %d -> want %d (%s)", sid, data, data > 0 ? "" : data == 0 ? " (not certain)" : " (unread)",
+                learned, want, dd);
+        }
         SealHelperLastBind(sid);  // #108262: one ini read per form
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
@@ -7807,6 +7858,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
         g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
         g_sehAtk.store(IniInt(L"Spirit", L"SealHitAtkOnly", 1)); Log("SealHitAtkOnly=%d", g_sehAtk.load());  // human #61056
+        g_sealHitsData.store(IniInt(L"Spirit", L"SealHitsData", 1)); Log("SealHitsData=%d", g_sealHitsData.load());  // TASK #135148
         g_sieMode.store(IniInt(L"Spirit", L"SealIdleEnd", 0)); g_sieLog.store(IniInt(L"Spirit", L"SealIdleLog", 1));  // human #61026
         g_sieMinMs.store(IniInt(L"Spirit", L"SealIdleMinMs", 300)); g_sieLoop.store(IniInt(L"Spirit", L"SealIdleLoop", 1));
         g_sieHold.store(IniInt(L"Spirit", L"SealIdleHold", 1)); g_sieHoldMs.store(IniInt(L"Spirit", L"SealIdleHoldMs", 100));

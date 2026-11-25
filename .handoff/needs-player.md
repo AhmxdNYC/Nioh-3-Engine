@@ -47,3 +47,5 @@
 - [x] (approved #126246) Hit counts '0 hits' label | reply yes/no: show ~760 never-hitting boss moves (feints) as '0 hits' in the menu (DECISION #126239); default yes after 11:25 pm EST | any
 - [ ] Style meter restart OK | say when your play session is over (or OK a restart) so the new style meter build (MA + GS bonus, look fixes, rank-ups) gets installed and tested on the Yorimoto dummy | Main PC
 - [ ] Soul-core hands-on (#134961) | play the current core, then reply 'good' (next core switched live) or say what universal setting to change | Main PC
+- [x] Soul core pair keys (#135018) | installed BR f0b6d99a, human approved #135040; F9 next, Shift+F9 prev, F6 flag | Main PC
+- [ ] Restart for soul-core early-end fix (#135096) | reply 'restart' so Main PC loads Boss Rematch 0dd6b46f, then use C40E twice | Main PC
