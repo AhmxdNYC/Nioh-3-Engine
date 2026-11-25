@@ -142,7 +142,8 @@ bool ScPairRead(ScPairList* L) {
     using F = int (*)(uint32_t*, uint32_t*, uint16_t*, int);
     const auto f = (F)TrainingExport("Nioh3Training_SoulCoreState");
     uint32_t idx[1024]; uint16_t item[1024];
-    const int n = f ? f(L->slots, idx, item, 1024) : -1;
+    int n = f ? f(L->slots, idx, item, 1024) : -1;
+    for (int k = 0; f && n < 0 && k < 6; ++k) { Sleep(100); n = f(L->slots, idx, item, 1024); }  // first read after a load resolves the list
     L->n = 0;
     if (n < 0) return false;
     for (int i = 0; i < n && L->n < 256; ++i) {
