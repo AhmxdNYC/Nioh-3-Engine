@@ -469,6 +469,7 @@ static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) {
 }
 // Counter by avoiding: dodge points; count = 1 when this move has not been counted as a counter yet (the hit counter may have been first).
 // act / run = the skill move (a loop step of that use, shared with its hits: a looped move's avoid scores 0, the penalty is paid once).
+// run must be the same use key its hits get (SmChainStep's), else a chained move's avoid and hits are different uses of one act.
 static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, int count, uint32_t act, uint64_t run) {
     if (count) s->counterAvoids++;
     s->lastEvent = t;

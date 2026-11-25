@@ -897,7 +897,10 @@ static void SmFeed(double gdt) {
     if (ctrHit) ctrPaidRun = run;
     if (deflect) pp = SmOnDeflect(&g_sm, &g_smc, g_sm_clock);
     float pac = -1.f;
-    if (avCtr) { pac = SmOnAvoidCounterUse(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, act, run); ctrPaidRun = run; }
+    // the avoid counter is a loop step of the same use as the move's hits: the use key, not the raw run (live 2026-11-25: Lightning Blade
+    // 25376 -> 25377 is one use keyed by 25376's run; keyed by 25377's run its avoid and hits alternated two keys, every switch a new
+    // use = a new step of act 25377, so one cast (hit, avoid, hit, avoid) read as A A A A: 'Repetitive!' x2 on a single cast)
+    if (avCtr) { pac = SmOnAvoidCounterUse(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, act, useKey); ctrPaidRun = run; }
     if (pd > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DODGE);  // human: scored non-hit moves count as distinct moves too
     if (pp > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DEFLECT);
     if (pac > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);

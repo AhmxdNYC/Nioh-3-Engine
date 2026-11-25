@@ -629,6 +629,62 @@ static void MultiChain(void) {
     for (int i = 0; i < 3; ++i) { ChainPlay(&q, &l, &ch, &t, ir, 3); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); }
     CHECK(q.loopPens == 1 && q.countedHits == 8);
 }
+// One cast must never loop with itself (human 2026-11-25 regression). Replays of the game log: per tick SmChainStep, then the tick's hits
+// (SmOnHitEx, use key) and the avoid counter (SmOnAvoidCounterUse) as the glue feeds them. ev = per-segment ticks with a hit and / or an
+// avoid counter. rawAvoid = 1 keys the avoid by the segment's own run (the bug: the glue passed `run`, not the use key).
+typedef struct { int tick, hits, avoid; } LoopEv;
+typedef struct { uint32_t act; int ticks, skill; uint32_t w; const LoopEv* ev; int nev; } LoopSeg;
+static void LoopReplay(SmState* s, const SmCfg* c, SmChain* ch, double* t, const LoopSeg* g, int n, int rawAvoid) {
+    for (int i = 0; i < n; ++i) {
+        const uint64_t run = ++g_chainRun << 32 | g[i].act; int counted = 0;
+        for (int k = 0; k < g[i].ticks; ++k) {
+            const uint64_t key = SmChainStep(ch, run, g[i].act, g[i].skill, g[i].w);
+            for (int e = 0; e < g[i].nev; ++e) if (g[i].ev[e].tick == k) {
+                for (int h = 0; h < g[i].ev[e].hits; ++h) SmOnHitEx(s, c, *t, g[i].act, key, 11.f, 0);
+                if (g[i].ev[e].avoid) { SmOnAvoidCounterUse(s, c, *t, !counted, g[i].act, rawAvoid ? run : key); counted = 1; }
+            }
+            *t += 16.7;
+        }
+    }
+}
+static void LoopOneCast(void) {
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopReps == 2);
+    // Switch Glaive Lightning Blade (X+LB), log 08:23:33: 25616 (LB, 5 f, no skill row) -> 25376 (6 f, skill word 0xF53B, no hit) ->
+    // 25377 (85 f, 0xF53B, the counter slash): hit + avoid counter at 9127 ms, hit + avoid counter at 9728 ms (two boss windows)
+    const LoopEv lb1[2] = {{13, 1, 1}, {49, 1, 1}};
+    const LoopSeg lbA[3] = {{25616, 5, 0, 0, 0, 0}, {25376, 6, 1, 0xF53B, 0, 0}, {25377, 85, 1, 0xF53B, lb1, 2}};
+    // log 03:43:27: avoid at 50 ms, hits at 217 / 417 ms, avoid at 517, hit at 850, avoid at 1101 (3 windows, 3 hits)
+    const LoopEv lb2[6] = {{3, 0, 1}, {13, 1, 0}, {25, 1, 0}, {31, 0, 1}, {51, 1, 0}, {66, 0, 1}};
+    const LoopSeg lbB[3] = {{25612, 3, 0, 0, 0, 0}, {25376, 8, 1, 0xF53B, 0, 0}, {25377, 85, 1, 0xF53B, lb2, 6}};
+    SmState s; SmChain ch; double t = 1000;
+    // the bug reproduced: the avoid keyed by 25377's run, the hits by the chain's (25376's) -> the logged "repetitive x2 -20 (loop 4/1)"
+    // and "loop 3/1", "loop 4/1", "loop 5/1" on one cast
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbA, 3, 1); CHECK(s.loopPens == 2 && s.lpN1 == 4);
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbB, 3, 1); CHECK(s.loopPens == 3 && s.lpN1 == 5);
+    // fixed: one cast = one step, every hit / avoid of it scores
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbA, 3, 0);
+    CHECK(s.loopPens == 0 && s.lpN1 == 1 && s.countedHits == 2 && near(s.pts, 2 * c.hit + 2 * c.dodge));
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0);
+    CHECK(s.loopPens == 0 && s.lpN1 == 1 && s.countedHits == 3 && s.counterAvoids == 1 && near(s.pts, 3 * c.hit + 3 * c.dodge));
+    // a genuine repeat still costs: the 3rd cast in a row is looped (its hits and avoids 0, one penalty), the 2nd is not
+    SmReset(&s); SmChainReset(&ch);
+    LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0); CHECK(s.loopPens == 0 && s.lpN1 == 2);
+    const float p2 = s.pts; LoopReplay(&s, &c, &ch, &t, lbA, 3, 0);
+    CHECK(s.loopPens == 1 && s.lpN1 == 3 && near(s.pts, p2 - c.loopPts) && s.countedHits == 5);
+    // cast, other move, cast, other move, cast: A B A B A, the 5th costs (period 2 unchanged)
+    const LoopEv x1[1] = {{10, 1, 0}}; const LoopSeg xs[1] = {{25150, 30, 0, 0, x1, 1}};
+    SmReset(&s); SmChainReset(&ch);
+    LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); LoopReplay(&s, &c, &ch, &t, xs, 1, 0); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0); LoopReplay(&s, &c, &ch, &t, xs, 1, 0);
+    CHECK(s.loopPens == 0); LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); CHECK(s.loopPens == 1);
+    // Sword Swift Step Heavy, log 07:48:25: 25563 (15 f step, 0xCCF6) -> 25564 (slash: hit + held avoid counter at 850 ms, hit 100 ms later)
+    const LoopEv sh[2] = {{51, 1, 1}, {57, 1, 0}};
+    const LoopSeg ssh[2] = {{25563, 15, 1, 0xCCF6, 0, 0}, {25564, 60, 1, 0xCCF6, sh, 2}};
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, ssh, 2, 1); CHECK(s.loopPens == 1);  // logged "loop 3/1" on one cast
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); CHECK(s.loopPens == 0 && s.lpN1 == 1);
+    LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); CHECK(s.loopPens == 1 && s.lpN1 == 3);
+}
 static void BurstBreak(void) {  // human: a boss's red (GreatAttack) attack interrupted by a hit in its wind-up
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE;
     CHECK(near(c.burst, 40) && c.burstMs == 1500 && c.burstSkill == 0);
@@ -864,7 +920,7 @@ static void MoveVariety(void) {
 }
 int main(void) {
     MoveVariety();
-    Loop(); LoopAvoid(); MultiCap(); MultiChain();
+    Loop(); LoopAvoid(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();
     Blocked(); BlockQueue();
