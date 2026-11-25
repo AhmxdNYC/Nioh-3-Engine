@@ -15,6 +15,12 @@
 // earlier (the next gauntlet boss waiting) or came later is the next fight: SrBossHitEx returns 1, the caller finishes this fight (its card)
 // and starts a fresh fight with that hit. A boss that is up but never hit never holds a card back.
 //
+// HUD-only bosses (Picture Scroll). A Hundred Demon Realms Picture Scroll boss is a wave enemy: it has the boss HP bar but no native boss
+// slot (its wrapper has no placement record, NATIVE SLOT "wrapper record did not match"), so the glue also takes actors on the HUD boss bar
+// (SrHud below). Picture Scroll waves reuse the actor: the next wave's boss can sit at the dead boss's address with a new handle / HP block.
+// Such a boss carries an identity tag (0 for boss slots: no tag logic) and SrBossHitTag treats a hit on a known address with another tag as
+// a new boss: the next fight (one card per boss) or, inside the form window of the end wait, its next form.
+//
 // Score. Every tick the meter is one number v = rank + gauge (D = 0 .. SSS with a full gauge = 7; an idle meter is 0). The score is the time
 // average of v over the fight, weighted by game time (pause, menus and loading stop the clock), so a few seconds at a rank barely move it.
 // Fight length is never part of the score: a fast kill earns nothing for being fast (a one-shot fight is a few ms long and scores whatever
@@ -85,6 +91,7 @@ typedef struct {
     int peak;
     uint32_t comboBest;
     uint64_t boss[SR_BOSSES]; int dead[SR_BOSSES], hp0[SR_BOSSES]; int nBoss;  // hp0: HP was 0 when last seen (a later disappearance = killed)
+    uint64_t tag[SR_BOSSES];     // HUD-only boss identity (handle / HP block), 0 = a boss slot (see SrBossHitTag)
     uint32_t acts[SR_ACTS]; int nActs;
     uint32_t maActs[SR_ACTS]; int nMa;
     SrCount c0;
@@ -113,6 +120,21 @@ static inline int SrBossHitEx(SrFight* f, const SmState* s, uint64_t a, double s
     if (!f->on) { SrReset(f); f->on = 1; f->peak = s->active ? s->rank : 0; f->c0 = SrCountOf(s); f->comboBest = s->combo; }
     if (SrBossIdx(f, a) < 0 && f->nBoss < SR_BOSSES) { f->boss[f->nBoss] = a; f->dead[f->nBoss] = 0; f->hp0[f->nBoss] = 0; f->nBoss++; f->ending = 0; }
     return 0;
+}
+// SrBossHitEx for a boss with an identity tag (HUD-only boss; tag 0 = plain SrBossHitEx). The same actor address with another tag is another
+// boss: a down entry is the next fight (returns 1, as SrBossHitEx) unless SrIsForm, then that entry is the new form (up again, same fight).
+static inline int SrBossHitTag(SrFight* f, const SmState* s, uint64_t a, uint64_t tag, double seenWall, int formMs) {
+    int i = a && f->on ? SrBossIdx(f, a) : -1;
+    if (i >= 0 && tag && f->tag[i] && f->tag[i] != tag) {
+        if (f->dead[i] || f->hp0[i]) {
+            if (f->ending && !SrIsForm(f, seenWall, formMs)) return 1;
+            f->dead[i] = f->hp0[i] = 0; f->ending = 0;
+        }
+        f->tag[i] = tag; return 0;
+    }
+    const int r = SrBossHitEx(f, s, a, seenWall, formMs);
+    if (r == 0 && tag && (i = SrBossIdx(f, a)) >= 0 && !f->tag[i]) f->tag[i] = tag;
+    return r;
 }
 // Old entry (tests): every new boss in the end wait is a next form.
 static inline void SrBossHit(SrFight* f, const SmState* s, uint64_t a) { SrBossHitEx(f, s, a, f->endWall, SR_FORM_MS); }
@@ -177,6 +199,28 @@ static inline int SrStep(SrFight* f, const SrBossNow* now, int playerDead, int l
     if (!f->ending) { f->ending = 1; f->endWall = wall; return 1; }
     return wall - f->endWall >= (double)endDelayMs ? 2 : 0;
 }
+// HUD boss tracker (glue: style_meter_game.h, once per tick). Actors on the HUD boss HP bar that are not a boss slot, with their identity tag
+// and the wall ms that identity was first seen (SrBossHitTag's seenWall). An entry stays while it is on the bar and a while after it left
+// (keepMs: the lethal hit / death blow can land as the bar goes away); a new tag at a known address is a new boss (first seen now).
+#define SR_HUD 4
+#define SR_HUD_KEEP_MS 5000
+typedef struct { uint64_t a, tag; double seen, last; } SrHudE;
+typedef struct { SrHudE e[SR_HUD]; } SrHud;
+static inline int SrHudFind(const SrHud* h, uint64_t a) { for (int i = 0; a && i < SR_HUD; ++i) if (h->e[i].a == a) return i; return -1; }
+// Seen on the bar now. Returns the entry index (a full table drops the entry seen longest ago); *fresh = 1 when this is a new identity.
+static inline int SrHudSee(SrHud* h, uint64_t a, uint64_t tag, double wall, int* fresh) {
+    if (fresh) *fresh = 0;
+    if (!a) return -1;
+    int i = SrHudFind(h, a);
+    if (i >= 0 && h->e[i].tag == tag) { h->e[i].last = wall; return i; }
+    if (i < 0) { for (int k = 0; k < SR_HUD && i < 0; ++k) if (!h->e[k].a) i = k; }
+    if (i < 0) { i = 0; for (int k = 1; k < SR_HUD; ++k) if (h->e[k].last < h->e[i].last) i = k; }
+    h->e[i].a = a; h->e[i].tag = tag; h->e[i].seen = wall; h->e[i].last = wall; if (fresh) *fresh = 1;
+    return i;
+}
+static inline void SrHudDrop(SrHud* h, int i) { if (i >= 0 && i < SR_HUD) { h->e[i].a = h->e[i].tag = 0; h->e[i].seen = h->e[i].last = 0; } }
+// Off the bar for more than keepMs: forgotten (the address may be reused by a normal enemy later).
+static inline void SrHudExpire(SrHud* h, double wall, int keepMs) { for (int i = 0; i < SR_HUD; ++i) if (h->e[i].a && wall - h->e[i].last > (double)keepMs) SrHudDrop(h, i); }
 // One log / card line of the counts.
 static inline int SrFmt(char* o, int n, const SrResult* r) {
     return snprintf(o, n, "grade %s avg %.2f (meter %.2f - %.2f for hits taken; by average %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "

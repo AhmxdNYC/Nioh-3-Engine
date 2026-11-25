@@ -242,10 +242,59 @@ static void HitPenalty(void) {
     CHECK(r.avg == 0.f && r.grade == 0);                               // never below 0
     CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 3);              // penalty off
 }
+// Picture Scroll (2026-11-25 log 02:55-03:00): three wave bosses on the HUD bar, no boss slot. Boss 1 (own actor) dies, boss 2 gets the bar
+// 10 s later at another address, boss 3 reuses boss 2's actor address with a new handle / HP block (tag) 8 s after boss 2 died. One card each.
+static void PictureScroll(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f); SrHud h; memset(&h, 0, sizeof h);
+    SrBossNow now[SR_BOSSES]; int fresh = 0, cards = 0;
+    // tracker: new actor, same identity again, the same address with another tag = a new identity seen now
+    CHECK(SrHudSee(&h, 0xA0, 0x11, 1000, &fresh) == 0 && fresh && h.e[0].seen == 1000);
+    CHECK(SrHudSee(&h, 0xA0, 0x11, 1500, &fresh) == 0 && !fresh && h.e[0].seen == 1000 && h.e[0].last == 1500);
+    CHECK(SrHudSee(&h, 0xB0, 0x22, 1500, &fresh) == 1 && fresh && SrHudFind(&h, 0xB0) == 1);
+    CHECK(SrHudSee(&h, 0xB0, 0x33, 9000, &fresh) == 1 && fresh && h.e[1].tag == 0x33 && h.e[1].seen == 9000);
+    SrHudExpire(&h, 1500 + SR_HUD_KEEP_MS + 1, SR_HUD_KEEP_MS);               // 0xA0 off the bar too long: forgotten, 0xB0 kept
+    CHECK(SrHudFind(&h, 0xA0) < 0 && SrHudFind(&h, 0xB0) == 1);
+    CHECK(SrHudSee(&h, 0xC0, 1, 9100, 0) == 0 && SrHudSee(&h, 0xD0, 2, 9200, 0) == 2 && SrHudSee(&h, 0xE0, 3, 9300, 0) == 3);
+    CHECK(SrHudSee(&h, 0xF0, 4, 9400, &fresh) == 1 && fresh && SrHudFind(&h, 0xB0) < 0);  // full: the entry seen longest ago (0xB0, 9000) goes
+    SrHudDrop(&h, 0); CHECK(SrHudFind(&h, 0xC0) < 0);
+    CHECK(SrHudFind(&h, 0) < 0 && SrHudSee(&h, 0, 5, 1, &fresh) == -1 && !fresh);
+    // boss 1
+    double t = 0;
+    CHECK(SrBossHitTag(&f, &s, 0x540, 0x1F3E, -2500, SR_FORM_MS) == 0 && f.on && f.tag[0] == 0x1F3E);
+    Run(&f, &s, &c, 3, 0.5f, 22000); t += 22000; memset(now, 0, sizeof now);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    t += SR_END_DELAY_MS; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1); cards++; SrReset(&f);
+    // boss 2 (another address), first hit 2.5 s after its bar showed
+    t += 7000; CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x1F3D, t - 2500, SR_FORM_MS) == 0 && f.on && f.nBoss == 1);
+    Run(&f, &s, &c, 2, 0.5f, 100000); t += 100000; memset(now, 0, sizeof now);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    // boss 3 takes boss 2's address in the end wait, hit before the card: seen 2 s after the fight went down = not a form: card now, new fight
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x2F3C, t + 2000, SR_FORM_MS) == 1 && f.ending && f.nBoss == 1);
+    CHECK(SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1); cards++; SrReset(&f);
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x2F3C, t + 2000, SR_FORM_MS) == 0 && f.on && !f.ending && f.tag[0] == 0x2F3C);
+    memset(now, 0, sizeof now);                                            // the same address, alive: up (no stale death from boss 2)
+    CHECK(SrStep(&f, now, 0, 0, t + 2100, SR_END_DELAY_MS) == 0 && !f.dead[0]);
+    Run(&f, &s, &c, 4, 0.5f, 160000); t += 160000;
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    CHECK(SrStep(&f, now, 0, 0, t + SR_END_DELAY_MS, SR_END_DELAY_MS) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).grade == 4); cards++;
+    CHECK(cards == 3);
+    // a new identity at a down boss's address inside the form window: its next form (same fight, up again)
+    SrReset(&f); memset(now, 0, sizeof now);
+    SrBossHitTag(&f, &s, 0x8E0, 0x77, 0, SR_FORM_MS); now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, 5000, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x78, 5000 + 1000, SR_FORM_MS) == 0 && !f.ending && !f.dead[0] && f.tag[0] == 0x78 && f.nBoss == 1);
+    memset(now, 0, sizeof now); CHECK(SrStep(&f, now, 0, 0, 6100, SR_END_DELAY_MS) == 0);
+    // the same tag again / an untagged (boss slot) hit: plain SrBossHitEx, no change for boss slots
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x78, 0, SR_FORM_MS) == 0 && f.nBoss == 1);
+    CHECK(SrBossHitTag(&f, &s, 0x900, 0, 0, SR_FORM_MS) == 0 && f.nBoss == 2 && f.tag[1] == 0);
+    CHECK(SrBossHitTag(&f, &s, 0x900, 0, 0, SR_FORM_MS) == 0 && f.nBoss == 2);
+    // a HUD boss and the player dying: dropped like any boss
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHitTag(&f, &s, 0x540, 0x1F3E, 0, SR_FORM_MS);
+    CHECK(SrStep(&f, now, 1, 0, 0, SR_END_DELAY_MS) == -1 && f.drop == SR_DROP_PLAYER);
+}
 int main(void) {
     HitPenalty();
     DodgeDeflectCounter(); HalfAndHalf(); ShortBurst(); HoldRule(); SssIsHard(); NoClearTime(); Lifecycle(); Counts();
-    Gauntlet(); Duo(); SecondForm(); Teardown();
+    Gauntlet(); Duo(); SecondForm(); Teardown(); PictureScroll();
     printf("style_result_test: all %d checks passed\n", g_checks);
     return 0;
 }

@@ -8,6 +8,19 @@ static uint32_t NativeSlotCharacter(uint64_t actor, uint32_t handle) {
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return chr;
 }
+// Diagnosis for "wrapper record did not match" (2026-11-25: every Picture Scroll wave boss, handles 0xF3C..0xF3E): which check failed.
+static __attribute__((noinline)) void NativeSlotWhy(uint64_t actor, uint32_t handle, char* o, int n) {
+    uint64_t w = FindWrapper(handle), w0 = 0, rec = 0; uint32_t rid = 0, chr = 0; int recOk = 0;
+    __try {
+        if (w) { Rd64(w, &w0); Rd64(w + 0x18, &rec); }
+        if (rec) { rid = *(uint32_t*)rec; chr = *(uint32_t*)(rec + 4); recOk = 1; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    const uint64_t byH = ActorByHandle(handle);
+    snprintf(o, n, "wrapper %p [0] %p rec %p%s id %08X chr %u, ActorByHandle %p, player %d, own spawn %d -> %s", (void*)w, (void*)w0, (void*)rec, recOk ? "" : " (unreadable)", rid, chr,
+        (void*)byH, actor == PlayerChar(), InSp(actor) ? 1 : 0,
+        !w ? "no wrapper" : !rec ? "no record at wrapper+0x18" : rid != handle ? "record id is not the handle" : !chr ? "record chr 0"
+        : w0 != actor ? "wrapper actor differs" : byH != actor ? "ActorByHandle differs" : "entry check failed");
+}
 static int NativeSlotAlive(int s) {
     uint32_t mission = 0, mode = 0; uint8_t journey = 0;
     const uint8_t* gs = GameState(); uint64_t hp = 1, max = 0; int dead = 0;
@@ -67,7 +80,8 @@ static void NativeSlotsTick(void) {
         if (!ActorInTable(actors[i])) { NS_REJECT(actors[i], "not in the actor table (handle %08X)", handles[i]); continue; }
         uint32_t chr = NativeSlotCharacter(actors[i], handles[i]);
         uint64_t hp = 1, max = 0; int dead = 0;
-        if (!chr) { NS_REJECT(actors[i], "no character id for handle %08X (wrapper record did not match)", handles[i]); continue; }
+        if (!chr) { char why[256]; NativeSlotWhy(actors[i], handles[i], why, sizeof why);
+            NS_REJECT(actors[i], "no character id for handle %08X (wrapper record did not match: %s; a Picture Scroll boss is carded as a HUD boss instead)", handles[i], why); continue; }
         ActorDeadNow(actors[i], &dead, &hp, &max);
         if (dead || !max || !hp) { NS_REJECT(actors[i], "chr %u dead %d HP %llu / %llu", chr, dead, hp, max); continue; }
         int s = SlotFree(); if (s < 0) { NS_REJECT(actors[i], "chr %u: every boss slot is taken", chr); break; }

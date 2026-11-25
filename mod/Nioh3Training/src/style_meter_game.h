@@ -244,6 +244,11 @@ N3T_API int Nioh3Training_StyleSet(int what, int value) {
 // Result card, written by SmHpEvent (hit apply) for SmFeed: the actor of each boss slot hit since the last tick (the slot can be cleared
 // before SmFeed runs when the hit killed it) and the slots whose hit was lethal (raw damage >= HP: a boss torn down before HP 0 is read).
 static volatile LONG64 g_sr_hitAct[32]; static volatile LONG g_sr_lethalMask;
+// HUD-only bosses (Picture Scroll waves: the boss HP bar, no boss slot; style_result.h SrHud). SmFeed publishes the tracked actors in
+// g_sr_hudAct; SmHpEvent notes a hit on one in the masks above at bit SR_HUD_BIT + k (above the boss slot bits, so Burst Break never sees them).
+#define SR_HUD_BIT N3T_SLOTS
+_Static_assert(SR_HUD_BIT + SR_HUD <= 32, "HUD boss bits must fit the 32 bit masks");
+static volatile LONG64 g_sr_hudAct[SR_HUD]; static SrHud g_sr_hud;
 // Blocked hits (BlockPct): the player's hits on an enemy, noted per (hit object, victim status block) from both damage calls of the hit apply.
 static SmBlkQ g_sm_blk; static SRWLOCK g_sm_blk_lock = SRWLOCK_INIT;
 static void SmBlkAdd(uint64_t hit, uint64_t vst, int fl, float ki) { AcquireSRWLockExclusive(&g_sm_blk_lock); SmBlkNote(&g_sm_blk, hit, vst, fl, ki); ReleaseSRWLockExclusive(&g_sm_blk_lock); }
@@ -369,16 +374,52 @@ static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
                     InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); boss = 1; break;
                 }
             }
+            for (int k = 0; k < SR_HUD && !boss; ++k) {  // a HUD-only boss (Picture Scroll): same notes at bit SR_HUD_BIT + k
+                const uint64_t a = (uint64_t)g_sr_hudAct[k]; uint64_t bs = 0; const int b = SR_HUD_BIT + k;
+                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) {
+                    InterlockedExchange64(&g_sr_hitAct[b], (LONG64)a);
+                    if (*(volatile uint64_t*)(hp + 0x20) <= (uint64_t)raw) InterlockedOr(&g_sr_lethalMask, (LONG)(1u << b));
+                    InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << b)); boss = 1;
+                }
+            }
             const uint64_t vmx = *(volatile uint64_t*)(hp + 0x18), pmx = st ? *(volatile uint64_t*)(st + 0x50) : 0;
             if (g_cfg_sr && !boss && atk == me && pmx && vmx >= 3 * pmx) {  // diagnosis: a big enemy (max HP >= 3x the player's) that is not a boss slot
                 static uint64_t seen[48]; static int nSeen;                  // (a Picture Scroll boss with no HUD bar would show up here)
                 int k = 0; while (k < nSeen && seen[k] != hp) ++k;
                 if (k == nSeen && nSeen < 48) { seen[nSeen++] = hp;
-                    Log("STYLE RESULT: hit a big enemy that is not a boss slot (HP %llu / %llu, player max %llu, hp block %p): no card for it (not admitted, see NATIVE SLOT lines)",
+                    Log("STYLE RESULT: hit a big enemy that is neither a boss slot nor on the boss HP bar (HP %llu / %llu, player max %llu, hp block %p): no card for it",
                         *(volatile uint64_t*)(hp + 0x20), vmx, pmx, (void*)hp); }
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
+}
+// Once per tick (SmFeed, before the hits are read): the HUD-only boss tracker (style_result.h SrHud). Every actor on the HUD boss HP bar
+// (KbCollect: the gauge rows, as the KIBREAK watch reads them) that is not a boss slot, is alive and not the player is tracked with tag =
+// HP block ^ handle (a Picture Scroll wave reuses the actor address for the next boss, with a new handle and HP block). Read only.
+static __attribute__((noinline)) void SrHudTick(double wall) {
+    const uint8_t* gs = GameState(); const uint64_t me = PlayerChar();
+    if (!g_cfg_sr || !me || !gs || gs[2]) { for (int k = 0; k < SR_HUD; ++k) SrHudDrop(&g_sr_hud, k); }
+    else {
+        uint64_t act[KB_MAX]; uint32_t who[KB_MAX] = {0}; const int n = KbCollect(act, KB_MAX, who);
+        for (int i = 0; i < n; ++i) {
+            const uint64_t a = act[i]; if (!a || a == me) continue;
+            int k = SrHudFind(&g_sr_hud, a);
+            if (SlotOf(a) >= 0) { if (k >= 0) SrHudDrop(&g_sr_hud, k); continue; }  // a boss slot: the slot path has it
+            uint64_t st = 0, c = 1, mx = 0; int d = 0;
+            if (!Rd64(a + 0x3A0, &st) || !st) continue;
+            uint64_t tag = st ^ ((uint64_t)who[i] << 48); if (!tag) tag = 1;
+            ActorDeadNow(a, &d, &c, &mx);
+            if (d || !mx || !c) { if (k >= 0 && g_sr_hud.e[k].tag == tag) g_sr_hud.e[k].last = wall; continue; }  // down: kept while on the bar, never added
+            int fresh = 0; SrHudSee(&g_sr_hud, a, tag, wall, &fresh);
+            static int nLog;
+            if (fresh && nLog < 200) { ++nLog;
+                Log("STYLE RESULT: boss HP bar on actor %p (handle %08X, HP %llu / %llu, hp block %p) with no boss slot: tracked as a boss for the result card (Picture Scroll / wave boss)",
+                    (void*)a, who[i], (unsigned long long)c, (unsigned long long)mx, (void*)(st + 0x38)); }
+        }
+        SrHudExpire(&g_sr_hud, wall, SR_HUD_KEEP_MS);
+        for (int k = 0; k < SR_HUD; ++k) if (g_sr_hud.e[k].a && !ActorInTable(g_sr_hud.e[k].a)) SrHudDrop(&g_sr_hud, k);  // torn down: the address may be reused
+    }
+    for (int k = 0; k < SR_HUD; ++k) InterlockedExchange64(&g_sr_hudAct[k], (LONG64)g_sr_hud.e[k].a);
 }
 // FpTick, before FmFeed: an enemy (boss slot) hit window is open this tick (same rule as the frame meter's 'active' cell).
 static void SmCapture(void) {
@@ -688,9 +729,10 @@ static void SmFeed(double gdt) {
     }
     // Result card. srSlotA / srSlotT: the actor of each boss slot and the wall ms it was first seen there (kept after the slot clears), so
     // a boss hit in the end wait can be told apart: next form (seen as the fight went down) or the next boss of a gauntlet (SrBossHitEx).
-    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES]; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
+    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES], srTag[SR_BOSSES] = {0}; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
     static uint64_t srSlotA[N3T_SLOTS]; static double srSlotT[N3T_SLOTS];
     const double srWall = SmWallMs();
+    SrHudTick(srWall);  // Picture Scroll bosses (HUD bar, no boss slot)
     for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_act[s] && g_slot_act[s] != srSlotA[s]) { srSlotA[s] = g_slot_act[s]; srSlotT[s] = srWall; }
     const LONG bbPl = InterlockedExchange(&g_sr_hitMask, 0), bbAl = summonLive ? allyMask : 0;  // human: Burst Break, per boss slot
     {   const LONG m = bbPl | bbAl, lm = InterlockedExchange(&g_sr_lethalMask, 0);
@@ -700,6 +742,13 @@ static void SmFeed(double gdt) {
             if (!a) continue;
             srHit[nSrHit] = a; srSeen[nSrHit] = srSlotA[s] == a ? srSlotT[s] : srWall; nSrHit++;
             if ((lm & (LONG)(1u << s)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
+        }
+        if (g_cfg_sr && m) for (int k = 0; k < SR_HUD && nSrHit < SR_BOSSES; ++k) {  // HUD-only bosses: tagged, first seen = when that identity got the bar
+            const int b = SR_HUD_BIT + k; if (!(m & (LONG)(1u << b))) continue;
+            const uint64_t a = (uint64_t)g_sr_hitAct[b]; if (!a) continue;
+            const int e = SrHudFind(&g_sr_hud, a);
+            srHit[nSrHit] = a; srTag[nSrHit] = e >= 0 ? g_sr_hud.e[e].tag : 0; srSeen[nSrHit] = e >= 0 ? g_sr_hud.e[e].seen : srWall; nSrHit++;
+            if ((lm & (LONG)(1u << b)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
         }
         if (!g_cfg_sr && g_sr.on) SrReset(&g_sr);
     }
@@ -724,11 +773,11 @@ static void SmFeed(double gdt) {
     SrResult srRes[2]; int srDone = 0;  // [0] a gauntlet split this tick, then the fight's own end (a newer card replaces the older one)
     AcquireSRWLockExclusive(&g_sm_lock);
     for (int i = 0; i < nSrHit; ++i) {
-        if (SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
+        if (SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
             Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
                 (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
             if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
-            SrReset(&g_sr); SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS); varReset = 2;
+            SrReset(&g_sr); SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS); varReset = 2;
             Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
         }
     }
