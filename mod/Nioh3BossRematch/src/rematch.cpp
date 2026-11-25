@@ -4630,6 +4630,15 @@ void AutoMovesTick() {
 
 }  // namespace
 
+// human #135018: F9 / Shift+F9 / F6 soul core pair keys (UI worker, ~33 ms)
+void SoulPairTick(bool next, bool prev, bool flag) {
+#if BR_SOULCORE
+    ScPairTickImpl(next, prev, flag);
+#else
+    (void)next; (void)prev; (void)flag;
+#endif
+}
+
 // #79955: called by the UI worker every ~33 ms, outside the game's frame pump (which may not run at the title).
 void TitleWatchdog() {
     static rcore::TitleWatch w;

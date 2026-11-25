@@ -134,6 +134,126 @@ bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32
     *color = sel ? cWhite : g_scEqPick == SCW_EMPTY ? cGray : cYellow;
     return true;
 }
+// human #135018: hands-on pair stepping from the keyboard (no menu, no chat). F9 = next pair of owned cores (distinct items, inventory order)
+// into Yang 1 + Yang 2, Shift+F9 = previous pair, F6 = flag the pair now equipped (Nioh3BossRematch.log + Nioh3BossRematch_flags.txt).
+// Uses the same Nioh3Training_SoulCoreEquip request as the menu rows, one slot at a time; then fills the spirit gauge.
+struct ScPairList { uint32_t idx[256]; uint16_t item[256]; int n; uint32_t slots[SCW_NSLOT]; };
+bool ScPairRead(ScPairList* L) {
+    using F = int (*)(uint32_t*, uint32_t*, uint16_t*, int);
+    const auto f = (F)TrainingExport("Nioh3Training_SoulCoreState");
+    uint32_t idx[1024]; uint16_t item[1024];
+    const int n = f ? f(L->slots, idx, item, 1024) : -1;
+    L->n = 0;
+    if (n < 0) return false;
+    for (int i = 0; i < n && L->n < 256; ++i) {
+        bool dup = false;
+        for (int j = 0; j < L->n; ++j) if (L->item[j] == item[i]) { dup = true; break; }
+        if (!dup) { L->idx[L->n] = idx[i]; L->item[L->n] = item[i]; ++L->n; }
+    }
+    return true;
+}
+int ScPairItemAt(const ScPairList& L, uint32_t idx) {
+    for (int i = 0; i < L.n; ++i) if (L.idx[i] == idx) return i;
+    return -1;
+}
+int g_scPairStage = 0;        // 0 idle, 1 first slot request out, 2 second slot pending, 3 second slot request out
+int g_scPairSeq = 0, g_scPairOrder[2] = {0, 1};
+uint32_t g_scPairWant[2] = {SCW_EMPTY, SCW_EMPTY};
+uint16_t g_scPairItems[2] = {0, 0};
+int g_scPairNo = 0, g_scPairOf = 0;
+ULONGLONG g_scPairT0 = 0;
+// Send one slot's request; 1 sent, 0 busy (retry), 2 nothing to do (already there), -1 failed.
+int ScPairSend(int slot) {
+    using E = int (*)(int, int); using R = int (*)(int*);
+    const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquip"); const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
+    if (!eq || !res) return -1;
+    ScPairList L; if (!ScPairRead(&L)) return -1;
+    const uint32_t want = g_scPairWant[slot];
+    if (L.slots[slot] == want) return 2;
+    int seq = 0; res(&seq);
+    const int q = eq(slot, (int)want);
+    if (q == 1) g_scPairSeq = seq;
+    return q == 1 ? 1 : q == 0 ? 0 : -1;
+}
+bool ScPairDone(int* r) {  // request we sent finished?
+    using R = int (*)(int*);
+    const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
+    int seq = 0; *r = res ? res(&seq) : SCW_FAULT;
+    return !res || seq != g_scPairSeq;
+}
+void ScPairFinish(bool ok, int r) {
+    g_scPairStage = 0;
+    if (!ok) {
+        Log("Rematch: pair step %d/%d failed r=%d (human #135018)", g_scPairNo, g_scPairOf, r);
+        ToastF(cYellow, 4000, "Soul core pair change failed (%d). F9 tries the next pair.", r);
+        return;
+    }
+    char rep[256]; Command("spirit gauge max", rep, sizeof rep);
+    Log("Rematch: pair %d/%d on: Yang 1 core %X, Yang 2 core %X; %s (human #135018)", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1], rep);
+    ToastF(cGreen, 5000, "Pair %d of %d: core %X (Yang 1) + core %X (Yang 2). F6 flag, F9 next", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
+}
+void ScPairStep(int dir) {
+    if (g_scPairStage) { ToastF(cYellow, 2000, "Still changing cores..."); return; }
+    ScPairList L;
+    if (!TrainingExport("Nioh3Training_SoulCoreEquip") || !ScPairRead(&L)) { ToastF(cYellow, 3000, "Soul cores cannot be read right now (load a save first)."); return; }
+    if (L.n < 2) { ToastF(cYellow, 3000, "Fewer than 2 soul cores owned."); return; }
+    const int npairs = (L.n + 1) / 2;
+    int cur = L.slots[0] == SCW_EMPTY ? -1 : ScPairItemAt(L, L.slots[0]);
+    int p = cur < 0 ? (dir > 0 ? 0 : npairs - 1) : ((cur / 2 + dir) % npairs + npairs) % npairs;
+    const int a = p * 2, b = a + 1 < L.n ? a + 1 : 0;
+    g_scPairWant[0] = L.idx[a]; g_scPairWant[1] = L.idx[b];
+    g_scPairItems[0] = L.item[a]; g_scPairItems[1] = L.item[b];
+    g_scPairNo = p + 1; g_scPairOf = npairs;
+    // the core for Yang 1 sitting in Yang 2 now: change Yang 2 first so the two do not trade places
+    const bool swapFirst = L.slots[1] == g_scPairWant[0];
+    g_scPairOrder[0] = swapFirst ? 1 : 0; g_scPairOrder[1] = swapFirst ? 0 : 1;
+    g_scPairStage = 1; g_scPairT0 = Ms();
+    const int s = ScPairSend(g_scPairOrder[0]);
+    if (s == 2) g_scPairStage = 2;
+    else if (s == 0) g_scPairStage = 4;  // busy: retry the first slot from the tick
+    else if (s < 0) ScPairFinish(false, s);
+    ToastF(cWhite, 3000, "Changing to pair %d of %d: core %X + core %X...", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
+}
+void ScPairFlag() {
+    ScPairList L;
+    if (!ScPairRead(&L)) { ToastF(cYellow, 3000, "Soul cores cannot be read right now."); return; }
+    int it[2] = {-1, -1};
+    for (int s = 0; s < 2; ++s) { const int k = L.slots[s] == SCW_EMPTY ? -1 : ScPairItemAt(L, L.slots[s]); if (k >= 0) it[s] = L.item[k]; }
+    SYSTEMTIME t; GetLocalTime(&t);
+    Log("Rematch: FLAG pair Yang 1 core %X, Yang 2 core %X (human #135018)", it[0], it[1]);
+    wchar_t path[MAX_PATH]; const DWORD m = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    if (m && m < MAX_PATH) {
+        wchar_t* sl = wcsrchr(path, L'\\'); if (sl) wcscpy_s(sl + 1, MAX_PATH - (sl + 1 - path), L"Nioh3BossRematch_flags.txt");
+        FILE* f = nullptr;
+        if (!_wfopen_s(&f, path, L"a") && f) {
+            fprintf(f, "%04u-%02u-%02u %02u:%02u:%02u flag Yang1=%X Yang2=%X\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, it[0], it[1]);
+            fclose(f);
+        }
+    }
+    ToastF(cYellow, 4000, "Flagged: core %X + core %X", it[0], it[1]);
+}
+void ScPairTickImpl(bool next, bool prev, bool flag) {
+    if (flag) ScPairFlag();
+    if (next || prev) ScPairStep(next ? 1 : -1);
+    if (!g_scPairStage) return;
+    if (Ms() - g_scPairT0 > 20000) { ScPairFinish(false, SCW_FAULT); return; }
+    int r = 0;
+    if (g_scPairStage == 4) {  // first slot was busy
+        const int s = ScPairSend(g_scPairOrder[0]);
+        if (s == 1) g_scPairStage = 1; else if (s == 2) g_scPairStage = 2; else if (s < 0) ScPairFinish(false, s);
+        return;
+    }
+    if (g_scPairStage == 1 || g_scPairStage == 3) {
+        if (!ScPairDone(&r)) return;
+        if (r != SCW_DONE && r != SCW_SAME) { ScPairFinish(false, r); return; }
+        if (g_scPairStage == 3) { ScPairFinish(true, r); return; }
+        g_scPairStage = 2;
+    }
+    if (g_scPairStage == 2) {
+        const int s = ScPairSend(g_scPairOrder[1]);
+        if (s == 1) g_scPairStage = 3; else if (s == 2) ScPairFinish(true, SCW_SAME); else if (s < 0) ScPairFinish(false, s);
+    }
+}
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool SctChange(int item, int dir) {
     if (ScEqChange(item, dir)) return true;  // human #129277
