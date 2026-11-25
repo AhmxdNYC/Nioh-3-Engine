@@ -83,6 +83,9 @@
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 #define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up
 #define SM_BURST_MS 1500    // ... BurstBreakMs: the boss's burst action must end within this of the hit that broke it
+#define SM_BURST_CTR_ACT 1095u  // ... BurstCounterAct: the player's burst counter action id (live 2026-11-25: act 0x447 every time, 1 f startup,
+                               // pad B+RT; its hit lands after the red attack is out, the boss then goes to its burst-broken action). 0 = off
+#define SM_BURST_AVOID_MS 300  // an avoid (dodge / deflect / counter) this soon after a burst-counter Burst Break is that same event (not paid)
 #define SM_BLOCK_PCT 50       // [StyleMeter] BlockPct: a guarded (blocked) hit is worth this % of a normal hit (human: 'half the points'; 0 = off)
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -110,6 +113,7 @@ typedef struct {
     float ma;                             // #127295 martial art bonus (default = nin)
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
+    uint32_t burstCtrAct;                 // the player's burst counter action id (its hit breaks a red attack that is already out; 0 = off)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -159,7 +163,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS; c->switchMs = SM_SWITCH_MS;
     c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS; c->gsSummonMs = SM_GS_SUMMON_MS;
     c->comboMs = SM_COMBO_MS; c->comboStep = SM_COMBO_STEP; c->comboBase = SM_COMBO_BASE; c->comboInc = SM_COMBO_INC; c->comboMax = SM_COMBO_MAX;
-    c->burst = (float)SM_BURST_PTS; c->burstMs = SM_BURST_MS; c->burstSkill = 0;
+    c->burst = (float)SM_BURST_PTS; c->burstMs = SM_BURST_MS; c->burstSkill = 0; c->burstCtrAct = SM_BURST_CTR_ACT;
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
@@ -437,18 +441,24 @@ static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, f
 //   row    the current run's row has GreatAttack: 1 yes, 0 no, -1 unread this tick (sticky: one read of 1 marks the run)
 //   next   the row's next-action id (u16 +0xE0; SM_ACT_NONE / 0xFFFF / 0 = none): the wind-up flowing into that action is not a break
 //   great  the frame probe saw an unblockable collider created in this run (run.great): the attack came out, too late to break it
-//   hit    0 none, 1 a hit landed on this boss this tick, 2 the same by a skill move / guardian spirit (pts = its points, for the pop-up)
-// A hit counts while the run is a burst run and !great. When the run ends (key changes) the hits of that same tick still belong to the old
+//   hit    0 none, 1 a hit landed on this boss this tick, 2 the same by a skill move / guardian spirit (pts = its points, for the pop-up),
+//          3 the same by the player's burst counter (BurstCounterAct): it beats the red attack while it is out, so it counts even with great
+// A hit counts while the run is a burst run and !great (a burst-counter hit: any time in the burst run). When the run ends (key changes) the hits of that same tick still belong to the old
 // run (the hit is what ended it). Award when the old run was a burst run, got a counted hit, never created its unblockable collider, ended
 // within burstMs of its last counted hit, and the new action is not its continuation (the new row is a burst row too, or it is the old row's
-// next action). Each candidate (burst run with a counted hit) that ends returns SM_BB_MISS or SM_BB_AWARD with *o filled for the log.
+// next action); a burst-counter hit waives the collider rule. Each candidate (burst run with a counted hit) that ends returns SM_BB_MISS or
+// SM_BB_AWARD with *o filled for the log.
+// Burst counter vs dodge: the counter has i-frames inside the boss's hit window, so the dodge detector sees a clean avoid a few ticks after the
+// counter hit (live: hit, then "dodge +45", then the action change). SmBurstAvoid decides that avoid is the Burst Break's own (no Dodge!).
 enum { SM_BB_NONE = 0, SM_BB_AWARD = 1, SM_BB_MISS = 2 };
-typedef struct { uint64_t key; uint32_t act, next; int on, burst, great, hit, hits; double hitT; float hitPts; } SmBurst;
-typedef struct { uint32_t act, newAct, next; int great, cont, hitKind, hits, late, noSkill; double ago; float hitPts; } SmBurstEnd;
-static inline void SmBurstReset(SmBurst* b) { b->key = 0; b->act = b->next = SM_ACT_NONE; b->on = b->burst = b->great = b->hit = b->hits = 0; b->hitT = -1e18; b->hitPts = 0.f; }
+enum { SM_BB_HIT = 1, SM_BB_HIT_SKILL = 2, SM_BB_HIT_CTR = 3 };
+typedef struct { uint64_t key; uint32_t act, next; int on, burst, great, hit, hits, ctr, held; double hitT; float hitPts; } SmBurst;
+typedef struct { uint32_t act, newAct, next; int great, cont, hitKind, hits, late, noSkill, ctr, held; double ago; float hitPts; } SmBurstEnd;
+static inline void SmBurstReset(SmBurst* b) { b->key = 0; b->act = b->next = SM_ACT_NONE; b->on = b->burst = b->great = b->hit = b->hits = b->ctr = b->held = 0; b->hitT = -1e18; b->hitPts = 0.f; }
 static inline void SmBurstHit(SmBurst* b, int hit, float pts, double t) {
-    if (!hit || !b->burst || b->great) return;
+    if (!hit || !b->burst || (b->great && hit < SM_BB_HIT_CTR)) return;
     if (hit > b->hit) b->hit = hit;
+    if (hit == SM_BB_HIT_CTR) b->ctr++;
     b->hits++; b->hitT = t; b->hitPts = pts;
 }
 static inline int SmBurstNextOk(uint32_t n) { return n != SM_ACT_NONE && n != 0xFFFFu && n != 0; }
@@ -459,9 +469,10 @@ static inline int SmBurstStep(SmBurst* b, const SmCfg* c, double t, int valid, u
         SmBurstHit(b, hit, pts, t); hit = 0;
         if (b->burst && b->hit) {
             o->act = b->act; o->newAct = act; o->next = b->next; o->great = b->great; o->hitKind = b->hit; o->hits = b->hits; o->ago = t - b->hitT; o->hitPts = b->hitPts;
+            o->ctr = b->ctr; o->held = b->held;
             o->cont = row > 0 || (SmBurstNextOk(b->next) && (act & 0xFFFFu) == (b->next & 0xFFFFu));
             o->late = o->ago > (double)c->burstMs; o->noSkill = c->burstSkill && b->hit < 2;
-            r = !o->great && !o->cont && !o->late && !o->noSkill ? SM_BB_AWARD : SM_BB_MISS;
+            r = (!o->great || o->ctr) && !o->cont && !o->late && !o->noSkill ? SM_BB_AWARD : SM_BB_MISS;
         }
         b->on = 0;
     }
@@ -471,6 +482,16 @@ static inline int SmBurstStep(SmBurst* b, const SmCfg* c, double t, int valid, u
     if (great) b->great = 1;  // a collider and a hit in one tick: the attack is out, the hit is too late
     SmBurstHit(b, hit, pts, t);
     return r;
+}
+// The hit kind of a player hit on a boss: the burst counter action, else a skill move (2) or a plain hit (1).
+static inline int SmBurstHitKind(const SmCfg* c, uint32_t act, int skill) { return c->burstCtrAct && act == c->burstCtrAct ? SM_BB_HIT_CTR : skill ? SM_BB_HIT_SKILL : SM_BB_HIT; }
+// An avoid (SM_AV_*) seen this tick, after this tick's SmBurstStep: 1 = it is the burst counter's own avoid, not scored now. Held (b->held =
+// avoid) while the live burst run has a burst-counter hit: SmBurstStep then returns it in o->held, and the glue pays it after all when that
+// run ends with SM_BB_MISS (no Burst Break: the avoid was real). Also 1 within SM_BURST_AVOID_MS after a burst-counter award (ctrAwardT).
+static inline int SmBurstAvoid(SmBurst* b, double ctrAwardT, double t, int avoid) {
+    if (!avoid) return 0;
+    if (b && b->on && b->burst && b->ctr && !b->held) { b->held = avoid; return 1; }
+    return t >= ctrAwardT && t - ctrAwardT <= (double)SM_BURST_AVOID_MS;
 }
 static inline float SmOnBurst(SmState* s, const SmCfg* c, double t) {
     s->bursts++;

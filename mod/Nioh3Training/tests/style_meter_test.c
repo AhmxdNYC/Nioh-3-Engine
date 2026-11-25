@@ -611,6 +611,71 @@ static void BurstBreak(void) {  // human: a boss's red (GreatAttack) attack inte
     // bonus 0: still counted, no points; clamp
     SmCfg z = c; z.burst = 0; SmState q; SmReset(&q); CHECK(SmOnBurst(&q, &z, 0) == 0.f && q.bursts == 1 && !q.active);
     SmCfg n = c; n.burst = -5; n.burstMs = 5; n.burstSkill = 7; SmCfgClamp(&n); CHECK(n.burst == 0.f && n.burstMs == 100 && n.burstSkill == 1);
+    // burst counter (live 2026-11-25: player act 1095 hits after the red attack is out, the boss goes to its broken action ~80 ms later)
+    CHECK(c.burstCtrAct == 1095u);
+    CHECK(SmBurstHitKind(&c, 1095, 0) == SM_BB_HIT_CTR && SmBurstHitKind(&c, 1095, 1) == SM_BB_HIT_CTR);
+    CHECK(SmBurstHitKind(&c, 25570, 1) == SM_BB_HIT_SKILL && SmBurstHitKind(&c, 25094, 0) == SM_BB_HIT);
+    SmCfg off = c; off.burstCtrAct = 0; CHECK(SmBurstHitKind(&off, 1095, 0) == SM_BB_HIT);
+    // the counter alone, after the collider: award (a plain hit there still does not count, see above)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 120, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 1000, 1, 120, 0x4E8E, 1, 0x2, 1, 0, 0, &e);
+    SmBurstStep(&b, &c, 1400, 1, 120, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e); CHECK(b.hits == 1 && b.ctr == 1);
+    CHECK(SmBurstStep(&b, &c, 1480, 1, 121, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.great && e.ctr == 1 && e.hitKind == SM_BB_HIT_CTR && near(e.hitPts, 20) && near((float)e.ago, 80));
+    // the live 'no break' case: plain hits in the wind-up, the collider, then the counter -> now an award (was a miss: collider already out)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 130, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 250, 1, 130, 0x4E8E, 1, 0x2, 0, SM_BB_HIT, 20, &e);
+    SmBurstStep(&b, &c, 900, 1, 130, 0x4E8E, 1, 0x2, 1, SM_BB_HIT_SKILL, 16, &e);  // collider + a skill hit in one tick: not counted
+    CHECK(b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 1450, 1, 130, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e) == SM_BB_NONE && b.hits == 2 && b.hit == SM_BB_HIT_CTR);
+    CHECK(SmBurstStep(&b, &c, 1530, 1, 131, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.hits == 2);
+    // the counter hit and the action change in the same tick: the old run's, award
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 140, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 500, 1, 140, 200, 1, N, 1, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 700, 1, 141, 300, 0, N, 0, SM_BB_HIT_CTR, 20, &e) == SM_BB_AWARD && e.ctr == 1 && b.ctr == 0);
+    // the counter still needs the action to end (in time, not into its continuation)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 150, 200, 1, 0x12C, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 151, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont && e.ctr);
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 155, 200, 1, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 1600, 1, 156, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.late);
+    // the counter on a non-burst run: nothing
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 160, 200, 0, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 100, 1, 161, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // BurstBreakSkillOnly: the counter counts as a skill hit
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 170, 200, 1, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 100, 1, 171, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && !e.noSkill);
+}
+static void BurstCounterAvoid(void) {  // human: a burst counter shows Burst Break, not also Dodge! (its i-frames avoid the red attack)
+    SmCfg c; SmCfgDefaults(&c); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE; const double never = -1e18;
+    CHECK(SmBurstAvoid(0, never, 0, SM_AV_NONE) == 0 && SmBurstAvoid(0, never, 1000, SM_AV_DODGE) == 0);
+    // live order: counter hit, the dodge a few ticks later (held), then the action change -> award, the held dodge is dropped
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 10, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 1000, 1, 10, 0x4E8E, 1, 0x2, 1, 0, 0, &e);
+    CHECK(SmBurstAvoid(&b, never, 1100, SM_AV_DODGE) == 0);  // a dodge before any counter hit is a real dodge
+    SmBurstStep(&b, &c, 1400, 1, 10, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 1467, SM_AV_DODGE) == 1 && b.held == SM_AV_DODGE);
+    CHECK(SmBurstAvoid(&b, never, 1470, SM_AV_DODGE) == 0);  // a second avoid in the same run is its own
+    CHECK(SmBurstStep(&b, &c, 1483, 1, 11, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.held == SM_AV_DODGE && b.held == 0);
+    // the dodge closes in the same tick as (or just after) the award: same event, not paid; later avoids are paid again
+    CHECK(SmBurstAvoid(&b, 1483, 1483, SM_AV_DODGE) == 1 && b.held == 0);
+    CHECK(SmBurstAvoid(&b, 1483, 1483 + SM_BURST_AVOID_MS, SM_AV_COUNTER) == 1);
+    CHECK(SmBurstAvoid(&b, 1483, 1484 + SM_BURST_AVOID_MS, SM_AV_DODGE) == 0);
+    CHECK(SmBurstAvoid(&b, 1483, 1000, SM_AV_DODGE) == 0);  // before the award time: not it
+    // held, but the run ends without a Burst Break (flows into its continuation): the held avoid comes back to be paid
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 20, 200, 1, 0x12C, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 50, SM_AV_DEFLECT) == 1);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 21, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.held == SM_AV_DEFLECT);
+    // a plain-hit Burst Break (guardian spirit / wind-up hit) does not touch avoids
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 30, 200, 1, N, 0, SM_BB_HIT_SKILL, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 100, SM_AV_DODGE) == 0 && b.held == 0);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 31, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.held == 0 && e.ctr == 0);
+    // non-burst run: never held
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 40, 200, 0, N, 0, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 100, SM_AV_DODGE) == 0);
 }
 static void Blocked(void) {  // human: a guarded hit is worth BlockPct % (default 50) of the same hit, same use rules, counts in the combo
     SmCfg r; RealDefaults(&r); CHECK(r.blockPct == 50);
@@ -664,6 +729,7 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
 int main(void) {
     Loop(); MultiCap();
     BurstBreak();
+    BurstCounterAvoid();
     Blocked(); BlockQueue();
     Combo();
     GuardianSummon();
