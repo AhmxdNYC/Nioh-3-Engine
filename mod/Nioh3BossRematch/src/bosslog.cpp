@@ -3438,6 +3438,9 @@ std::atomic<int> g_exitOnHelperMs{150};  // live test #108072: 150 ms
 // TASK #135613: [Spirit] SealExitEndPct (0..100, default 90, 0 = off): a hit count that is not a certain data count exits no earlier than
 // this % of the core's attack duration (seal_data_hits.h SdhExitAtMs). Atomic: the Soul core tuning page changes it live.
 std::atomic<int> g_exitEndPct{90};
+// TASK #135803: [Spirit] SealExitSettleMs (default 200, -1 = off): the EndPct hold ends this long after the last hit closes once the
+// game data says every hit is in (seal_data_hits.h SdhHitsSettled). Atomic: the Soul core tuning page changes it live.
+std::atomic<int> g_exitSettleMs{200};
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -5447,9 +5450,10 @@ void SealIdleEndTick() {
 // X = [P+0x30], X +0x88 action objects / +0x90 row pointers / u16 +0x98 count, object +0x40 hitbox row pointer array, u16 +0x48 first,
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
+SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
 int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
-    desc[0] = 0;
+    desc[0] = 0; g_sdhLastReadOk = false;
     uint64_t ai = 0, ctrl = 0, P = 0, X = 0, A = 0, RP = 0; uint32_t curId = 0; uint16_t n = 0;
     if (!Rd(seal + 0x3B0, ai) || !ai || !Rd(ai + 8, ctrl) || !ctrl || !Rd(ctrl + 0xE8, P) || !P || !Rd(P, curId)) { snprintf(desc, cap, "no action object"); return -1; }
     if (!Rd(P + 0x30, X) || !X || !Rd(X + 0x88, A) || !A || !Rd(X + 0x90, RP) || !RP || !Rd(X + 0x98, n) || !n || n > 2048) {
@@ -5482,6 +5486,7 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
         a.hb = rows[k].empty() ? nullptr : rows[k].data();
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
+    g_sdhLastRead = r; g_sdhLastReadOk = r.chain > 0;  // TASK #135803
     char d[200]; SdhDescribe(r, d, sizeof d);
     snprintf(desc, cap, "bound in %X, file %llX %u actions: %s", curId, (unsigned long long)X, n, d);
     (void)sid;
@@ -5783,6 +5788,7 @@ void SealExitReplayLoad() {
     g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
     { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 150); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_exitEndPct = (std::clamp)(IniInt(L"Spirit", L"SealExitEndPct", 90), 0, 100);  // TASK #135613
+    { const int st = IniInt(L"Spirit", L"SealExitSettleMs", 200); g_exitSettleMs = st < 0 ? -1 : (std::min)(st, 3000); }  // TASK #135803
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -6291,6 +6297,7 @@ void SealEndOnHitTick() {
     static std::map<uint64_t, int> sourceCensus;
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
+    static SdhResult shape; static bool shapeOk = false;  // TASK #135803: the seal's own action data at bind
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
     static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
     static int lastBurstOwner = 0;  // #108189: 0 no burst, 1 last burst from helper actors only, 2 the seal took part
@@ -6334,7 +6341,7 @@ void SealEndOnHitTick() {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sdh.Reset(); sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
+        sdh.Reset(); shapeOk = false; sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
@@ -6360,6 +6367,7 @@ void SealEndOnHitTick() {
             // live #135148 (13:19, 5129B): data 1 < learned 2, the second burst came from a helper actor, the form ended 1.79 s in with the
             // attack still going. Data never lowers a learned count; a data-only count is dropped when a helper actor joins (below).
             sdh.Bind(learned, data, dm);
+            shape = g_sdhLastRead; shapeOk = g_sdhLastReadOk;  // TASK #135803 (read before any helper read overwrites it)
             want = sdh.want;
             Log("SealHitsData core %X: data %d%s, learned %d -> want %d (%s)", sid, data, data > 0 ? "" : data == 0 ? " (not certain)" : " (unread)",
                 learned, want, dd);
@@ -6410,7 +6418,17 @@ void SealEndOnHitTick() {
     const int endDur = lowConf ? g_sealDurs.At(sid, g_sealMul.load()) : 0;
     const int nowMs = (int)((now - sess) * 1000.0), boundMs = (int)((boundAt - sess) * 1000.0);
     const int endAtMs = lowConf ? SdhExitAtMs(false, endPct, nowMs, boundMs, endDur) : nowMs;
-    const bool endHold = lowConf && (endAtMs < 0 || nowMs < endAtMs);
+    bool endHold = lowConf && (endAtMs < 0 || nowMs < endAtMs);
+    // TASK #135803: every hit the game data allows is in and closed for SealExitSettleMs -> the attack is over, no idle wait to EndPct
+    if (endHold && SdhHitsSettled(shapeOk, shape, bursts, want, open, (int)(lastClose * 1000.0), nowMs, g_exitSettleMs.load())) {
+        endHold = false;
+        static double settleLogged = -1;
+        if (settleLogged != sess) {
+            settleLogged = sess;
+            Log("SealExitSettle core %X: hit %d/%d closed at %.3f s, data minimum %d (own %d, spawns %d, untimed %d) - hold released %.3f s after the press (EndPct exit was %.3f s)",
+                sid, bursts, want, lastClose, SdhMinBursts(shape), shape.bursts, shape.spawns, shape.untimed, now - sess, endAtMs / 1000.0);
+        }
+    }
     const bool idleFire = seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want || lowConf);
     if (natural && !idleOnly && !atOpen) {
         // human #61113/#61119: with a known hit count the smoke starts at THIS form's real last close, never from a learned time

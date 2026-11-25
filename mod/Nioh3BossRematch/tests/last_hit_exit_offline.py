@@ -42,6 +42,7 @@ std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
 std::atomic<int> g_sealHitsData{0},g_exitEndPct{0};int dataHits=-1;
 SdhDurTable g_sealDurs;
+std::atomic<int> g_exitSettleMs{-1};SdhResult g_sdhLastRead;bool g_sdhLastReadOk=false;  // TASK #135803: settle off unless a case sets it
 int SealDataHits(uint64_t,uint32_t,char* d,size_t n){snprintf(d,n,"stub");return dataHits;}
 
 std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_exitOnHelperMs{-1},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400},g_fccMs{250};
@@ -130,6 +131,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
+ check(g_exitSettleMs==200);ini[L"SealExitSettleMs"]=L"-7";LoadExitSetting();check(g_exitSettleMs==-1);ini[L"SealExitSettleMs"]=L"9000";LoadExitSetting();check(g_exitSettleMs==3000);ini.clear();LoadExitSetting();  // TASK #135803
  check(g_exitEndPct==90);g_exitEndPct=0;  // TASK #135613: shipped 90; the cases below pin the old rule (0), the new rule is checked further down
  check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
@@ -466,6 +468,18 @@ int main(){
  check(g_ghostReq==456&&g_sealDurs.Get(0x80D62)==2800);
  // certain data: unchanged (exit at hit 1)
  dataHits=1;g_sealDurs.Reset();start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // TASK #135803 (live 80D5F on d37fc753): seal data has no own window and 1 spawn -> hit 1 closed + settle ends the hold, not EndPct
+ {SdhResult sh;sh.chain=2;sh.spawns=1;g_sdhLastRead=sh;g_sdhLastReadOk=true;g_exitSettleMs=200;dataHits=0;g_sealDurs.Reset();g_sealDurs.Note(0x80D5F,3830,1.4f);
+  start(1,0,true,false,0x80D5F);step(1.086,true);check(!g_ghostReq);step(2.042,false);check(!g_ghostReq);step(2.2,false);check(!g_ghostReq);
+  step(2.25,false);check(g_ghostReq==456&&smokes==1);
+  // a second burst inside the settle restarts it; settle -1 = the EndPct hold as before
+  start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.1,true);step(2.3,false);check(!g_ghostReq);step(2.51,false);check(g_ghostReq==456);
+  g_exitSettleMs=-1;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(g_ghostReq==456);
+  // data says 2 spawns, live saw 1: no early release
+  sh.spawns=2;g_sdhLastRead=sh;g_exitSettleMs=200;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(g_ghostReq==456);
+  // read failed at bind: no early release
+  g_sdhLastReadOk=false;sh.spawns=1;g_sdhLastRead=sh;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);
+  g_exitSettleMs=-1;g_sdhLastReadOk=false;}
  // data unread (SealHitsData off or no file): low confidence too
  dataHits=-1;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
  // SealExitEndPct=0: the old rule (exit at hit 1)
