@@ -454,7 +454,57 @@ static void Combo(void) {  // combo: hits within comboMs, broken by a gap or a h
     SmCfg z = c; z.comboBase = 0; z.comboMax = 0; SmState q; SmReset(&q);
     CHECK(SmComboHits(&q, &z, 0, 20, &m) == 0.f && q.combo == 20);         // bonus off: still counts
 }
+static void Blocked(void) {  // human: a guarded hit is worth BlockPct % (default 50) of the same hit, same use rules, counts in the combo
+    SmCfg r; RealDefaults(&r); CHECK(r.blockPct == 50);
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmState h; SmReset(&h);
+    const float full = SmOnHitEx(&h, &c, 1000, 7, 1, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 1000, 7, 1, -1.f, 0), full * 0.5f) && s.blocked == 1 && s.hits == 1 && s.lastHit == 1000 && s.active);
+    // same use: multi-hit factor applies to the blocked hit exactly as to a normal hit
+    const float h2 = SmOnHitEx(&h, &c, 1010, 7, 1, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 1010, 7, 1, -1.f, 0), h2 * 0.5f) && s.blocked == 2);
+    // a new use of the same move: variety penalty as for a normal hit; a blocked hit fills the variety history like a hit
+    const float h3 = SmOnHitEx(&h, &c, 2000, 7, 2, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 2000, 7, 2, -1.f, 0), h3 * 0.5f));
+    // startup and counter bonus scale too
+    SmState a; SmReset(&a); SmState b; SmReset(&b);
+    const float hc = SmOnHitEx(&b, &c, 0, 9, 3, 60.f, 1);
+    CHECK(near(SmOnBlockedHit(&a, &c, 0, 9, 3, 60.f, 1), hc * 0.5f) && a.counters == 1);
+    // a normal hit after a blocked hit of the same use continues the use (multi-hit)
+    SmState m; SmReset(&m); SmOnBlockedHit(&m, &c, 0, 11, 4, -1.f, 0);
+    CHECK(near(SmOnHitEx(&m, &c, 5, 11, 4, -1.f, 0), c.hit * c.multiPct / 100.f));
+    // pct 100 = a normal hit; 0 = off (nothing counted)
+    SmCfg f = c; f.blockPct = 100; SmState q; SmReset(&q); CHECK(near(SmOnBlockedHit(&q, &f, 0, 5, 1, -1.f, 0), c.hit));
+    SmCfg z = c; z.blockPct = 0; SmState o; SmReset(&o); CHECK(SmOnBlockedHit(&o, &z, 0, 5, 1, -1.f, 0) == 0.f && o.blocked == 0 && o.hits == 0 && !o.active);
+    SmCfg k = c; k.blockPct = -3; SmCfgClamp(&k); CHECK(k.blockPct == 0); k.blockPct = 250; SmCfgClamp(&k); CHECK(k.blockPct == 100);
+    // the combo counts blocked hits like hits (the game glue passes hits + blocked)
+    uint32_t mi = 0; SmState cb; SmReset(&cb); SmComboHits(&cb, &c, 0, 1 + 1, &mi); CHECK(cb.combo == 2);
+}
+static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entries, decided one tick after the first note
+    SmBlkQ q; memset(&q, 0, sizeof q); SmBlkEv o[4];
+    SmBlkNote(&q, 0x100, 0xA0, SM_BLK_KI, 12.f);                // guarded: Ki damage, no HP damage call
+    SmBlkNote(&q, 0x200, 0xA0, SM_BLK_HP, 0.f);                 // normal hit: HP then Ki (same hit object)
+    SmBlkNote(&q, 0x200, 0xA0, SM_BLK_KI, 8.f);
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_HP0, 0.f);                // guarded: a 0 HP damage call
+    SmBlkNote(&q, 0x400, 0xB0, SM_BLK_KI, 5.f);                 // Ki first, HP damage comes in the next tick (still one hit)
+    CHECK(q.n == 4);
+    CHECK(SmBlkTake(&q, o, 4) == 0 && q.n == 4);                // nothing is decided on the tick it was noted
+    SmBlkNote(&q, 0x400, 0xB0, SM_BLK_HP, 0.f);
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_KI, 3.f);                 // late Ki of the 0-HP hit merges
+    SmBlkNote(&q, 0x500, 0xA0, SM_BLK_KI, 1.f);                 // new this tick
+    CHECK(SmBlkTake(&q, o, 4) == 2 && q.n == 1);
+    CHECK(o[0].hit == 0x100 && near(o[0].ki, 12.f) && o[0].fl == SM_BLK_KI);
+    CHECK(o[1].hit == 0x300 && o[1].fl == (SM_BLK_HP0 | SM_BLK_KI) && near(o[1].ki, 3.f));
+    CHECK(SmBlkTake(&q, o, 0) == 1 && q.n == 0);                // counted even when no copy is wanted
+    // one hit object on two victims: separate entries
+    SmBlkNote(&q, 0x600, 0xA0, SM_BLK_HP, 0.f); SmBlkNote(&q, 0x600, 0xB0, SM_BLK_KI, 2.f);
+    SmBlkTake(&q, o, 4); CHECK(SmBlkTake(&q, o, 4) == 1 && o[0].vic == 0xB0);
+    SmBlkNote(&q, 0, 0xA0, SM_BLK_KI, 1.f); SmBlkNote(&q, 0x700, 0, SM_BLK_KI, 1.f); SmBlkNote(&q, 0x700, 0xA0, 0, 1.f); CHECK(q.n == 0);  // bad input ignored
+    for (int i = 0; i < SM_BLK_Q + 3; ++i) SmBlkNote(&q, 0x1000 + (uint64_t)i, 0xA0, SM_BLK_KI, 1.f);
+    CHECK(q.n == SM_BLK_Q && q.dropped == 3);
+    SmBlkTake(&q, 0, 0); CHECK(SmBlkTake(&q, 0, 0) == SM_BLK_Q && q.n == 0);
+}
 int main(void) {
+    Blocked(); BlockQueue();
     Combo();
     GuardianSummon();
     WeaponSwitch();

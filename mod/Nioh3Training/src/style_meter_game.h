@@ -6,6 +6,9 @@
 //                        on any actor (normal enemies too); victim = the player's HP = damage taken (also counted when Infinite health cuts it to 0).
 //                        The hook is the existing one (HpDmgHookInstall, shared with Infinite health / damage multipliers / KiBreakNoFinisher); with
 //                        StyleMeter 1 it is installed if nothing else did. Fallback when it cannot be installed: HP drops of the boss slots and of the player.
+//   blocked hits         (BlockPct) the same hit apply: the player's hit on a live enemy (not the player, not same team) that did Ki damage (KiDamage
+//                        844604 at 329E9D, PstKiDamage -> SmKiEvent; the existing PstKiHookInstall, installed for this if nothing else did) or
+//                        came to the HP damage call with 0, and did NOT take HP = the enemy guarded it (SmBlkQ, style_meter.h). Needs the HP hook.
 //   enemy hit window     g_fp[slot].pulse / open g_fpw windows of the boss slots (BvActor: Training bosses AND native bosses with a HUD HP bar,
 //                        NativeSlotsTick) = the frame meter's 'active' signal.
 //   player i-frames      FmPlayerIfrBits (frame meter I-FR signal); Ki pulse landed FmPlayerKiLanded (frame meter Ki check); action id g_fp[FP_PL].run.act.
@@ -130,6 +133,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.comboBase = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonus", SM_COMBO_BASE, ini); c.comboInc = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusStep", SM_COMBO_INC, ini);
     c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
+    c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -148,8 +152,8 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word) (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word), blocked hit %d %% of a hit (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma, g_smc.blockPct);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
@@ -217,18 +221,46 @@ N3T_API int Nioh3Training_StyleSet(int what, int value) {
     Log("STYLE METER: menu %s = %d (#126804)", k, value);
     return value;
 }
+// Blocked hits (BlockPct): the player's hits on an enemy, noted per (hit object, victim status block) from both damage calls of the hit apply.
+static SmBlkQ g_sm_blk; static SRWLOCK g_sm_blk_lock = SRWLOCK_INIT;
+static void SmBlkAdd(uint64_t hit, uint64_t vst, int fl, float ki) { AcquireSRWLockExclusive(&g_sm_blk_lock); SmBlkNote(&g_sm_blk, hit, vst, fl, ki); ReleaseSRWLockExclusive(&g_sm_blk_lock); }
+// The victim of the player's hit is a live enemy: [hit+0x1C8] (the hit apply's victim) is not the player, owns status block vst, is not on the
+// player's team (ally / summon), status+0x48 != 1 (dead) and HP (status+0x58) > 0. Read only.
+static __attribute__((noinline)) int SmBlkVictim(uint64_t hit, uint64_t me, uint64_t vst) {
+    uint64_t v = 0, st = 0;
+    if (!Rd64(hit + 0x1C8, &v) || !v || v == me || !Rd64(v + 0x3A0, &st) || !st || st != vst) return 0;
+    const int tm = ActorTeam(me); if (tm >= 0 && ActorTeam(v) == tm) return 0;
+    __try { if (*(volatile int32_t*)(vst + 0x48) == 1 || *(volatile int64_t*)(vst + 0x58) <= 0) return 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+// PstKiDamage (Ki damage 844604 at 329E9D, same hit apply, game thread): K = victim status + 0x98, amt = the hit's Ki damage before any mod scaling.
+static void SmKiEvent(uint64_t K, float amt, uint64_t hit) {
+    if (!g_cfg_sm || g_smc.blockPct <= 0 || g_hpdmg_hooked != 1 || !(amt > 0.f) || !K || !hit || !g_pst_atk_ok) return;  // no HP hook = no way to tell a guarded hit
+    __try {
+        const uint64_t me = PlayerChar(); uint64_t st = 0;
+        if (!me || (Rd64(me + 0x3A0, &st) && st && st + 0x98 == K)) return;  // Ki damage on the player
+        if (((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) != me) return;
+        if (SmBlkVictim(hit, me, K - 0x98)) SmBlkAdd(hit, K - 0x98, SM_BLK_KI, amt);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+}
 // NfHpDamage (hit apply, game thread): raw = the hit's HP damage before any mod scaling / Infinite-health cut.
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
-    if (!g_cfg_sm || raw <= 0 || !hp || !hit || !g_pst_atk_ok) return;
+    if (!g_cfg_sm || !hp || !hit || !g_pst_atk_ok || (raw <= 0 && g_smc.blockPct <= 0)) return;
     __try {
         const uint64_t me = PlayerChar(); uint64_t st = 0;
         if (!me) return;
         if (Rd64(me + 0x3A0, &st) && st && st + 0x38 == hp) {
+            if (raw <= 0) return;
             const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
             if (atk != me) InterlockedIncrement(&g_sm_taken);
             return;
         }
         const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
+        if (atk == me && g_smc.blockPct > 0) {  // blocked hits: a hit that took HP is never one; a 0 HP call on a live enemy may be
+            if (raw > 0) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP, 0.f);
+            else if (SmBlkVictim(hit, me, hp - 0x38)) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP0, 0.f);
+        }
+        if (raw <= 0) return;
         int ally = 0;
         if (atk && atk != me) { const int tm = ActorTeam(me); ally = tm >= 0 && ActorTeam(atk) == tm; }  // human: summoned guardian spirit (filtered by SmFeed's summon window)
         if (atk == me || ally) {
@@ -403,6 +435,11 @@ static void SmFeed(double gdt) {
     g_sm_clock += dt;
     const int pl = g_fp[FP_PL].valid;
     LONG hits = InterlockedExchange(&g_sm_hits, 0), taken = InterlockedExchange(&g_sm_taken, 0);
+    // blocked hits (BlockPct): need the HP hook (a hit that took HP must be seen) and the Ki hook (the guarded hit's Ki damage)
+    if (g_smc.blockPct > 0 && g_hpdmg_hooked == 1 && g_pst_atk_ok && !g_pst_ki_hooked) PstKiHookInstall();
+    SmBlkEv blkEv[4]; int blocked;
+    AcquireSRWLockExclusive(&g_sm_blk_lock); blocked = SmBlkTake(&g_sm_blk, blkEv, 4); ReleaseSRWLockExclusive(&g_sm_blk_lock);
+    if (g_smc.blockPct <= 0 || g_hpdmg_hooked != 1) blocked = 0;
     if (g_hpdmg_hooked != 1 || !g_pst_atk_ok) {  // fallback: HP drops (boss slots = hits, player = damage; an ally's hit on the boss counts too)
         static uint64_t prevB[N3T_SLOTS], prevBa[N3T_SLOTS], prevP, prevPa;
         for (int s = 0; s < N3T_SLOTS; ++s) {
@@ -537,12 +574,14 @@ static void SmFeed(double gdt) {
     const uint32_t c0 = g_sm.counters;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
+    float pb = 0.f;  // blocked hits: BlockPct % of a hit of this move (no counter bonus: that is paid by a hit that lands)
+    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, run, startupF, 0);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
     const float psw = hits > 0 ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     if (gsMark) g_sm.gsUses++;
-    gsPts += ph;
+    gsPts += ph + pb;
     const float pgs0 = SmGsPay(&g_sm, &g_smc, &gsm, g_sm_clock, gsPts);  // #127213 value = the move's own points so far
     if (pgs0 > 0.f && gsm.run == gsum.run) gsum.paid = 1;  // the player's own hits paid this move's bonus
     float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
@@ -550,7 +589,7 @@ static void SmFeed(double gdt) {
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
-    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)hits + (summonLive ? (int)allyHits : 0), &comboMile);
+    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)hits + blocked + (summonLive ? (int)allyHits : 0), &comboMile);
     if (maMark) g_sm.maUses++;
     const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
     if (pma > 0.f) g_sm_maRun = run;
@@ -570,7 +609,7 @@ static void SmFeed(double gdt) {
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
     if (g_sr.on) {  // fight result: moves that landed, martial arts that scored, then this tick's time at the meter's value
-        if (hits > 0) SrMove(&g_sr, act);
+        if (hits > 0 || blocked > 0) SrMove(&g_sr, act);
         if (pma > 0.f) SrMartialArt(&g_sr, act);
         SrTick(&g_sr, &g_sm, &g_smc, dt);
     }
@@ -629,11 +668,21 @@ static void SmFeed(double gdt) {
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
-    if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
+    if (blocked > 0) {  // live check of the guarded-hit signal: one line per blocked hit (first 40, then at most one a second)
+        static int bl; static DWORD blT; static uint32_t blN; const DWORD now = GetTickCount();
+        blN += (uint32_t)blocked;
+        if (bl < 40 || now - blT >= 1000) {
+            bl++; blT = now;
+            for (int i = 0; i < blocked && i < 4; ++i) Log("STYLE BLOCK: guarded hit %p on enemy status %p (signals: Ki damage %d (%.1f), HP damage call with 0 %d; no HP taken) -> +%.1f (%d %% of a hit; %u blocked so far, Ki hook %d)",
+                (void*)blkEv[i].hit, (void*)blkEv[i].vic, !!(blkEv[i].fl & SM_BLK_KI), blkEv[i].ki, !!(blkEv[i].fl & SM_BLK_HP0), pb / (float)blocked, g_smc.blockPct, blN, (int)g_pst_ki_hooked);
+        }
+    }
+    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
         static int evl;
         if (evl++ < 4000) {
             char e[400]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
             if (allyHits > 0) n += snprintf(e + n, sizeof e - n, summonLive ? " summoned spirit hit x%ld +%.1f" : " ally hit x%ld (no summon window, not scored)", (long)allyHits, psum);
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
