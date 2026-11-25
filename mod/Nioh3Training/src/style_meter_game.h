@@ -820,6 +820,9 @@ static void SmFeed(double gdt) {
     const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts;
     const int r0 = g_sm.rank, a0 = g_sm.active;
     int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
+    static double avHurtT = -1e18; if (taken > 0) avHurtT = g_sm_clock;
+    { const int av0 = avoid; avoid = SmDodgeHurtGate(avoid, g_sm_clock, avHurtT);  // knockdown / get-up i-frames are not a dodge
+      if (av0 && !avoid) Log("STYLE DODGE: not paid, %.0f ms after the player took damage (knockdown / get-up i-frames), act %u", g_sm_clock - avHurtT, (unsigned)act); }
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens; const float lpl0 = g_sm.loopLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);

@@ -218,6 +218,8 @@ static void DodgeDeflectCounter(void) {
     SmDodgeStepEx(&d, 1, 1, 0, 0, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_COUNTER);                     // skill move: counter
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_COUNTER);                     // skill wins over the deflect flag
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 1, 0, 0) == SM_AV_NONE);                        // hit: nothing
+    CHECK(SmDodgeHurtGate(SM_AV_DODGE, 5000, 4400) == SM_AV_NONE && SmDodgeHurtGate(SM_AV_DODGE, 5000, 3400) == SM_AV_DODGE);  // knockdown
+    CHECK(SmDodgeHurtGate(SM_AV_DEFLECT, 5000, 4400) == SM_AV_DEFLECT && SmDodgeHurtGate(SM_AV_COUNTER, 5000, 4400) == SM_AV_COUNTER);
     SmDodgeStepEx(&d, 1, 0, 0, 1, 0); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 1, 0) == SM_AV_NONE);                        // guard flag, no i-frames
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); SmDodgeStepEx(&d, 0, 0, 0, 0, 0);
     SmDodgeStepEx(&d, 1, 1, 0, 0, 0); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_DODGE);                       // no leak into the next window

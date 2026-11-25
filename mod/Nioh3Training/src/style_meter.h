@@ -696,6 +696,10 @@ static inline int SmDodgeStepEx(SmDodge* d, int enemyActive, int ifr, int tookHi
     }
     return award;
 }
+// human 2026-11-25: a knockdown / get-up has i-frames inside the boss's next hit window (log: acts 10087 / 10084 / 1480, a median 0.6 s
+// after the player took damage, 132 false "Dodge!"). A plain dodge (no skill row) closing this soon after the player was hurt is not paid.
+#define SM_DODGE_HURT_MS 1500
+static inline int SmDodgeHurtGate(int avoid, double t, double lastHurt) { return avoid == SM_AV_DODGE && t - lastHurt < (double)SM_DODGE_HURT_MS ? SM_AV_NONE : avoid; }
 static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) { return SmDodgeStepEx(d, enemyActive, ifr, tookHit, 0, 0) != 0; }
 // Visible: something to show, and a boss fight is live or the last event is recent.
 static inline int SmVisible(const SmState* s, const SmCfg* c, double t, int fight) {
