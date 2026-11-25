@@ -475,10 +475,10 @@ int main(){
   // a second burst inside the settle restarts it; settle -1 = the EndPct hold as before
   start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.1,true);step(2.3,false);check(!g_ghostReq);step(2.51,false);check(g_ghostReq==456);
   g_exitSettleMs=-1;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(g_ghostReq==456);
-  // data says 2 spawns, live saw 1: no early release
-  sh.spawns=2;g_sdhLastRead=sh;g_exitSettleMs=200;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(g_ghostReq==456);
+  // data says the seal itself has 2 timed bursts, live saw 1: no early release
+  sh.bursts=2;g_sdhLastRead=sh;g_exitSettleMs=200;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(g_ghostReq==456);
   // read failed at bind: no early release
-  g_sdhLastReadOk=false;sh.spawns=1;g_sdhLastRead=sh;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);
+  g_sdhLastReadOk=false;sh.bursts=0;g_sdhLastRead=sh;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);
   g_exitSettleMs=-1;g_sdhLastReadOk=false;}
  // data unread (SealHitsData off or no file): low confidence too
  dataHits=-1;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
