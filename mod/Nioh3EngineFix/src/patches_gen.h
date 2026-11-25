@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco, caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims, caveMW, caveMWWake, caveRDWait, caveDrawLimit, cavePlaceDist, caveCharLod, cavePropDist, caveRDWake, caveGov, caveHold, caveFwp };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco, caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims, caveMW, caveMWWake, caveRDWait, caveDrawLimit, cavePlaceDist, caveCharLod, cavePropDist, caveRDWake, caveGov, caveHold, caveFwp, caveHitStop };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -67,6 +67,7 @@ static const uint8_t orig_P4[] = { 0x8B, 0x87, 0x14, 0x06, 0x00, 0x00 };
 static const uint8_t orig_P1[] = { 0x44, 0x89, 0x87, 0x14, 0x06, 0x00, 0x00 };
 static const uint8_t orig_P7[] = { 0xE8, 0x54, 0x33, 0xC1, 0xFF };
 static const uint8_t orig_P10[] = { 0x8B, 0x4B, 0x20, 0xFF, 0xC1 };
+static const uint8_t orig_P11[] = { 0xE8, 0x8F, 0x36, 0x5C, 0x00 };
 static const uint8_t orig_W3[] = { 0xFF, 0x15, 0x95, 0x6A, 0xE7, 0x01 };
 static const uint8_t orig_R1[] = { 0xEB, 0x02, 0xF3, 0x90, 0x33, 0xD2 };
 static const uint8_t orig_R1j[] = { 0x75, 0xEF };
@@ -434,6 +435,7 @@ static const Site kSites[] = {
     { "P1", "VRR", 0x5AD677, 7, orig_P1, "44 89 87 14 06 00 00 89 87 1C 06 00 00", 0, Kind::Call, nullptr, Target::caveFps, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "P7", "VRRMENU", 0x43312B, 5, orig_P7, "0F 29 74 24 20 48 8B F9 E8 ?? ?? ?? ?? 48 8B 71 50 0F 28 F0", 8, Kind::Call, nullptr, Target::caveMenu, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At1, 0x0 },
     { "P10", "VRRHOLD", 0x198EC09, 5, orig_P10, "8B 4B 20 FF C1 89 4B 20 84 C0 75 09 83 F9 1E 0F 8E", 0, Kind::Call, nullptr, Target::caveHold, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P11", "VRRHS", 0x20DD58, 5, orig_P11, "41 0F 28 C8 48 8B CF E8 ?? ?? ?? ?? 45 84 ED 74 16", 7, Kind::Call, nullptr, Target::caveHitStop, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At1, 0x0 },
     { "W3", "W3", 0x1A6BF2D, 6, orig_W3, "48 8D 4C 24 48 33 D2 FF 15 ?? ?? ?? ?? 85 C0 74 1D", 7, Kind::Call, nullptr, Target::hookPeek, 1, { 0x00, 0x00 }, Data::none, Reads::IatDisp32At2, 0x0 },
     { "R1", "R1", 0x4A5346, 6, orig_R1, "74 13 EB 02 F3 90 33 D2 48 8B CD FF 15 ?? ?? ?? ??", 2, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x15 }, Data::r1Timeout, Reads::None, 0x0 },
     { "R1j", "R1", 0x4A5357, 2, orig_R1j, "FF 15 ?? ?? ?? ?? 85 C0 75 EF 48 8D 54 24 40 E8 ?? ?? ?? ??", 8, Kind::Bytes, repl_R1j, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
