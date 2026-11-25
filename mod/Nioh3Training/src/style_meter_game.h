@@ -143,6 +143,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
     c.varStep = (int)GetPrivateProfileIntA("StyleMeter", "VarietyStep", SM_VAR_STEP, ini); c.varBase = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonus", SM_VAR_BASE, ini);
     c.varInc = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusStep", SM_VAR_INC, ini); c.varMax = (int)GetPrivateProfileIntA("StyleMeter", "VarietyMax", SM_VAR_MAX, ini);
+    c.varGrow = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusGrow", SM_VAR_GROW, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
@@ -175,8 +176,8 @@ static void SmReadIni(const char* ini, int reset) {
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
     Log("STYLE METER: multi-hit cap %d hits per use%s, loop penalty -%.0f per use after %d cycles of a 1- or 2-move loop%s",
         g_smc.multiHitCap, g_smc.multiHitCap ? "" : " (off)", g_smc.loopPts, g_smc.loopReps, g_smc.loopReps ? "" : " (off)");
-    Log("STYLE METER: move variety every %d distinct moves +%d (+%d each later) up to %d moves%s, per run (boss fight start / death / load)",
-        g_smc.varStep, g_smc.varBase, g_smc.varInc, g_smc.varMax, g_smc.varBase > 0 && g_smc.varMax >= g_smc.varStep ? "" : " (off)");
+    Log("STYLE METER: move variety every %d distinct moves +%d (step +%d, growing +%d) up to %d moves%s, per run (boss fight start / death / load)",
+        g_smc.varStep, g_smc.varBase, g_smc.varInc, g_smc.varGrow, g_smc.varMax, g_smc.varBase > 0 && g_smc.varMax >= g_smc.varStep ? "" : " (off)");
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.

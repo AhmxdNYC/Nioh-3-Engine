@@ -36,8 +36,8 @@
 // Move variety (human 2026-11-25): a run keeps the set of distinct player moves that scored (SmVarietyMove: the act id of every new player
 // use that scored a hit or a blocked hit, not looped / penalized uses, not unknown ids, not the summoned spirit's hits; plus pseudo ids
 // SM_VAR_DODGE .. SM_VAR_KI for a scored dodge / deflect / avoid counter / Ki pulse, fed by the game glue). Each time the distinct count
-// reaches varStep, 2 x varStep, .. up to varMax, the run pays varBase, then varInc more per milestone (defaults 5 moves +20, 10 +30, ..,
-// 60 +130). The set does not reset with rank decay / an idle meter; the game glue resets it (SmVarietyReset) at a boss fight start, player
+// reaches varStep, 2 x varStep, .. up to varMax, the run pays varBase, then a step of varInc that grows by varGrow each milestone
+// (defaults 5 moves +20, 10 +30, 15 +43, 20 +59, .., 60 +295). The set does not reset with rank decay / an idle meter; the game glue resets it (SmVarietyReset) at a boss fight start, player
 // death and a load.
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D;
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
@@ -74,7 +74,7 @@
 #define SM_NIN_PTS 20
 #define SM_SOUL_PTS 40
 #define SM_STYLE_PTS 15
-#define SM_SWAP_PTS 25      // #127057 weapon swap attack
+#define SM_SWAP_PTS 50      // #127057 weapon swap attack (human 2026-11-25: doubled from 25, hard to do mid combat)
 #define SM_SWAP_MS 600      // a move that starts within this of a weapon slot change is the swap attack (old rule, SmSwapHit)
 #define SM_SWITCH_MS 3000   // [StyleMeter] WeaponSwitchMs: a hit with another weapon within this of the last hit is a weapon switch
 #define SM_GS_PTS 25        // #127213 guardian spirit skill (Spirit Force gauge spent at a move start)
@@ -103,7 +103,8 @@
 #define SM_BURST_AVOID_MS 300  // an avoid (dodge / deflect / counter) this soon after a burst-counter Burst Break is that same event (not paid)
 #define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
 #define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
-#define SM_VAR_INC 10         // ... VarietyBonusStep: each later milestone pays this much more (20, 30, 40, ..)
+#define SM_VAR_INC 10         // ... VarietyBonusStep: the 2nd milestone pays this much more than the 1st
+#define SM_VAR_GROW 3         // ... VarietyBonusGrow: each later step grows by this much (20, 30, 43, 59, 78, 100, .. 295 at 60 moves)
 #define SM_VAR_MAX 60         // ... VarietyMax: no milestone past this many distinct moves (at most SM_VAR_IDS)
 #define SM_VAR_IDS 64         // distinct move ids remembered per run
 // pseudo move ids for non-hit moves (variety set only; real act ids are small)
@@ -139,7 +140,7 @@ typedef struct {
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
     uint32_t burstCtrAct;                 // the player's burst counter action id (its hit breaks a red attack that is already out; 0 = off)
-    int varStep, varBase, varInc, varMax; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
+    int varStep, varBase, varInc, varMax, varGrow; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -196,7 +197,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     c->blockPct = SM_BLOCK_PCT;
-    c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX;
+    c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
@@ -222,7 +223,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
-    if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0;
+    if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0; if (c->varGrow < 0) c->varGrow = 0;
     if (c->varMax < 0) c->varMax = 0; if (c->varMax > SM_VAR_IDS) c->varMax = SM_VAR_IDS;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
@@ -286,7 +287,8 @@ static inline float SmVarietyMove(SmState* s, const SmCfg* c, double t, uint32_t
     for (int i = 0; i < s->varN; ++i) if (s->varIds[i] == id) return 0.f;
     s->varIds[s->varN++] = id;
     if (c->varStep <= 0 || s->varN % c->varStep) return 0.f;
-    const float b = (float)(c->varBase + (s->varN / c->varStep - 1) * c->varInc);
+    const int k = s->varN / c->varStep - 1;  // 0 = the first milestone; the step itself grows by varGrow each milestone
+    const float b = (float)(c->varBase + k * c->varInc + c->varGrow * k * (k - 1) / 2);
     if (!(b > 0.f) || c->varBase <= 0) return 0.f;  // VarietyBonus 0 = off (the count still runs)
     SmAdd(s, c, b); s->lastEvent = s->lastScore = t;
     s->varBonuses++; s->varMile = s->varN; s->varLastPts = b; s->varPts += b;
