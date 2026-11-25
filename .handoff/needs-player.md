@@ -49,3 +49,4 @@
 - [ ] Soul-core hands-on (#134961) | play the current core, then reply 'good' (next core switched live) or say what universal setting to change | Main PC
 - [x] Soul core pair keys (#135018) | installed BR f0b6d99a, human approved #135040; F9 next, Shift+F9 prev, F6 flag | Main PC
 - [ ] Restart for soul-core early-end fix (#135096) | reply 'restart' so Main PC loads Boss Rematch 0dd6b46f, then use C40E twice | Main PC
+- [ ] Soul cores on Main PC | play with BR D5BB22D5: each soul core form ends after its last burst, no cut-off, no learning use (5129B + an unused core); controller pad 0 OK | pc
