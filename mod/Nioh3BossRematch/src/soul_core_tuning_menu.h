@@ -323,11 +323,12 @@ bool SctChange(int item, int dir) {
                 d == 1 ? "LEFT" : "DOWN", v ? "transform" : "game summon");
             return true;
         }
-        const bool cur = bosslog::FormCoreTransforms(id);
-        const bool want = dir ? dir > 0 : !cur;
-        const bool v = want == cur ? cur : bosslog::FormCoreToggle(id);
-        Log("Rematch: menu soul core %X transformation -> %s (human #81220)", id, v ? "ON" : "OFF");
-        snprintf(g_msg, sizeof g_msg, "Core %X: %s from the next use. Saved.", id, v ? "transforms you into the yokai" : "the game's own summon");
+        // TASK #136197 (human #136194): each detected core picks its call. A / Right = next, Left = previous.
+        const int cur = bosslog::FormCoreCallGet(id);
+        const int v = bosslog::FormCoreCallSet(id, sc_call_step(cur, dir < 0 ? -1 : 1));
+        Log("Rematch: menu soul core %X call -> %s (TASK #136197)", id, sc_call_name(v));
+        snprintf(g_msg, sizeof g_msg, "Core %X: %s from the next use. Saved.", id,
+                 v == SC_CALL_TRANSFORM_MOVE ? "transform, moveable (left stick steers after the attack)" : v == SC_CALL_TRANSFORM ? "transform (stick locked)" : "the game's own summon");
         return true;
     }
     if (item == kItScForms) {  // human #61869: A flips, Left OFF, Right ON
@@ -379,10 +380,11 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
             *color = sel ? cWhite : v ? cGray : cYellow;
             return true;
         }
-        const bool v = bosslog::FormCoreTransforms(id);
+        const int c = bosslog::FormCoreCallGet(id);  // TASK #136197
+        const bool v = c != SC_CALL_GAME;
         const char* label = (d & 12) == 12 ? "(Yang 1 + 2)" : (d & 4) ? "(Yang 1)" : (d & 8) ? "(Yang 2)" :
             d == 1 ? "(LEFT last used)" : d == 2 ? "(DOWN last used)" : d == 3 ? "(LEFT/DOWN last used)" : "";
-        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, label, v ? "transforms" : "game summon");
+        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, label, sc_call_name(c));
         *color = sel ? cWhite : v ? cGray : cYellow;
         return true;
     }
@@ -414,7 +416,7 @@ const char* SctFooter(int item) {
         : TrainingExport("Nioh3Training_SoulCoreCatalog")
             ? "Left / Right: every soul core in the game, including ones this save does not own. A: equip it into the slot above. One you do not own is added with the game's own item add, then equipped the same way as one you own. Live."
             : "Left / Right: pick an owned core. A: equip it into the slot above, like at a shrine (the game's own check; the d-pad shortcut follows). Live.";  // human #129277, #136123
-    if (IsScCoreItem(item)) return "Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
+    if (IsScCoreItem(item)) return "Each core: Game's own / Transform (stick locked) / Transform moveable (left stick steers once the attack is over). [Spirit] FormCoreCalls. Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;

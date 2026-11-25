@@ -10,6 +10,7 @@ load=src[src.index('    const int lastHitMs = IniInt'):src.index('    g_plFadeMs
 counts=src[src.index('const wchar_t* SecHits()'):src.index('// pc #57269',src.index('const wchar_t* SecHits()'))].replace('SealHitsFor(', 'ReadLearnedHits(')
 pre=r'''
 #include <windows.h>
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include <atomic>
 #include <algorithm>
 #include <vector>
@@ -99,6 +100,7 @@ pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.in
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
 bool FormCorePendingSet(int,bool b){return b;}bool FormCoreTransforms(uint32_t){return true;}bool FormCoreToggle(uint32_t){return false;}
+int FormCoreCallGet(uint32_t){return SC_CALL_TRANSFORM;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
 bool SoulCoreFormsSet(int,bool*){return true;}bool SoulCoreForms(bool*){return true;}
 void LoadExitSetting(){
 '''+load+r'''}

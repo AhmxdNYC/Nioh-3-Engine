@@ -9,6 +9,7 @@ api = src[src.index('int FormCoreSeen('):src.index('bool SoulCoreForms(bool*')]
 pre = r'''
 #include <windows.h>
 #include "press_queue.h"
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -35,6 +36,7 @@ double clockNow=10; WORD buttons=0;
 double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
+std::atomic<int> g_formSteer{0};  // TASK #136197: global FormSteer stub (FormCoreCallGet default)
 WORD PickPadButtons(){return buttons;}
 bool formActive=false;bool PickFormActive(){return formActive;}
 bool ghostAlive=false;bool PickGhostAlive(){return ghostAlive;}
@@ -49,6 +51,7 @@ char g_msg[512]; int g_sel=0,g_confirm=0;
 constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
 struct {void Enter(int,int){}} g_uiPages;
 void* TrainingExport(const char*){return nullptr;}  // human #129277 Equip core rows: no Nioh3Training.asi here
+constexpr uint32_t cGreen=5;ULONGLONG Ms(){return 0;}void ToastF(uint32_t,ULONGLONG,const char*,...){}void Command(const char*,char* r,size_t n){if(n)r[0]=0;}  // human #135018 pair keys (stub was missing)
 #include "soul_core_tuning_menu.h"
 } }
 using namespace addon::bosslog;
@@ -65,7 +68,7 @@ void reset(bool clearIni=true) {
  g_equippedReady=false;for(auto& v:g_equippedCore)v=0;
  for(auto& v:g_pendingPick)v=-1;
  for(auto& v:g_seen){v.id=0;v.dir=0;}
- CoreOffLoad();
+ CoreOffLoad();CoreCallLoad();
 }
 void press(int dir){buttons=0;PickPoll();clockNow+=.5;buttons=dir==1?4:2;PickPoll();}
 std::string row(int slot){char b[512];uint32_t c=0;SctRowText(kItScCore+slot,false,"",b,sizeof b,&c);return b;}
@@ -103,7 +106,16 @@ int main(){
  press(1);PickLearn(0x5B402);check(ScOn()&&FormCoreTransforms(0x5B402)&&!FormCoreTransforms(0x5129B));
  check(FormCoreSeen(ids,dirs,10)==3&&ids[0]==0x5B402&&ids[1]==0x5129B);
  SctChange(kItScCore+1,1);check(FormCoreTransforms(0x5129B));
- SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B));
+ SctChange(kItScCore+1,0);check(FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);  // TASK #136197: A = next call
+ check(row(1).find("Transform moveable")!=std::string::npos&&ini[L"FormCoreCalls"].find(L"5129B:2")!=std::wstring::npos);
+ SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);
+ SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM);
+ check(FormCoreCallSet(0x5129B,SC_CALL_GAME)==SC_CALL_GAME&&!FormCoreTransforms(0x5129B));
+ // same path for any id; reload keeps the calls; an unknown call is refused
+ check(FormCoreCallSet(0xABCDE,SC_CALL_TRANSFORM_MOVE)==SC_CALL_TRANSFORM_MOVE&&FormCoreCallSet(0xABCDE,9)==SC_CALL_TRANSFORM_MOVE);
+ CoreCallLoad();check(FormCoreCallGet(0xABCDE)==SC_CALL_TRANSFORM_MOVE&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);
+ g_formSteer=1;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM_MOVE);g_formSteer=0;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);
+ FormCoreCallSet(0xABCDE,-1);
  // Cached last-session directions never masquerade as equipped/current-session cores.
  reset(false);check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0&&ids[1]==0);
  check(!FormCorePendingTransforms(2));
