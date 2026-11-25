@@ -47,7 +47,7 @@ void ResetLegacyDefault(int id,const char* text) {
         if(g_host.exp[e].enable)*g_host.exp[e].enable=on?1u:0u;
     } else if(IsEp(id))extraperf::SetLevel(id-kEp0,raw);
     else switch(id) {
-    case kVrr:case kW3:case kW3Mode:case kL1:case kF1:case kWk:
+    case kVrr:case kHitStop:case kW3:case kW3Mode:case kL1:case kF1:case kWk:
         if(Available(id))SetLiveBool(id,raw==1);break;
     case kR1:if(Available(id))*g_host.r1Timeout=atoi(shipped_defaults::Get("Patches","R1","0"))==1?raw:0;break;
     case kFps:o.fpsCounter=raw;break;case kFrameTime:o.frameTime=raw;break;case kSpeed:o.speed=raw;break;

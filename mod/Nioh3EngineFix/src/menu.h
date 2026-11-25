@@ -61,6 +61,7 @@ struct Host {
     bool wine = false;
     // live switches (nullptr = the fix is not installed this session)
     volatile uint32_t* vrrEnable = nullptr;       // caves.asm vrr_enable
+    volatile uint32_t* hitStopOn = nullptr;       // caves.asm vrr_hsOn (GH #159 HitStopFix; null = P11 not installed)
     volatile long* w3Enable = nullptr;            // g_w3Enable
     volatile long* w3UseSleep = nullptr;          // g_w3UseSleep (Wine sleep mode)
     volatile uint32_t* r1Timeout = nullptr;       // near page r1Timeout (ms, 0 = stock poll)
