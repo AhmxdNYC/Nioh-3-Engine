@@ -40,6 +40,21 @@ int main() {
     w.Bind(3, 2, 0); assert(!w.fromData && w.want == 3 && !w.Take(0xD1));    // SealHitsData off: learned only
     w.Bind(0, 0, 1); assert(!w.fromData && w.want == 0);                     // seal data not certain: no data count
     w.Bind(0, 1, 1); for (uint64_t a = 1; a <= 20; ++a) if (w.Take(a)) w.Join(1); assert(w.nSeen == 16 && w.want == 17);  // cap
+    // TASK #135613: low-confidence exit = max(hit exit, bind + pct % of the duration); -1 = hold for the live end; certain / off unchanged
+    w.Bind(1, 0, 1); assert(!w.fromData && w.want == 1);                     // live 80D5F: data 0 (not certain), learned 1 -> want 1
+    assert(SdhExitAtMs(w.fromData, 90, 1337, 506, 0) == -1);                 // no duration yet: no exit at hit 1
+    assert(SdhExitAtMs(w.fromData, 90, 1337, 506, 3324) == 506 + 2991);      // bind + 90 % of 3324 ms, not 1337
+    assert(SdhExitAtMs(w.fromData, 90, 4000, 506, 3324) == 4000);            // hit exit later than the end %: the hit exit
+    assert(SdhExitAtMs(w.fromData, 0, 1337, 506, 3324) == 1337);             // SealExitEndPct=0: old rule
+    assert(SdhExitAtMs(w.fromData, 250, 1337, 0, 1000) == 1337 && SdhExitAtMs(w.fromData, 250, 900, 0, 1000) == 1000);  // pct capped at 100
+    w.Bind(1, 1, 1); assert(w.fromData && SdhExitAtMs(w.fromData, 90, 1337, 506, 3324) == 1337);  // certain data: unchanged
+    SdhDurTable t; assert(t.Get(0x80D5F) == 0 && t.At(0x80D5F, 1.4f) == 0);
+    assert(t.Note(0x80D5F, 3324, 1.4f) == 4654 && t.At(0x80D5F, 1.4f) == 3324 && t.At(0x80D5F, 2.f) == 2327);  // x1 normalised
+    assert(t.Note(0x80D5F, 2000, 1.4f) == 4654);                             // a shorter form never shortens it
+    assert(t.Note(0x80D5F, 4000, 1.f) == 4654 && t.Note(0x80D5F, 5000, 1.f) == 5000);  // longest kept
+    assert(t.Note(0, 100, 1.f) == 0 && t.Note(0x5129B, 0, 1.f) == 0);        // no core / no time: nothing
+    for (uint32_t c = 1; c <= 40; ++c) t.Note(0x1000 + c, 100 * c, 1.f);
+    assert(t.n == 32 && t.Get(0x1000 + 40) == 4000);                         // full table: replaces a slot, newest readable
     char d[256]; SdhDescribe(r, d, sizeof d); puts(d);
     puts("seal_data_hits_test PASS"); return 0;
 }

@@ -138,3 +138,36 @@ struct SdhWant {
         else { want = learned; fromData = false; }
     }
 };
+
+// TASK #135613 (human report, live 80D5F on d5bb22d5: data 0 (not certain), learned 1 -> the ghost exit fired at hit burst 1, 1.3 s after the
+// press, while the yokai attacked on for ~2 s more and then despawned by itself). [Spirit] SealExitEndPct (default 90, 0 = off = the old rule).
+// A hit count that is not a CERTAIN game-data count (data <= 0 / unread / dropped by a helper, or SealHitsData off) is low-confidence: the
+// hit-N exit may not fire on the hit alone, only at max(hit-N exit time, bind + EndPct % of the attack's duration). The action data has no
+// clip length (the action rows only time their hit windows; the motion player's end frame reads 0 on every seal, #61061), so the duration is
+// the seal's own live end, bind -> idle edge (act 0x1 / end frame) or bind -> its own despawn, seen on an earlier FULL form of the same core
+// this session (memory only, nothing written to the ini: human #61089, no stored timings). None seen yet -> no hit exit at all: the form
+// ends on that live end signal (idle edge / despawn / FormMaxSec), which then gives the duration for the next use. Certain counts: unchanged.
+// Press-relative ms (all exits are timed from the press). Returns the earliest exit time; -1 = hold for the live end signal.
+static inline int SdhExitAtMs(bool certain, int pct, int hitExitMs, int boundMs, int durMs) {
+    if (certain || pct <= 0) return hitExitMs;
+    if (durMs <= 0) return -1;
+    if (pct > 100) pct = 100;
+    const int endMs = boundMs + (int)((long long)durMs * pct / 100);
+    return hitExitMs > endMs ? hitExitMs : endMs;
+}
+// Per-core attack duration (bind -> live end) of full forms, normalised to x1 seal speed (ms * SealSpeed) so a SealSpeed change keeps it right.
+// The longest one is kept (an exit is never moved earlier by a shorter, odd form). 32 cores; more replace the oldest slot.
+struct SdhDurTable {
+    uint32_t sid[32] = {}; int ms1x[32] = {}; int n = 0;
+    void Reset() { *this = SdhDurTable(); }
+    int Get(uint32_t id) const { for (int i = 0; i < n; ++i) if (sid[i] == id) return ms1x[i]; return 0; }
+    // returns the stored value after the note
+    int Note(uint32_t id, int ms, float mul) {
+        if (!id || ms <= 0) return Get(id);
+        const int v = (int)(ms * (mul > 0.f ? mul : 1.f) + 0.5f);
+        for (int i = 0; i < n; ++i) if (sid[i] == id) { if (v > ms1x[i]) ms1x[i] = v; return ms1x[i]; }
+        const int k = n < 32 ? n++ : (int)(id % 32);
+        sid[k] = id; ms1x[k] = v; return v;
+    }
+    int At(uint32_t id, float mul) const { const int v = Get(id); return v > 0 ? (int)(v / (mul > 0.f ? mul : 1.f) + 0.5f) : 0; }
+};

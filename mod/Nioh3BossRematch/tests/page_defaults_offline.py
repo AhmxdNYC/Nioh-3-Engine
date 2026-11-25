@@ -127,5 +127,9 @@ for path,pattern in [(root/'src/bosslog.cpp',r'static const double shipped\[\] =
  values=[float(x) for x in re.search(pattern,path.read_text()).group(1).split(',')]
  assert values[:len(keys)]==expected,(path.name,values,expected)
  found.append(values)
-assert found[0]==found[1][:len(found[0])] and len(found[1])==len(found[0])+1,(found)  # menu = shipped + Start+end combo row (#128855 throw layers, #129070)
-print('20 soul-core shipped-default cross-checks PASS')
+# menu = shipped; row 14 = the Start + end combo row (#128855 throw layers, #129070), a 0 placeholder in both
+assert found[0]==found[1] and found[0][14]==0,(found)
+# TASK #135613 exit rows 15-18 = the shipped [Spirit] values
+exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct']
+assert found[0][15:19]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:19],[br.get(('Spirit',k)) for k in exit_keys])
+print('24 soul-core shipped-default cross-checks PASS')
