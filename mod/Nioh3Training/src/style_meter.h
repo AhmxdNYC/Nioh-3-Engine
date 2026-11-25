@@ -79,6 +79,8 @@
 #define SM_LOOP_REPS 3      // [StyleMeter] LoopReps: cycles of a 1- or 2-move loop allowed before each further use costs points (0 = off, 2..7)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
+#define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up
+#define SM_BURST_MS 1500    // ... BurstBreakMs: the boss's burst action must end within this of the hit that broke it
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
@@ -104,6 +106,7 @@ typedef struct {
     int comboMs, comboStep, comboBase, comboInc, comboMax;  // human: combo window / milestone size / milestone bonus (0 base = no bonus)
     float ma;                             // #127295 martial art bonus (default = nin)
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
+    float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -140,6 +143,7 @@ typedef struct {
     uint32_t lpA, lpB; int lpN1, lpN2;   // loop penalty: act of the last / the one before use, trailing period-1 / period-2 run lengths (uses)
     uint64_t lpRun; int lpOn, lpPen, lpHits;  // the current player use (own run key), it is a looped use, its hits so far (multi-hit cap)
     uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
+    uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
@@ -150,6 +154,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS; c->switchMs = SM_SWITCH_MS;
     c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS; c->gsSummonMs = SM_GS_SUMMON_MS;
     c->comboMs = SM_COMBO_MS; c->comboStep = SM_COMBO_STEP; c->comboBase = SM_COMBO_BASE; c->comboInc = SM_COMBO_INC; c->comboMax = SM_COMBO_MAX;
+    c->burst = (float)SM_BURST_PTS; c->burstMs = SM_BURST_MS; c->burstSkill = 0;
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
@@ -176,6 +181,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->ma < 0) c->ma = 0;
     if (c->loopReps < 0) c->loopReps = 0; if (c->loopReps == 1) c->loopReps = 2; if (c->loopReps > 7) c->loopReps = 7;
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
+    if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -379,6 +385,54 @@ static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, f
     if (!m->ma || m->other || m->paid || !(movePts > 0.f) || c->ma <= 0.f) return 0.f;
     m->paid = 1; s->maHits++;
     SmAdd(s, c, c->ma); s->lastEvent = s->lastScore = t; return c->ma;
+}
+// human: Burst Break. A boss's red attack (the game's GreatAttack / unblockable flag, u16 row +0x04 bit 0x2000 of its current action row) is
+// interrupted by the player's hit (or the summoned guardian spirit's) during its wind-up. One SmBurst per boss slot, stepped once per tick
+// with that slot's current action run:
+//   valid  the slot has a boss with a readable action run (0 = gone / replaced: forgotten, no award)
+//   key    run key (start frame << 32 | act), act = its action id
+//   row    the current run's row has GreatAttack: 1 yes, 0 no, -1 unread this tick (sticky: one read of 1 marks the run)
+//   next   the row's next-action id (u16 +0xE0; SM_ACT_NONE / 0xFFFF / 0 = none): the wind-up flowing into that action is not a break
+//   great  the frame probe saw an unblockable collider created in this run (run.great): the attack came out, too late to break it
+//   hit    0 none, 1 a hit landed on this boss this tick, 2 the same by a skill move / guardian spirit (pts = its points, for the pop-up)
+// A hit counts while the run is a burst run and !great. When the run ends (key changes) the hits of that same tick still belong to the old
+// run (the hit is what ended it). Award when the old run was a burst run, got a counted hit, never created its unblockable collider, ended
+// within burstMs of its last counted hit, and the new action is not its continuation (the new row is a burst row too, or it is the old row's
+// next action). Each candidate (burst run with a counted hit) that ends returns SM_BB_MISS or SM_BB_AWARD with *o filled for the log.
+enum { SM_BB_NONE = 0, SM_BB_AWARD = 1, SM_BB_MISS = 2 };
+typedef struct { uint64_t key; uint32_t act, next; int on, burst, great, hit, hits; double hitT; float hitPts; } SmBurst;
+typedef struct { uint32_t act, newAct, next; int great, cont, hitKind, hits, late, noSkill; double ago; float hitPts; } SmBurstEnd;
+static inline void SmBurstReset(SmBurst* b) { b->key = 0; b->act = b->next = SM_ACT_NONE; b->on = b->burst = b->great = b->hit = b->hits = 0; b->hitT = -1e18; b->hitPts = 0.f; }
+static inline void SmBurstHit(SmBurst* b, int hit, float pts, double t) {
+    if (!hit || !b->burst || b->great) return;
+    if (hit > b->hit) b->hit = hit;
+    b->hits++; b->hitT = t; b->hitPts = pts;
+}
+static inline int SmBurstNextOk(uint32_t n) { return n != SM_ACT_NONE && n != 0xFFFFu && n != 0; }
+static inline int SmBurstStep(SmBurst* b, const SmCfg* c, double t, int valid, uint64_t key, uint32_t act, int row, uint32_t next, int great, int hit, float pts, SmBurstEnd* o) {
+    int r = SM_BB_NONE;
+    if (!valid) { SmBurstReset(b); return r; }
+    if (b->on && key != b->key) {  // the old run ended this tick: this tick's hits are its own
+        SmBurstHit(b, hit, pts, t); hit = 0;
+        if (b->burst && b->hit) {
+            o->act = b->act; o->newAct = act; o->next = b->next; o->great = b->great; o->hitKind = b->hit; o->hits = b->hits; o->ago = t - b->hitT; o->hitPts = b->hitPts;
+            o->cont = row > 0 || (SmBurstNextOk(b->next) && (act & 0xFFFFu) == (b->next & 0xFFFFu));
+            o->late = o->ago > (double)c->burstMs; o->noSkill = c->burstSkill && b->hit < 2;
+            r = !o->great && !o->cont && !o->late && !o->noSkill ? SM_BB_AWARD : SM_BB_MISS;
+        }
+        b->on = 0;
+    }
+    if (!b->on) { SmBurstReset(b); b->on = 1; b->key = key; b->act = act; }
+    if (row > 0) b->burst = 1;
+    if (SmBurstNextOk(next) && !SmBurstNextOk(b->next)) b->next = next;
+    if (great) b->great = 1;  // a collider and a hit in one tick: the attack is out, the hit is too late
+    SmBurstHit(b, hit, pts, t);
+    return r;
+}
+static inline float SmOnBurst(SmState* s, const SmCfg* c, double t) {
+    s->bursts++;
+    if (c->burst <= 0.f) return 0.f;
+    SmAdd(s, c, c->burst); s->lastEvent = s->lastScore = t; return c->burst;
 }
 // #127075 Ki pulse with the perfect flag: perfect adds kiPerfect on top when the pulse scores at all.
 static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) {

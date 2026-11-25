@@ -535,8 +535,79 @@ static void MultiCap(void) {  // multi-hit cap: per use only the first multiHitC
     SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 0, 1200); SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 100, 1200);
     CHECK(pq.n == 1 && near(pq.p[0].pts, -20.f) && pq.p[0].count == 2);
 }
+static void BurstBreak(void) {  // human: a boss's red (GreatAttack) attack interrupted by a hit in its wind-up
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE;
+    CHECK(near(c.burst, 40) && c.burstMs == 1500 && c.burstSkill == 0);
+    // interrupted: burst row, hit at 300 ms, the action changes (stagger) at 600 ms before any unblockable collider -> award
+    SmBurstReset(&b);
+    CHECK(SmBurstStep(&b, &c, 0, 1, 10, 100, 0, N, 0, 0, 0, &e) == SM_BB_NONE);  // a normal action first
+    CHECK(SmBurstStep(&b, &c, 100, 1, 11, 200, 1, 0x205, 0, 0, 0, &e) == SM_BB_NONE && b.burst);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 11, 200, 1, 0x205, 0, 1, 22, &e) == SM_BB_NONE && b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 600, 1, 12, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.act == 200 && e.newAct == 300 && near((float)e.ago, 300) && near(e.hitPts, 22) && e.hits == 1);
+    CHECK(near(SmOnBurst(&s, &c, 600), 40) && s.bursts == 1 && s.lastScore == 600);
+    // completes normally: hit in the wind-up, then the unblockable collider comes out -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 20, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 100, 1, 20, 200, 1, N, 0, 1, 20, &e);
+    SmBurstStep(&b, &c, 500, 1, 20, 200, 1, N, 1, 0, 0, &e);  // run.great
+    CHECK(SmBurstStep(&b, &c, 900, 1, 21, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.great);
+    // burst run with no hit at all: not even a candidate
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 25, 200, 1, N, 0, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 800, 1, 26, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // hit after the unblockable window opened: not counted -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 30, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 400, 1, 30, 200, 1, N, 1, 0, 0, &e);
+    SmBurstStep(&b, &c, 500, 1, 30, 200, 1, N, 1, 1, 20, &e); CHECK(b.hits == 0);
+    CHECK(SmBurstStep(&b, &c, 700, 1, 31, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // collider and hit in the same tick: the attack is out, the hit is too late
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 35, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 300, 1, 35, 200, 1, N, 1, 1, 20, &e); CHECK(b.hits == 0);
+    // non-burst run hit and interrupted: none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 40, 200, 0, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 100, 1, 40, 200, 0, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 200, 1, 41, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // unread row (-1) never marks a burst
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 45, 200, -1, N, 0, 1, 20, &e); CHECK(!b.burst);
+    // same tick: the hit and the action change arrive together -> the hit counts for the old (burst) run
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 50, 200, 1, N, 0, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 51, 300, 0, N, 0, 1, 18, &e) == SM_BB_AWARD && e.hits == 1 && e.ago == 0.0 && near(e.hitPts, 18));
+    CHECK(b.hits == 0 && b.act == 300);  // the new run did not get that hit too
+    // one award per burst run: several hits in the wind-up, one award when it ends; the next (non-burst) run gives none
+    SmBurstReset(&b); int aw = 0;
+    SmBurstStep(&b, &c, 0, 1, 60, 200, 1, N, 0, 0, 0, &e);
+    for (int i = 1; i <= 4; ++i) aw += SmBurstStep(&b, &c, 100.0 * i, 1, 60, 200, 1, N, 0, 1, 20, &e) == SM_BB_AWARD;
+    aw += SmBurstStep(&b, &c, 600, 1, 61, 300, 0, N, 0, 1, 20, &e) == SM_BB_AWARD; CHECK(e.hits == 5);
+    for (int i = 0; i < 5; ++i) aw += SmBurstStep(&b, &c, 700.0 + 100 * i, 1, 61, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD;
+    aw += SmBurstStep(&b, &c, 1500, 1, 62, 400, 0, N, 0, 0, 0, &e) == SM_BB_AWARD;
+    CHECK(aw == 1);
+    // too late: the burst run ends more than BurstBreakMs after the last counted hit
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 70, 200, 1, N, 0, 1, 20, &e);  // first tick: marked and hit together (row read first)
+    CHECK(b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 1501, 1, 71, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.late);
+    // continuation: the wind-up flows into its row's next action, or into another burst row -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 80, 200, 1, 0x12C, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 81, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont);
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 85, 200, 1, 0xFFFF, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 86, 201, 1, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont);
+    // boss gone mid wind-up: forgotten, no award
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 90, 200, 1, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 100, 0, 0, N, -1, N, 0, 0, 0, &e) == SM_BB_NONE && !b.on);
+    // BurstBreakSkillOnly: a plain hit is a miss, a skill / guardian spirit hit (2) awards
+    SmCfg k = c; k.burstSkill = 1;
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 100, 200, 1, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 300, 1, 101, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.noSkill);
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 110, 200, 1, N, 0, 2, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 300, 1, 111, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.hitKind == 2);
+    // bonus 0: still counted, no points; clamp
+    SmCfg z = c; z.burst = 0; SmState q; SmReset(&q); CHECK(SmOnBurst(&q, &z, 0) == 0.f && q.bursts == 1 && !q.active);
+    SmCfg n = c; n.burst = -5; n.burstMs = 5; n.burstSkill = 7; SmCfgClamp(&n); CHECK(n.burst == 0.f && n.burstMs == 100 && n.burstSkill == 1);
+}
 int main(void) {
     Loop(); MultiCap();
+    BurstBreak();
     Combo();
     GuardianSummon();
     WeaponSwitch();

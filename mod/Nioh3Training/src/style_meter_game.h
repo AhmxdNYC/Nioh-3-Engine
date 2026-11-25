@@ -138,6 +138,9 @@ static void SmReadIni(const char* ini, int reset) {
     c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
+    c.burst = (float)(int)GetPrivateProfileIntA("StyleMeter", "BurstBreakPts", SM_BURST_PTS, ini);  // human: Burst Break
+    c.burstMs = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakMs", SM_BURST_MS, ini);
+    c.burstSkill = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakSkillOnly", 0, ini);
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
         float v[SM_RANKS]; int n = 0; const char* p = buf;
@@ -155,8 +158,9 @@ static void SmReadIni(const char* ini, int reset) {
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word) (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word), burst break %.0f within %d ms%s (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma,
+        g_smc.burst, g_smc.burstMs, g_smc.burstSkill ? " (skill / guardian spirit hits only)" : "");
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
@@ -242,7 +246,7 @@ static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
         if (atk && atk != me) { const int tm = ActorTeam(me); ally = tm >= 0 && ActorTeam(atk) == tm; }  // human: summoned guardian spirit (filtered by SmFeed's summon window)
         if (atk == me || ally) {
             InterlockedIncrement(atk == me ? &g_sm_hits : &g_sm_allyHits);
-            if (g_cfg_sr) for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss
+            for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss; Burst Break (always on)
                 const uint64_t a = g_slot_act[s]; uint64_t bs = 0;
                 if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) { InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); break; }
             }
@@ -308,6 +312,19 @@ static __attribute__((noinline)) int SmSkillWord(uint64_t ctrl, uint32_t act, ui
         *w = *(volatile uint32_t*)(r + 0xDC);
     } __except (EXCEPTION_EXECUTE_HANDLER) { *w = 0xFFFFFFFFu; return -1; }
     return SmSkillRow(*w);
+}
+// human: Burst Break. A boss's current action row R = [[ctrl+0xE8]+0x20] (same object as SmSkillWord; only when [P] == act): u16 R+0x04
+// bit 0x2000 = GreatAttack (the red unblockable attack, auto_moves.h), u16 R+0xE0 = its next action id. Returns 1 burst row, 0 not,
+// -1 unreadable; *fl = the flag word, *next = the next id (SM_ACT_NONE unread). Read only.
+static __attribute__((noinline)) int SmBurstRow(uint64_t ctrl, uint32_t act, uint16_t* fl, uint32_t* next) {
+    *fl = 0; *next = SM_ACT_NONE; uint64_t p = 0, r = 0;
+    if (!ctrl || act == SM_ACT_NONE || !Rd64(ctrl + 0xE8, &p) || p < 0x10000) return -1;
+    __try {
+        if (*(volatile uint32_t*)p != act) return -1;
+        r = *(volatile uint64_t*)(p + 0x20); if (r < 0x10000) return -1;
+        *fl = *(volatile uint16_t*)(r + 0x04); *next = *(volatile uint16_t*)(r + 0xE0);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { *fl = 0; *next = SM_ACT_NONE; return -1; }
+    return (*fl & 0x2000) != 0;
 }
 // #127003 move logger pad snapshot: raw XInput (xinput1_4 directly, not the game's IAT slot), the first connected pad with input, else pad 0.
 static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
@@ -532,10 +549,17 @@ static void SmFeed(double gdt) {
             if (hp && avHave) { const float dx = p3[0] - avP0[0], dy = p3[1] - avP0[1], dz = p3[2] - avP0[2]; const float d = sqrtf(dx * dx + dy * dy + dz * dz); if (d > avMove) avMove = d; } }
     }
     uint64_t srHit[SR_BOSSES]; int nSrHit = 0;
-    {   const LONG m = InterlockedExchange(&g_sr_hitMask, 0) | (summonLive ? allyMask : 0);
+    const LONG bbPl = InterlockedExchange(&g_sr_hitMask, 0), bbAl = summonLive ? allyMask : 0;  // human: Burst Break, per boss slot
+    {   const LONG m = bbPl | bbAl;
         if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) { const uint64_t a = BvActor(s); if (a) srHit[nSrHit++] = a; }
         if (!g_cfg_sr && g_sr.on) SrReset(&g_sr);
     }
+    // human: Burst Break inputs per boss slot (row reads outside the lock); stepped under it once this tick's hit points are known
+    static SmBurst bbs[N3T_SLOTS]; static int bbInit;
+    if (!bbInit) { bbInit = 1; for (int s = 0; s < N3T_SLOTS; ++s) SmBurstReset(&bbs[s]); }
+    int bbRow[N3T_SLOTS]; uint16_t bbFl[N3T_SLOTS]; uint32_t bbNext[N3T_SLOTS];
+    const int bbSkill = pl && (skill > 0 || gsm.gs || ninMove);  // the player's move is a skill / guardian spirit / ninjutsu move
+    for (int s = 0; s < N3T_SLOTS; ++s) { bbFl[s] = 0; bbNext[s] = SM_ACT_NONE; bbRow[s] = g_fp[s].valid ? SmBurstRow(g_fp[s].ctrl, g_fp[s].run.act, &bbFl[s], &bbNext[s]) : -1; }
     const int srWas = g_sr.on;
     AcquireSRWLockExclusive(&g_sm_lock);
     for (int i = 0; i < nSrHit; ++i) { const int k = SrBossIdx(&g_sr, srHit[i]); SrBossHit(&g_sr, &g_sm, srHit[i]); if (k < 0) { const int j = SrBossIdx(&g_sr, srHit[i]); if (j >= 0) g_sr_hp0[j] = 0; } }
@@ -547,7 +571,7 @@ static void SmFeed(double gdt) {
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
-    const float psw = hits > 0 ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
+    const float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     if (gsMark) g_sm.gsUses++;
@@ -556,6 +580,16 @@ static void SmFeed(double gdt) {
     if (pgs0 > 0.f && gsm.run == gsum.run) gsum.paid = 1;  // the player's own hits paid this move's bonus
     float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
     const float pgs = pgs0 + sumB;
+    float pbb = 0.f, bbHitPts = 0.f; int bbN = 0; SmBurstEnd bbE[N3T_SLOTS]; int bbR[N3T_SLOTS], bbNew[N3T_SLOTS], bbCand[N3T_SLOTS];
+    for (int s = 0; s < N3T_SLOTS; ++s) {  // human: Burst Break (style_meter.h SmBurstStep)
+        const int valid = g_fp[s].valid && g_fp[s].a, pb = s < 32 && (bbPl >> s) & 1, ab = s < 32 && (bbAl >> s) & 1;
+        const int hk = pb ? (bbSkill ? 2 : 1) : ab ? 2 : 0;
+        const int was = bbs[s].on && bbs[s].burst, hitsWas = bbs[s].hits; const uint64_t keyWas = bbs[s].key;
+        bbR[s] = SmBurstStep(&bbs[s], &g_smc, g_sm_clock, valid, (uint64_t)g_fp[s].run.f0 << 32 | g_fp[s].run.act, g_fp[s].run.act, bbRow[s], bbNext[s], g_fp[s].run.great, hk, pb ? ph : psum, &bbE[s]);
+        bbNew[s] = valid && bbs[s].burst && !(was && bbs[s].key == keyWas);          // this run was just marked a burst run (log)
+        bbCand[s] = valid && bbs[s].key == keyWas && bbs[s].hits > hitsWas ? hk : 0;  // a counted hit on the live burst run (log)
+        if (bbR[s] == SM_BB_AWARD) { pbb += SmOnBurst(&g_sm, &g_smc, g_sm_clock); bbN++; bbHitPts += bbE[s].hitPts; }
+    }
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
@@ -621,8 +655,19 @@ static void SmFeed(double gdt) {
         char b[700]; SrFmt(b, sizeof b, &srRes); Log("STYLE RESULT: %s", b);
         AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
     }
+    {   static int bbl;  // human: Burst Break log (the live test reads these: burst run seen / hit in its wind-up / its end)
+        for (int s = 0; s < N3T_SLOTS && bbl < 3000; ++s) {
+            if (bbNew[s]) { ++bbl; Log("STYLE BURST: boss %c act 0x%X (%u) is a burst run (row flags 0x%04X, next 0x%X) at t %.0f", 'A' + s, g_fp[s].run.act, g_fp[s].run.act, bbFl[s], bbNext[s], g_sm_clock); }
+            if (bbCand[s]) { ++bbl; Log("STYLE BURST: candidate boss %c act 0x%X hit by %s%s in its wind-up (%.0f ms into the run, player act %u skill word 0x%X gs %d ninjutsu %d i-frame counter %d)", 'A' + s, g_fp[s].run.act,
+                (bbPl >> s) & 1 ? "the player" : "the summoned spirit", bbCand[s] == 2 ? " (skill move)" : "", g_fp_gms - g_fp[s].run.t0, act, skw, gsm.gs, ninMove, ctr); }
+            if (bbR[s]) { ++bbl; const SmBurstEnd* e = &bbE[s];
+                Log("STYLE BURST: %s boss %c act 0x%X -> 0x%X, %d hit%s, last %.0f ms before the end (window %d ms)%s%s%s%s", bbR[s] == SM_BB_AWARD ? "BURST BREAK" : "no break,", 'A' + s, e->act, e->newAct, e->hits, e->hits == 1 ? "" : "s", e->ago, g_smc.burstMs,
+                    e->great ? " | unblockable collider already out" : "", e->cont ? " | the next action continues the burst (row next / burst row)" : "", e->late ? " | too late" : "", e->noSkill ? " | not a skill hit (BurstBreakSkillOnly)" : ""); }
+        }
+    }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
+        if (bbN) { if (bbHitPts > 0.f) SmFxPop2("Burst Break!", bbHitPts, pbb); else SmFxPop("Burst Break!", pbb); big += pbb; }  // human: the breaking hit's value, then the bonus (BurstBreakPts 0: the hit value only)
         if (ctrHit && g_smc.counter > 0.f) { SmFxPop2("Counter!", ph - g_smc.counter > 0.f ? ph - g_smc.counter : 0.f, g_smc.counter); big += g_smc.counter; }  // #127171 hit value, then the counter bonus
         if (pk > 0.f) { const int pf = kiPerf && g_smc.kiPerfect > 0.f && pk > g_smc.kiPerfect; SmFxPop2(pf ? "Perfect Ki" : "Ki Pulse", pf ? pk - g_smc.kiPerfect : pk, pf ? g_smc.kiPerfect : 0.f); big += pk; }
         if (pd > 0.f) { SmFxPop("Dodge!", pd); big += pd; }
@@ -641,7 +686,7 @@ static void SmFeed(double gdt) {
         if (loopN && loopLost > 0.f) SmFxPopLoss("Repetitive!", loopLost);  // loop penalty: shown "-N"
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
-    if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
+    if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN) {
         static int evl;
         if (evl++ < 4000) {
             char e[400]; int n = 0; e[0] = 0;
@@ -657,6 +702,7 @@ static void SmFeed(double gdt) {
             if (pgs > 0.f) n += snprintf(e + n, sizeof e - n, " guardian spirit +%.0f", pgs);
             if (maMark) n += snprintf(e + n, sizeof e - n, " skill row 0x%X%s", skw, mam.other ? " (guardian spirit / ninjutsu move)" : "");
             if (pma > 0.f) n += snprintf(e + n, sizeof e - n, " martial art +%.0f", pma);
+            if (bbN) n += snprintf(e + n, sizeof e - n, " burst break x%d +%.0f", bbN, pbb);
             if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki%s +%.0f", kiPerf ? " perfect" : "", pk);
