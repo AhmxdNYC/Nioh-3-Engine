@@ -27,6 +27,19 @@ int main() {
     Row(h3, 0xFFFF, 0xFFFF, 30); a[3].hb = h3.data(); a[3].nhb = 1; a[2].next = 0x100;  // untimed damaging row: not certain
     r = SdhCount(a, 4, 0xC52); assert(r.untimed == 1 && !r.certain() && r.chain == 4);
     r = SdhCount(a, 4, 0x999); assert(r.chain == 0 && !r.certain());  // unknown start
+    // #135408: helpers noted before the seal binds and from the press-source list are read once each; never below learned.
+    SdhWant w; w.Bind(0, 1, 1); assert(w.fromData && w.want == 1);          // 5129B-like: seal data 1, nothing learned
+    assert(w.Take(0xA1)); w.Join(1); assert(w.want == 2);                    // pre-bind helper (read at bind): its hit counts
+    assert(!w.Take(0xA1)); assert(w.want == 2);                              // same actor again (other list): not counted twice
+    assert(w.Take(0xA2)); w.Join(2); assert(w.want == 4 && w.helperData == 3);
+    w.Bind(5, 1, 1); assert(w.want == 5 && w.nSeen == 0);                    // learned above data: kept
+    assert(w.Take(0xB1)); w.Join(1); assert(w.want == 5);                    // 1+1 < learned 5: stays 5
+    assert(w.Take(0xB2)); w.Join(0); assert(w.want == 5 && !w.fromData);     // helper not certain: back to learned, data dropped
+    assert(!w.Take(0xB3)); assert(w.want == 5);                              // data mode off: later helpers ignored
+    w.Bind(0, 2, 1); assert(w.Take(0xC1)); w.Join(-1); assert(w.want == 0 && !w.fromData);  // unread helper, nothing learned -> idle fallback
+    w.Bind(3, 2, 0); assert(!w.fromData && w.want == 3 && !w.Take(0xD1));    // SealHitsData off: learned only
+    w.Bind(0, 0, 1); assert(!w.fromData && w.want == 0);                     // seal data not certain: no data count
+    w.Bind(0, 1, 1); for (uint64_t a = 1; a <= 20; ++a) if (w.Take(a)) w.Join(1); assert(w.nSeen == 16 && w.want == 17);  // cap
     char d[256]; SdhDescribe(r, d, sizeof d); puts(d);
     puts("seal_data_hits_test PASS"); return 0;
 }

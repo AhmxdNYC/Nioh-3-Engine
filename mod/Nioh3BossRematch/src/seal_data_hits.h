@@ -110,3 +110,31 @@ static inline void SdhDescribe(const SdhResult& r, char* out, size_t cap) {
     for (int i = 0; i < r.chain && p + 16 < cap; ++i) p += (size_t)snprintf(out + p, cap - p, "%s%X:%d", i ? " > " : "", r.ids[i], r.perAct[i]);
     if (p + 64 < cap) snprintf(out + p, cap - p, " (windows %d, untimed %d, spawns %d, last burst ends f%u)", r.windows, r.untimed, r.spawns, r.lastEnd);
 }
+
+// TASK #135408 (regression gap in f3b2e14f): the form's wanted burst count from game data. Seal data at bind, plus every helper
+// actor's data, whether the helper joined BEFORE the seal bound (pre-bind sources) or after, from either source list. Each actor is
+// read once. Never below the learned count; a helper whose data is not certain/unreadable drops the data count (learned or idle fallback).
+struct SdhWant {
+    int learned = 0, sealData = 0, helperData = 0, want = 0;
+    bool fromData = false;
+    uint64_t seen[16] = {}; int nSeen = 0;  // helpers already folded in (cap: more helpers than this are ignored, never double counted)
+    void Reset() { *this = SdhWant(); }
+    // dataMode = [SealHitsData] mode (1 = use the data count). data > 0 = certain count; 0 not certain; < 0 unread.
+    void Bind(int learnedHits, int data, int dataMode) {
+        Reset(); learned = learnedHits; sealData = data; want = learnedHits;
+        fromData = dataMode == 1 && data > 0;
+        if (fromData) want = data > learned ? data : learned;
+    }
+    bool Seen(uint64_t actor) const { for (int i = 0; i < nSeen; ++i) if (seen[i] == actor) return true; return false; }
+    // true when the helper should be read now (bound, data mode active, not read before). Marks it read.
+    bool Take(uint64_t actor) {
+        if (!fromData || !actor || Seen(actor) || nSeen >= 16) return false;
+        seen[nSeen++] = actor; return true;
+    }
+    // Fold one helper's data count h in (call after Take returned true).
+    void Join(int h) {
+        if (!fromData) return;
+        if (h > 0) { helperData += h; const int d = sealData + helperData; want = d > learned ? d : learned; }
+        else { want = learned; fromData = false; }
+    }
+};
