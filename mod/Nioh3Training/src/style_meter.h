@@ -714,6 +714,8 @@ typedef struct {
     float sf0, sfMin, sfMax;      // #127213 Spirit Force gauge just before the move / lowest during it / its max (sfMax <= 0 = unread)
     int gs;                       // #127213 marked as a guardian spirit skill (gauge drop at its start)
     int skillRd, ma; uint32_t skill;  // #127295 action-row skill word read / it scored as a martial art / the word (R+0xDC)
+    int posOk; float p0[2], b0[2], moved, turn, dist0, dist1;  // human (Displacement!): player / nearest boss at the start (x, z cm), farthest
+                                  // from the start, bearing change around the boss, distance to it at the start / at the last tick
 } SmMoveRec;
 #define SM_MOVE_SOUL_MS 20000
 static inline int SmPadStr(char* o, int n, uint16_t b, uint8_t lt, uint8_t rt) {
@@ -732,9 +734,10 @@ static inline int SmMoveFmt(char* o, int n, const SmMoveRec* m) {
     char sf[64]; if (m->sfMax > 0.f) snprintf(sf, sizeof sf, " | spirit %.1f->%.1f/%.1f%s", m->sf0, m->sfMin, m->sfMax, m->gs ? " guardian spirit" : ""); else sf[0] = 0;
     char sk[48]; if (!m->skillRd) sk[0] = 0; else if (SmSkillRow(m->skill)) snprintf(sk, sizeof sk, " | skill 0x%X%s", m->skill, m->ma ? " martial art" : ""); else snprintf(sk, sizeof sk, " | skill -");
     char sl[32]; if (m->slot >= 0) snprintf(sl, sizeof sl, " | slot %d%s", m->slot, m->swapped ? " swap attack" : ""); else sl[0] = 0;
-    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s%s%s",
+    char ps[80]; if (m->posOk) snprintf(ps, sizeof ps, " | moved %.2f m around boss %.0f deg dist %.2f->%.2f m", m->moved / 100.f, m->turn, m->dist0 / 100.f, m->dist1 / 100.f); else ps[0] = 0;
+    return snprintf(o, n, "act 0x%X (%u) %.0f ms %.0f f | %s | windows %d landed %d startup %s | %s | pad %s%s%s%s%s%s%s%s%s",
         m->act, m->act, m->ms, m->ms * 0.06, m->landed > 0 ? "HIT" : m->windows > 0 ? "MISS" : "no attack", m->windows, m->landed,
         su, m->style == 0 ? "Samurai" : m->style == 1 ? "Ninja" : "style ?",
-        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl, sf, sk);
+        pad, m->soulForm ? " | soul core form" : "", m->nin ? " | ninjutsu" : "", m->great ? " | great" : "", m->enemy ? " | enemy attacking" : "", sl, sf, sk, ps);
 }
 #endif

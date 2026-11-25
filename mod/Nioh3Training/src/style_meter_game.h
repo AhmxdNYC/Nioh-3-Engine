@@ -18,12 +18,14 @@
 #include "style_meter.h"
 #include "style_meter_fx.h"  // #127085 pop-ups + motion
 #include "style_result.h"    // boss fight result card (average rank first boss hit -> boss death)
+#include "style_displace.h"  // human: Displacement! (avoid an attack with a move that repositions, then counter)
 #include "style_atlas_gen.h"
 #define COBJMACROS
 #include <wincodec.h>
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
-static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
+static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
+ static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
 #define SM_DEF_Y 270
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
@@ -162,9 +164,20 @@ static void SmReadIni(const char* ini, int reset) {
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
         if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
     }
+    SmDispCfg dc; SmDispCfgDefaults(&dc);  // human: Displacement! ([StyleMeter] Displace 1 = on)
+    dc.on = (int)GetPrivateProfileIntA("StyleMeter", "Displace", 1, ini) ? 1 : 0;
+    dc.pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "DisplacePts", SM_DP_PTS, ini);
+    dc.followMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowMs", SM_DP_FOLLOW_MS, ini);
+    dc.followRuns = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowRuns", SM_DP_FOLLOW_RUNS, ini);
+    dc.minCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceMinCm", SM_DP_MIN_CM, ini);
+    dc.angDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceAngleDeg", SM_DP_ANG_DEG, ini);
+    dc.threatCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceThreatCm", SM_DP_THREAT_CM, ini);
+    {   char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", "", buf, sizeof buf, ini);  // extra act ids (not skill rows)
+        const char* q = buf; while (*q && dc.nActs < SM_DP_ACTS) { char* e; const unsigned long v = strtoul(q, &e, 0); if (e == q) break; if (v) dc.acts[dc.nActs++] = (uint32_t)v; q = e; while (*q == ',' || *q == ' ') ++q; } }
+    SmDispCfgClamp(&dc);
     SmCfgClamp(&c);
     AcquireSRWLockExclusive(&g_sm_lock);
-    g_smc = c;
+    g_smc = c; g_dpc = dc;
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
@@ -424,14 +437,15 @@ static __attribute__((noinline)) void SrHudTick(double wall) {
 }
 // FpTick, before FmFeed: an enemy (boss slot) hit window is open this tick (same rule as the frame meter's 'active' cell).
 static void SmCapture(void) {
-    int on = 0;
+    int on = 0; LONG mask = 0;
     if (!g_cfg_sm) return;
-    for (int s = 0; s < N3T_SLOTS && !on; ++s) {
+    for (int s = 0; s < N3T_SLOTS; ++s) {
         if (!g_fp[s].valid) continue;
-        if (g_fp[s].pulse || g_fp[s].pulseUb || g_fp[s].pulseGrab) on = 1;
-        for (int w = 0; w < FP_WIN && !on; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) on = 1;
+        int o = g_fp[s].pulse || g_fp[s].pulseUb || g_fp[s].pulseGrab;
+        for (int w = 0; w < FP_WIN && !o; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) o = 1;
+        if (o) { on = 1; if (s < 32) mask |= (LONG)(1u << s); }
     }
-    g_sm_enemy = on;
+    g_sm_enemy = on; InterlockedExchange(&g_sm_enemyMask, mask);
 }
 static __attribute__((noinline)) int SmHpRead(uint64_t a, uint64_t* cur) {
     uint64_t st = 0; *cur = 0;
@@ -684,6 +698,22 @@ static void SmFeed(double gdt) {
     const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
     if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
+    // human: Displacement! inputs (style_displace.h): player and boss positions (actor+0x110 x / z floats, cm), the boss whose hit window is
+    // open (nearest one if several; else the nearest boss slot, for the bearing at the use start), eligible = a skill row that is not the
+    // deflect / a guardian spirit spend, or a DisplaceActs id.
+    float dpPl[2] = {0.f, 0.f}, dpBoss[2] = {0.f, 0.f}; int dpPlOk = 0, dpBossOk = 0, dpSlot = -1; float dpBest = 1e30f;
+    if (pl && g_dpc.on) {
+        __try { dpPl[0] = *(volatile float*)(g_fp[FP_PL].a + 0x110); dpPl[1] = *(volatile float*)(g_fp[FP_PL].a + 0x118); dpPlOk = dpPl[0] == dpPl[0] && dpPl[1] == dpPl[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { dpPlOk = 0; }
+        const LONG em = g_sm_enemyMask;
+        for (int s = 0; s < N3T_SLOTS && dpPlOk; ++s) {
+            if (!g_fp[s].valid || !g_fp[s].a) continue;
+            float b[2]; int ok = 0;
+            __try { b[0] = *(volatile float*)(g_fp[s].a + 0x110); b[1] = *(volatile float*)(g_fp[s].a + 0x118); ok = b[0] == b[0] && b[1] == b[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+            if (!ok) continue;
+            const float k = SmDispDist(dpPl, b) + (s < 32 && ((em >> s) & 1) ? 0.f : 1e6f);  // a slot that is attacking first
+            if (k < dpBest) { dpBest = k; dpSlot = s; dpBoss[0] = b[0]; dpBoss[1] = b[1]; dpBossOk = 1; }
+        }
+    }
     if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
         static uint64_t mrun; static SmMoveRec mr; static double mt0, soulT = -1e18; static int mon, mlines;
         static unsigned (*fu)(void); static int futried;
@@ -691,11 +721,12 @@ static void SmFeed(double gdt) {
         if (soul > 0) soulT = g_sm_clock;
         if (mon) { mr.landed += (int)hits; if (nin) mr.nin = 1; }
         if (run != mrun) {
-            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; if (g_sm_maRun == mrun) mr.ma = 1; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
+            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; if (g_sm_maRun == mrun) mr.ma = 1; mr.ms = g_sm_clock - mt0; char b[512]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
             mrun = run; mt0 = g_sm_clock; mon = act != SM_ACT_NONE && act != 0;
             memset(&mr, 0, sizeof mr); mr.act = act; mr.startupF = -1.f; mr.enemy = g_sm_enemy;
             uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
             mr.style = v <= 1 ? v : -1; mr.slot = wslot;
+            mr.posOk = dpPlOk && dpBossOk; if (mr.posOk) { mr.p0[0] = dpPl[0]; mr.p0[1] = dpPl[1]; mr.b0[0] = dpBoss[0]; mr.b0[1] = dpBoss[1]; mr.dist0 = SmDispDist(dpPl, dpBoss); }
             mr.sf0 = sfPrev; mr.sfMin = sfCur; mr.sfMax = sfMax;  // #127213 gauge just before the move / at its start
             SmPadNow(&mr.btn, &mr.lt, &mr.rt);
             const unsigned ft = fu ? fu() : 0;
@@ -705,6 +736,7 @@ static void SmFeed(double gdt) {
                    if (startupF >= 0.f && mr.startupF < 0.f) mr.startupF = startupF;
                    if (sfCur >= 0.f) { if (mr.sfMin < 0.f || sfCur < mr.sfMin) mr.sfMin = sfCur; if (sfMax > mr.sfMax) mr.sfMax = sfMax; }
                    if (gsMark) mr.gs = 1;
+                   if (mr.posOk && dpPlOk && dpBossOk) { const float m = SmDispDist(mr.p0, dpPl); if (m > mr.moved) mr.moved = m; mr.turn = SmDispTurn(mr.p0, mr.b0, dpPl, dpBoss); mr.dist1 = SmDispDist(dpPl, dpBoss); }
                    if (skill >= 0 && !mr.skillRd) { mr.skillRd = 1; mr.skill = skw; } }
     }
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
@@ -728,6 +760,7 @@ static void SmFeed(double gdt) {
         if (avIn || g_sm.dodge.inWin) { avFl |= avNow;
             if (hp && avHave) { const float dx = p3[0] - avP0[0], dy = p3[1] - avP0[1], dz = p3[2] - avP0[2]; const float d = sqrtf(dx * dx + dy * dy + dz * dz); if (d > avMove) avMove = d; } }
     }
+    const int dpElig = pl && ((skill > 0 && !deflectNow && !gsm.gs) || SmDispListed(&g_dpc, act));
     // Result card. srSlotA / srSlotT: the actor of each boss slot and the wall ms it was first seen there (kept after the slot clears), so
     // a boss hit in the end wait can be told apart: next form (seen as the fight went down) or the next boss of a gauntlet (SrBossHitEx).
     uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES], srTag[SR_BOSSES] = {0}; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
@@ -822,6 +855,16 @@ static void SmFeed(double gdt) {
     for (int s = 0; s < N3T_SLOTS && avoid && !avAte; ++s) if (g_fp[s].valid) { const int h0 = bbs[s].held; if (SmBurstAvoid(&bbs[s], bbCtrT, g_sm_clock, avoid)) { avAte = avoid; avHeld = !h0 && bbs[s].held; } }
     if (avAte) avoid = SM_AV_NONE;
     for (int s = 0; s < N3T_SLOTS && !avoid; ++s) if (bbR[s] == SM_BB_MISS && bbE[s].held) avoid = avBack = bbE[s].held;
+    // human: Displacement!: the window's avoid is held while a displacement candidate is open, replaced on an award, paid on a miss
+    static SmDisp dps; static int dpInit; if (!dpInit) { dpInit = 1; SmDispReset(&dps); }
+    SmDispOut dpo; memset(&dpo, 0, sizeof dpo); float pdp = -1.f; int dpAv = avoid, dpBack = 0;
+    SmDispIn dpi; memset(&dpi, 0, sizeof dpi);
+    dpi.run = run; dpi.use = useKey; dpi.act = act; dpi.elig = dpElig; dpi.plOk = dpPlOk; dpi.pl[0] = dpPl[0]; dpi.pl[1] = dpPl[1];
+    dpi.win = g_sm_enemy; dpi.bossOk = dpBossOk; dpi.boss[0] = dpBoss[0]; dpi.boss[1] = dpBoss[1]; dpi.took = taken > 0; dpi.hits = bbPl ? 1 : 0; dpi.avoid = avoid;
+    const int dpr = pl ? SmDispStep(&dps, &g_dpc, g_sm_clock, &dpi, &dpo) : SM_DP_NONE;
+    if (dpo.ate) { if (avoid == SM_AV_COUNTER) ctrPaidRun = run; avoid = SM_AV_NONE; }  // held (no hit-counter bonus on top for this move)
+    if (dpr == SM_DP_MISS && dpo.release && !avoid) avoid = dpBack = dpo.release;
+    if (dpr == SM_DP_AWARD) { pdp = SmOnDisplace(&g_sm, &g_smc, &g_dpc, g_sm_clock, dpo.act, dps.pUse); }
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
@@ -909,6 +952,17 @@ static void SmFeed(double gdt) {
             avHeld ? "held until the countered red attack ends (paid if it is no Burst Break)" : "same event as the Burst Break, not paid"); }
         if (avBack && bbl < 3000) { ++bbl; Log("STYLE BURST2: held avoid %d paid after all (the countered red attack ended without a Burst Break)", avBack); }
     }
+    if (dpr || dpo.ate) {  // human: Displacement! diagnosis (live test: thresholds, which moves qualify)
+        static int dpl;
+        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss"};
+        if (dpl < 3000) { ++dpl;
+            if (dpr == SM_DP_AWARD) Log("STYLE DISPLACE: AWARD act %u +%.0f: moved %.2f m, around the boss %.0f deg, boss %.2f m away when its window opened, hit %.0f ms after the window, %d move(s) later%s",
+                dpo.act, pdp, dpo.moved / 100.f, dpo.ang, dpo.dist0 / 100.f, dpo.ago, dpo.runs, dpo.replaced ? " (the window's avoid replaced)" : " (no i-frame avoid: out of reach)");
+            else if (dpr == SM_DP_MISS) Log("STYLE DISPLACE: miss act %u: %s (moved %.2f m, around %.0f deg, %.0f ms, %d move(s) later)%s", dpo.act, dpo.why > 0 && dpo.why <= 5 ? why[dpo.why] : "?",
+                dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, dpBack ? dpBack == SM_AV_DEFLECT ? " -> held deflect paid" : dpBack == SM_AV_COUNTER ? " -> held counter paid" : " -> held dodge paid" : "");
+            else Log("STYLE DISPLACE: candidate act %u (skill word 0x%X, boss %c %.2f m away when its window opened): avoid %d held until the counter hit", act, skw, dpSlot >= 0 ? 'A' + dpSlot : '?', dps.pDist0 / 100.f, dpAv);
+        }
+    }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
         if (bbN) { if (bbHitPts > 0.f) SmFxPop2("Burst Break!", bbHitPts, pbb); else SmFxPop("Burst Break!", pbb); big += pbb; }  // human: the breaking hit's value, then the bonus (BurstBreakPts 0: the hit value only)
@@ -918,6 +972,7 @@ static void SmFeed(double gdt) {
         if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
         if (pb > 0.f) SmFxPop("Blocked", pb);  // human: a guarded hit (BlockPct % of the hit); plain hits have no pop-up, this one is shown so it is seen
         if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
+        if (pdp > 0.f) { SmFxPop("Displacement!", pdp); big += pdp; }
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
