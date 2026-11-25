@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-25 6:58 pm EST: regression-pc/0. #136275 PASS offline on merge 14487b34. Crash fix intact. Swap tests pass. Audit 0 new. BR 1D1B3CE3, Training 5C5EA937 staged at D:/nioh3-re/allcores-main-136265. Not installed. Human pid 65448. Do not publish.
 - CURRENT 2026-11-25 6:46 pm EST: pc/0. Merge 14487b34 (allcores onto main) in regression #136275. Staged BR 1D1B3CE3, TR 5C5EA937. Not installed. Human pid 65448, BR d37fc753. Install only after PASS. Do not publish.
 - CURRENT 2026-11-25 6:50 pm EST: pc/1. #136197 coded, not installed. pc1/sc-api-136197 705a2c18. BR 378655D3 at D:/nioh3-re/scapi-136197 (with TR EC66B356). Live pid 65448 stays on BR D37FC753. Do not install. Do not publish.
 - CURRENT 2026-11-25 6:39 pm EST: regression-pc/0. #136252 PASS offline on allcores a92a3b8b. Not merged onto main (conflicts bosslog.cpp + ini), lacks crash-fix 05eb07e7. Not installed. Human pid 65448, BR d37fc753. Do not install. Do not publish.
