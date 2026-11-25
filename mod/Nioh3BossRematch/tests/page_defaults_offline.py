@@ -130,6 +130,6 @@ for path,pattern in [(root/'src/bosslog.cpp',r'static const double shipped\[\] =
 # menu = shipped; row 14 = the Start + end combo row (#128855 throw layers, #129070), a 0 placeholder in both
 assert found[0]==found[1] and found[0][14]==0,(found)
 # TASK #135613 exit rows 15-18 = the shipped [Spirit] values
-exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct']
-assert found[0][15:19]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:19],[br.get(('Spirit',k)) for k in exit_keys])
+exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct','SealExitAfterShotMs']
+assert found[0][15:20]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:20],[br.get(('Spirit',k)) for k in exit_keys])
 print('24 soul-core shipped-default cross-checks PASS')

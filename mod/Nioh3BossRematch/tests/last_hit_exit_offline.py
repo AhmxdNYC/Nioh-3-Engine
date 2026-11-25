@@ -40,7 +40,7 @@ struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
-std::atomic<int> g_sealHitsData{0},g_exitEndPct{0};int dataHits=-1;
+std::atomic<int> g_sealHitsData{0},g_exitEndPct{0},g_exitAfterShotMs{-1};int dataHits=-1;
 SdhDurTable g_sealDurs;
 std::atomic<int> g_exitSettleMs{-1};SdhResult g_sdhLastRead;bool g_sdhLastReadOk=false;  // TASK #135803: settle off unless a case sets it
 int SealDataHits(uint64_t,uint32_t,char* d,size_t n){snprintf(d,n,"stub");return dataHits;}
@@ -133,6 +133,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
  check(g_exitSettleMs==200);ini[L"SealExitSettleMs"]=L"-7";LoadExitSetting();check(g_exitSettleMs==-1);ini[L"SealExitSettleMs"]=L"9000";LoadExitSetting();check(g_exitSettleMs==3000);ini.clear();LoadExitSetting();  // TASK #135803
  check(g_exitEndPct==90);g_exitEndPct=0;  // TASK #135613: shipped 90; the cases below pin the old rule (0), the new rule is checked further down
+ check(g_exitAfterShotMs==700);g_exitAfterShotMs=-1;  // TASK #136113: shipped 700; the older cases keep the EndPct hold
  check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
@@ -490,6 +491,15 @@ int main(){
  ini.clear();LoadExitSetting();check(g_exitEndPct==90);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
  ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
  g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
+ // TASK #136113: last hit closed, EndPct would hold, AfterShot 700 turns back at close+700. OFF (-1) keeps the hold.
+ g_exitEndPct=90;g_exitAfterShotMs=700;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);step(1.4,false);check(!g_ghostReq);
+ step(2.09,false);check(!g_ghostReq);step(2.11,false);check(g_ghostReq==456&&smokes==1);
+ g_exitAfterShotMs=-1;start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(!g_ghostReq);
+ {bool lv=false;g_exitAfterShotMs=-1;check(SoulTune(19,1,&lv)==0&&g_exitAfterShotMs==0&&ini[L"SealExitAfterShotMs"]==L"0");
+  check(SoulTune(19,1,&lv)==50);check(SoulTune(19,-1,&lv)==0);check(SoulTune(19,-1,&lv)==-1);
+  char tx[512];uint32_t co=0;g_exitAfterShotMs=700;SctRowText(kItSctBase+19,false,"",tx,sizeof tx,&co);check(strstr(tx,"After last projectile:")&&strstr(tx,"700 ms"));
+  check(strstr(SctFooter(kItSctBase+19),"SealExitAfterShotMs"));g_exitAfterShotMs=-1;ini.clear();}
  // TASK #135613 exit rows: SealGhostExit / SealIdleMinMs / SealExitOnHelperMs / SealExitEndPct are live atomics
  {bool lv=false;g_ghostOn=1;check(SoulTune(15,-1,&lv)==0&&lv&&g_ghostOn==0&&ini[L"SealGhostExit"]==L"0");check(SoulTune(15,1,&lv)==1&&g_ghostOn==1);
   g_sieMinMs=300;check(SoulTune(16,1,&lv)==350&&g_sieMinMs==350&&ini[L"SealIdleMinMs"]==L"350");g_sieMinMs=300;
@@ -504,7 +514,7 @@ int main(){
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==19&&rows.back()==kItSctBase+18);  // #129070: 15 rows by design; TASK #135613: +4 exit rows
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==20&&rows.back()==kItSctBase+19);  // TASK #136113: +1 after-last-projectile row
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");
@@ -520,7 +530,7 @@ int main(){
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
  check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
- check(g_ghostOn==1&&g_sieMinMs==300&&g_exitOnHelperMs==150&&g_exitEndPct==90&&ini[L"SealExitEndPct"]==L"90");  // TASK #135613 rows reset to the shipped ini
+ check(g_ghostOn==1&&g_sieMinMs==300&&g_exitOnHelperMs==150&&g_exitEndPct==90&&ini[L"SealExitEndPct"]==L"90"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
  check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
