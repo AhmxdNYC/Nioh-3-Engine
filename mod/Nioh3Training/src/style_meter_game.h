@@ -555,6 +555,11 @@ static void SmFeed(double gdt) {
     if (nin) ninMove = 1;
     uint32_t skw = 0xFFFFFFFFu; const int skill = pl ? SmSkillWord(g_fp[FP_PL].ctrl, act, &skw) : -1;
     const int maMark = pl ? SmMaStep(&mam, run, skill, gsm.gs || ninMove) : 0;
+    // multi-segment martial arts (Infinite Retribution 25351 -> 25352 -> 25353): back-to-back runs of one skill word are one use for the
+    // multi-hit cap / loop penalty (style_meter.h SmChainStep); variety, startup and the counter bonus stay per run
+    static SmChain useCh; static int useChInit;
+    if (!useChInit) { useChInit = 1; SmChainReset(&useCh); }
+    const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
     if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
@@ -642,9 +647,9 @@ static void SmFeed(double gdt) {
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens; const float lpl0 = g_sm.loopLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, ctr && run != ctrPaidRun);
     float pb = 0.f;  // blocked hits: BlockPct % of a hit of this move (no counter bonus: that is paid by a hit that lands)
-    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, run, startupF, 0);
+    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, 0);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
     const float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f) g_sm_swapRun = run;

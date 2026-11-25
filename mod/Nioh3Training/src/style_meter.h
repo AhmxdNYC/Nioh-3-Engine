@@ -23,6 +23,7 @@
 // Multi-hit cap: per use only the first multiHitCap hits (default 4, 0 = no cap) score and count toward the combo; further hits of the same
 // use score 0, add nothing, do not refresh the decay delay and do not raise the combo (s->hits still counts every real hit). The summoned
 // guardian spirit's hits are one use of their own (SmSummonHits), capped the same way.
+// The game glue passes a use key, not the raw run: back-to-back segments of one martial art (same skill word) are one use (SmChainStep).
 // Loop penalty: the ordered act ids of the player's uses are tracked; a trailing loop of period 1 (A A A ..) or period 2 (A B A B ..) that
 // already completed loopReps cycles (default 3: the 4th A in a row, the 7th use of A B A B A B A) makes every further use of it score 0 for
 // all its hits and take loopPts (default 10) off the gauge once per use (draining like decay: below 0 drops a rank, at D it ends idle;
@@ -270,6 +271,38 @@ static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t
     SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
     s->countedHits++;
     return p;
+}
+// Multi-segment moves: one martial art can play as several back-to-back action runs, each a new act id. Switch Glaive Infinite Retribution
+// (game log 2026-11-25): 25351 lead-in (3 hits) -> 25352 spin (2..15 hits) -> 25353 finisher (0..3 hits), all skill word 0x42B, each run
+// starting on the tick the last one ended. With the run as the use key the multi-hit cap allowed 4 per segment (up to 10 combo per
+// use). SmChainStep, once per tick with the player's run, returns the use key to pass as `run` to SmOnHit*: a run that starts directly
+// after the last one (no tick between, no idle / unknown act) whose action row is a skill row with the same skill word as the last run's,
+// and whose act id is not yet in the chain, keeps the chain's key (same use: one cap, one loop step); anything else starts a new use
+// keyed by its own run. A repeat of an act in the chain (A B C A) is a new use, so re-casting the same martial art back to back still
+// counts. skill = SmSkillWord's result (1 skill row, 0 not, -1 unreadable this tick): a contiguous run stays in the chain while its row
+// is unreadable, decided once on the first readable tick (or as a new use after SM_CHAIN_WAIT ticks unreadable).
+#define SM_CHAIN_ACTS 8
+#define SM_CHAIN_WAIT 30
+#define SM_CHAIN_NOSKILL 0xFFFFFFFFu
+typedef struct { uint64_t run, key; uint32_t skw, prevSkw; int n, pending, wait; uint32_t acts[SM_CHAIN_ACTS]; } SmChain;
+static inline void SmChainReset(SmChain* ch) {
+    ch->run = ch->key = 0; ch->skw = ch->prevSkw = SM_CHAIN_NOSKILL; ch->n = ch->pending = ch->wait = 0;
+}
+static inline uint64_t SmChainStep(SmChain* ch, uint64_t run, uint32_t act, int skill, uint32_t skw) {
+    if (!run || act == SM_ACT_NONE || act == 0) { SmChainReset(ch); return run; }
+    if (run != ch->run) {
+        const int contig = ch->run != 0 && ch->skw != SM_CHAIN_NOSKILL;
+        int seen = 0; for (int i = 0; i < ch->n; ++i) if (ch->acts[i] == act) seen = 1;
+        ch->prevSkw = ch->skw; ch->run = run; ch->skw = SM_CHAIN_NOSKILL; ch->wait = 0;
+        if (contig && !seen && ch->n < SM_CHAIN_ACTS) { ch->pending = 1; ch->acts[ch->n++] = act; }  // tentatively the same use
+        else { ch->pending = 0; ch->key = run; ch->acts[0] = act; ch->n = 1; }
+    }
+    if (skill >= 0) {
+        const uint32_t w = skill > 0 ? skw : SM_CHAIN_NOSKILL;
+        if (ch->pending && w != ch->prevSkw) { ch->key = run; ch->acts[0] = act; ch->n = 1; }  // not the same move: a new use
+        ch->pending = 0; ch->skw = w;
+    } else if (ch->pending && ++ch->wait > SM_CHAIN_WAIT) { ch->pending = 0; ch->key = run; ch->acts[0] = act; ch->n = 1; }
+    return ch->key;
 }
 static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, summon, 100); }
 static inline float SmOnHitPct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int pct) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, 0, pct); }
