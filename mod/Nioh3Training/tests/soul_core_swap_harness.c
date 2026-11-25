@@ -18,7 +18,17 @@ static uint8_t g_hud;
 static uint8_t* g_tab; static uint64_t g_db68[1]; static uint8_t g_db[0x100]; static uint64_t g_dbslot;
 static char g_calls[256]; static int g_ok = 1; static int32_t g_sc = 2;
 static uint64_t a_ctx, a_rec; static int a_slot, a_scarg;
+static int g_add_keeps = 1;
 static void C(char c) { size_t n = strlen(g_calls); g_calls[n] = c; g_calls[n + 1] = 0; }
+static void f_build(void* desc, uint32_t id, uint32_t n) { C('B'); (void)n; memset(desc, 0, 8); memcpy(desc, &id, 2); }
+static void f_add(uint64_t ctx, void* out, void* desc, uint64_t a, uint64_t b) {
+    C('A'); (void)out; (void)a; (void)b;
+    if (ctx != a_ctx) C('!');
+    if (!g_add_keeps) return;
+    uint64_t cnt = *(uint64_t*)(g_inv + 0x927D0);
+    memcpy(g_inv + 0x10 + cnt * 0xF0, desc, 2);
+    *(uint64_t*)(g_inv + 0x927D0) = cnt + 1;
+}
 static uint8_t f_ok(uint8_t s, uint64_t rec) { C('1'); a_slot = s; a_rec = rec; return (uint8_t)g_ok; }
 static int32_t f_sc(uint64_t ctx, uint8_t s) { C('2'); if (ctx != a_ctx || s != a_slot) C('!'); return g_sc; }
 static void f_3(uint64_t ctx, uint64_t rec) { C('3'); if (ctx != a_ctx || rec != a_rec) C('!'); }
@@ -38,6 +48,8 @@ static uintptr_t Grva(uint32_t rva) {
     case 0x215F85C: return (uintptr_t)f_5;
     case 0x2182968: return (uintptr_t)f_6;
     case 0x34EDF8: return (uintptr_t)f_7;
+    case 0x54CCD0: return (uintptr_t)f_build;
+    case 0x54D324: return (uintptr_t)f_add;
     }
     return 0;
 }
@@ -58,8 +70,8 @@ int main(void) {
     for (int i = 0; i < 5; ++i) memcpy(g_inv + 0x10 + i * 0xF0, &items[i], 2);
     for (int s = 0; s < 8; ++s) *(uint32_t*)(g_inv + 0x23B6B8 + 4 * s) = 0xFFFFFFFFu;
     *(uint32_t*)(g_inv + 0x23B6B8) = 1;  // Yang 1 = idx 1 (core 2A1)
-    g_tab = (uint8_t*)calloc(1, 8 + 4 * 0x1A0); *(uint32_t*)(g_tab + 4) = 4;
-    put_row(0, 0x100, 0); put_row(1, 0x2A1, 1); put_row(2, 0x2A2, 1); put_row(3, 0x2A3, 1);
+    g_tab = (uint8_t*)calloc(1, 8 + 6 * 0x1A0); *(uint32_t*)(g_tab + 4) = 6;
+    put_row(0, 0x100, 0); put_row(1, 0x2A1, 1); put_row(2, 0x2A2, 1); put_row(3, 0x2A3, 1); put_row(4, 0x2A4, 1); put_row(5, 0x2A5, 1);
     g_db68[0] = (uint64_t)g_tab; *(uint64_t*)(g_db + 0x68) = (uint64_t)g_db68; g_dbslot = (uint64_t)g_db;
 
     // nothing runs without a request; the item master is not read until the menu asks
@@ -67,6 +79,7 @@ int main(void) {
     expect(!g_calls[0] && !g_scw_ids_done, "idle: no game call, no item master read");
     uint32_t sl[8], idx[8]; uint16_t it[8];
     expect(Nioh3Training_SoulCoreState(sl, idx, it, 8) == -1, "state before the ids are built = -1");
+    expect(Nioh3Training_SoulCoreCatalog(0, 0, 0) == -1, "catalog before the ids are built = -1");
     tick_until_ids();
     g_scw_snap.t = 0;
     int n = Nioh3Training_SoulCoreState(sl, idx, it, 8);
@@ -98,6 +111,28 @@ int main(void) {
     // no save: ctx null
     g_ctxslot = 0; g_calls[0] = 0; Nioh3Training_SoulCoreEquip(2, 1); ScwTick();
     expect(!g_calls[0] && Nioh3Training_SoulCoreEquipResult(0) == SCW_NO_GAME, "no save loaded: no call");
+
+    // TASK #136129: every item-master core, owned or not, then the same shrine order
+    g_ctxslot = (uint64_t)&g_invp; g_calls[0] = 0; g_ok = 1; g_sc = 2; g_hud = 0;
+    uint16_t cids[8], slotItem[8];
+    int cn = Nioh3Training_SoulCoreCatalog(cids, 8, slotItem);
+    expect(cn == 5 && cids[0] == 0x2A1 && cids[4] == 0x2A5 && slotItem[0] == 0x2A3, "catalog is every core; Yang 1 is item 2A3");
+    g_calls[0] = 0; Nioh3Training_SoulCoreEquipItem(0, 0x2A3); ScwTick();
+    expect(!g_calls[0] && Nioh3Training_SoulCoreEquipResult(0) == SCW_SAME, "owned same item: no add, no shrine");
+    g_calls[0] = 0; Nioh3Training_SoulCoreEquipItem(0, 0x100); ScwTick();
+    expect(!g_calls[0] && Nioh3Training_SoulCoreEquipResult(0) == SCW_NOT_CORE, "item master non-core: no add");
+    g_add_keeps = 0; g_calls[0] = 0; Nioh3Training_SoulCoreEquipItem(0, 0x2A4); ScwTick();
+    expect(!strcmp(g_calls, "BA") && Nioh3Training_SoulCoreEquipResult(0) == SCW_NO_ADD, "add that does not insert: no shrine");
+    g_add_keeps = 1; g_calls[0] = 0;
+    expect(Nioh3Training_SoulCoreEquipItem(0, 0x2A4) == 1, "unowned queued");
+    expect(Nioh3Training_SoulCoreEquipItem(0, 0x2A5) == 0, "second item request busy");
+    ScwTick();
+    expect(!strcmp(g_calls, "BA1234567") && Nioh3Training_SoulCoreEquipResult(0) == SCW_DONE, "unowned core: add then the same shrine order");
+    expect(*(uint32_t*)(g_inv + 0x23B6B8) == 5, "slot now the new idx 5");
+    uint16_t got = 0; memcpy(&got, g_inv + 0x10 + 5 * 0xF0, 2);
+    expect(got == 0x2A4, "new record is item 2A4");
+    g_calls[0] = 0; Nioh3Training_SoulCoreEquipItem(1, 0x2A1); ScwTick();
+    expect(!strcmp(g_calls, "1234567") && Nioh3Training_SoulCoreEquipResult(0) == SCW_DONE, "owned core: shrine only, no add");
     if (!g_fail) printf("soul_core_swap_harness PASS\n");
     return g_fail;
 }

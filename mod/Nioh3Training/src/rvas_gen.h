@@ -107,6 +107,8 @@ static const GrDef k_grdefs[] = {
     {0x4893EB, GRV_CODE, "84 C0 75 08 8A C3 48 83 C4 20 5B C3 B3 01 EB F4 41 FF D0 EB", 0, 0x0, 0, 0, 0, ""},  // training.c
     {0x4CE90C, GRV_CODE, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29 40 88 44 0F", 0, 0x0, 0, 0, 0, ""},  // frame_meter_game.h
     {0x54AFBC, GRV_CODE, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 70 20 41 57 48 81 EC B0 00 00 00", 0, 0x0, 0, 0, 0, ""},  // training.c
+    {0x54CCD0, GRV_CODE, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED C7 41 0E 00 40 00 00", 0, 0x0, 0, 0, 0, ""},  // soul_core_swap_game.h
+    {0x54D324, GRV_CODE, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F8 FE FF FF 48 81 EC 08 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B E9", 0, 0x0, 0, 0, 0, ""},  // soul_core_swap_game.h
     {0x56529C, GRV_CODE, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // training.c
     {0x59FFDC, GRV_CODE, "48 83 EC 28 E8 ?? ?? ?? ?? 48 85 C0 74 07 83 88 B4 00 00 00", 0, 0x0, 0, 0, 0, ""},  // training.c
     {0x5A16F8, GRV_CODE, "48 83 EC 28 E8 ?? ?? ?? ?? 48 85 C0 74 09 48 8B 40 10 48 83", 0, 0x0, 0, 0, 0, ""},  // training.c
