@@ -22,6 +22,7 @@ pre=r'''
 #include <map>
 #include <set>
 #include <cassert>
+#include "seal_data_hits.h"
 std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;std::map<std::wstring,std::wstring> legacyIni;
 std::wstring FakeKey(const wchar_t* section,const wchar_t* key){return wcsncmp(section,L"SealHelperLast",14)?std::wstring(key):std::wstring(L"H:")+key;}
 BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){if(wcsncmp(section,L"SealHelperLast",14))writtenSection=section;ini[FakeKey(section,key)]=value;return TRUE;}
@@ -38,6 +39,10 @@ namespace bosslog {
 struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
+// TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
+std::atomic<int> g_sealHitsData{0},g_exitEndPct{0};int dataHits=-1;
+SdhDurTable g_sealDurs;
+int SealDataHits(uint64_t,uint32_t,char* d,size_t n){snprintf(d,n,"stub");return dataHits;}
 
 std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_exitOnHelperMs{-1},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400},g_fccMs{250};
 std::atomic<int> g_frz[2];std::atomic<int> g_fxrRepeatMs{0};
@@ -101,6 +106,7 @@ void LoadExitSetting(){
 char g_msg[512];int g_sel=0,g_confirm=0;constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
 struct {void Enter(int,int){}} g_uiPages;
 void* TrainingExport(const char*){return nullptr;}  // human #129277 Equip core rows: no Nioh3Training.asi here
+constexpr uint32_t cGreen=5;ULONGLONG Ms(){return 0;}void ToastF(uint32_t,ULONGLONG,const char*,...){}void Command(const char*,char* r,size_t n){if(n)r[0]=0;}  // human #135018 pair keys
 #include "soul_core_tuning_menu.h"
 using namespace bosslog;
 int checks=0;double base=0;
@@ -124,6 +130,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
+ check(g_exitEndPct==90);g_exitEndPct=0;  // TASK #135613: shipped 90; the cases below pin the old rule (0), the new rule is checked further down
  check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
@@ -444,11 +451,46 @@ int main(){
   else step(1.6,false);
   check(ini[L"5B402"]==L"4"&&!ini.count(L"A65A1"));
  }
+ // TASK #135613 (live 80D5F, d5bb22d5): data 0 (not certain) + learned 1 -> no exit at hit 1 (1.337 s) alone.
+ g_exitEndPct=90;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();ini.clear();
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!smokes&&!g_ghostReq);step(1.4,false);step(3.0,false);check(!g_ghostReq);
+ clockNow=base+3.83;g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";  // use 1 plays in full, gives the duration
+ check(std::abs(g_sealDurs.Get(0x80D5F)-5362)<=2&&std::abs(g_sealDurs.At(0x80D5F,1.4f)-3830)<=1);
+ // use 2: hit 1 at 1.337 s held until bind + 90 % of 3830 ms = 3.447 s, then the ghost exit
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!smokes&&!g_ghostReq);step(1.4,false);step(3.44,false);check(!g_ghostReq);
+ step(3.45,false);check(g_ghostReq==456&&smokes==1);
+ // max(): a known attack shorter than the hit exit never delays the hit exit
+ g_sealDurs.Note(0x80D61,1000,1.4f);start(1,0,true,false,0x80D61);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // no duration yet: the live idle edge ends the form (and gives the duration)
+ start(1,0,true,false,0x80D62);step(1.337,true);step(1.4,false);check(!g_ghostReq);g_sieFireSeal=456;step(2.0,false);
+ check(g_ghostReq==456&&g_sealDurs.Get(0x80D62)==2800);
+ // certain data: unchanged (exit at hit 1)
+ dataHits=1;g_sealDurs.Reset();start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // data unread (SealHitsData off or no file): low confidence too
+ dataHits=-1;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
+ // SealExitEndPct=0: the old rule (exit at hit 1)
+ dataHits=0;g_exitEndPct=0;start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // live from the menu: row 18 is the atomic the tick reads
+ {bool lv=false;check(SoulTune(18,0,&lv)==0&&lv);check(SoulTune(18,1,&lv)==5&&g_exitEndPct==5&&ini[L"SealExitEndPct"]==L"5");}
+ g_exitEndPct=100;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
+ ini.clear();LoadExitSetting();check(g_exitEndPct==90);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
+ ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
+ g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
+ // TASK #135613 exit rows: SealGhostExit / SealIdleMinMs / SealExitOnHelperMs / SealExitEndPct are live atomics
+ {bool lv=false;g_ghostOn=1;check(SoulTune(15,-1,&lv)==0&&lv&&g_ghostOn==0&&ini[L"SealGhostExit"]==L"0");check(SoulTune(15,1,&lv)==1&&g_ghostOn==1);
+  g_sieMinMs=300;check(SoulTune(16,1,&lv)==350&&g_sieMinMs==350&&ini[L"SealIdleMinMs"]==L"350");g_sieMinMs=300;
+  g_exitOnHelperMs=-1;check(SoulTune(17,1,&lv)==0&&g_exitOnHelperMs==0);check(SoulTune(17,-1,&lv)==-1&&g_exitOnHelperMs==-1);
+  g_exitOnHelperMs=150;check(SoulTune(17,1,&lv)==200&&ini[L"SealExitOnHelperMs"]==L"200");g_exitOnHelperMs=-1;
+  check(SoulTune(14,1,&lv)==0);  // the Start + end speed row has no own value
+  char tx[512];uint32_t co=0;g_exitEndPct=90;SctRowText(kItSctBase+18,false,"",tx,sizeof tx,&co);check(strstr(tx,"Exit at % of attack:")&&strstr(tx,"90 %"));
+  g_exitEndPct=0;SctRowText(kItSctBase+18,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF"));
+  SctRowText(kItSctBase+17,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF"));
+  SctChange(kItSctBase+18,1);check(g_exitEndPct==5);check(strstr(SctFooter(kItSctBase+18),"SealExitEndPct"));g_exitEndPct=0;ini.clear();}
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==15&&rows.back()==kItSctBase+14);  // #129070: 15 rows by design
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==19&&rows.back()==kItSctBase+18);  // #129070: 15 rows by design; TASK #135613: +4 exit rows
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");
@@ -464,6 +506,7 @@ int main(){
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
  check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
+ check(g_ghostOn==1&&g_sieMinMs==300&&g_exitOnHelperMs==150&&g_exitEndPct==90&&ini[L"SealExitEndPct"]==L"90");  // TASK #135613 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
  check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
