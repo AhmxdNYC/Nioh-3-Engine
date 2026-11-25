@@ -78,7 +78,7 @@
 #define SM_MA_PTS SM_NIN_PTS // #127295 martial art: same as the ninjutsu bonus (ini MartialArtPts unset = NinjutsuPts)
 #define SM_SKILL_NONE_ID 0xBA71u  // #127295 action-row skill word the game's AttackSkill test (cond 0x2F, 0x2EA15B) treats as none
 #define SM_ACT_NONE 0xFFFFFFFFu
-#define SM_LOOP_REPS 3      // [StyleMeter] LoopReps: cycles of a 1- or 2-move loop allowed before each further use costs points (0 = off, 2..7)
+#define SM_LOOP_REPS 2      // [StyleMeter] LoopReps: cycles of a 1- or 2-move loop allowed before each further use costs points (0 = off, 2..7; human 2026-11-25: A A or A B A B is fine, the next repeat costs)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 #define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up

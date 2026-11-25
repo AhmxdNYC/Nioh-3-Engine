@@ -458,7 +458,14 @@ static void Combo(void) {  // combo: hits within comboMs, broken by a gap or a h
 static float Use(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run) { return SmOnHit(s, c, t, act, run); }
 static void Loop(void) {  // loop penalty: period 1 / period 2 past loopReps cycles cost loopPts per use, hits score 0
     SmCfg c; RealDefaults(&c);
-    CHECK(c.loopReps == 3 && near(c.loopPts, 10.f) && c.multiHitCap == 4);
+    CHECK(c.loopReps == 2 && near(c.loopPts, 10.f) && c.multiHitCap == 4);
+    {   // the default (2): A A fine, the 3rd A costs; A B A B fine, the 5th use costs
+        SmCfg d = c; d.hit = 10.f; d.repeatPct = 100; d.multiPct = 100; d.startupPct = 0; d.counter = 0.f; SmState u; SmReset(&u);
+        CHECK(near(SmOnHit(&u, &d, 10, 7, 1), 10.f) && near(SmOnHit(&u, &d, 20, 7, 2), 10.f) && SmOnHit(&u, &d, 30, 7, 3) == 0.f && u.loopPens == 1);
+        SmReset(&u); for (int i = 0; i < 4; ++i) CHECK(near(SmOnHit(&u, &d, 10.0 * i, i & 1 ? 21 : 20, (uint64_t)i + 10), 10.f));
+        CHECK(SmOnHit(&u, &d, 50, 20, 20) == 0.f && u.loopPens == 1);
+    }
+    c.loopReps = 3;  // the cases below were written for 3 cycles
     c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
     for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 100.f;
     SmState s; SmReset(&s); uint64_t r = 1; double t = 0;
