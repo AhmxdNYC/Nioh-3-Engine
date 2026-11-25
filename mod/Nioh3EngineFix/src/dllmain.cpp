@@ -164,6 +164,7 @@ void caveLim();
 void caveTier();
 void caveGov();
 void caveHold();
+void caveHitStop();
 extern uint64_t gov_getFps, gov_obj;  // GovFpsFix / GovTrace (GitHub #98)
 extern uint32_t gov_fix, gov_fps;
 void caveMenu();
@@ -271,6 +272,8 @@ extern uint32_t tg_cap;
 extern uint32_t vrr_fpsOut;
 extern uint32_t vrr_teArm;  // GH #155: stay armed through the 120 tier's time effect (G[620] == 60)
 extern uint32_t vrr_dtShift;  // DtSmooth (GitHub #98): EMA shift for the VRR frame interval, 0 = off
+extern uint32_t vrr_hsOn;     // GH #159 HitStopFix: hit-stop drain scaled to real time while VRR is armed
+extern uint64_t hs_callee;    // GH #159: stock hit-stop drain 0x7D13EC (from the P11 call)
 extern uint32_t wg_installed;
 void caveDs();
 void caveCP();
@@ -513,6 +516,7 @@ struct Config {
     int timeEffectArm = 0;  // GH #155: 1 = VRR stays armed (real-time dt) while the game's time effect halves G[620] in the 120 tier
     int dtSmooth = 0;  // GitHub #98 (pc/1 #113171): VRR game dt = EMA of the frame interval, weight 1/2^N (0 = off, 1..6)
     int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
+    int hitStopFix = 1;  // GH #159: P11 drains the motion hit-stop timers by real time while VRR is armed (stock: per frame = slow-mo below the cap)
     int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
     char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
@@ -648,6 +652,7 @@ Config LoadConfig() {
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
     c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
     c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
+    c.hitStopFix = I(L"VRR", L"HitStopFix", c.hitStopFix) ? 1 : 0;
     c.dtSmooth = std::clamp(I(L"VRR", L"DtSmooth", c.dtSmooth), 0, 6);
     c.timeEffectArm = I(L"VRR", L"TimeEffectArm", c.timeEffectArm) ? 1 : 0;
     c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
@@ -893,6 +898,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveTier: return (void*)&caveTier;
         case gen::Target::caveGov: return (void*)&caveGov;
         case gen::Target::caveHold: return (void*)&caveHold;
+        case gen::Target::caveHitStop: return (void*)&caveHitStop;
         case gen::Target::caveMenu: return (void*)&caveMenu;
         case gen::Target::hookPeek: return (void*)&hookPeek;
         case gen::Target::caveL1: return (void*)&caveL1;
@@ -981,7 +987,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveFwp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveHitStop;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1883,6 +1889,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
         if (!strcmp(g, "VRRHOLD")) return cfg.vrr != 0 && cfg.holdWindowFix != 0;
+        if (!strcmp(g, "VRRHS")) return cfg.vrr != 0 && cfg.hitStopFix != 0;
         if (!strcmp(g, "W3")) return true;
         if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
         if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
@@ -2058,6 +2065,19 @@ DWORD WINAPI Worker(LPVOID) {
             auto h = collect("VRRHOLD");
             bool hok = run("VRR hold window (P10)", h, allFound(h));
             Log("VRR HoldWindowFix=1: player notice window in real 60 Hz ticks %s (GitHub #98)", hok ? "installed" : "NOT installed");
+        }
+        if (vrrDone && cfg.vrr && cfg.hitStopFix) {
+            auto h = collect("VRRHS");
+            bool hok = allFound(h);
+            if (hok) {
+                uint8_t* a = h[0]->addr;
+                uintptr_t callee = (uintptr_t)(a + 5 + *(int32_t*)(a + 1));
+                hok = InModule(callee);
+                if (hok) hs_callee = callee;
+            }
+            hok = run("VRR hit-stop (P11)", h, hok);
+            if (hok) vrr_hsOn = 1;
+            Log("VRR HitStopFix=1: hit-stop timers drain by real time while armed %s (GH #159)", hok ? "installed" : "NOT installed");
         }
     }
     // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).

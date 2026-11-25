@@ -189,6 +189,7 @@ inline constexpr Entry kEntries[] = {
     {"VRR", "Tier120Floor", "0"},
     {"VRR", "Tier120FloorHoldMs", "2000"},
     {"VRR", "Tier120FloorProbeS", "30"},
+    {"VRR", "HitStopFix", "1"},
     {"Tuning", "FileLoadPoll_MaxCpus", "6"},
     {"Tuning", "AS_Slots", "0"},
     {"Tuning", "VSMA_K", "2"},

@@ -327,7 +327,8 @@ def main():
         elif reads == "callee_rel32@6":
             ok &= check(rva + 10 + struct.unpack_from("<i", orig, 6)[0] == 0x916EBC, "%s: callee != 0x916EBC" % sid)
         elif reads == "callee_rel32@1":
-            ok &= check(rva + 5 + struct.unpack_from("<i", orig, 1)[0] == 0x46484, "%s: callee != GetDelta60 0x46484" % sid)
+            want = {"P11": 0x7D13EC}.get(sid, 0x46484)  # P11 (GH #159): hit-stop drain; P7: GetDelta60
+            ok &= check(rva + 5 + struct.unpack_from("<i", orig, 1)[0] == want, "%s: callee != 0x%X" % (sid, want))
         if "callee" in s:
             ok &= check(orig[0] == 0xE8 and rva + 5 + struct.unpack_from("<i", orig, 1)[0] == int(s["callee"], 16),
                         "%s: E8 target != %s" % (sid, s["callee"]))

@@ -9,6 +9,7 @@ uint32_t CallFpsOvr(void* g, uint32_t tier, uint32_t g620);
 extern uint32_t vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames;
 extern uint64_t vrr_clampLostNs;
 extern uint32_t vrr_hold60;
+extern float vrr_hsK;  // GH #159 HitStopFix drain scale
 extern uint64_t vrr_minNs[3], vrr_maxNs[3], vrr_pNear, vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;
 extern uint32_t vrr_enable, vrr_tier, vrr_capCur, vrr_arm[3], vrr_cap[3], vrr_fpsOut, vrr_floorOn, vrr_floorEnters;
 // caves.asm externs not used by caveFps
@@ -157,6 +158,23 @@ int main() {
         Frame(60);
         CHECK(vrr_tier == 60 && vrr_floorOn == 1 && G614() == 60, "after the effect: floor mode again (tier=%u g614=%u)", vrr_tier, G614());
         vrr_teArm = 0;
+    }
+    // 9. GH #159 HitStopFix: hit-stop drain scale = tier * interval while armed (80 fps in the 120 tier = 1.5, so 20 stock
+    //    frames of hit-stop last 13.3 frames = the stock 1/6 s), 60 tier at 40 fps = 1.5, stock / override frames = 1.0.
+    {
+        Setup(0);
+        for (int i = 0; i < 10; ++i) Frame(80);
+        CHECK(vrr_hsK > 1.49f && vrr_hsK < 1.51f, "hsK 120 tier @80 = %.3f (want 1.5)", vrr_hsK);
+        for (int i = 0; i < 10; ++i) Frame(120);
+        CHECK(vrr_hsK > 0.99f && vrr_hsK < 1.01f, "hsK 120 tier @120 = %.3f (want 1.0)", vrr_hsK);
+        for (int i = 0; i < 10; ++i) Frame(40, 60);
+        CHECK(vrr_hsK > 1.49f && vrr_hsK < 1.51f, "hsK 60 tier @40 = %.3f (want 1.5)", vrr_hsK);
+        vrr_teArm = 0;
+        FrameOvr(80, 120, 60);
+        CHECK(vrr_hsK == 1.0f, "hsK on a stock (time effect) frame = %.3f (want 1.0)", vrr_hsK);
+        vrr_enable = 0; Frame(80);
+        CHECK(vrr_hsK == 1.0f, "hsK with VRR off = %.3f (want 1.0)", vrr_hsK);
+        vrr_enable = 1;
     }
     printf(fails ? "vrr floor harness FAILED (%d)\n" : "vrr floor harness ALL PASSED\n", fails);
     return fails ? 1 : 0;
