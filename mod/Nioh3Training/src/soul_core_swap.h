@@ -21,7 +21,7 @@
 
 // result codes of a request (Nioh3Training_SoulCoreEquipResult)
 enum { SCW_IDLE = 0, SCW_PENDING = 1, SCW_DONE = 8, SCW_REFUSED = -1, SCW_BAD_SLOT = -2, SCW_NOT_CORE = -3, SCW_SAME = -4,
-       SCW_NO_GAME = -5, SCW_FAULT = -6, SCW_UNRESOLVED = -7 };
+       SCW_NO_GAME = -5, SCW_FAULT = -6, SCW_UNRESOLVED = -7, SCW_NO_ADD = -8 };
 
 static inline int ScwIsCoreRow(const uint8_t* r) {
     uint32_t cat; memcpy(&cat, r + 0x64, 4);
@@ -70,6 +70,31 @@ static inline uint32_t ScwStep(uint32_t cur, int dir, uint32_t inSlot, const uin
     for (int k = 1; k <= nowned; ++k) {
         int i = ((pos + (dir < 0 ? -k : k)) % nowned + nowned) % nowned;
         if (owned[i] != inSlot) return owned[i];
+    }
+    return SCW_EMPTY;
+}
+
+// TASK #136129: the menu walks every item-master soul core, owned or not. Same rule for every id (no per-boss list).
+// inSlotItem is the item id already in the slot, or 0xFFFF when the slot is empty or unreadable.
+static inline int ScwCheckId(int slot, uint16_t itemId, int inCatalog, uint16_t inSlotItem) {
+    if (slot < 0 || slot >= SCW_NSLOT) return SCW_BAD_SLOT;
+    if (!inCatalog || itemId == 0xFFFF) return SCW_NOT_CORE;
+    if (inSlotItem == itemId) return SCW_SAME;
+    return 0;
+}
+// cur = current pick (item id, or SCW_EMPTY). Skips the id already in the slot. Returns SCW_EMPTY when nothing else is in the list.
+static inline uint32_t ScwStepId(uint32_t cur, int dir, uint16_t inSlotItem, const uint16_t* ids, int n) {
+    int pos = -1, cand = 0;
+    for (int i = 0; i < n; ++i) if (ids[i] != inSlotItem) ++cand;
+    if (!cand) return SCW_EMPTY;
+    for (int i = 0; i < n; ++i) if (cur != SCW_EMPTY && ids[i] == (uint16_t)cur) { pos = i; break; }
+    if (pos < 0 || (uint16_t)cur == inSlotItem) {
+        for (int k = 0; k < n; ++k) { int i = dir < 0 ? n - 1 - k : k; if (ids[i] != inSlotItem) return ids[i]; }
+        return SCW_EMPTY;
+    }
+    for (int k = 1; k <= n; ++k) {
+        int i = ((pos + (dir < 0 ? -k : k)) % n + n) % n;
+        if (ids[i] != inSlotItem) return ids[i];
     }
     return SCW_EMPTY;
 }

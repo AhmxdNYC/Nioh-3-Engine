@@ -2836,6 +2836,13 @@ bool FormFollowGroundRestore(uint64_t player) {
     if (!Copy(pos, player + 0x110, sizeof(pos))) return false;
     const float before = pos[1];
     if (!std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    // TASK #136113: a small end snap is the camera bump. Live 5:07-5:09 pm the restore moved Y by 1 to 53
+    // (E0E94 and 5129B). Leave those. A real miss (more than 80, the camera's own spike hold) still goes back.
+    if (std::fabs(before - g_followGround.y) <= 80.f) {
+        Log("FormFollow restore Y: player=%llX before=%.1f start=%.1f dY=%.1f skipped (under 80)", (unsigned long long)player,
+            before, g_followGround.y, before - g_followGround.y);
+        return true;
+    }
     pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
     const bool changed = pos[1] != before;
     const bool ok = !changed || FormFollowWrite(player,pos);
@@ -3441,6 +3448,9 @@ std::atomic<int> g_exitEndPct{90};
 // TASK #135803: [Spirit] SealExitSettleMs (default 200, -1 = off): the EndPct hold ends this long after the last hit closes once the
 // game data says every hit is in (seal_data_hits.h SdhHitsSettled). Atomic: the Soul core tuning page changes it live.
 std::atomic<int> g_exitSettleMs{200};
+// TASK #136113: after the last hit / projectile closes, turn back this many ms later, even while EndPct would hold for the yokai's idle.
+// -1 = off (the older hold). Default 700 is a bit under the ~1.0 s gap measured on E0E94 (11-25 5:08 pm, EndPct 80).
+std::atomic<int> g_exitAfterShotMs{-1};
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -5789,6 +5799,7 @@ void SealExitReplayLoad() {
     { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 150); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_exitEndPct = (std::clamp)(IniInt(L"Spirit", L"SealExitEndPct", 90), 0, 100);  // TASK #135613
     { const int st = IniInt(L"Spirit", L"SealExitSettleMs", 200); g_exitSettleMs = st < 0 ? -1 : (std::min)(st, 3000); }  // TASK #135803
+    { const int a = IniInt(L"Spirit", L"SealExitAfterShotMs", 700); g_exitAfterShotMs = a < 0 ? -1 : (std::min)(a, 3000); }  // TASK #136113
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -6584,6 +6595,20 @@ void SealEndOnHitTick() {
                                  sid, bursts, want, now - sess, sdh.sealData, sdh.learned);
             else Log("SealExitEndPct core %X: hit %d/%d at %.3f s, count not certain (data %d, learned %d) - exit held until %.3f s (bind +%.3f + %d%% of %d ms attack)",
                      sid, bursts, want, now - sess, sdh.sealData, sdh.learned, endAtMs / 1000.0, boundMs / 1000.0, endPct, endDur);
+        }
+    }
+    // TASK #136113: the last projectile is already out. Turn back after SealExitAfterShotMs instead of waiting out the idle.
+    // Does not delay a certain-count exit that already fired. -1 leaves the EndPct / idle hold as it is.
+    const int afterShotMs = g_exitAfterShotMs.load();
+    const bool afterShotDue = afterShotMs >= 0 && !idleOnly && seal && want > 0 && bursts >= want && !open && lastClose > 0 &&
+                              (now - sess) >= lastClose + afterShotMs / 1000.0;
+    if (afterShotDue) {
+        fire = true;
+        static double shotLogged = -1;
+        if (shotLogged != sess) {
+            shotLogged = sess;
+            Log("SealExitAfterShot core %X: last hit %d/%d closed at %.3f s, turning back after %d ms (%.3f s after the press)",
+                sid, bursts, want, lastClose, afterShotMs, now - sess);
         }
     }
     if (helperDue && !fire) { fire = true; Log("SealExitOnHelper core %X: ending the form %.3f s after the press (burst %d)", sid, now - sess, bursts); }
@@ -7481,14 +7506,15 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"FastThrow", 1, 1, 16, false}, {L"RunThrowMaxMs", 100, 0, 3000, false}, {L"SealTailRampMs", 50, 0, 1000, false},  // human #128855 throw layers
                           {nullptr, 0, 0, 0, false},  // 14 = the menu's Start + end speed row (no value of its own, #129070)
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
-                          {L"SealExitEndPct", 5, 0, 100, false}};  // TASK #135613 exit knobs, live atomics
+                          {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false}};  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
     if (live) *live = which < 5 || (which >= 7 && which < 11) || which >= 15 || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
-             : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load() : g_frz[which - 7].load();
+             : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
+             : which == 19 ? (double)g_exitAfterShotMs.load() : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7497,9 +7523,9 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700};
         v = shipped[which];
-    } else if (which == 17 && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
+    } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
     if (t.flt) v = std::round(v * 10) / 10;
@@ -7520,6 +7546,7 @@ double SoulTune(int which, int dir, bool* live) {
     case 16: g_sieMinMs.store((int)v); break;
     case 17: g_exitOnHelperMs.store((int)v); break;
     case 18: g_exitEndPct.store((int)v); break;
+    case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
@@ -7530,7 +7557,7 @@ double SoulTune(int which, int dir, bool* live) {
 }
 
 void SoulTuneReset() {
-    for (int which = 0; which < 19; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
+    for (int which = 0; which < 20; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.

@@ -9,7 +9,11 @@ struct Target {
     float Sample(uint64_t p,uint64_t s,double t,float sy,float py,bool valid) {
         if(!valid || !p || !s || !std::isfinite(sy) || !std::isfinite(py)) { *this={}; return 0; }
         player=p;seal=s;session=t;sealY=sy;playerY=py;
-        return (std::clamp)(sy-py,-Limit,Limit);
+        // TASK #136113: a few units of seal-vs-player height is the tiny mid-form hop (E0E94 max dY 6).
+        // Do not lift the camera for it. A real height change (5129B dY 135) still follows.
+        const float dy = sy - py;
+        if (std::fabs(dy) < 20.f) return 0.f;
+        return (std::clamp)(dy,-Limit,Limit);
     }
 };
 struct Spring {

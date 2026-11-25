@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 19;  // TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 20;  // TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -30,8 +30,8 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
-                                      "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:"};  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90};
+                                      "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:"};  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -45,7 +45,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
     else if (w == 10 && v <= 0) snprintf(b, n, "OFF");  // human #122288
     else if (w == 7 || w == 8 || w == 15) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");
-    else if ((w == 17 && v < 0) || (w == 18 && v <= 0)) snprintf(b, n, "OFF");  // TASK #135613
+    else if ((w == 17 && v < 0) || (w == 18 && v <= 0) || (w == 19 && v < 0)) snprintf(b, n, "OFF");  // TASK #135613 / #136113
     else if (w == 18) snprintf(b, n, "%d %%", (int)v);
     else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
@@ -55,7 +55,8 @@ void SctValueText(int w, double v, char* b, size_t n) {
     else snprintf(b, n, "%d ms", (int)v);
 }
 // human #129277: 'Equip core' rows (Player > Soul cores). Nioh3Training.asi runs the shrine's own equip order on the game thread
-// (Nioh3Training_SoulCoreEquip, soul_core_swap_game.h); these rows only pick a slot and a core and send one request on A. Nothing runs unless used.
+// (Nioh3Training_SoulCoreEquip / SoulCoreEquipItem, soul_core_swap_game.h); these rows only pick a slot and a core and send one request on A.
+// TASK #136129: when SoulCoreCatalog is present the picker is every soul core in the item master, not only ones this save owns.
 #include "../../Nioh3Training/src/soul_core_swap.h"
 constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301;
 bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore; }
@@ -74,6 +75,16 @@ template <class Add> void ScEqAddRows(Add&& add) {
     add(kItScEqSlot); add(kItScEqCore);
 }
 int ScEqItemOf(const ScEqState& st, uint32_t idx) { for (int i = 0; i < st.n; ++i) if (st.idx[i] == idx) return st.item[i]; return -1; }
+struct ScCat { uint16_t ids[SCW_MAX_IDS]; int n; uint16_t slotItem[SCW_NSLOT]; };
+bool ScCatRead(ScCat* c) {
+    using F = int (*)(uint16_t*, int, uint16_t*);
+    const auto f = (F)TrainingExport("Nioh3Training_SoulCoreCatalog");
+    if (!f) return false;
+    const int n = f(c->ids, SCW_MAX_IDS, c->slotItem);
+    if (n <= 0) return false;
+    c->n = n > SCW_MAX_IDS ? SCW_MAX_IDS : n;
+    return true;
+}
 bool ScEqChange(int item, int dir) {
     if (!IsScEqItem(item)) return false;
     ScEqState st;
@@ -81,6 +92,29 @@ bool ScEqChange(int item, int dir) {
     if (item == kItScEqSlot) {
         g_scEqSlot = ((g_scEqSlot + (dir ? dir : 1)) % SCW_NSLOT + SCW_NSLOT) % SCW_NSLOT;
         g_scEqPick = SCW_EMPTY; g_msg[0] = 0;
+        return true;
+    }
+    ScCat cat;
+    if (ScCatRead(&cat)) {
+        const uint16_t inItem = cat.slotItem[g_scEqSlot];
+        char sn[16]; ScwSlotName(g_scEqSlot, sn, sizeof sn);
+        if (dir) {
+            g_scEqPick = ScwStepId(g_scEqPick, dir, inItem, cat.ids, cat.n);
+            g_msg[0] = 0;
+            return true;
+        }
+        if (g_scEqPick == SCW_EMPTY || ScwCheckId(g_scEqSlot, (uint16_t)g_scEqPick, 1, inItem)) {
+            snprintf(g_msg, sizeof g_msg, "Pick a core with Left / Right first (one that is not already in %s).", sn);
+            return true;
+        }
+        using E = int (*)(int, int); using R = int (*)(int*);
+        const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem"); const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
+        int seq = 0; if (res) res(&seq);
+        const int q = eq ? eq(g_scEqSlot, (int)(uint16_t)g_scEqPick) : -1;
+        if (q == 1) g_scEqSeq = seq;
+        Log("Rematch: menu Equip core %X into %s (any core in the game) -> %d (human #136123)", (unsigned)(uint16_t)g_scEqPick, sn, q);
+        if (q == 1) snprintf(g_msg, sizeof g_msg, "Equipping core %X into %s...", (unsigned)(uint16_t)g_scEqPick, sn);
+        else snprintf(g_msg, sizeof g_msg, "%s", q == 0 ? "A core change is already running; try again in a moment." : "This Nioh3Training.asi cannot equip cores on this game version.");
         return true;
     }
     const uint32_t inSlot = st.slots[g_scEqSlot];
@@ -112,20 +146,35 @@ void ScEqPoll() {  // finished request -> message (called from the row text, men
     if (res && seq == g_scEqSeq) return;
     g_scEqSeq = -1; g_scEqPick = SCW_EMPTY;
     snprintf(g_msg, sizeof g_msg, "%s", r == SCW_DONE ? "Core equipped. The d-pad shortcut moved to the new core." : r == SCW_REFUSED ? "The game refused that core for this slot (same as at a shrine)."
-             : r == SCW_SAME ? "That core is already in this slot." : r == SCW_NO_GAME ? "No save loaded: nothing changed." : "Core change failed: nothing more was done (see Nioh3Training.log).");
+             : r == SCW_SAME ? "That core is already in this slot." : r == SCW_NO_GAME ? "No save loaded: nothing changed."
+             : r == SCW_NO_ADD ? "That core is not in this save, and it could not be added, so nothing was equipped."
+             : "Core change failed: nothing more was done (see Nioh3Training.log).");
 }
 bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsScEqItem(item)) return false;
     ScEqPoll();
     ScEqState st; const bool ok = ScEqRead(&st);
     char sn[16]; ScwSlotName(g_scEqSlot, sn, sizeof sn);
+    ScCat cat; const bool catOk = ScCatRead(&cat);
     if (item == kItScEqSlot) {
         const uint32_t cur = ok ? st.slots[g_scEqSlot] : SCW_EMPTY;
         const int it = ok && cur != SCW_EMPTY ? ScEqItemOf(st, cur) : -1;
         char now[24];
-        if (it >= 0) snprintf(now, sizeof now, "core %X", it); else snprintf(now, sizeof now, "%s", cur == SCW_EMPTY ? "empty" : "?");
+        if (catOk && cat.slotItem[g_scEqSlot] != 0xFFFF) snprintf(now, sizeof now, "core %X", cat.slotItem[g_scEqSlot]);
+        else if (it >= 0) snprintf(now, sizeof now, "core %X", it);
+        else snprintf(now, sizeof now, "%s", cur == SCW_EMPTY ? "empty" : "?");
         snprintf(buf, n, "%s Equip core slot: %s (now %s)   Left / Right", mk, sn, ok ? now : "not readable");
         *color = sel ? cWhite : ok ? cGray : cDim;
+        return true;
+    }
+    if (catOk) {
+        const uint16_t inItem = cat.slotItem[g_scEqSlot];
+        int pos = 0, cand = 0;
+        for (int i = 0; i < cat.n; ++i) if (cat.ids[i] != inItem) { ++cand; if (g_scEqPick != SCW_EMPTY && cat.ids[i] == (uint16_t)g_scEqPick) pos = cand; }
+        if (g_scEqPick != SCW_EMPTY && !pos) g_scEqPick = SCW_EMPTY;
+        if (g_scEqPick == SCW_EMPTY) snprintf(buf, n, "%s Equip core: pick one (%d cores in the game)   Left / Right, A: equip", mk, cat.n);
+        else snprintf(buf, n, "%s Equip core: core %X (%d of %d in the game)   Left / Right, A: equip into %s", mk, (unsigned)(uint16_t)g_scEqPick, pos, cat.n, sn);
+        *color = sel ? cWhite : g_scEqPick == SCW_EMPTY ? cGray : cYellow;
         return true;
     }
     if (!ok) { snprintf(buf, n, "%s Equip core: (load a save)", mk); *color = cDim; return true; }
@@ -361,7 +410,10 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
-    if (IsScEqItem(item)) return item == kItScEqSlot ? "Which soul core slot to change (Yang 1-2, then Yin). Shows the core in it now." : "Left / Right: pick an owned core. A: equip it into the slot above, like at a shrine (the game's own check; the d-pad shortcut follows). Live.";  // human #129277
+    if (IsScEqItem(item)) return item == kItScEqSlot ? "Which soul core slot to change (Yang 1-2, then Yin). Shows the core in it now."
+        : TrainingExport("Nioh3Training_SoulCoreCatalog")
+            ? "Left / Right: every soul core in the game, including ones this save does not own. A: equip it into the slot above. One you do not own is added with the game's own item add, then equipped the same way as one you own. Live."
+            : "Left / Right: pick an owned core. A: equip it into the slot above, like at a shrine (the game's own check; the d-pad shortcut follows). Live.";  // human #129277, #136123
     if (IsScCoreItem(item)) return "Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
@@ -385,6 +437,7 @@ const char* SctFooter(int item) {
     case 16: return "The yokai's idle pose ends the form only this long after it appeared (shorter = earlier possible exit). 50 ms steps, 0-3000. [Spirit] SealIdleMinMs. Live, saved.";
     case 17: return "A core whose last hit is a projectile / helper: the form ends this long after that hit starts, the projectile stays visible. OFF = wait for the yokai. 50 ms steps, 0-5000. [Spirit] SealExitOnHelperMs. Live, saved.";
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
+    case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }

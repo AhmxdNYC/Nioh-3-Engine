@@ -11,6 +11,7 @@
 
 static volatile LONG g_scw_req;          // 1 = request waiting for the game thread
 static volatile LONG g_scw_slot, g_scw_idx;
+static volatile LONG g_scw_by_item;      // 1 = g_scw_idx is an item id (any soul core); 0 = inventory index
 static volatile LONG g_scw_result;       // SCW_* of the last request
 static volatile LONG g_scw_seq;          // bumped when a request finishes
 static uint16_t g_scw_ids[SCW_MAX_IDS];  // soul core item ids from the item master (immutable game data, built once)
@@ -72,12 +73,38 @@ typedef void (*ScwCtxFn)(uint64_t);
 typedef void (*ScwShFn)(uint64_t, int32_t, uint8_t);
 typedef void (*ScwSndFn)(uint32_t, uint64_t);
 
-static __attribute__((noinline)) int ScwRun(int slot, uint32_t idx, int* stage) {
-    uint32_t slots[SCW_NSLOT], oidx[64]; uint16_t oit[64];
-    const int n = ScwRead(slots, oidx, oit, 64);
-    if (n < 0) return SCW_NO_GAME;
-    const int chk = ScwCheck(slot, idx, slots, oidx, n);
-    if (chk) return chk;
+static uint16_t ScwSlotItem(uint64_t inv, uint32_t slotIdx) {
+    if (!inv || slotIdx == SCW_EMPTY) return 0xFFFF;
+    uint16_t id = 0xFFFF;
+    if (!ScwRd16((uintptr_t)(inv + SCW_REC_OFF + (uint64_t)slotIdx * SCW_REC_STRIDE), &id)) return 0xFFFF;
+    return id;
+}
+// First inventory record with this item id. 1 = found, 0 = not in the save, -1 = unreadable.
+static int ScwFindItem(uint64_t inv, uint64_t cnt, uint16_t want, uint32_t* outIdx) {
+    if (!inv || cnt > SCW_MAX_INV) return -1;
+    for (uint32_t i = 0; i < (uint32_t)cnt; ++i) {
+        uint16_t id = 0;
+        if (!ScwRd16((uintptr_t)(inv + SCW_REC_OFF + (uint64_t)i * SCW_REC_STRIDE), &id)) return -1;
+        if (id == want) { *outIdx = i; return 1; }
+    }
+    return 0;
+}
+// The game's own item add (notes/session-2026-10-08-gamedata.md): 54CCD0 builds the 0xE8 record, 54D324 adds it.
+// rcx is the save at [4751530] (ScwCtx), the same object scroll give passes. One path for every item id.
+static int ScwGrant(uint64_t ctx, uint16_t itemId) {
+    const uintptr_t build = Grva(0x54CCD0), add = Grva(0x54D324);
+    if (!build || !add || !ctx) return 0;
+    _Alignas(16) uint8_t desc[0x200];
+    _Alignas(16) uint8_t outb[0x200];
+    memset(desc, 0, sizeof desc);
+    memset(outb, 0, sizeof outb);
+    __try {
+        ((void (*)(void*, uint32_t, uint32_t))(B + build))(desc, itemId, 1);
+        ((void (*)(uint64_t, void*, void*, uint64_t, uint64_t))(B + add))(ctx, outb, desc, 0, 1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static __attribute__((noinline)) int ScwApply(int slot, uint32_t idx, const uint32_t slots[SCW_NSLOT], int* stage) {
     uint64_t ctx = 0, inv = ScwInv(&ctx);
     if (!inv || !ctx) return SCW_NO_GAME;
     const uint64_t rec = inv + SCW_REC_OFF + (uint64_t)idx * SCW_REC_STRIDE;
@@ -98,12 +125,49 @@ static __attribute__((noinline)) int ScwRun(int slot, uint32_t idx, int* stage) 
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SOULCORE swap: fault %08lX at stage %d", GetExceptionCode(), *stage); return SCW_FAULT; }
     return SCW_DONE;
 }
+static __attribute__((noinline)) int ScwRun(int slot, uint32_t idx, int* stage) {
+    uint32_t slots[SCW_NSLOT], oidx[64]; uint16_t oit[64];
+    const int n = ScwRead(slots, oidx, oit, 64);
+    if (n < 0) return SCW_NO_GAME;
+    const int chk = ScwCheck(slot, idx, slots, oidx, n);
+    if (chk) return chk;
+    return ScwApply(slot, idx, slots, stage);
+}
+// One equip for every item-master soul core. Owned: the inventory record that already has this id. Not owned: the game's
+// item add, then that new record. Both then take the shrine order above. No per-boss id table.
+static int ScwRunItem(int slot, uint16_t itemId, int* stage) {
+    uint32_t slots[SCW_NSLOT], oidx[64]; uint16_t oit[64];
+    const int n = ScwRead(slots, oidx, oit, 64);
+    if (n < 0 || !g_scw_ids_done) return SCW_NO_GAME;
+    (void)oidx; (void)oit;
+    if (!ScwHasId(g_scw_ids, g_scw_nids, itemId)) return SCW_NOT_CORE;
+    uint64_t ctx = 0, inv = ScwInv(&ctx);
+    if (!inv || !ctx) return SCW_NO_GAME;
+    uint64_t cnt = 0;
+    if (!Rd64(inv + SCW_COUNT_OFF, &cnt) || cnt > SCW_MAX_INV) return SCW_NO_GAME;
+    const uint16_t inItem = ScwSlotItem(inv, slots[slot]);
+    const int chk = ScwCheckId(slot, itemId, 1, inItem);
+    if (chk) return chk;
+    uint32_t idx = 0;
+    int found = ScwFindItem(inv, cnt, itemId, &idx);
+    if (found < 0) return SCW_NO_GAME;
+    if (!found) {
+        *stage = 10;
+        if (!ScwGrant(ctx, itemId)) return SCW_NO_ADD;
+        if (!Rd64(inv + SCW_COUNT_OFF, &cnt) || cnt > SCW_MAX_INV) return SCW_NO_ADD;
+        found = ScwFindItem(inv, cnt, itemId, &idx);
+        if (found <= 0) return SCW_NO_ADD;
+        Log("SOULCORE swap: added item %X (was not owned) at idx %u, then the shrine equip", itemId, idx);
+        for (int s = 0; s < SCW_NSLOT; ++s) if (!ScwRd32((uintptr_t)(inv + SCW_SLOTS_OFF + 4u * s), &slots[s])) return SCW_NO_GAME;
+    }
+    return ScwApply(slot, idx, slots, stage);
+}
 static void ScwTick(void) {  // game thread (pump)
     if (g_scw_want && !g_scw_ids_done) { const DWORD now = GetTickCount(); if (!g_scw_ids_t || now - g_scw_ids_t > 2000) { g_scw_ids_t = now ? now : 1; ScwBuildIds(); } }
     if (!g_scw_req) return;
     const int slot = (int)g_scw_slot; const uint32_t idx = (uint32_t)g_scw_idx;
     int stage = 0;
-    const int r = ScwRun(slot, idx, &stage);
+    const int r = g_scw_by_item ? ScwRunItem(slot, (uint16_t)idx, &stage) : ScwRun(slot, idx, &stage);
     if (r != SCW_DONE) Log("SOULCORE swap: slot %d idx %u not equipped (code %d, stage %d)", slot, idx, r, stage);
     InterlockedExchange(&g_scw_result, r);
     InterlockedExchange(&g_scw_req, 0);
@@ -137,6 +201,7 @@ N3T_API int Nioh3Training_SoulCoreEquip(int slot, int idx) {
     if (slot < 0 || slot >= SCW_NSLOT || idx < 0) return -1;
     if (g_scw_req) return 0;
     InterlockedExchange(&g_scw_slot, slot); InterlockedExchange(&g_scw_idx, idx);
+    InterlockedExchange(&g_scw_by_item, 0);
     InterlockedExchange(&g_scw_result, SCW_PENDING);
     InterlockedExchange(&g_scw_req, 1);
     Log("SOULCORE swap: menu asks slot %d idx %d (human #129277)", slot, idx);
@@ -144,3 +209,38 @@ N3T_API int Nioh3Training_SoulCoreEquip(int slot, int idx) {
 }
 // Result of the last request (SCW_*: 1 pending, 8 done, <0 refused / failed); *seq = finished request count.
 N3T_API int Nioh3Training_SoulCoreEquipResult(int* seq) { if (seq) *seq = (int)g_scw_seq; return (int)g_scw_result; }
+// Every soul core id in the item master (sorted). *slotItem8 = item id in each equip slot, or 0xFFFF if empty / unreadable.
+// Returns the full count, -1 if the list is not built yet. Copies at most cap ids.
+N3T_API int Nioh3Training_SoulCoreCatalog(uint16_t* ids, int cap, uint16_t* slotItem8) {
+    if (!ScwResolved()) return -1;
+    InterlockedExchange(&g_scw_want, 1);
+    if (!g_scw_ids_done) return -1;
+    const int all = g_scw_nids;
+    if (ids && cap > 0) {
+        const int n = all > cap ? cap : all;
+        memcpy(ids, g_scw_ids, (size_t)n * sizeof *ids);
+    }
+    if (slotItem8) {
+        uint64_t inv = ScwInv(0);
+        for (int s = 0; s < SCW_NSLOT; ++s) slotItem8[s] = 0xFFFF;
+        if (inv) {
+            uint32_t slots[SCW_NSLOT];
+            int ok = 1;
+            for (int s = 0; s < SCW_NSLOT; ++s) if (!ScwRd32((uintptr_t)(inv + SCW_SLOTS_OFF + 4u * s), &slots[s])) ok = 0;
+            if (ok) for (int s = 0; s < SCW_NSLOT; ++s) slotItem8[s] = ScwSlotItem(inv, slots[s]);
+        }
+    }
+    return all;
+}
+// Queue one equip by item id (any soul core in the item master, owned or not). 1 = queued, 0 = busy, -1 = not available.
+N3T_API int Nioh3Training_SoulCoreEquipItem(int slot, int itemId) {
+    if (!ScwResolved()) return -1;
+    if (slot < 0 || slot >= SCW_NSLOT || itemId < 0 || itemId > 0xFFFF) return -1;
+    if (g_scw_req) return 0;
+    InterlockedExchange(&g_scw_slot, slot); InterlockedExchange(&g_scw_idx, itemId);
+    InterlockedExchange(&g_scw_by_item, 1);
+    InterlockedExchange(&g_scw_result, SCW_PENDING);
+    InterlockedExchange(&g_scw_req, 1);
+    Log("SOULCORE swap: menu asks slot %d item %X (human #136123)", slot, itemId);
+    return 1;
+}
