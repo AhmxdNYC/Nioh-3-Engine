@@ -134,8 +134,8 @@ bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32
     *color = sel ? cWhite : g_scEqPick == SCW_EMPTY ? cGray : cYellow;
     return true;
 }
-// human #135018: hands-on pair stepping from the keyboard (no menu, no chat). F9 = next pair of owned cores (distinct items, inventory order)
-// into Yang 1 + Yang 2, Shift+F9 = previous pair, F6 = flag the pair now equipped (Nioh3BossRematch.log + Nioh3BossRematch_flags.txt).
+// human #135018: hands-on pair stepping from the keyboard (no menu, no chat). F2 = next pair of owned cores (distinct items, inventory order)
+// into Yang 1 + Yang 2, Shift+F2 = previous pair, F6 = flag the pair now equipped (Nioh3BossRematch.log + Nioh3BossRematch_flags.txt).
 // Uses the same Nioh3Training_SoulCoreEquip request as the menu rows, one slot at a time; then fills the spirit gauge.
 struct ScPairList { uint32_t idx[256]; uint16_t item[256]; int n; uint32_t slots[SCW_NSLOT]; };
 bool ScPairRead(ScPairList* L) {
@@ -186,12 +186,12 @@ void ScPairFinish(bool ok, int r) {
     g_scPairStage = 0;
     if (!ok) {
         Log("Rematch: pair step %d/%d failed r=%d (human #135018)", g_scPairNo, g_scPairOf, r);
-        ToastF(cYellow, 4000, "Soul core pair change failed (%d). F9 tries the next pair.", r);
+        ToastF(cYellow, 4000, "Soul core pair change failed (%d). F2 tries the next pair.", r);
         return;
     }
     char rep[256]; Command("spirit gauge max", rep, sizeof rep);
     Log("Rematch: pair %d/%d on: Yang 1 core %X, Yang 2 core %X; %s (human #135018)", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1], rep);
-    ToastF(cGreen, 5000, "Pair %d of %d: core %X (Yang 1) + core %X (Yang 2). F6 flag, F9 next", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
+    ToastF(cGreen, 5000, "Pair %d of %d: core %X (Yang 1) + core %X (Yang 2). F6 flag, F2 next", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
 }
 void ScPairStep(int dir) {
     if (g_scPairStage) { ToastF(cYellow, 2000, "Still changing cores..."); return; }

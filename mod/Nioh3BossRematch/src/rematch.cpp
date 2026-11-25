@@ -4630,7 +4630,7 @@ void AutoMovesTick() {
 
 }  // namespace
 
-// human #135018: F9 / Shift+F9 / F6 soul core pair keys (UI worker, ~33 ms)
+// human #135018: F2 / Shift+F2 / F6 soul core pair keys (UI worker, ~33 ms)
 void SoulPairTick(bool next, bool prev, bool flag) {
 #if BR_SOULCORE
     ScPairTickImpl(next, prev, flag);

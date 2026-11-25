@@ -194,7 +194,7 @@ bool UiAct();   // A; enter child, confirm existing action; true = close
 bool UiBack();  // B; cancel confirmation, then parent; true = close at root
 void UiOpen();
 void UiOpenAt(int which, bool resume = false);  // user #13223: 1 = Boss Rematch page, 2 = Practice page, as the base page (Back closes to the host menu)
-void SoulPairTick(bool next, bool prev, bool flag);  // human #135018: F9 next / Shift+F9 previous soul core pair, F6 flag
+void SoulPairTick(bool next, bool prev, bool flag);  // human #135018: F2 next / Shift+F2 previous soul core pair, F6 flag
 void TitleWatchdog();  // #79955: UI worker poll, idles a stale rematch state at the title
 bool WavesGateLive();  // #78735: a Waves row is live, so our gate owns the scroll's end object
 void UiGatePage();  // user #6789: the arena Return gate's 2-option page (Return to where I was / Fight again)
