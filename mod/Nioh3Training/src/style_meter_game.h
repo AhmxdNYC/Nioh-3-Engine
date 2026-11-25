@@ -55,7 +55,7 @@ static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
 static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr_hitpen = SR_HIT_PENALTY; static int g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
-static SrFight g_sr; static int g_sr_hp0[SR_BOSSES];
+static SrFight g_sr;
 static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
 static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
 static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
@@ -217,6 +217,9 @@ N3T_API int Nioh3Training_StyleSet(int what, int value) {
     Log("STYLE METER: menu %s = %d (#126804)", k, value);
     return value;
 }
+// Result card, written by SmHpEvent (hit apply) for SmFeed: the actor of each boss slot hit since the last tick (the slot can be cleared
+// before SmFeed runs when the hit killed it) and the slots whose hit was lethal (raw damage >= HP: a boss torn down before HP 0 is read).
+static volatile LONG64 g_sr_hitAct[32]; static volatile LONG g_sr_lethalMask;
 // NfHpDamage (hit apply, game thread): raw = the hit's HP damage before any mod scaling / Infinite-health cut.
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
     if (!g_cfg_sm || raw <= 0 || !hp || !hit || !g_pst_atk_ok) return;
@@ -233,9 +236,22 @@ static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
         if (atk && atk != me) { const int tm = ActorTeam(me); ally = tm >= 0 && ActorTeam(atk) == tm; }  // human: summoned guardian spirit (filtered by SmFeed's summon window)
         if (atk == me || ally) {
             InterlockedIncrement(atk == me ? &g_sm_hits : &g_sm_allyHits);
+            int boss = 0;
             if (g_cfg_sr) for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss
                 const uint64_t a = g_slot_act[s]; uint64_t bs = 0;
-                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) { InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); break; }
+                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) {
+                    InterlockedExchange64(&g_sr_hitAct[s], (LONG64)a);
+                    if (*(volatile uint64_t*)(hp + 0x20) <= (uint64_t)raw) InterlockedOr(&g_sr_lethalMask, (LONG)(1u << s));  // st+0x58 = HP now
+                    InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); boss = 1; break;
+                }
+            }
+            const uint64_t vmx = *(volatile uint64_t*)(hp + 0x18), pmx = st ? *(volatile uint64_t*)(st + 0x50) : 0;
+            if (g_cfg_sr && !boss && atk == me && pmx && vmx >= 3 * pmx) {  // diagnosis: a big enemy (max HP >= 3x the player's) that is not a boss slot
+                static uint64_t seen[48]; static int nSeen;                  // (a Picture Scroll boss with no HUD bar would show up here)
+                int k = 0; while (k < nSeen && seen[k] != hp) ++k;
+                if (k == nSeen && nSeen < 48) { seen[nSeen++] = hp;
+                    Log("STYLE RESULT: hit a big enemy that is not a boss slot (HP %llu / %llu, player max %llu, hp block %p): no card for it (not admitted, see NATIVE SLOT lines)",
+                        *(volatile uint64_t*)(hp + 0x20), vmx, pmx, (void*)hp); }
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
@@ -522,14 +538,34 @@ static void SmFeed(double gdt) {
         if (avIn || g_sm.dodge.inWin) { avFl |= avNow;
             if (hp && avHave) { const float dx = p3[0] - avP0[0], dy = p3[1] - avP0[1], dz = p3[2] - avP0[2]; const float d = sqrtf(dx * dx + dy * dy + dz * dz); if (d > avMove) avMove = d; } }
     }
-    uint64_t srHit[SR_BOSSES]; int nSrHit = 0;
-    {   const LONG m = InterlockedExchange(&g_sr_hitMask, 0) | (summonLive ? allyMask : 0);
-        if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) { const uint64_t a = BvActor(s); if (a) srHit[nSrHit++] = a; }
+    // Result card. srSlotA / srSlotT: the actor of each boss slot and the wall ms it was first seen there (kept after the slot clears), so
+    // a boss hit in the end wait can be told apart: next form (seen as the fight went down) or the next boss of a gauntlet (SrBossHitEx).
+    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES]; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
+    static uint64_t srSlotA[N3T_SLOTS]; static double srSlotT[N3T_SLOTS];
+    const double srWall = SmWallMs();
+    for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_act[s] && g_slot_act[s] != srSlotA[s]) { srSlotA[s] = g_slot_act[s]; srSlotT[s] = srWall; }
+    {   const LONG m = InterlockedExchange(&g_sr_hitMask, 0) | (summonLive ? allyMask : 0), lm = InterlockedExchange(&g_sr_lethalMask, 0);
+        if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) {
+            uint64_t a = BvActor(s);
+            if (!a) a = (uint64_t)g_sr_hitAct[s];  // the slot cleared since the hit (the hit killed it): still that boss's hit
+            if (!a) continue;
+            srHit[nSrHit] = a; srSeen[nSrHit] = srSlotA[s] == a ? srSlotT[s] : srWall; nSrHit++;
+            if ((lm & (LONG)(1u << s)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
+        }
         if (!g_cfg_sr && g_sr.on) SrReset(&g_sr);
     }
     const int srWas = g_sr.on;
+    SrResult srRes[2]; int srDone = 0;  // [0] a gauntlet split this tick, then the fight's own end (a newer card replaces the older one)
     AcquireSRWLockExclusive(&g_sm_lock);
-    for (int i = 0; i < nSrHit; ++i) { const int k = SrBossIdx(&g_sr, srHit[i]); SrBossHit(&g_sr, &g_sm, srHit[i]); if (k < 0) { const int j = SrBossIdx(&g_sr, srHit[i]); if (j >= 0) g_sr_hp0[j] = 0; } }
+    for (int i = 0; i < nSrHit; ++i) {
+        if (SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
+            Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
+                (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
+            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            SrReset(&g_sr); SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS);
+            Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
+        }
+    }
     const int r0 = g_sm.rank, a0 = g_sm.active;
     const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
@@ -574,41 +610,41 @@ static void SmFeed(double gdt) {
         if (pma > 0.f) SrMartialArt(&g_sr, act);
         SrTick(&g_sr, &g_sm, &g_smc, dt);
     }
-    SrResult srRes; int srDone = 0;
     const int vis = pl && (g_cfg_sm_always || SmVisible(&g_sm, &g_smc, g_sm_clock, fight));  // human #129172
     const int r1 = g_sm.rank, a1 = g_sm.active; const float gg = SmGauge(&g_sm, &g_smc);
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
-    if (g_sr.on) {  // boss deaths / player death / a boss leaving alive (actor table reads, still under the lock for SrFinish's counters)
+    if (g_sr.on) {  // boss deaths / player death / a boss leaving alive / a load (actor table reads, still under the lock for SrFinish's counters)
         SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+        char bl[320]; int bn = 0; bl[0] = 0;  // per boss state, for the log lines below
         for (int i = 0; i < g_sr.nBoss; ++i) {
-            const uint64_t a = g_sr.boss[i];
-            if (!ActorInTable(a)) { now[i].gone = 1; now[i].dead = g_sr_hp0[i]; continue; }
-            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx);
-            now[i].dead = d; g_sr_hp0[i] = mx && c == 0;
+            const uint64_t a = g_sr.boss[i]; int lethal = 0;
+            for (int k = 0; k < nSrLethal; ++k) if (srLethal[k] == a) lethal = 1;
+            uint64_t c = 1, mx = 0; int d = 0;
+            if (!ActorInTable(a)) { now[i].gone = 1; now[i].hp0 = lethal; }  // torn down: killed if HP 0 was seen (SrStep) or this tick's hit was lethal
+            else { ActorDeadNow(a, &d, &c, &mx); now[i].dead = d; now[i].hp0 = mx && c == 0; }
+            if (bn < (int)sizeof bl - 64) bn += snprintf(bl + bn, sizeof bl - bn, " %p %s", (void*)a, now[i].gone ? (g_sr.hp0[i] || lethal ? "gone after HP 0" : g_sr.dead[i] ? "gone dead" : "gone with HP left")
+                : d ? "dead" : now[i].hp0 ? "HP 0" : "up");
         }
-        int other = 0;
-        for (int s = 0; s < N3T_SLOTS && !other; ++s) {
-            if (!g_slot_act[s]) continue;
-            const uint64_t a = BvActor(s); if (!a || SrBossIdx(&g_sr, a) >= 0) continue;
-            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx); if (!d && !(mx && c == 0)) other = 1;
-        }
+        const uint64_t me = PlayerChar(); const uint8_t* lgs = GameState();
+        const int loading = !me || (lgs && lgs[2]);  // a load, or the mission ended / was left (no player character)
         int pdead = 0;
-        if (!g_sr.ending) {  // once every boss is down the result stands (dying after the kill still gets the card)
-            const uint64_t me = PlayerChar(); const uint8_t* lgs = GameState();
-            if (!me || (lgs && lgs[2])) pdead = 1;
-            else { int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); pdead = d; }
+        if (!loading) { int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); pdead = d; }
+        const int wasEnding = g_sr.ending;
+        const int st = SrStep(&g_sr, now, pdead, loading, srWall, g_cfg_sr_delay);
+        if (st == 1) Log("STYLE RESULT: every boss of the fight is down (bosses:%s), card in %d ms unless its next form is hit", bl, g_cfg_sr_delay);
+        else if (st == 2) {
+            if (!wasEnding) Log("STYLE RESULT: %s with every boss of the fight down (bosses:%s): card now", !me ? "the player character went away" : "a load started", bl);
+            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            SrReset(&g_sr);
         }
-        const int st = SrStep(&g_sr, now, pdead, other, SmWallMs(), g_cfg_sr_delay);
-        if (st == 1) Log("STYLE RESULT: every boss of the fight is down, card in %d ms unless a next boss / form is hit", g_cfg_sr_delay);
-        else if (st == 2) { srRes = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen); srDone = 1; SrReset(&g_sr); }
-        else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s, %.1f s in)", pdead ? "player died or left" : "a boss left without dying", g_sr.ms / 1000.0); SrReset(&g_sr); }
+        else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s; %.1f s in; bosses:%s)", sr_drop_name[g_sr.drop], g_sr.ms / 1000.0, bl); SrReset(&g_sr); }
     }
     ReleaseSRWLockExclusive(&g_sm_lock);
     if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
-    if (srDone) {
-        char b[700]; SrFmt(b, sizeof b, &srRes); Log("STYLE RESULT: %s", b);
-        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+    for (int i = 0; i < srDone; ++i) {
+        char b[700]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
+        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes[i]; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
     }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;

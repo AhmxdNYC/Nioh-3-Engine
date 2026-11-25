@@ -97,7 +97,104 @@ static void Lifecycle(void) {
     SrReset(&f); SrBossHit(&f, &s, 0xA); now[0].gone = 1; now[0].dead = 1;
     CHECK(SrStep(&f, now, 0, 0, 0, 1000) == 1);                         // gone after dying: fine
     SrReset(&f); SrBossHit(&f, &s, 0xA); memset(now, 0, sizeof now); now[0].dead = 1;
-    CHECK(SrStep(&f, now, 0, 1, 0, 1000) == 0 && !f.ending);            // another boss still up, not hit yet
+    CHECK(SrStep(&f, now, 1, 0, 0, 1000) == 1);                         // dying after the kill still gets the card
+    CHECK(SrStep(&f, now, 0, 0, 2000, 1000) == 2);
+}
+// Gauntlet: 3 bosses in a row, each spawning a few seconds after the last one died -> 3 fights, 3 results, each with its own time.
+// The next boss can already be up (not hit) while the previous one dies: it never holds that card back.
+static void Gauntlet(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; int cards = 0; double t = 0;
+    for (int b = 0; b < 3; ++b) {
+        const uint64_t a = 0x100 + b;
+        CHECK(SrBossHitEx(&f, &s, a, t, SR_FORM_MS) == 0 && f.on && f.nBoss == 1 && f.ms == 0);
+        Run(&f, &s, &c, b + 1, 0.5f, 20000 * (b + 1)); t += 20000 * (b + 1);
+        memset(now, 0, sizeof now);
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 0);         // still up (another boss up and not hit: no effect)
+        now[0].dead = 1;
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+        t += SR_END_DELAY_MS;
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 2);
+        const SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0); SrReset(&f); ++cards;
+        CHECK(r.bosses == 1 && near(r.ms, 20000.0 * (b + 1), 1) && r.grade == b + 1);
+        t += 4000;                                                      // the next boss walks in later
+    }
+    CHECK(cards == 3);
+    // The next boss was already up (seen at the fight start) and is hit 1 s after the kill, inside the end wait: card for the first boss now.
+    SrReset(&f); t = 0;
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 2, 0.5f, 10000); t = 10000;
+    memset(now, 0, sizeof now); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 1 && f.nBoss == 1 && f.ending);  // not a form: caller finishes this fight first
+    SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0); SrReset(&f);
+    CHECK(r.bosses == 1 && near(r.ms, 10000, 1));
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 0 && f.on && f.nBoss == 1 && f.boss[0] == 0xB && f.ms == 0);
+    // A boss that only appears after the form window but is hit inside the end wait is the next boss too.
+    SrReset(&f); SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 5000, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 5000 + SR_FORM_MS + 1, SR_FORM_MS) == 1);
+}
+// Duo: two bosses up together, both hit -> one fight, one result with 2 bosses; the card waits for the second.
+static void Duo(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 3, 0.5f, 5000);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 0 && f.nBoss == 2);   // A still up: B joins whatever its seen time
+    now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 6000, SR_END_DELAY_MS) == 0);
+    Run(&f, &s, &c, 3, 0.5f, 5000);
+    now[1].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 11000, SR_END_DELAY_MS) == 1 && SrStep(&f, now, 0, 0, 14000, SR_END_DELAY_MS) == 2);
+    const SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0);
+    CHECK(r.bosses == 2 && near(r.ms, 10000, 1));
+}
+// Second form: a new actor that gets its bar just as the first form goes down (or a moment before) -> same fight, one result.
+static void SecondForm(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 2, 0.5f, 8000);
+    now[0].hp0 = 1;                                                     // HP 0, death not applied yet: down
+    CHECK(SrStep(&f, now, 0, 0, 8000, SR_END_DELAY_MS) == 1);
+    now[0].gone = 1; now[0].hp0 = 0;                                    // the first form's actor is torn down
+    CHECK(SrStep(&f, now, 0, 0, 8500, SR_END_DELAY_MS) == 0 && f.dead[0]);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 8000 + 1200, SR_FORM_MS) == 0 && f.nBoss == 2 && !f.ending);   // seen 1.2 s after: next form
+    memset(now, 0, sizeof now); now[0].gone = 1;
+    CHECK(SrStep(&f, now, 0, 0, 9500, SR_END_DELAY_MS) == 0);
+    Run(&f, &s, &c, 2, 0.5f, 8000);
+    now[1].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 17000, SR_END_DELAY_MS) == 1 && SrStep(&f, now, 0, 0, 20000, SR_END_DELAY_MS) == 2);
+    SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0);
+    CHECK(r.bosses == 2 && near(r.ms, 16000, 1));
+    SrReset(&f); memset(now, 0, sizeof now);                            // its bar showed a frame before the old HP read 0: still the form
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 3000, SR_END_DELAY_MS) == 1 && SrBossHitEx(&f, &s, 0xB, 3000 - 100, SR_FORM_MS) == 0 && f.nBoss == 2);
+}
+// Picture Scroll / mission end: a boss torn down right at the kill, and a load right after it.
+static void Teardown(void) {
+    SmState s; SmReset(&s); SrFight f; SrBossNow now[SR_BOSSES];
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, 100, 1000) == 1);        // HP 0 seen
+    now[0].hp0 = 0; now[0].gone = 1;
+    CHECK(SrStep(&f, now, 0, 0, 200, 1000) == 0 && f.dead[0]);          // then gone: killed, not 'left'
+    CHECK(SrStep(&f, now, 0, 0, 1200, 1000) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].gone = 1; now[0].hp0 = 1;                                    // gone on the same tick as the lethal hit (no HP 0 read)
+    CHECK(SrStep(&f, now, 0, 0, 0, 1000) == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; SrStep(&f, now, 0, 0, 0, 1000);                     // HP 0 then healed back (phase heal / floor): up again
+    now[0].hp0 = 0; CHECK(SrStep(&f, now, 0, 0, 50, 1000) == 0 && !f.ending);
+    now[0].gone = 1; CHECK(SrStep(&f, now, 0, 0, 60, 1000) == -1 && f.drop == SR_DROP_LEFT);
+    // load after the kill: the card at once (also with the player gone), not a drop
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, 0, 3000) == 1);
+    CHECK(SrStep(&f, now, 0, 1, 10, 3000) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 1, 1, 0, 3000) == 2);       // killed and the load on the same tick
+    // load with the boss up: drop (mission left / quit)
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    CHECK(SrStep(&f, now, 0, 1, 0, 3000) == -1 && f.drop == SR_DROP_LOAD);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    CHECK(SrStep(&f, now, 1, 0, 0, 3000) == -1 && f.drop == SR_DROP_PLAYER);
 }
 // Counts are the difference over the fight; distinct moves / martial arts are sets.
 static void Counts(void) {
@@ -148,6 +245,7 @@ static void HitPenalty(void) {
 int main(void) {
     HitPenalty();
     DodgeDeflectCounter(); HalfAndHalf(); ShortBurst(); HoldRule(); SssIsHard(); NoClearTime(); Lifecycle(); Counts();
+    Gauntlet(); Duo(); SecondForm(); Teardown();
     printf("style_result_test: all %d checks passed\n", g_checks);
     return 0;
 }
