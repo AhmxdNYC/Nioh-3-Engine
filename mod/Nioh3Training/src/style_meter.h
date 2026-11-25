@@ -2,6 +2,8 @@
 // (tests/style_meter_test.c). Game glue: style_meter_game.h (fed once per FRAMEPROBE pump tick, game clock in ms).
 // Generic (human rule #87625): no per-boss or per-move table. Events and their base points:
 //   hit     the player's hit took HP off an enemy                  cfg.hit   (x variety factor, below)
+//   blocked the player's hit connected but the enemy guarded it (no HP damage): blockPct % of a hit, same use / variety rules, counts
+//           in the combo (game glue: SmBlkQ below decides which hits were guarded)
 //   dodge   an enemy hit window opened and closed while the player had i-frames in it and took no damage   cfg.dodge
 //   deflect the same, during the universal Samurai deflect (game glue: the move's action-row skill word is in [StyleMeter] DeflectSkill)
 //                                                                                                              cfg.deflect
@@ -81,6 +83,7 @@
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 #define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up
 #define SM_BURST_MS 1500    // ... BurstBreakMs: the boss's burst action must end within this of the hit that broke it
+#define SM_BLOCK_PCT 50       // [StyleMeter] BlockPct: a guarded (blocked) hit is worth this % of a normal hit (human: 'half the points'; 0 = off)
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
@@ -107,6 +110,7 @@ typedef struct {
     float ma;                             // #127295 martial art bonus (default = nin)
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
+    int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -144,6 +148,7 @@ typedef struct {
     uint64_t lpRun; int lpOn, lpPen, lpHits;  // the current player use (own run key), it is a looped use, its hits so far (multi-hit cap)
     uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
     uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
+    uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
@@ -158,6 +163,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
+    c->blockPct = SM_BLOCK_PCT;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
@@ -182,6 +188,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->loopReps < 0) c->loopReps = 0; if (c->loopReps == 1) c->loopReps = 2; if (c->loopReps > 7) c->loopReps = 7;
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
+    if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -238,7 +245,8 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
 // startupF: that run's startup (frames, < 0 unknown); counter: 1 = the run had i-frames inside an enemy hit window (bonus once per use).
 // summon = 1: a summoned guardian spirit hit (SmSummonHits does its own cap; no loop tracking, so its hits between the player's do not
 // split or repeat the player's use).
-static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon) {
+// pct: % of the hit's value (100 = a hit that took HP, blockPct = a guarded hit).
+static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon, int pct) {
     float f, bonus = 0.f;
     if (!summon) {  // loop penalty / multi-hit cap, per player use (own run key)
         if (!s->lpOn || run != s->lpRun) {
@@ -258,12 +266,47 @@ static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t ac
         s->useOn = 1; s->useAct = act; s->useRun = run; s->useFactor = f;
         if (act != SM_ACT_NONE && act != 0) { s->hist[s->histPos] = act; s->histPos = (s->histPos + 1) % SM_HIST; if (s->histN < SM_HIST) s->histN++; }
     }
-    const float p = c->hit * f + bonus;
+    const float p = (c->hit * f + bonus) * (float)pct / 100.f;
     SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
     s->countedHits++;
     return p;
 }
-static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) { return SmOnHitUse(s, c, t, act, run, startupF, counter, 0); }
+static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, summon, 100); }
+static inline float SmOnHitPct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int pct) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, 0, pct); }
+static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, 0, 100); }
+// A hit the enemy guarded: blockPct % of the same hit (variety, multi-hit, startup and counter rules unchanged). It is a landed hit for the
+// Ki pulse gate / combat / style switch (s->hits), and s->blocked. blockPct 0 = nothing happens (the hit is not counted at all).
+static inline float SmOnBlockedHit(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) {
+    if (c->blockPct <= 0) return 0.f;
+    s->blocked++;
+    return SmOnHitPct(s, c, t, act, run, startupF, counter, c->blockPct);
+}
+// Guarded-hit detection (game glue feeds it from the hit apply 327DEC, which calls HP damage 787268 once and Ki damage 844604 once per hit,
+// both with the same hit object). One entry per (hit object, victim): SM_BLK_HP = the hit took HP (raw > 0), SM_BLK_HP0 = the HP damage
+// call came with 0, SM_BLK_KI = the hit did Ki damage. An entry is decided one tick after it was first noted (so both calls of one hit are
+// in): blocked = no HP damage and Ki damage or a 0 HP call. A hit that did HP damage is never a blocked hit (no double count).
+#define SM_BLK_Q 64
+enum { SM_BLK_KI = 1, SM_BLK_HP0 = 2, SM_BLK_HP = 4 };
+typedef struct { uint64_t hit, vic; float ki; uint8_t fl, age; } SmBlkEv;
+typedef struct { SmBlkEv e[SM_BLK_Q]; int n; uint32_t dropped; } SmBlkQ;
+static inline void SmBlkNote(SmBlkQ* q, uint64_t hit, uint64_t vic, int fl, float ki) {
+    if (!hit || !vic || !fl) return;
+    for (int i = 0; i < q->n; ++i) if (q->e[i].hit == hit && q->e[i].vic == vic) { q->e[i].fl |= (uint8_t)fl; if (ki > 0.f) q->e[i].ki += ki; return; }
+    if (q->n >= SM_BLK_Q) { q->dropped++; return; }
+    SmBlkEv* e = &q->e[q->n++]; e->hit = hit; e->vic = vic; e->fl = (uint8_t)fl; e->ki = ki > 0.f ? ki : 0.f; e->age = 0;
+}
+// Once per tick: decides the entries noted before this tick, ages the new ones. Returns the number of blocked hits; the first maxOut are
+// copied to out (log). Decided entries are removed.
+static inline int SmBlkTake(SmBlkQ* q, SmBlkEv* out, int maxOut) {
+    int nb = 0, k = 0;
+    for (int i = 0; i < q->n; ++i) {
+        SmBlkEv e = q->e[i];
+        if (!e.age) { e.age = 1; q->e[k++] = e; continue; }
+        if (!(e.fl & SM_BLK_HP) && (e.fl & (SM_BLK_KI | SM_BLK_HP0))) { if (out && nb < maxOut) out[nb] = e; nb++; }
+    }
+    q->n = k;
+    return nb;
+}
 static inline float SmOnHit(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run) { return SmOnHitEx(s, c, t, act, run, -1.f, 0); }
 // In combat = a hit landed within combatMs (skills / style switches outside a fight score nothing and do not wake the meter).
 static inline int SmInCombat(const SmState* s, const SmCfg* c, double t) { return t - s->lastHit <= (double)c->combatMs; }
