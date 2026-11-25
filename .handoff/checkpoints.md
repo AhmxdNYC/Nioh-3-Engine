@@ -1402,3 +1402,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-25 | pc2/1 | session end: Boss Match #118114 DONE (RESULT #118237, PASS R9A25+R1352, file #8516); nothing half-done; no code changed. Next: none for pc2/1; lead routes #118206 PJH prewarm A/B. Rig C:/nioh3-re/t118121.
 - 2026-11-25 4:50 pm EST | regression-pc | gated 1.8.42 RC 0f2b874f PASS #135995 | proven offline (not live package) | next: none for regression; installer-pc publishes on ops go | no code
 - 2026-11-25 5:02 pm EST | pc/1 #135803 | done: settle drops spawn floor (dc6bc13a) | proven offline; 92e4a695 live: E0E94 not released (spawn floor) | next: install dc6bc13a when the lead allows, then #136039 | pc1/soulidle-135803 13aa26b3
+- 2026-11-25 5:03 pm EST | regression-pc | reviewed BR efbb7f0c seal-exit settle PASS #136076 | proven offline | next: pc/0 merges; nothing open for regression | no code
