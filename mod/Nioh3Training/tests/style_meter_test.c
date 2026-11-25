@@ -577,6 +577,57 @@ static void MultiCap(void) {  // multi-hit cap: per use only the first multiHitC
     SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 0, 1200); SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 100, 1200);
     CHECK(pq.n == 1 && near(pq.p[0].pts, -20.f) && pq.p[0].count == 2);
 }
+// Multi-segment martial art = one use for the cap. Infinite Retribution as logged 2026-11-25: 25351 (3 hits) -> 25352 (13 hits) -> 25353
+// (1 hit), all skill word 0x42B, back to back. Per tick: SmChainStep(run, act, skill, word), then the tick's hits with the use key.
+typedef struct { uint32_t act; int hits, skill; uint32_t w; } ChainSeg;
+static uint64_t g_chainRun = 5000;
+static void ChainPlay(SmState* s, const SmCfg* c, SmChain* ch, double* t, const ChainSeg* g, int n) {
+    for (int i = 0; i < n; ++i) {
+        const uint64_t run = ++g_chainRun << 32 | g[i].act;
+        for (int k = 0; k < 2 + g[i].hits; ++k) {  // a wind-up tick, one tick per hit, a recovery tick
+            const uint64_t key = SmChainStep(ch, run, g[i].act, g[i].skill, g[i].w);
+            if (k >= 1 && k <= g[i].hits) SmOnHit(s, c, *t, g[i].act, key);
+            *t += 16;
+        }
+    }
+}
+static void MultiChain(void) {
+    SmCfg c; RealDefaults(&c); c.loopReps = 0; c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    const ChainSeg ir[3] = {{25351, 3, 1, 0x42B}, {25352, 13, 1, 0x42B}, {25353, 1, 1, 0x42B}};
+    SmState s; SmReset(&s); SmChain ch; SmChainReset(&ch); double t = 1000; uint32_t mile = 0;
+    ChainPlay(&s, &c, &ch, &t, ir, 3);
+    CHECK(s.hits == 17 && s.countedHits == 4 && s.cappedHits == 13 && near(s.pts, 40.f));  // was 3 + 4 + 1 = 8 counted
+    SmComboHits(&s, &c, t, (int)s.countedHits, &mile); CHECK(s.combo == 4);
+    // the same martial art cast again right after (its lead-in act repeats): a new use, 4 more
+    ChainPlay(&s, &c, &ch, &t, ir, 3);
+    CHECK(s.countedHits == 8 && s.hits == 34);
+    // a gap tick (no act / not the player) between segments: separate uses
+    SmState g; SmReset(&g); SmChainReset(&ch);
+    ChainPlay(&g, &c, &ch, &t, ir, 1); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); ChainPlay(&g, &c, &ch, &t, ir + 1, 1);
+    CHECK(g.countedHits == 3 + 4);
+    // a different skill word, or a plain (non-skill) attack, after a martial art: a new use
+    const ChainSeg mix[3] = {{25351, 3, 1, 0x42B}, {25368, 3, 1, 0x6EC0}, {25094, 3, 0, 0x55}};
+    SmState m; SmReset(&m); SmChainReset(&ch); ChainPlay(&m, &c, &ch, &t, mix, 3);
+    CHECK(m.countedHits == 9);
+    // plain attack strings (no skill row) keep one use per run, as before
+    const ChainSeg str[2] = {{25094, 5, 0, 0x55}, {25095, 5, 0, 0x55}};
+    SmState p; SmReset(&p); SmChainReset(&ch); ChainPlay(&p, &c, &ch, &t, str, 2);
+    CHECK(p.countedHits == 8);
+    // row unreadable on a segment's first ticks: tentatively the same use, decided when readable
+    SmState u; SmReset(&u); SmChainReset(&ch);
+    const uint64_t r1 = ++g_chainRun << 32 | 25351, r2 = ++g_chainRun << 32 | 25352, r3 = ++g_chainRun << 32 | 25368;
+    CHECK(SmChainStep(&ch, r1, 25351, 1, 0x42B) == r1);
+    CHECK(SmChainStep(&ch, r2, 25352, -1, 0) == r1 && SmChainStep(&ch, r2, 25352, 1, 0x42B) == r1);  // same move once known
+    CHECK(SmChainStep(&ch, r3, 25368, -1, 0) == r1 && SmChainStep(&ch, r3, 25368, 1, 0x6EC0) == r3);  // another move once known
+    CHECK(SmChainStep(&ch, r3, 25368, 1, 0x6EC0) == r3);
+    const uint64_t r4 = ++g_chainRun << 32 | 25369; uint64_t k4 = 0;
+    for (int i = 0; i <= SM_CHAIN_WAIT; ++i) k4 = SmChainStep(&ch, r4, 25369, -1, 0);
+    CHECK(k4 == r4);  // never readable: a new use after SM_CHAIN_WAIT ticks
+    // loop penalty sees one use per cast: three casts in a row with the default LoopReps 2 -> the 3rd costs
+    SmCfg l = c; l.loopReps = 2; SmState q; SmReset(&q); SmChainReset(&ch);
+    for (int i = 0; i < 3; ++i) { ChainPlay(&q, &l, &ch, &t, ir, 3); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); }
+    CHECK(q.loopPens == 1 && q.countedHits == 8);
+}
 static void BurstBreak(void) {  // human: a boss's red (GreatAttack) attack interrupted by a hit in its wind-up
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE;
     CHECK(near(c.burst, 40) && c.burstMs == 1500 && c.burstSkill == 0);
@@ -697,7 +748,7 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
     SmBlkTake(&q, 0, 0); CHECK(SmBlkTake(&q, 0, 0) == SM_BLK_Q && q.n == 0);
 }
 int main(void) {
-    Loop(); LoopAvoid(); MultiCap();
+    Loop(); LoopAvoid(); MultiCap(); MultiChain();
     BurstBreak();
     Blocked(); BlockQueue();
     Combo();
