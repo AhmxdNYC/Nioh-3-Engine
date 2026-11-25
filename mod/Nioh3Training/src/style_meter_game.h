@@ -532,6 +532,22 @@ static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
     for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;  // XINPUT_STATE: packet, wButtons +4, LT +6, RT +7
         const uint16_t bb = *(uint16_t*)(st + 4); if (bb || st[6] > 64 || st[7] > 64 || !*b) { *b = bb; *lt = st[6]; *rt = st[7]; } if (bb || st[6] > 64 || st[7] > 64) return; }
 }
+// human 2026-11-25 APM on the result card: every button held this tick. Pads: raw XInput (xinput1_4 directly), all 4 pads OR'd (buttons
+// and the larger trigger value). Keys / mouse buttons: GetAsyncKeyState, only while the game window is in front (alt-tab typing is not
+// counted); the generic Shift / Ctrl / Alt codes are skipped (their left / right codes are counted).
+static void SmInputNow(uint16_t* b, uint8_t* lt, uint8_t* rt, uint32_t keys[8]) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    *b = 0; *lt = *rt = 0; for (int i = 0; i < 8; ++i) keys[i] = 0;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (xgs) for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;
+        *b |= *(uint16_t*)(st + 4); if (st[6] > *lt) *lt = st[6]; if (st[7] > *rt) *rt = st[7]; }
+    DWORD pid = 0; const HWND fg = GetForegroundWindow(); if (fg) GetWindowThreadProcessId(fg, &pid);
+    if (pid != GetCurrentProcessId()) return;
+    for (int vk = 0x01; vk <= 0xFE; ++vk) {
+        if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU) continue;
+        if (GetAsyncKeyState(vk) & 0x8000) keys[vk >> 5] |= 1u << (vk & 31);
+    }
+}
 // #127057 active weapon slot = the game's own getter behind the script native "Player::GetActiveWeaponSlot" (found by name in the native
 // table, like BR's sites kNative). That native pushes its result on the script VM stack, so it is not callable from here; its body is
 // "fn([G2], [[G1]] + idoff)" and fn is the plain 2-load getter. The wrapper and fn bytes are checked, all addresses decoded from them
@@ -935,6 +951,11 @@ static void SmFeed(double gdt) {
     SmComboTick(&g_sm, &g_smc, g_sm_clock);
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
+    {   // human 2026-11-25: button presses for the card's APM (sampled every tick so a fight start mid-hold is not a press)
+        static SrInput srIn; uint16_t ib; uint8_t il, ir; uint32_t ik[8];
+        SmInputNow(&ib, &il, &ir, ik);
+        SrInputs(&g_sr, SrInputStep(&srIn, ib, il, ir, ik), dt);
+    }
     if (g_sr.on) {  // fight result: moves that landed, martial arts that scored, then this tick's time at the meter's value
         if (hits > 0 || blocked > 0) SrMove(&g_sr, act);
         if (pma > 0.f) SrMartialArt(&g_sr, act);
@@ -973,7 +994,7 @@ static void SmFeed(double gdt) {
     ReleaseSRWLockExclusive(&g_sm_lock);
     if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
     for (int i = 0; i < srDone; ++i) {
-        char b[700]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
+        char b[900]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
         AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes[i]; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
     }
     {   static int bbl;  // human: Burst Break log (the live test reads these: burst run seen / hit in its wind-up / its end)

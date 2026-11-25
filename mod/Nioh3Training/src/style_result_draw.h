@@ -5,7 +5,7 @@
 #define STYLE_RESULT_DRAW_H
 
 #define SR_CARD_W 640           // 1080p design size (scaled by the client height and StyleMeterScale)
-#define SR_CARD_H 664
+#define SR_CARD_H 692  // human 2026-11-25: +28 for the APM / Inputs row
 #define SR_FADE_IN_MS 250
 #define SR_FADE_OUT_MS 350
 #define SR_ARM_MS 800           // a confirm press counts only after the card has been up this long (button mashing at the kill)
@@ -93,8 +93,8 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     }
     SrFill(px, W, H, SRX(40), SRX(408), W - SRX(80), 1, 0xA89A6Cu, 140);
     // stats: two columns, label left / value right
-    char v[14][40]; const char* lab[14] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches",
-                                           "Hits landed", "Counters", "Dodges", "Deflects", "Ki pulses", "Hits taken", "Best combo"};
+    char v[16][40]; const char* lab[16] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Hits landed",
+                                           "Counters", "Dodges", "Deflects", "Ki pulses", "Hits taken", "Best combo", "APM", "Inputs"};
     snprintf(v[0], 40, "%d", r->moves);
     if (r->n.maHits) snprintf(v[1], 40, "%u (%d different)", r->n.maHits, r->maMoves); else snprintf(v[1], 40, "0");
     snprintf(v[2], 40, "%u", r->n.nins); snprintf(v[3], 40, "%u", r->n.souls); snprintf(v[4], 40, "%u", r->n.gsHits); snprintf(v[5], 40, "%u", r->n.swapHits);
@@ -102,16 +102,17 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     snprintf(v[7], 40, "%u", r->n.hits); if (r->n.bursts) snprintf(v[8], 40, "%u (%u burst)", r->n.counters + r->n.counterAvoids, r->n.bursts); else snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids); snprintf(v[9], 40, "%u", r->n.dodges); snprintf(v[10], 40, "%u", r->n.deflects);
     if (r->n.kiPerfects) snprintf(v[11], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[11], 40, "%u", r->n.kis);
     snprintf(v[12], 40, "%u", r->n.damaged); snprintf(v[13], 40, "%u hits", r->comboBest);
-    for (int i = 0; i < 14; ++i) {
+    snprintf(v[14], 40, "%.0f", r->apm); snprintf(v[15], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
+    for (int i = 0; i < 16; ++i) {
         if (!lab[i][0]) continue;
-        const int col = i / 7, row = i % 7, y = SRX(422 + row * 28);
+        const int col = i / 8, row = i % 8, y = SRX(422 + row * 28);
         const int lx = SRX(col ? 334 : 40), rx = SRX(col ? 600 : 306);
         SrText(ref, px, W, H, lab[i], lx, y, SRX(18), FW_NORMAL, 0, 0, SR_LABEL);
         SrText(ref, px, W, H, v[i], rx, y, SRX(18), FW_BOLD, 0, 2, i == 12 && r->n.damaged == 0 ? 0x9FD49Au : i == 12 ? 0xE08A7Au : SR_VALUE);
     }
-    SrFill(px, W, H, W / 2, SRX(424), 1, SRX(7 * 28 - 8), 0xA89A6Cu, 70);
-    SrFill(px, W, H, SRX(40), SRX(622), W - SRX(80), 1, 0xA89A6Cu, 90);
-    SrText(ref, px, W, H, "Press A or Enter to close", W / 2, SRX(630), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
+    SrFill(px, W, H, W / 2, SRX(424), 1, SRX(8 * 28 - 8), 0xA89A6Cu, 70);
+    SrFill(px, W, H, SRX(40), SRX(650), W - SRX(80), 1, 0xA89A6Cu, 90);
+    SrText(ref, px, W, H, "Press A or Enter to close", W / 2, SRX(658), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
 #undef SRX
 }
 // One card frame: the grade letter on its own transparent layer (the meter's rank-up motions tint / clear rects around the letter and

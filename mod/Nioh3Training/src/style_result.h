@@ -78,6 +78,8 @@ typedef struct {
     int hold;                    // rule 2 share used (ResultHoldPct)
     SrCount n;                   // event counts during the fight
     uint32_t comboBest;          // longest combo during the fight (shown, not graded)
+    uint32_t inputs;             // human 2026-11-25: button presses during the fight (pad buttons / triggers, keys, mouse buttons)
+    float apm;                   // ... per minute of fight time (shown, not graded)
 } SrResult;
 
 typedef struct {
@@ -95,7 +97,30 @@ typedef struct {
     uint32_t acts[SR_ACTS]; int nActs;
     uint32_t maActs[SR_ACTS]; int nMa;
     SrCount c0;
+    uint32_t inputs;             // button presses counted while the fight runs (SrInputs)
 } SrFight;
+
+// Button presses (human 2026-11-25: APM on the card). One sample per tick: pad buttons (wButtons, 16 bits), the two triggers as buttons
+// (pressed above SR_TRIG_ON, released below SR_TRIG_OFF), and a 256-bit set of held keys / mouse buttons. A press = a not-held -> held edge.
+// The first sample only sets the state (a button held when the tracker starts is not a press).
+#define SR_TRIG_ON 64
+#define SR_TRIG_OFF 32
+typedef struct { int init; uint16_t btn; uint8_t lt, rt; uint32_t keys[8]; } SrInput;
+static inline int SrBitCount(uint32_t v) { int n = 0; while (v) { v &= v - 1; ++n; } return n; }
+static inline uint32_t SrInputStep(SrInput* in, uint16_t btn, uint8_t lt, uint8_t rt, const uint32_t keys[8]) {
+    const int lOn = in->lt ? lt >= SR_TRIG_OFF : lt > SR_TRIG_ON, rOn = in->rt ? rt >= SR_TRIG_OFF : rt > SR_TRIG_ON;
+    uint32_t n = 0;
+    if (in->init) {
+        n += (uint32_t)SrBitCount((uint32_t)(btn & (uint16_t)~in->btn));
+        n += (uint32_t)(lOn && !in->lt) + (uint32_t)(rOn && !in->rt);
+        for (int i = 0; i < 8; ++i) n += (uint32_t)SrBitCount(keys[i] & ~in->keys[i]);
+    }
+    in->init = 1; in->btn = btn; in->lt = (uint8_t)lOn; in->rt = (uint8_t)rOn;
+    for (int i = 0; i < 8; ++i) in->keys[i] = keys[i];
+    return n;
+}
+// Presses that count toward the fight: only while it runs (not in the end wait) and only on ticks with game time (no pause menus).
+static inline void SrInputs(SrFight* f, uint32_t presses, double dt) { if (f->on && !f->ending && dt > 0.0) f->inputs += presses; }
 
 static inline void SrReset(SrFight* f) { uint8_t* p = (uint8_t*)f; for (unsigned i = 0; i < sizeof *f; ++i) p[i] = 0; }
 // The meter as one number: rank + gauge (0..1). An idle meter is 0.
@@ -171,6 +196,7 @@ static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPc
     r.grade = SrGrade(f->atRank, f->ms, f->area, holdPct, r.penalty, &r.avg, &r.byAvg); r.hold = holdPct;
     for (int i = 0; i < SM_RANKS; ++i) r.pctAt[i] = f->ms > 0 ? (float)(f->atRank[i] * 100.0 / f->ms) : (i == 0 ? 100.f : 0.f);
     r.peak = f->peak; r.ms = f->ms; r.moves = f->nActs; r.maMoves = f->nMa; r.comboBest = f->comboBest;
+    r.inputs = f->inputs; r.apm = f->ms > 0 ? (float)(f->inputs * 60000.0 / f->ms) : 0.f;
     for (int i = 0; i < f->nBoss; ++i) r.bosses += f->dead[i] || f->hp0[i];
     return r;
 }
@@ -224,11 +250,11 @@ static inline void SrHudExpire(SrHud* h, double wall, int keepMs) { for (int i =
 // One log / card line of the counts.
 static inline int SrFmt(char* o, int n, const SrResult* r) {
     return snprintf(o, n, "grade %s avg %.2f (meter %.2f - %.2f for hits taken; by average %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "
-        "soul cores %u, guardian spirit %u, weapon switches %u, style switches %u | hits %u, counters %u, burst breaks %u, dodges %u, deflects %u, Ki pulses %u (%u perfect), hits taken %u, best combo %u"
+        "soul cores %u, guardian spirit %u, weapon switches %u, style switches %u | hits %u, counters %u, burst breaks %u, dodges %u, deflects %u, Ki pulses %u (%u perfect), hits taken %u, best combo %u, inputs %u (APM %.0f)"
         " | D %.0f%% C %.0f%% B %.0f%% A %.0f%% S %.0f%% SS %.0f%% SSS %.0f%%",
         sm_rank_name[r->grade], r->avg, r->rawAvg, r->penalty, sm_rank_name[r->byAvg], sm_rank_name[r->peak], r->ms / 1000.0, r->bosses, r->bosses == 1 ? "" : "es",
         r->moves, r->n.maHits, r->maMoves, r->n.nins, r->n.souls, r->n.gsHits, r->n.swapHits, r->n.styles, r->n.hits, r->n.counters + r->n.counterAvoids, r->n.bursts, r->n.dodges, r->n.deflects,
-        r->n.kis, r->n.kiPerfects, r->n.damaged, r->comboBest,
+        r->n.kis, r->n.kiPerfects, r->n.damaged, r->comboBest, r->inputs, r->apm,
         r->pctAt[0], r->pctAt[1], r->pctAt[2], r->pctAt[3], r->pctAt[4], r->pctAt[5], r->pctAt[6]);
 }
 #endif

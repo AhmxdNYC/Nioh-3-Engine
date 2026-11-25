@@ -293,10 +293,31 @@ static void PictureScroll(void) {
     SrReset(&f); memset(now, 0, sizeof now); SrBossHitTag(&f, &s, 0x540, 0x1F3E, 0, SR_FORM_MS);
     CHECK(SrStep(&f, now, 1, 0, 0, SR_END_DELAY_MS) == -1 && f.drop == SR_DROP_PLAYER);
 }
+// human 2026-11-25: APM. Presses = not-held -> held edges of pad buttons, triggers (hysteresis), keys; first sample is no press.
+static void Apm(void) {
+    SrInput in; memset(&in, 0, sizeof in); uint32_t k[8] = {0};
+    CHECK(SrInputStep(&in, 0x1000, 0, 0, k) == 0);           // A held when tracking starts: not a press
+    CHECK(SrInputStep(&in, 0x1000, 0, 0, k) == 0);           // still held
+    CHECK(SrInputStep(&in, 0x3000, 0, 0, k) == 1);           // B pressed
+    CHECK(SrInputStep(&in, 0x0000, 0, 0, k) == 0 && SrInputStep(&in, 0x1001, 0, 0, k) == 2);  // release both, A + D-pad up = 2
+    CHECK(SrInputStep(&in, 0x1001, 200, 0, k) == 1);         // LT pulled
+    CHECK(SrInputStep(&in, 0x1001, 40, 0, k) == 0);          // half released, above the off threshold: still held
+    CHECK(SrInputStep(&in, 0x1001, 10, 0, k) == 0 && SrInputStep(&in, 0x1001, 70, 90, k) == 2);  // LT again + RT
+    k[0] = 1u << 2; k[2] = 1u << 1; CHECK(SrInputStep(&in, 0x1001, 70, 90, k) == 2);  // a mouse button + a key
+    CHECK(SrInputStep(&in, 0x1001, 70, 90, k) == 0);
+    // fight: counted only while on, not ending, with game time; APM = presses per minute of fight time
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrInputs(&f, 5, 16.7); CHECK(f.inputs == 0);             // no fight yet
+    SrBossHit(&f, &s, 0x1234); for (int i = 0; i < 3000; ++i) { SrInputs(&f, i % 20 == 0, 10); SrTick(&f, &s, &c, 10); }  // 30 s, 150 presses
+    SrInputs(&f, 9, 0); CHECK(f.inputs == 150);              // paused tick: not counted
+    SrResult r = SrFinish(&f, &s, 45); CHECK(r.inputs == 150 && near(r.apm, 300.0, 0.5));
+    char b[900]; SrFmt(b, sizeof b, &r); CHECK(strstr(b, "inputs 150 (APM 300)") != 0);
+    f.ending = 1; SrInputs(&f, 4, 10); CHECK(f.inputs == 150);  // end wait: not counted
+}
 int main(void) {
     HitPenalty();
     DodgeDeflectCounter(); HalfAndHalf(); ShortBurst(); HoldRule(); SssIsHard(); NoClearTime(); Lifecycle(); Counts();
-    Gauntlet(); Duo(); SecondForm(); Teardown(); PictureScroll();
+    Gauntlet(); Duo(); SecondForm(); Teardown(); PictureScroll(); Apm();
     printf("style_result_test: all %d checks passed\n", g_checks);
     return 0;
 }
