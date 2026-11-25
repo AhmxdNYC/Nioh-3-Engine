@@ -51,6 +51,10 @@ static void SmFxPop2(const char* label, float pts, float bonus) {
     AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush2(&g_smfx_q, label, pts, bonus, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
 }
 static void SmFxPop(const char* label, float pts) { SmFxPop2(label, pts, 0.f); }
+static void SmFxPopLoss(const char* label, float pts) {  // a loss (loop penalty): pts > 0 = the amount lost, queued negative, drawn "-N"
+    if (!g_cfg_sm_pops || pts <= 0.f) return;
+    AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush2(&g_smfx_q, label, -pts, 0.f, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
+}
 static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
@@ -103,6 +107,9 @@ static void SmReadIni(const char* ini, int reset) {
     c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
     c.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
     c.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
+    c.multiHitCap = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitCap", SM_MULTI_CAP, ini);
+    c.loopReps = (int)GetPrivateProfileIntA("StyleMeter", "LoopReps", SM_LOOP_REPS, ini);
+    c.loopPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "LoopPenaltyPts", SM_LOOP_PTS, ini);
     c.kiHitMs = (int)GetPrivateProfileIntA("StyleMeter", "KiHitMs", SM_KI_HIT_MS, ini);
     c.decayDelayMs = (int)GetPrivateProfileIntA("StyleMeter", "DecayDelayMs", SM_DECAY_DELAY_MS, ini);
     c.decayPerS = (float)(int)GetPrivateProfileIntA("StyleMeter", "DecayPerSec", SM_DECAY_PER_S, ini);
@@ -153,6 +160,8 @@ static void SmReadIni(const char* ini, int reset) {
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
+    Log("STYLE METER: multi-hit cap %d hits per use%s, loop penalty -%.0f per use after %d cycles of a 1- or 2-move loop%s",
+        g_smc.multiHitCap, g_smc.multiHitCap ? "" : " (off)", g_smc.loopPts, g_smc.loopReps, g_smc.loopReps ? "" : " (off)");
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.
@@ -534,7 +543,7 @@ static void SmFeed(double gdt) {
     const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
-    const uint32_t c0 = g_sm.counters;
+    const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens; const float lpl0 = g_sm.loopLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
@@ -550,7 +559,9 @@ static void SmFeed(double gdt) {
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
-    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)hits + (summonLive ? (int)allyHits : 0), &comboMile);
+    // multi-hit cap / loop penalty: only the hits that scored (SmOnHitEx / SmSummonHits counted them) feed the combo
+    const uint32_t loopN = g_sm.loopPens - lp0, capN = g_sm.cappedHits - cap0; const float loopLost = g_sm.loopLost - lpl0;
+    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)(g_sm.countedHits - hc0), &comboMile);
     if (maMark) g_sm.maUses++;
     const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
     if (pma > 0.f) g_sm_maRun = run;
@@ -627,6 +638,7 @@ static void SmFeed(double gdt) {
             InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
             big += pcombo; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
+        if (loopN && loopLost > 0.f) SmFxPopLoss("Repetitive!", loopLost);  // loop penalty: shown "-N"
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
     if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
@@ -635,6 +647,8 @@ static void SmFeed(double gdt) {
             char e[400]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
+            if (loopN) n += snprintf(e + n, sizeof e - n, " repetitive x%u -%.0f (loop %u/%u uses)", loopN, loopLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
+            if (capN) n += snprintf(e + n, sizeof e - n, " over multi-hit cap x%u", capN);
             if (allyHits > 0) n += snprintf(e + n, sizeof e - n, summonLive ? " summoned spirit hit x%ld +%.1f" : " ally hit x%ld (no summon window, not scored)", (long)allyHits, psum);
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
             if (swapEv) n += snprintf(e + n, sizeof e - n, " weapon slot -> %d", wslot);

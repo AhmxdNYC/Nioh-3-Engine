@@ -14,6 +14,7 @@ static void PinnedDefaults(SmCfg* c) {
     SmCfgDefaults(c); c->decayPerS = 12.f; c->decayDelayMs = 2500; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
     // #127568: the shipped defaults moved to the human's tuning; the mechanics cases keep the numbers they were written for.
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
+    c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -454,7 +455,88 @@ static void Combo(void) {  // combo: hits within comboMs, broken by a gap or a h
     SmCfg z = c; z.comboBase = 0; z.comboMax = 0; SmState q; SmReset(&q);
     CHECK(SmComboHits(&q, &z, 0, 20, &m) == 0.f && q.combo == 20);         // bonus off: still counts
 }
+static float Use(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run) { return SmOnHit(s, c, t, act, run); }
+static void Loop(void) {  // loop penalty: period 1 / period 2 past loopReps cycles cost loopPts per use, hits score 0
+    SmCfg c; RealDefaults(&c);
+    CHECK(c.loopReps == 3 && near(c.loopPts, 10.f) && c.multiHitCap == 4);
+    c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 100.f;
+    SmState s; SmReset(&s); uint64_t r = 1; double t = 0;
+    // period 1: A A A score, the 4th A costs 10 and scores 0 (all its hits), the 5th too; the decay delay is not refreshed
+    for (int i = 0; i < 3; ++i) CHECK(near(Use(&s, &c, t += 10, 7, r++), 10.f));
+    CHECK(near(s.pts, 30.f) && s.loopPens == 0);
+    const double ls = s.lastScore;
+    CHECK(Use(&s, &c, t += 10, 7, r) == 0.f && near(s.pts, 20.f) && s.loopPens == 1 && s.lastScore == ls);
+    CHECK(Use(&s, &c, t += 10, 7, r++) == 0.f && near(s.pts, 20.f) && s.loopPens == 1);   // 2nd hit of that use: 0, no second penalty
+    CHECK(Use(&s, &c, t += 10, 7, r++) == 0.f && near(s.pts, 10.f) && s.loopPens == 2);   // 5th A
+    CHECK(s.hits == 6 && s.countedHits == 3);
+    CHECK(near(Use(&s, &c, t += 10, 8, r++), 10.f));    // B breaks it (A A A A A B: 2-cycle check sees only A B)
+    CHECK(near(Use(&s, &c, t += 10, 7, r++), 10.f) && s.loopPens == 2);  // A B A: fine
+    // period 2: A B A B A B score, the 7th use (A) and 8th (B) cost
+    SmReset(&s); r = 100;
+    for (int i = 0; i < 6; ++i) CHECK(near(Use(&s, &c, t += 10, i & 1 ? 21 : 20, r++), 10.f));
+    CHECK(s.loopPens == 0 && near(s.pts, 60.f));
+    CHECK(Use(&s, &c, t += 10, 20, r++) == 0.f && s.loopPens == 1 && near(s.pts, 50.f));
+    CHECK(Use(&s, &c, t += 10, 21, r++) == 0.f && s.loopPens == 2 && near(s.pts, 40.f));
+    CHECK(near(Use(&s, &c, t += 10, 22, r++), 10.f) && s.loopPens == 2);   // C breaks it
+    CHECK(near(Use(&s, &c, t += 10, 20, r++), 10.f) && near(Use(&s, &c, t += 10, 21, r++), 10.f));  // a new loop starts counting from scratch
+    // reset: A A A B A A A never costs; an unknown act breaks a loop too
+    SmReset(&s); r = 200;
+    const uint32_t seq[] = {7, 7, 7, 8, 7, 7, 7, 7, 7, SM_ACT_NONE, 7, 7, 7, 0, 7, 7, 7};
+    int pen = 0; for (unsigned i = 0; i < sizeof seq / sizeof seq[0]; ++i) { const uint32_t p0 = s.loopPens; Use(&s, &c, t += 10, seq[i], r++); if (s.loopPens != p0) pen |= 1 << i; }
+    CHECK(pen == (1 << 7 | 1 << 8));  // only the 4th and 5th A of the second run
+    // the penalty drains like decay: below 0 drops a rank (refilled from its top); at D it ends empty / idle
+    SmReset(&s); r = 300; SmCfg k = c; k.loopPts = 30.f;
+    for (int i = 0; i < 3; ++i) Use(&s, &k, t += 10, 9, r++);
+    KiFree(&s, &k, t); KiFree(&s, &k, t); KiFree(&s, &k, t);   // + 3 x 30: 120 = rank C, 20 in
+    CHECK(s.rank == 1 && near(s.pts, 20.f));
+    Use(&s, &k, t += 10, 9, r++); CHECK(s.rank == 0 && near(s.pts, 90.f) && s.active);   // 20 - 30 -> D at 90
+    k.loopPts = 1000.f; Use(&s, &k, t += 10, 9, r++); CHECK(s.rank == 0 && s.pts == 0.f && !s.active && s.loopPens == 2);
+    // summoned spirit hits between the player's hits do not split or repeat the player's use
+    SmReset(&s); SmSummon m; SmSummonReset(&m); SmSummonOpen(&m, 0, 999, 50); float b;
+    Use(&s, &c, 10, 60, 1); SmSummonHits(&s, &c, &m, 20, 1, &b); Use(&s, &c, 30, 60, 1); SmSummonHits(&s, &c, &m, 40, 1, &b); Use(&s, &c, 50, 60, 1);
+    CHECK(s.lpN1 == 1 && s.loopPens == 0 && s.lpHits == 3);
+    // off / clamp
+    SmCfg z = c; z.loopReps = 0; SmReset(&s); for (int i = 0; i < 10; ++i) CHECK(near(Use(&s, &z, i, 7, (uint64_t)i + 1), 10.f));
+    SmCfg q = c; q.loopReps = 1; q.loopPts = -5.f; SmCfgClamp(&q); CHECK(q.loopReps == 2 && q.loopPts == 0.f);
+    q.loopReps = 99; SmCfgClamp(&q); CHECK(q.loopReps == 7); q.loopReps = -1; SmCfgClamp(&q); CHECK(q.loopReps == 0);
+}
+static void MultiCap(void) {  // multi-hit cap: per use only the first multiHitCap hits score / count toward the combo
+    SmCfg c; RealDefaults(&c); c.loopReps = 0; c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    SmState s; SmReset(&s); uint32_t mile = 0;
+    for (int i = 0; i < 4; ++i) CHECK(near(SmOnHit(&s, &c, 100 + i, 7, 1), 10.f));
+    const float p4 = s.pts; const double ls = s.lastScore;
+    CHECK(SmOnHit(&s, &c, 200, 7, 1) == 0.f && SmOnHit(&s, &c, 201, 7, 1) == 0.f);
+    CHECK(near(s.pts, p4) && s.lastScore == ls && s.lastHit == 201 && s.hits == 6 && s.countedHits == 4 && s.cappedHits == 2);
+    // the glue feeds the combo only the counted hits: 6 real hits -> combo 4
+    SmComboHits(&s, &c, 201, (int)s.countedHits, &mile); CHECK(s.combo == 4);
+    // a new use starts its own count
+    CHECK(near(SmOnHit(&s, &c, 300, 8, 2), 10.f) && s.countedHits == 5);
+    // combo does not advance past the cap: a 14-hit move then a 10-hit move = 8 counted, no 10-hit milestone
+    SmState q; SmReset(&q); uint32_t h0 = q.countedHits;
+    for (int i = 0; i < 14; ++i) SmOnHit(&q, &c, 1000, 30, 1);
+    float bon = SmComboHits(&q, &c, 1000, (int)(q.countedHits - h0), &mile); h0 = q.countedHits;
+    for (int i = 0; i < 10; ++i) SmOnHit(&q, &c, 1100, 31, 2);
+    bon += SmComboHits(&q, &c, 1100, (int)(q.countedHits - h0), &mile);
+    CHECK(q.combo == 8 && bon == 0.f && q.hits == 24);
+    // summoned guardian spirit: one use of its own, capped the same way
+    SmState u; SmReset(&u); SmSummon m; SmSummonReset(&m); SmSummonOpen(&m, 0, 77, 17076); float b = 0;
+    const float ps = SmSummonHits(&u, &c, &m, 100, 6, &b);
+    CHECK(near(ps, 40.f) && u.hits == 6 && u.countedHits == 4 && u.cappedHits == 2 && m.hitsN == 4);
+    CHECK(SmSummonHits(&u, &c, &m, 200, 2, &b) == 0.f && u.hits == 8 && u.countedHits == 4);
+    SmSummonOpen(&m, 300, 78, 17076); CHECK(near(SmSummonHits(&u, &c, &m, 300, 1, &b), 10.f));  // a new summon counts again
+    // 0 = no cap
+    SmCfg z = c; z.multiHitCap = 0; SmState w; SmReset(&w);
+    for (int i = 0; i < 10; ++i) CHECK(near(SmOnHit(&w, &z, i, 7, 1), 10.f));
+    CHECK(w.countedHits == 10 && w.cappedHits == 0);
+    SmCfg k = c; k.multiHitCap = -3; SmCfgClamp(&k); CHECK(k.multiHitCap == 0);
+    // negative pop-up (loop penalty): pushed as a loss, merges like any other line
+    SmPopQ pq; memset(&pq, 0, sizeof pq);
+    SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 0, 1200); SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 100, 1200);
+    CHECK(pq.n == 1 && near(pq.p[0].pts, -20.f) && pq.p[0].count == 2);
+}
 int main(void) {
+    Loop(); MultiCap();
     Combo();
     GuardianSummon();
     WeaponSwitch();

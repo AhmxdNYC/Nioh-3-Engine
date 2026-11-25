@@ -18,6 +18,13 @@
 //   damaged the player lost HP: one rank down and the gauge empty (rank D with an empty gauge = the meter is idle / hidden)
 // Variety: every new "use" (player action id + action run) is compared with the last SM_HIST uses; each earlier use of the same action id
 // multiplies the points by repeatPct % (floor repeatFloorPct %). Further hits of the same use (multi-hit, several enemies) get multiPct % of that.
+// Multi-hit cap: per use only the first multiHitCap hits (default 4, 0 = no cap) score and count toward the combo; further hits of the same
+// use score 0, add nothing, do not refresh the decay delay and do not raise the combo (s->hits still counts every real hit). The summoned
+// guardian spirit's hits are one use of their own (SmSummonHits), capped the same way.
+// Loop penalty: the ordered act ids of the player's uses are tracked; a trailing loop of period 1 (A A A ..) or period 2 (A B A B ..) that
+// already completed loopReps cycles (default 3: the 4th A in a row, the 7th use of A B A B A B A) makes every further use of it score 0 for
+// all its hits and take loopPts (default 10) off the gauge once per use (draining like decay: below 0 drops a rank, at D it ends idle;
+// the decay delay is not refreshed). Any other move breaks the loop; an unknown act (SM_ACT_NONE / 0) breaks it too. loopReps 0 = off.
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D;
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
 // Promotion: rankPts[r] points fill rank r; the overflow carries into the next rank. SSS caps at a full gauge.
@@ -69,6 +76,9 @@
 #define SM_MA_PTS SM_NIN_PTS // #127295 martial art: same as the ninjutsu bonus (ini MartialArtPts unset = NinjutsuPts)
 #define SM_SKILL_NONE_ID 0xBA71u  // #127295 action-row skill word the game's AttackSkill test (cond 0x2F, 0x2EA15B) treats as none
 #define SM_ACT_NONE 0xFFFFFFFFu
+#define SM_LOOP_REPS 3      // [StyleMeter] LoopReps: cycles of a 1- or 2-move loop allowed before each further use costs points (0 = off, 2..7)
+#define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
+#define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
@@ -93,6 +103,7 @@ typedef struct {
     int gsSummonMs;                       // human: summoned guardian spirit hits count this long after the summon's gauge spend (0 = off)
     int comboMs, comboStep, comboBase, comboInc, comboMax;  // human: combo window / milestone size / milestone bonus (0 base = no bonus)
     float ma;                             // #127295 martial art bonus (default = nin)
+    int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -126,6 +137,9 @@ typedef struct {
     uint32_t counterAvoids; // clean avoids during a skill move that counted as that move's counter
     uint32_t combo, comboBest, comboBonuses;  // human: landed hits in the current combo / longest combo / milestone bonuses paid
     double comboT;          // game ms of the combo's last hit
+    uint32_t lpA, lpB; int lpN1, lpN2;   // loop penalty: act of the last / the one before use, trailing period-1 / period-2 run lengths (uses)
+    uint64_t lpRun; int lpOn, lpPen, lpHits;  // the current player use (own run key), it is a looped use, its hits so far (multi-hit cap)
+    uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
@@ -137,6 +151,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS; c->gsSummonMs = SM_GS_SUMMON_MS;
     c->comboMs = SM_COMBO_MS; c->comboStep = SM_COMBO_STEP; c->comboBase = SM_COMBO_BASE; c->comboInc = SM_COMBO_INC; c->comboMax = SM_COMBO_MAX;
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
+    c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
@@ -159,11 +174,14 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->comboMs < 200) c->comboMs = 200; if (c->comboMs > 20000) c->comboMs = 20000; if (c->comboStep < 2) c->comboStep = 2; if (c->comboStep > 1000) c->comboStep = 1000;
     if (c->comboBase < 0) c->comboBase = 0; if (c->comboInc < 0) c->comboInc = 0; if (c->comboMax < c->comboBase) c->comboMax = c->comboBase;
     if (c->ma < 0) c->ma = 0;
+    if (c->loopReps < 0) c->loopReps = 0; if (c->loopReps == 1) c->loopReps = 2; if (c->loopReps > 7) c->loopReps = 7;
+    if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
     uint8_t* p = (uint8_t*)s; for (unsigned i = 0; i < sizeof *s; ++i) p[i] = 0;
     s->useAct = SM_ACT_NONE; s->lastScore = s->lastEvent = s->lastHit = s->lastSoul = s->lastSwap = s->lastStyleT = s->hitSlotT = s->comboT = -1e18; s->lastDamaged = -1; s->hitSlot = -1;
+    s->lpA = s->lpB = SM_ACT_NONE;
 }
 static inline float SmGauge(const SmState* s, const SmCfg* c) {
     if (!s->active) return 0.f;
@@ -175,6 +193,25 @@ static inline void SmAdd(SmState* s, const SmCfg* c, float pts) {
     s->active = 1; s->pts += pts;
     while (s->rank < SM_RANKS - 1 && s->pts >= c->rankPts[s->rank]) { s->pts -= c->rankPts[s->rank]; s->rank++; }
     if (s->rank == SM_RANKS - 1 && s->pts > c->rankPts[s->rank]) s->pts = c->rankPts[s->rank];
+}
+// Points lost (loop penalty): drains like SmTick's decay (below 0 drops a rank, refilled from that rank's top; at D it ends empty / idle).
+// Does not touch lastScore. Nothing to lose when idle.
+static inline void SmSub(SmState* s, const SmCfg* c, float pts) {
+    if (!(pts > 0.f) || !s->active) return;
+    s->pts -= pts;
+    while (s->pts < 0.f) {
+        if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
+        s->rank--; s->pts += c->rankPts[s->rank];
+    }
+}
+// Loop penalty, once per new player use with act id `act`: 1 = the use continues a period-1 (A A A ..) or period-2 (A B A B ..) loop that
+// already completed loopReps cycles (period 1: more than loopReps uses in a row, period 2: more than 2 x loopReps). Unknown act breaks it.
+static inline int SmLoopStep(SmState* s, const SmCfg* c, uint32_t act) {
+    if (act == SM_ACT_NONE || act == 0) { s->lpA = s->lpB = SM_ACT_NONE; s->lpN1 = s->lpN2 = 0; return 0; }
+    const int n1 = act == s->lpA ? s->lpN1 + 1 : 1;
+    const int n2 = s->lpA == SM_ACT_NONE || act == s->lpA ? 1 : act == s->lpB && s->lpN2 >= 2 ? s->lpN2 + 1 : 2;
+    s->lpN1 = n1; s->lpN2 = n2; s->lpB = s->lpA; s->lpA = act;
+    return c->loopReps > 0 && (n1 > c->loopReps || n2 > 2 * c->loopReps);
 }
 // Variety factor for a NEW use of action id `act` (1.0 for an unknown id: no data, no penalty).
 static inline float SmVariety(const SmState* s, const SmCfg* c, uint32_t act) {
@@ -193,8 +230,21 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
 }
 // One hit landed. act = the player's action id at the hit, run = a key of that action run (a new run of the same id = a new use).
 // startupF: that run's startup (frames, < 0 unknown); counter: 1 = the run had i-frames inside an enemy hit window (bonus once per use).
-static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) {
+// summon = 1: a summoned guardian spirit hit (SmSummonHits does its own cap; no loop tracking, so its hits between the player's do not
+// split or repeat the player's use).
+static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon) {
     float f, bonus = 0.f;
+    if (!summon) {  // loop penalty / multi-hit cap, per player use (own run key)
+        if (!s->lpOn || run != s->lpRun) {
+            s->lpOn = 1; s->lpRun = run; s->lpHits = 0; s->lpPen = SmLoopStep(s, c, act);
+            if (s->lpPen) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts); }
+        }
+        if (s->lpPen || (c->multiHitCap > 0 && s->lpHits >= c->multiHitCap)) {  // scores 0, no decay refresh, no combo
+            if (!s->lpPen) s->cappedHits++;
+            s->hits++; s->lastEvent = s->lastHit = t; return 0.f;
+        }
+        s->lpHits++;
+    }
     if (s->useOn && act == s->useAct && run == s->useRun) f = s->useFactor * (float)c->multiPct / 100.f;
     else {
         f = SmVariety(s, c, act) * SmStartupMult(c, startupF);
@@ -204,8 +254,10 @@ static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act
     }
     const float p = c->hit * f + bonus;
     SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
+    s->countedHits++;
     return p;
 }
+static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) { return SmOnHitUse(s, c, t, act, run, startupF, counter, 0); }
 static inline float SmOnHit(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run) { return SmOnHitEx(s, c, t, act, run, -1.f, 0); }
 // In combat = a hit landed within combatMs (skills / style switches outside a fight score nothing and do not wake the meter).
 static inline int SmInCombat(const SmState* s, const SmCfg* c, double t) { return t - s->lastHit <= (double)c->combatMs; }
@@ -292,14 +344,17 @@ static inline float SmGsPay(SmState* s, const SmCfg* c, SmGsMove* g, double t, f
 // own actor (same team as the player), so they are not the player's hits. A guardian spirit gauge spend opens a window of gsSummonMs;
 // each hit by a same-team actor inside it scores like a hit of the summon move (one use: variety, multi-hit, keeps the meter from
 // draining) and the guardian spirit bonus once per summon, unless that move already paid it with the player's own hits.
-typedef struct { double t0; uint64_t run; uint32_t act; int paid; } SmSummon;
-static inline void SmSummonReset(SmSummon* m) { m->t0 = -1e18; m->run = 0; m->act = 0; m->paid = 1; }
-static inline void SmSummonOpen(SmSummon* m, double t, uint64_t run, uint32_t act) { m->t0 = t; m->run = run; m->act = act; m->paid = 0; }
+typedef struct { double t0; uint64_t run; uint32_t act; int paid; int hitsN; } SmSummon;  // hitsN: hits so far (multi-hit cap)
+static inline void SmSummonReset(SmSummon* m) { m->t0 = -1e18; m->run = 0; m->act = 0; m->paid = 1; m->hitsN = 0; }
+static inline void SmSummonOpen(SmSummon* m, double t, uint64_t run, uint32_t act) { m->t0 = t; m->run = run; m->act = act; m->paid = 0; m->hitsN = 0; }
 static inline int SmSummonLive(const SmSummon* m, const SmCfg* c, double t) { return c->gsSummonMs > 0 && t - m->t0 >= 0.0 && t - m->t0 <= (double)c->gsSummonMs; }
 static inline float SmSummonHits(SmState* s, const SmCfg* c, SmSummon* m, double t, int n, float* bonus) {
     float p = 0.f; *bonus = 0.f;
     if (n <= 0 || !SmSummonLive(m, c, t)) return 0.f;
-    for (int i = 0; i < n && i < 64; ++i) p += SmOnHitEx(s, c, t, m->act, m->run, -1.f, 0);
+    for (int i = 0; i < n && i < 64; ++i) {
+        if (c->multiHitCap > 0 && m->hitsN >= c->multiHitCap) { s->hits++; s->cappedHits++; s->lastEvent = s->lastHit = t; continue; }  // over the cap
+        m->hitsN++; p += SmOnHitUse(s, c, t, m->act, m->run, -1.f, 0, 1);
+    }
     if (!m->paid && c->gs > 0.f) { m->paid = 1; s->gsHits++; SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; *bonus = c->gs; }
     return p;
 }
