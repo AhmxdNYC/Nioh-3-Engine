@@ -508,6 +508,41 @@ static void Loop(void) {  // loop penalty: period 1 / period 2 past loopReps cyc
     SmCfg q = c; q.loopReps = 1; q.loopPts = -5.f; SmCfgClamp(&q); CHECK(q.loopReps == 2 && q.loopPts == 0.f);
     q.loopReps = 99; SmCfgClamp(&q); CHECK(q.loopReps == 7); q.loopReps = -1; SmCfgClamp(&q); CHECK(q.loopReps == 0);
 }
+static void LoopAvoid(void) {  // human 2026-11-25: dodges / deflects / avoid counters are moves in the loop sequence
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f; c.multiHitCap = 0;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopReps == 2 && near(c.loopPts, 10.f));
+    SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);  // 10 in
+    // deflect x3: the 3rd scores 0 and costs 10 (still counted as a deflect), no decay refresh
+    CHECK(near(SmOnDeflect(&s, &c, 10), c.deflect) && near(SmOnDeflect(&s, &c, 20), c.deflect));
+    const float p2 = s.pts; const double ls = s.lastScore;
+    CHECK(SmOnDeflect(&s, &c, 30) == 0.f && near(s.pts, p2 - 10.f) && s.loopPens == 1 && near(s.loopLost, 10.f) && s.deflects == 3 && s.lastScore == ls);
+    CHECK(SmOnDeflect(&s, &c, 40) == 0.f && s.loopPens == 2);  // 4th too
+    CHECK(near(SmOnHit(&s, &c, 50, 7, 2), 10.f) && near(SmOnDeflect(&s, &c, 60), c.deflect));  // an attack breaks it
+    // dodge x3 the same
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);
+    CHECK(near(SmOnDodge(&s, &c, 10), c.dodge) && near(SmOnDodge(&s, &c, 20), c.dodge) && SmOnDodge(&s, &c, 30) == 0.f && s.loopPens == 1 && s.dodges == 3);
+    // dodge deflect dodge deflect dodge: the 5th costs
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);
+    CHECK(near(SmOnDodge(&s, &c, 10), c.dodge) && near(SmOnDeflect(&s, &c, 20), c.deflect) && near(SmOnDodge(&s, &c, 30), c.dodge) && near(SmOnDeflect(&s, &c, 40), c.deflect));
+    CHECK(SmOnDodge(&s, &c, 50) == 0.f && s.loopPens == 1);
+    // attack deflect attack deflect attack: the 5th (an attack use) costs, all its hits 0; attack deflect attack is fine
+    SmReset(&s); uint64_t r = 10;
+    CHECK(near(SmOnHit(&s, &c, 10, 7, r++), 10.f) && near(SmOnDeflect(&s, &c, 20), c.deflect) && near(SmOnHit(&s, &c, 30, 7, r++), 10.f) && s.loopPens == 0);
+    CHECK(near(SmOnDeflect(&s, &c, 40), c.deflect) && SmOnHit(&s, &c, 50, 7, r) == 0.f && SmOnHit(&s, &c, 55, 7, r++) == 0.f && s.loopPens == 1);
+    // a dodge inside an attack does not split that attack's use: A (hit, dodge, hit) A is A D A, no penalty
+    SmReset(&s); r = 20;
+    SmOnHit(&s, &c, 10, 7, r); SmOnDodge(&s, &c, 15); CHECK(near(SmOnHit(&s, &c, 20, 7, r), 10.f) && near(SmOnHit(&s, &c, 30, 7, ++r), 10.f) && s.loopPens == 0);
+    // avoid counter: a step of its own move, shared with that move's hits (one step, one penalty per move)
+    SmReset(&s); r = 30;
+    for (int i = 0; i < 2; ++i) { CHECK(near(SmOnAvoidCounterUse(&s, &c, 10.0 * i, 1, 40, r), c.dodge)); CHECK(near(SmOnHit(&s, &c, 10.0 * i + 5, 40, r++), 10.f)); }
+    CHECK(s.loopPens == 0 && s.lpN1 == 2);
+    CHECK(SmOnAvoidCounterUse(&s, &c, 30, 1, 40, r) == 0.f && SmOnHit(&s, &c, 35, 40, r++) == 0.f && s.loopPens == 1 && s.counterAvoids == 3);
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);  // the move-less form uses its own pseudo id
+    CHECK(near(SmOnAvoidCounter(&s, &c, 10, 1), c.dodge) && near(SmOnAvoidCounter(&s, &c, 20, 0), c.dodge) && SmOnAvoidCounter(&s, &c, 30, 0) == 0.f && s.loopPens == 1);
+    // loop off: avoids always score
+    SmCfg z = c; z.loopReps = 0; SmReset(&s); SmOnHit(&s, &z, 0, 7, 1); for (int i = 0; i < 5; ++i) CHECK(near(SmOnDeflect(&s, &z, 10.0 + i), z.deflect));
+}
 static void MultiCap(void) {  // multi-hit cap: per use only the first multiHitCap hits score / count toward the combo
     SmCfg c; RealDefaults(&c); c.loopReps = 0; c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
     SmState s; SmReset(&s); uint32_t mile = 0;
@@ -662,7 +697,7 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
     SmBlkTake(&q, 0, 0); CHECK(SmBlkTake(&q, 0, 0) == SM_BLK_Q && q.n == 0);
 }
 int main(void) {
-    Loop(); MultiCap();
+    Loop(); LoopAvoid(); MultiCap();
     BurstBreak();
     Blocked(); BlockQueue();
     Combo();

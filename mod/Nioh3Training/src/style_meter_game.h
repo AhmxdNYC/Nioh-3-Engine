@@ -655,10 +655,11 @@ static void SmFeed(double gdt) {
     if (pgs0 > 0.f && gsm.run == gsum.run) gsum.paid = 1;  // the player's own hits paid this move's bonus
     float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
     const float pgs = pgs0 + sumB;
+    const int plLoop = (hits > 0 || blocked > 0) && g_sm.lpOn && g_sm.lpPen;  // this tick's player hits are a looped use (scored 0)
     float pbb = 0.f, bbHitPts = 0.f; int bbN = 0; SmBurstEnd bbE[N3T_SLOTS]; int bbR[N3T_SLOTS], bbNew[N3T_SLOTS], bbCand[N3T_SLOTS];
     for (int s = 0; s < N3T_SLOTS; ++s) {  // human: Burst Break (style_meter.h SmBurstStep)
         const int valid = g_fp[s].valid && g_fp[s].a, pbit = s < 32 && (bbPl >> s) & 1, ab = s < 32 && (bbAl >> s) & 1;
-        const int hk = pbit ? (bbSkill ? 2 : 1) : ab ? 2 : 0;
+        const int hk = pbit && !plLoop ? (bbSkill ? 2 : 1) : ab ? 2 : 0;  // a looped use's hit breaks nothing
         const int was = bbs[s].on && bbs[s].burst, hitsWas = bbs[s].hits; const uint64_t keyWas = bbs[s].key;
         bbR[s] = SmBurstStep(&bbs[s], &g_smc, g_sm_clock, valid, (uint64_t)g_fp[s].run.f0 << 32 | g_fp[s].run.act, g_fp[s].run.act, bbRow[s], bbNext[s], g_fp[s].run.great, hk, pbit ? ph : psum, &bbE[s]);
         bbNew[s] = valid && bbs[s].burst && !(was && bbs[s].key == keyWas);          // this run was just marked a burst run (log)
@@ -669,7 +670,6 @@ static void SmFeed(double gdt) {
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
     // multi-hit cap / loop penalty: only the hits that scored (SmOnHitEx / SmSummonHits counted them) feed the combo
-    const uint32_t loopN = g_sm.loopPens - lp0, capN = g_sm.cappedHits - cap0; const float loopLost = g_sm.loopLost - lpl0;
     uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)(g_sm.countedHits - hc0), &comboMile);
     if (maMark) g_sm.maUses++;
     const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
@@ -684,7 +684,9 @@ static void SmFeed(double gdt) {
     if (ctrHit) ctrPaidRun = run;
     if (deflect) pp = SmOnDeflect(&g_sm, &g_smc, g_sm_clock);
     float pac = -1.f;
-    if (avCtr) { pac = SmOnAvoidCounter(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun); ctrPaidRun = run; }
+    if (avCtr) { pac = SmOnAvoidCounterUse(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, act, run); ctrPaidRun = run; }
+    // loop penalty this tick: looped attack uses and looped dodges / deflects / avoid counters (each scored 0 and cost LoopPenaltyPts)
+    const uint32_t loopN = g_sm.loopPens - lp0, capN = g_sm.cappedHits - cap0; const float loopLost = g_sm.loopLost - lpl0;
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmComboTick(&g_sm, &g_smc, g_sm_clock);
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);

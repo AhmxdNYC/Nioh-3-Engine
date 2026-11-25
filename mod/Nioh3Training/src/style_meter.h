@@ -27,6 +27,11 @@
 // already completed loopReps cycles (default 3: the 4th A in a row, the 7th use of A B A B A B A) makes every further use of it score 0 for
 // all its hits and take loopPts (default 10) off the gauge once per use (draining like decay: below 0 drops a rank, at D it ends idle;
 // the decay delay is not refreshed). Any other move breaks the loop; an unknown act (SM_ACT_NONE / 0) breaks it too. loopReps 0 = off.
+// The avoid events are moves in the same sequence (human 2026-11-25: "3 deflects in a row, the 3rd gets no points AND you lose -10"):
+// a clean dodge / deflect is one step with a pseudo act id (SM_LOOP_DODGE / SM_LOOP_DEFLECT); an avoid counter is a step of its own
+// skill move (act / run, the same use as that move's hits). A looped one scores 0 and costs loopPts like a looped attack use. Bonuses
+// that belong to a use (counter, startup, weapon switch, guardian spirit / martial art, combo feed, Burst Break hit) are not paid for a
+// looped use; Ki pulses, ninjutsu, soul core and style switches are not in the sequence.
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D;
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
 // Promotion: rankPts[r] points fill rank r; the overflow carries into the next rank. SSS caps at a full gauge.
@@ -79,6 +84,9 @@
 #define SM_SKILL_NONE_ID 0xBA71u  // #127295 action-row skill word the game's AttackSkill test (cond 0x2F, 0x2EA15B) treats as none
 #define SM_ACT_NONE 0xFFFFFFFFu
 #define SM_LOOP_REPS 2      // [StyleMeter] LoopReps: cycles of a 1- or 2-move loop allowed before each further use costs points (0 = off, 2..7; human 2026-11-25: A A or A B A B is fine, the next repeat costs)
+#define SM_LOOP_DODGE 0xFFFFFF01u    // loop sequence pseudo act ids of the avoid events (no real action id is this high)
+#define SM_LOOP_DEFLECT 0xFFFFFF02u
+#define SM_LOOP_COUNTER 0xFFFFFF03u  // an avoid counter with no move key (SmOnAvoidCounter; the game glue passes the move)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
 #define SM_MULTI_CAP 4      // [StyleMeter] MultiHitCap: hits per use that score / count toward the combo (0 = no cap)
 #define SM_BURST_PTS 40     // human: [StyleMeter] BurstBreakPts, a boss's red (burst / GreatAttack) attack interrupted by your hit during its wind-up
@@ -226,6 +234,22 @@ static inline int SmLoopStep(SmState* s, const SmCfg* c, uint32_t act) {
     s->lpN1 = n1; s->lpN2 = n2; s->lpB = s->lpA; s->lpA = act;
     return c->loopReps > 0 && (n1 > c->loopReps || n2 > 2 * c->loopReps);
 }
+static inline void SmLoopPay(SmState* s, const SmCfg* c) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts); }
+// A player use (act, run key): the first call of a new run steps the loop (and pays a looped use's penalty); returns 1 = it is looped.
+static inline int SmLoopUse(SmState* s, const SmCfg* c, uint32_t act, uint64_t run) {
+    if (!s->lpOn || run != s->lpRun) {
+        s->lpOn = 1; s->lpRun = run; s->lpHits = 0; s->lpPen = SmLoopStep(s, c, act);
+        if (s->lpPen) SmLoopPay(s, c);
+    }
+    return s->lpPen;
+}
+// A one-shot move with no use of its own (pseudo act id): one step; returns 1 = looped (penalty paid). The current use is untouched, so
+// the further hits of an attack that a dodge happened in stay that attack's use.
+static inline int SmLoopEvent(SmState* s, const SmCfg* c, uint32_t act) {
+    const int pen = SmLoopStep(s, c, act);
+    if (pen) SmLoopPay(s, c);
+    return pen;
+}
 // Variety factor for a NEW use of action id `act` (1.0 for an unknown id: no data, no penalty).
 static inline float SmVariety(const SmState* s, const SmCfg* c, uint32_t act) {
     if (act == SM_ACT_NONE || act == 0) return 1.f;
@@ -249,10 +273,7 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
 static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon, int pct) {
     float f, bonus = 0.f;
     if (!summon) {  // loop penalty / multi-hit cap, per player use (own run key)
-        if (!s->lpOn || run != s->lpRun) {
-            s->lpOn = 1; s->lpRun = run; s->lpHits = 0; s->lpPen = SmLoopStep(s, c, act);
-            if (s->lpPen) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts); }
-        }
+        SmLoopUse(s, c, act, run);
         if (s->lpPen || (c->multiHitCap > 0 && s->lpHits >= c->multiHitCap)) {  // scores 0, no decay refresh, no combo
             if (!s->lpPen) s->cappedHits++;
             s->hits++; s->lastEvent = s->lastHit = t; return 0.f;
@@ -354,10 +375,31 @@ static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
     s->hitsAtStyle = s->hits; s->soulsAtStyle = s->soulsScored; s->lastStyleT = t;
     SmAdd(s, c, c->style); s->lastEvent = s->lastScore = t; return c->style;
 }
-static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->dodge); s->dodges++; s->lastEvent = s->lastScore = t; return c->dodge; }
-static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) { SmAdd(s, c, c->deflect); s->deflects++; s->lastEvent = s->lastScore = t; return c->deflect; }
+// Clean dodge / deflect: still counted when looped (it happened), but a looped one scores 0 and costs loopPts (no decay refresh).
+static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) {
+    s->dodges++; s->lastEvent = t;
+    if (SmLoopEvent(s, c, SM_LOOP_DODGE)) return 0.f;
+    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+}
+static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) {
+    s->deflects++; s->lastEvent = t;
+    if (SmLoopEvent(s, c, SM_LOOP_DEFLECT)) return 0.f;
+    SmAdd(s, c, c->deflect); s->lastScore = t; return c->deflect;
+}
 // Counter by avoiding: dodge points; count = 1 when this move has not been counted as a counter yet (the hit counter may have been first).
-static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) { SmAdd(s, c, c->dodge); if (count) s->counterAvoids++; s->lastEvent = s->lastScore = t; return c->dodge; }
+// act / run = the skill move (a loop step of that use, shared with its hits: a looped move's avoid scores 0, the penalty is paid once).
+static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, int count, uint32_t act, uint64_t run) {
+    if (count) s->counterAvoids++;
+    s->lastEvent = t;
+    if (SmLoopUse(s, c, act, run)) return 0.f;
+    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+}
+static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) {
+    if (count) s->counterAvoids++;
+    s->lastEvent = t;
+    if (SmLoopEvent(s, c, SM_LOOP_COUNTER)) return 0.f;
+    SmAdd(s, c, c->dodge); s->lastScore = t; return c->dodge;
+}
 // #127065 / #127075 ninjutsu gate: n gauge drops this tick -> 1 if it is a new throw. One per throw (drops within SM_NIN_GAP_MS of the
 // last one are the same throw, e.g. two +20 10 ms apart, act 34000 -> 34052), and only in Ninja mode (style 1; -1 = unknown is allowed).
 static inline int SmNinGate(double* lastT, double t, int n, int style) {
