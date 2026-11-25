@@ -202,6 +202,7 @@ typedef struct {
     double upMs; int prevRank;   // #127299 ms since the shown rank stepped up (<0 / large = none), the rank before it
     int combo; float comboA;     // human: combo count shown under the pop-ups (< 2 = none) and its opacity (fades after the combo ends)
     int mile, milePts; float mileA; double mileMs;  // human: last combo milestone banner (hits, bonus), its opacity, ms since it was reached
+    int mileKind;                // human: 1 = the banner is a move variety milestone ("Variety x10! +30", mile = distinct moves)
 } SmDrawSt;
 // #127289 pop-up text size as a share of pf (human: in proportion with the shorter bar, #127273 SM_BAR_WK)
 #ifndef SM_POP_K
@@ -933,7 +934,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             }
             if (st->mileA > 0.f && st->mile > 0) {  // "20 Hit Combo! +40": hits in gold, bonus in white-silver, under the counter
                 SelectObject(tdc, fm);
-                char l1[40], l2[16]; snprintf(l1, sizeof l1, "%d Hit Combo!", st->mile); snprintf(l2, sizeof l2, " +%d", st->milePts);
+                char l1[40], l2[16]; if (st->mileKind == 1) snprintf(l1, sizeof l1, "Variety x%d!", st->mile); else snprintf(l1, sizeof l1, "%d Hit Combo!", st->mile); snprintf(l2, sizeof l2, " +%d", st->milePts);
                 SIZE a1 = {0, 0}, a2 = {0, 0}; GetTextExtentPoint32A(tdc, l1, (int)strlen(l1), &a1); GetTextExtentPoint32A(tdc, l2, (int)strlen(l2), &a2);
                 const float in = st->mileMs < 180 ? (float)(st->mileMs / 180.0) : 1.f;
                 const int mx0 = (TW - (int)(a1.cx + a2.cx)) / 2, my = oy + (int)(c->cp * 1.2f) + (int)((1.f - in) * c->pp * 0.6f);

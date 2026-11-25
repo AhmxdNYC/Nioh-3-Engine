@@ -33,6 +33,12 @@
 // skill move (act / run, the same use as that move's hits). A looped one scores 0 and costs loopPts like a looped attack use. Bonuses
 // that belong to a use (counter, startup, weapon switch, guardian spirit / martial art, combo feed, Burst Break hit) are not paid for a
 // looped use; Ki pulses, ninjutsu, soul core and style switches are not in the sequence.
+// Move variety (human 2026-11-25): a run keeps the set of distinct player moves that scored (SmVarietyMove: the act id of every new player
+// use that scored a hit or a blocked hit, not looped / penalized uses, not unknown ids, not the summoned spirit's hits; plus pseudo ids
+// SM_VAR_DODGE .. SM_VAR_KI for a scored dodge / deflect / avoid counter / Ki pulse, fed by the game glue). Each time the distinct count
+// reaches varStep, 2 x varStep, .. up to varMax, the run pays varBase, then varInc more per milestone (defaults 5 moves +20, 10 +30, ..,
+// 60 +130). The set does not reset with rank decay / an idle meter; the game glue resets it (SmVarietyReset) at a boss fight start, player
+// death and a load.
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D;
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
 // Promotion: rankPts[r] points fill rank r; the overflow carries into the next rank. SSS caps at a full gauge.
@@ -95,6 +101,16 @@
 #define SM_BURST_CTR_ACT 1095u  // ... BurstCounterAct: the player's burst counter action id (live 2026-11-25: act 0x447 every time, 1 f startup,
                                // pad B+RT; its hit lands after the red attack is out, the boss then goes to its burst-broken action). 0 = off
 #define SM_BURST_AVOID_MS 300  // an avoid (dodge / deflect / counter) this soon after a burst-counter Burst Break is that same event (not paid)
+#define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
+#define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
+#define SM_VAR_INC 10         // ... VarietyBonusStep: each later milestone pays this much more (20, 30, 40, ..)
+#define SM_VAR_MAX 60         // ... VarietyMax: no milestone past this many distinct moves (at most SM_VAR_IDS)
+#define SM_VAR_IDS 64         // distinct move ids remembered per run
+// pseudo move ids for non-hit moves (variety set only; real act ids are small)
+#define SM_VAR_DODGE 0xFFFFFF01u
+#define SM_VAR_DEFLECT 0xFFFFFF02u
+#define SM_VAR_COUNTER 0xFFFFFF03u
+#define SM_VAR_KI 0xFFFFFF04u
 #define SM_BLOCK_PCT 50       // [StyleMeter] BlockPct: a guarded (blocked) hit is worth this % of a normal hit (human: 'half the points'; 0 = off)
 
 static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS", "SSS"};
@@ -123,6 +139,7 @@ typedef struct {
     int loopReps; float loopPts; int multiHitCap;  // loop penalty cycles (0 = off) / points per looped use; hits per use that score (0 = all)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
     uint32_t burstCtrAct;                 // the player's burst counter action id (its hit breaks a red attack that is already out; 0 = off)
+    int varStep, varBase, varInc, varMax; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -162,6 +179,8 @@ typedef struct {
     uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
     uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
+    uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
+    uint32_t varBonuses; int varMile; float varLastPts, varPts;  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {
@@ -177,6 +196,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
     c->blockPct = SM_BLOCK_PCT;
+    c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
 // Clamp ini values into sane ranges (no zero-size rank, no negative points).
@@ -202,6 +222,8 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
+    if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0;
+    if (c->varMax < 0) c->varMax = 0; if (c->varMax > SM_VAR_IDS) c->varMax = SM_VAR_IDS;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -255,6 +277,21 @@ static inline int SmLoopEvent(SmState* s, const SmCfg* c, uint32_t act) {
     if (pen) SmLoopPay(s, c);
     return pen;
 }
+// Move variety: a new run (fight start / death / load). The meter itself is untouched.
+static inline void SmVarietyReset(SmState* s) { s->varN = 0; s->varMile = 0; s->varLastPts = 0.f; }
+// Move variety: move `id` scored (a real act id or SM_VAR_*). A new distinct move that brings the count to a milestone (every varStep, up to
+// varMax) pays the bonus (added to the gauge, refreshes the decay delay) and returns it; else 0 (s->varMile = the count it paid at).
+static inline float SmVarietyMove(SmState* s, const SmCfg* c, double t, uint32_t id) {
+    if (id == SM_ACT_NONE || id == 0 || s->varN >= c->varMax || s->varN >= SM_VAR_IDS) return 0.f;
+    for (int i = 0; i < s->varN; ++i) if (s->varIds[i] == id) return 0.f;
+    s->varIds[s->varN++] = id;
+    if (c->varStep <= 0 || s->varN % c->varStep) return 0.f;
+    const float b = (float)(c->varBase + (s->varN / c->varStep - 1) * c->varInc);
+    if (!(b > 0.f) || c->varBase <= 0) return 0.f;  // VarietyBonus 0 = off (the count still runs)
+    SmAdd(s, c, b); s->lastEvent = s->lastScore = t;
+    s->varBonuses++; s->varMile = s->varN; s->varLastPts = b; s->varPts += b;
+    return b;
+}
 // Variety factor for a NEW use of action id `act` (1.0 for an unknown id: no data, no penalty).
 static inline float SmVariety(const SmState* s, const SmCfg* c, uint32_t act) {
     if (act == SM_ACT_NONE || act == 0) return 1.f;
@@ -289,7 +326,9 @@ static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t
     else {
         f = SmVariety(s, c, act) * SmStartupMult(c, startupF);
         if (counter && c->counter > 0.f) { bonus = c->counter; s->counters++; }
+        const int newUse = !s->useOn || run != s->useRun;  // a chained segment (same use key, new act) is not a new move
         s->useOn = 1; s->useAct = act; s->useRun = run; s->useFactor = f;
+        if (!summon && newUse) SmVarietyMove(s, c, t, act);  // human: move variety (the glue reads varBonuses for the banner)
         if (act != SM_ACT_NONE && act != 0) { s->hist[s->histPos] = act; s->histPos = (s->histPos + 1) % SM_HIST; if (s->histN < SM_HIST) s->histN++; }
     }
     const float p = (c->hit * f + bonus) * (float)pct / 100.f;

@@ -15,6 +15,7 @@ static void PinnedDefaults(SmCfg* c) {
     // #127568: the shipped defaults moved to the human's tuning; the mechanics cases keep the numbers they were written for.
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
+    c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -167,7 +168,7 @@ static void Tuning(void) {
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 40.f / 180.f));  // 8 different moves = 160 pts: D (120) full, 40 into C (180)
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 60.f / 180.f));  // 8 different moves = 160 pts + 20 (5 distinct moves): D (120) full, 60 into C (180)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -814,7 +815,55 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
     CHECK(q.n == SM_BLK_Q && q.dropped == 3);
     SmBlkTake(&q, 0, 0); CHECK(SmBlkTake(&q, 0, 0) == SM_BLK_Q && q.n == 0);
 }
+// human 2026-11-25: move variety. Distinct scored moves per run; a bonus at 5, 10, .. 60 (20, 30, .. 130); not reset by decay / idle.
+static void MoveVariety(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(c.varStep == 5 && c.varBase == 20 && c.varInc == 10 && c.varMax == 60 && SM_VAR_IDS >= 64);
+    c.decayDelayMs = 1000000;  // no decay in the first part
+    double t = 1000; uint64_t run = 1; float total = 0.f; int paid = 0;
+    for (uint32_t a = 100; a < 104; ++a) { SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); t += 100; }
+    CHECK(s.varN == 4 && s.varBonuses == 0);
+    SmOnHitUse(&s, &c, t, 100, run++, -1.f, 0, 0); CHECK(s.varN == 4);          // a repeat is not new
+    SmOnHitUse(&s, &c, t, 0, run++, -1.f, 0, 0); SmOnHitUse(&s, &c, t, SM_ACT_NONE, run++, -1.f, 0, 0); CHECK(s.varN == 4);  // unknown ids
+    SmOnHitUse(&s, &c, t, 900, run++, -1.f, 0, 1); CHECK(s.varN == 4);          // the summoned spirit's hit
+    const float pts0 = s.pts + 1000.f * s.rank;
+    const float ph = SmOnHitUse(&s, &c, t, 104, run++, -1.f, 0, 0);            // 5th distinct move: +20
+    CHECK(s.varN == 5 && s.varBonuses == 1 && s.varMile == 5 && near(s.varLastPts, 20) && near(s.varPts, 20));
+    CHECK(near(ph, c.hit) && s.lastScore == t);                                // the hit's own value excludes the bonus
+    (void)pts0;
+    // multi-hit of one use counts once; the next milestones grow by 10
+    const uint64_t mr = run++; for (int i = 0; i < 3; ++i) SmOnHitUse(&s, &c, t, 105, mr, -1.f, 0, 0); CHECK(s.varN == 6);
+    for (uint32_t a = 106; a < 200; ++a) { const uint32_t b0 = s.varBonuses; SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); if (s.varBonuses != b0) { paid++; total += s.varLastPts; } t += 10; }
+    CHECK(s.varN == 60 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 900.f) && near(total, 880.f) && s.varMile == 60 && near(s.varLastPts, 130));
+    // pure milestone table
+    SmState q; SmReset(&q); float seen[13]; int ns = 0;
+    for (uint32_t a = 1; a <= 70; ++a) { const float b = SmVarietyMove(&q, &c, 0, a); if (b > 0.f && ns < 13) seen[ns++] = b; }
+    CHECK(ns == 12 && near(seen[0], 20) && near(seen[1], 30) && near(seen[2], 40) && near(seen[11], 130) && q.varN == 60);
+    CHECK(SmVarietyMove(&q, &c, 0, 9999) == 0.f && q.varN == 60);               // no more after VarietyMax
+    // the run survives decay to idle
+    SmCfg d; RealDefaults(&d); SmState r; SmReset(&r); t = 0; run = 1;
+    for (uint32_t a = 1; a <= 4; ++a) SmOnHitUse(&r, &d, t, a, run++, -1.f, 0, 0);
+    for (int i = 0; i < 400; ++i) { t += 50; SmTick(&r, &d, t, 50); }
+    CHECK(!r.active && r.varN == 4);
+    SmOnHitUse(&r, &d, t, 5, run++, -1.f, 0, 0); CHECK(r.varBonuses == 1 && r.active);
+    // pseudo ids (dodge / deflect / avoid counter / Ki): one move each
+    SmVarietyReset(&r); CHECK(r.varN == 0 && r.varMile == 0 && r.varBonuses == 1);
+    SmVarietyMove(&r, &d, t, SM_VAR_DODGE); SmVarietyMove(&r, &d, t, SM_VAR_DODGE); SmVarietyMove(&r, &d, t, SM_VAR_DEFLECT);
+    SmVarietyMove(&r, &d, t, SM_VAR_COUNTER); SmVarietyMove(&r, &d, t, SM_VAR_KI); CHECK(r.varN == 4 && r.varBonuses == 1);
+    SmOnBlockedHit(&r, &d, t, 77, run++, -1.f, 0); CHECK(r.varN == 5 && r.varBonuses == 2);  // a blocked hit scores, so it counts
+    // a looped (penalized) use does not count: A A, a new run, then the 3rd A in a row
+    SmState l; SmReset(&l); SmCfg lc; RealDefaults(&lc); CHECK(lc.loopReps == 2);
+    SmOnHitUse(&l, &lc, 0, 50, 1, -1.f, 0, 0); SmOnHitUse(&l, &lc, 10, 50, 2, -1.f, 0, 0); SmVarietyReset(&l);
+    SmOnHitUse(&l, &lc, 20, 50, 3, -1.f, 0, 0); CHECK(l.lpPen && l.varN == 0);
+    // VarietyBonus 0: off (the count still runs); clamp
+    SmCfg o; RealDefaults(&o); o.varBase = 0; SmState z; SmReset(&z);
+    for (uint32_t a = 1; a <= 10; ++a) SmVarietyMove(&z, &o, 0, a);
+    CHECK(z.varN == 10 && z.varBonuses == 0 && z.varPts == 0.f);
+    SmCfg k; RealDefaults(&k); k.varStep = 0; k.varMax = 500; k.varBase = -3; k.varInc = -1; SmCfgClamp(&k);
+    CHECK(k.varStep == 1 && k.varMax == SM_VAR_IDS && k.varBase == 0 && k.varInc == 0);
+}
 int main(void) {
+    MoveVariety();
     Loop(); LoopAvoid(); MultiCap(); MultiChain();
     BurstBreak();
     BurstCounterAvoid();
