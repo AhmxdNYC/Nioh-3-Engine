@@ -32,17 +32,17 @@
 
 // Counters taken from SmState at the fight start and at the end (the card shows the difference).
 typedef struct {
-    uint32_t hits, dodges, kis, kiPerfects, damaged, counters, nins, souls, styles, swapHits, gsHits, maHits, deflects, counterAvoids;
+    uint32_t hits, dodges, kis, kiPerfects, damaged, counters, nins, souls, styles, swapHits, gsHits, maHits, deflects, counterAvoids, bursts;
 } SrCount;
 static inline SrCount SrCountOf(const SmState* s) {
     SrCount c; c.hits = s->hits; c.dodges = s->dodges; c.kis = s->kis; c.kiPerfects = s->kiPerfects; c.damaged = s->damaged;
     c.counters = s->counters; c.nins = s->nins; c.souls = s->souls; c.styles = s->styles; c.swapHits = s->swapHits; c.gsHits = s->gsHits;
-    c.maHits = s->maHits; c.deflects = s->deflects; c.counterAvoids = s->counterAvoids; return c;
+    c.maHits = s->maHits; c.deflects = s->deflects; c.counterAvoids = s->counterAvoids; c.bursts = s->bursts; return c;
 }
 static inline SrCount SrCountSub(SrCount a, SrCount b) {
     SrCount c; c.hits = a.hits - b.hits; c.dodges = a.dodges - b.dodges; c.kis = a.kis - b.kis; c.kiPerfects = a.kiPerfects - b.kiPerfects;
     c.damaged = a.damaged - b.damaged; c.counters = a.counters - b.counters; c.nins = a.nins - b.nins; c.souls = a.souls - b.souls;
-    c.styles = a.styles - b.styles; c.swapHits = a.swapHits - b.swapHits; c.gsHits = a.gsHits - b.gsHits; c.maHits = a.maHits - b.maHits; c.deflects = a.deflects - b.deflects; c.counterAvoids = a.counterAvoids - b.counterAvoids;
+    c.styles = a.styles - b.styles; c.swapHits = a.swapHits - b.swapHits; c.gsHits = a.gsHits - b.gsHits; c.maHits = a.maHits - b.maHits; c.deflects = a.deflects - b.deflects; c.counterAvoids = a.counterAvoids - b.counterAvoids; c.bursts = a.bursts - b.bursts;
     return c;
 }
 
@@ -151,10 +151,10 @@ static inline int SrStep(SrFight* f, const SrBossNow* now, int playerDead, int a
 // One log / card line of the counts.
 static inline int SrFmt(char* o, int n, const SrResult* r) {
     return snprintf(o, n, "grade %s avg %.2f (meter %.2f - %.2f for hits taken; by average %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "
-        "soul cores %u, guardian spirit %u, weapon switches %u, style switches %u | hits %u, counters %u, dodges %u, deflects %u, Ki pulses %u (%u perfect), hits taken %u, best combo %u"
+        "soul cores %u, guardian spirit %u, weapon switches %u, style switches %u | hits %u, counters %u, burst breaks %u, dodges %u, deflects %u, Ki pulses %u (%u perfect), hits taken %u, best combo %u"
         " | D %.0f%% C %.0f%% B %.0f%% A %.0f%% S %.0f%% SS %.0f%% SSS %.0f%%",
         sm_rank_name[r->grade], r->avg, r->rawAvg, r->penalty, sm_rank_name[r->byAvg], sm_rank_name[r->peak], r->ms / 1000.0, r->bosses, r->bosses == 1 ? "" : "es",
-        r->moves, r->n.maHits, r->maMoves, r->n.nins, r->n.souls, r->n.gsHits, r->n.swapHits, r->n.styles, r->n.hits, r->n.counters + r->n.counterAvoids, r->n.dodges, r->n.deflects,
+        r->moves, r->n.maHits, r->maMoves, r->n.nins, r->n.souls, r->n.gsHits, r->n.swapHits, r->n.styles, r->n.hits, r->n.counters + r->n.counterAvoids, r->n.bursts, r->n.dodges, r->n.deflects,
         r->n.kis, r->n.kiPerfects, r->n.damaged, r->comboBest,
         r->pctAt[0], r->pctAt[1], r->pctAt[2], r->pctAt[3], r->pctAt[4], r->pctAt[5], r->pctAt[6]);
 }

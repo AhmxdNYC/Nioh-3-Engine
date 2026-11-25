@@ -104,11 +104,11 @@ static void Counts(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
     SmOnHit(&s, &c, 0, 5, 1); SmOnHit(&s, &c, 10, 6, 2);                // before the fight: not counted
     SrBossHit(&f, &s, 0xA);
-    SmOnHit(&s, &c, 100, 7, 3); SmOnHit(&s, &c, 200, 8, 4); SmOnDodge(&s, &c, 300); SmOnDamaged(&s, &c, 400);
+    SmOnHit(&s, &c, 100, 7, 3); SmOnHit(&s, &c, 200, 8, 4); SmOnDodge(&s, &c, 300); SmOnBurst(&s, &c, 350); SmOnDamaged(&s, &c, 400);
     SrMove(&f, 7); SrMove(&f, 8); SrMove(&f, 7); SrMove(&f, SM_ACT_NONE); SrMartialArt(&f, 8); SrMartialArt(&f, 8);
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT);
-    CHECK(r.n.hits == 2 && r.n.dodges == 1 && r.n.damaged == 1 && r.moves == 2 && r.maMoves == 1);
-    char b[600]; CHECK(SrFmt(b, sizeof b, &r) > 0 && strstr(b, "moves 2") && strstr(b, "1 different"));
+    CHECK(r.n.bursts == 1 && r.n.hits == 2 && r.n.dodges == 1 && r.n.damaged == 1 && r.moves == 2 && r.maMoves == 1);
+    char b[600]; CHECK(SrFmt(b, sizeof b, &r) > 0 && strstr(b, "moves 2") && strstr(b, "1 different") && strstr(b, "burst breaks 1"));
 }
 // Dodge / Deflect / Counter: a clean avoid with another skill move in the window = counter; else during the deflect = deflect; else dodge.
 // (The glue never reports the deflect as 'another skill', so a deflect alone is a deflect.)

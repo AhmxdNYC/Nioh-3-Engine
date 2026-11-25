@@ -99,7 +99,7 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     if (r->n.maHits) snprintf(v[1], 40, "%u (%d different)", r->n.maHits, r->maMoves); else snprintf(v[1], 40, "0");
     snprintf(v[2], 40, "%u", r->n.nins); snprintf(v[3], 40, "%u", r->n.souls); snprintf(v[4], 40, "%u", r->n.gsHits); snprintf(v[5], 40, "%u", r->n.swapHits);
     snprintf(v[6], 40, "%u", r->n.styles);
-    snprintf(v[7], 40, "%u", r->n.hits); snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids); snprintf(v[9], 40, "%u", r->n.dodges); snprintf(v[10], 40, "%u", r->n.deflects);
+    snprintf(v[7], 40, "%u", r->n.hits); if (r->n.bursts) snprintf(v[8], 40, "%u (%u burst)", r->n.counters + r->n.counterAvoids, r->n.bursts); else snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids); snprintf(v[9], 40, "%u", r->n.dodges); snprintf(v[10], 40, "%u", r->n.deflects);
     if (r->n.kiPerfects) snprintf(v[11], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[11], 40, "%u", r->n.kis);
     snprintf(v[12], 40, "%u", r->n.damaged); snprintf(v[13], 40, "%u hits", r->comboBest);
     for (int i = 0; i < 14; ++i) {
