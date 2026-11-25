@@ -172,8 +172,12 @@ static void SmReadIni(const char* ini, int reset) {
     dc.minCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceMinCm", SM_DP_MIN_CM, ini);
     dc.angDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceAngleDeg", SM_DP_ANG_DEG, ini);
     dc.threatCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceThreatCm", SM_DP_THREAT_CM, ini);
-    {   char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", "", buf, sizeof buf, ini);  // extra act ids (not skill rows)
-        const char* q = buf; while (*q && dc.nActs < SM_DP_ACTS) { char* e; const unsigned long v = strtoul(q, &e, 0); if (e == q) break; if (v) dc.acts[dc.nActs++] = (uint32_t)v; q = e; while (*q == ',' || *q == ' ') ++q; } }
+    dc.listMinCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListMinCm", SM_DP_LIST_MIN_CM, ini);
+    dc.listAngDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListAngleDeg", SM_DP_LIST_ANG_DEG, ini);
+    dc.tailMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceTailMs", SM_DP_TAIL_MS, ini);
+    {   // known displacement moves (relaxed motion test; ids that are not skill rows become eligible). Default: Swift Step Heavy.
+        char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", SM_DP_DEFAULT_ACTS, buf, sizeof buf, ini);
+        SmDispParseActs(&dc, buf); }
     SmDispCfgClamp(&dc);
     SmCfgClamp(&c);
     AcquireSRWLockExclusive(&g_sm_lock);
@@ -858,15 +862,20 @@ static void SmFeed(double gdt) {
     for (int s = 0; s < N3T_SLOTS && avoid && !avAte; ++s) if (g_fp[s].valid) { const int h0 = bbs[s].held; if (SmBurstAvoid(&bbs[s], bbCtrT, g_sm_clock, avoid)) { avAte = avoid; avHeld = !h0 && bbs[s].held; } }
     if (avAte) avoid = SM_AV_NONE;
     for (int s = 0; s < N3T_SLOTS && !avoid; ++s) if (bbR[s] == SM_BB_MISS && bbE[s].held) avoid = avBack = bbE[s].held;
-    // human: Displacement!: the window's avoid is held while a displacement candidate is open, replaced on an award, paid on a miss
+    // human: Displacement!: the window's avoid is held while a displacement candidate is open, replaced on an award, always paid on a miss
+    // (a Counter! of a displacement move is paid as a Dodge!: Counter! is for parry skills)
     static SmDisp dps; static int dpInit; if (!dpInit) { dpInit = 1; SmDispReset(&dps); }
     SmDispOut dpo; memset(&dpo, 0, sizeof dpo); float pdp = -1.f; int dpAv = avoid, dpBack = 0;
     SmDispIn dpi; memset(&dpi, 0, sizeof dpi);
-    dpi.run = run; dpi.use = useKey; dpi.act = act; dpi.elig = dpElig; dpi.plOk = dpPlOk; dpi.pl[0] = dpPl[0]; dpi.pl[1] = dpPl[1];
+    dpi.run = run; dpi.use = useKey; dpi.act = act; dpi.elig = dpElig; dpi.move = pl && (g_fp[FP_PL].run.hits > 0 || skill > 0 || gsm.gs || ninMove); dpi.plOk = dpPlOk; dpi.pl[0] = dpPl[0]; dpi.pl[1] = dpPl[1];
     dpi.win = g_sm_enemy; dpi.bossOk = dpBossOk; dpi.boss[0] = dpBoss[0]; dpi.boss[1] = dpBoss[1]; dpi.took = taken > 0; dpi.hits = bbPl ? 1 : 0; dpi.avoid = avoid;
     const int dpr = pl ? SmDispStep(&dps, &g_dpc, g_sm_clock, &dpi, &dpo) : SM_DP_NONE;
     if (dpo.ate) { if (avoid == SM_AV_COUNTER) ctrPaidRun = run; avoid = SM_AV_NONE; }  // held (no hit-counter bonus on top for this move)
-    if (dpr == SM_DP_MISS && dpo.release && !avoid) avoid = dpBack = dpo.release;
+    int dpConv = 0; if (dpo.conv && avoid == SM_AV_COUNTER) { avoid = SM_AV_DODGE; dpConv = 1; }  // a displacement move's avoid is a Dodge!
+    // a released held avoid is always paid: this tick, or the next one when this tick has an avoid of its own (never dropped)
+    static int dpQueued; int dpQueuedNow = 0;
+    if (dpr == SM_DP_MISS && dpo.release) { if (!avoid) avoid = dpBack = dpo.release; else { dpQueued = dpo.release; dpQueuedNow = 1; } }
+    else if (!avoid && dpQueued) { avoid = dpBack = dpQueued; dpQueued = 0; }
     if (dpr == SM_DP_AWARD) { pdp = SmOnDisplace(&g_sm, &g_smc, &g_dpc, g_sm_clock, dpo.act, dps.pUse); }
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
@@ -955,14 +964,17 @@ static void SmFeed(double gdt) {
             avHeld ? "held until the countered red attack ends (paid if it is no Burst Break)" : "same event as the Burst Break, not paid"); }
         if (avBack && bbl < 3000) { ++bbl; Log("STYLE BURST2: held avoid %d paid after all (the countered red attack ended without a Burst Break)", avBack); }
     }
-    if (dpr || dpo.ate) {  // human: Displacement! diagnosis (live test: thresholds, which moves qualify)
+    if (dpr || dpo.ate || dpConv || dpQueuedNow) {  // human: Displacement! diagnosis (live test: thresholds, which moves qualify)
         static int dpl;
-        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss"};
+        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss", "Displace turned off"};
         if (dpl < 3000) { ++dpl;
-            if (dpr == SM_DP_AWARD) Log("STYLE DISPLACE: AWARD act %u +%.0f: moved %.2f m, around the boss %.0f deg, boss %.2f m away when its window opened, hit %.0f ms after the window, %d move(s) later%s",
-                dpo.act, pdp, dpo.moved / 100.f, dpo.ang, dpo.dist0 / 100.f, dpo.ago, dpo.runs, dpo.replaced ? " (the window's avoid replaced)" : " (no i-frame avoid: out of reach)");
-            else if (dpr == SM_DP_MISS) Log("STYLE DISPLACE: miss act %u: %s (moved %.2f m, around %.0f deg, %.0f ms, %d move(s) later)%s", dpo.act, dpo.why > 0 && dpo.why <= 5 ? why[dpo.why] : "?",
-                dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, dpBack ? dpBack == SM_AV_DEFLECT ? " -> held deflect paid" : dpBack == SM_AV_COUNTER ? " -> held counter paid" : " -> held dodge paid" : "");
+            if (dpr == SM_DP_AWARD) Log("STYLE DISPLACE: AWARD act %u%s +%.0f: moved %.2f m, around the boss %.0f deg, boss %.2f m away when its window opened, hit %.0f ms after the window, %d move(s) later (hit by act %u)%s",
+                dpo.act, dpo.listed ? " (DisplaceActs)" : "", pdp, dpo.moved / 100.f, dpo.ang, dpo.dist0 / 100.f, dpo.ago, dpo.runs, act, dpo.replaced ? " (the window's avoid replaced)" : " (no i-frame avoid: out of reach)");
+            else if (dpr == SM_DP_MISS) Log("STYLE DISPLACE: miss act %u%s: %s (moved %.2f m, around %.0f deg, %.0f ms, %d move(s) later, now act %u)%s%s", dpo.act, dpo.listed ? " (DisplaceActs)" : "",
+                dpo.why > 0 && dpo.why <= 6 ? why[dpo.why] : "?", dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, act,
+                dpBack ? dpBack == SM_AV_DEFLECT ? " -> held deflect paid" : dpBack == SM_AV_COUNTER ? " -> held counter paid" : " -> held dodge paid" : dpQueuedNow ? " -> held avoid paid next tick" : "",
+                dpo.asDodge ? " (its Counter! paid as a Dodge!: a displacement move)" : "");
+            else if (dpConv && !dpo.ate) Log("STYLE DISPLACE: act %u (DisplaceActs move) avoid paid as a Dodge!, not a Counter! (no candidate: %s)", act, dps.pend ? "one is already open" : "its window was not seen in range");
             else Log("STYLE DISPLACE: candidate act %u (skill word 0x%X, boss %c %.2f m away when its window opened): avoid %d held until the counter hit", act, skw, dpSlot >= 0 ? 'A' + dpSlot : '?', dps.pDist0 / 100.f, dpAv);
         }
     }
