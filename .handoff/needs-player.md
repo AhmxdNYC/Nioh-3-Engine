@@ -50,4 +50,4 @@
 - [x] Soul core pair keys (#135018) | installed BR f0b6d99a, human approved #135040; F9 next, Shift+F9 prev, F6 flag | Main PC
 - [ ] Restart for soul-core early-end fix (#135096) | reply 'restart' so Main PC loads Boss Rematch 0dd6b46f, then use C40E twice | Main PC
 - [ ] Soul cores on Main PC | play with BR D5BB22D5: each soul core form ends after its last burst, no cut-off, no learning use (5129B + an unused core); controller pad 0 OK | pc
-- [ ] GH #178 weapon | ask the reporter which weapon he used in Ninja style when his character went slow-mo (his log cannot show it) | any
+- [x] GH #178 weapon | ask the reporter which weapon he used in Ninja style when his character went slow-mo (his log cannot show it) | any (resolved 11-25 5:05 pm EST: pc2 #136083 shows authored move speed, weapon not needed)
