@@ -543,6 +543,25 @@ int main() {
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
     CHECK(has(pSettings, kEpPre) && !has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ !has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA) && has(pSGpu, kEp0));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
+    {  // GH #159: HitStopFix live row right after VRR on Settings > Game; writes vrr_hsOn; remote + catalog paths agree
+        volatile uint32_t vrrOn = 1, hsOn = 0;
+        auto* savedVrr = g_host.vrrEnable; auto* savedHs = g_host.hitStopOn;
+        CHECK(!Available(kHitStop) || savedHs);
+        g_host.vrrEnable = &vrrOn; g_host.hitStopOn = &hsOn;
+        g_pages.page = pSGame;
+        const int n = PageRows(rows, false);
+        int at = -1;
+        for (int i = 0; i + 1 < n; ++i) if (rows[i] == kVrr) at = rows[i + 1] == kHitStop ? i : -2;
+        CHECK(at >= 0 && Available(kHitStop) && !LiveBool(kHitStop) && FindItem("HitStopFix") == kHitStop);
+        Change(kHitStop, 0);
+        int v = -1;
+        CHECK(hsOn == 1 && LiveBool(kHitStop) && RemoteValue(kHitStop, v) && v == 1);
+        const int hs = cfgIndex("HitStopFix");
+        CHECK(hs >= 0 && kConfigSettings[hs].legacy == kHitStop && g_configValues.values[(size_t)hs].text == "1");
+        g_configValues.values[(size_t)hs].text = "0"; ApplyConfigValue(hs);
+        CHECK(hsOn == 0 && !LiveBool(kHitStop));
+        g_host.vrrEnable = savedVrr; g_host.hitStopOn = savedHs;
+    }
     {  // #121260: Held attack fix (General.HoldKeyGap) is reachable in layout 0 on Settings > Game only
         int hkg = -1;
         for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].section, "General") && !strcmp(kConfigSettings[i].key, "HoldKeyGap")) hkg = i;

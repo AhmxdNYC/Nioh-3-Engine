@@ -1889,7 +1889,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
         if (!strcmp(g, "VRRHOLD")) return cfg.vrr != 0 && cfg.holdWindowFix != 0;
-        if (!strcmp(g, "VRRHS")) return cfg.vrr != 0 && cfg.hitStopFix != 0;
+        if (!strcmp(g, "VRRHS")) return true;  // GH #159: installed with VRR; [VRR] HitStopFix is the live switch (menu row)
         if (!strcmp(g, "W3")) return true;
         if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
         if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
@@ -2003,7 +2003,7 @@ DWORD WINAPI Worker(LPVOID) {
             run(it->s->id, one, it->found);
         }
     // VRR: all-or-nothing. Always installed; cfg.vrr 0 leaves the stock timing path (the cave checks vrr_enable).
-    bool vrrDone = false;
+    bool vrrDone = false, hsDone = false;  // hsDone: P11 hit-stop cave installed (GH #159)
     {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
@@ -2066,7 +2066,7 @@ DWORD WINAPI Worker(LPVOID) {
             bool hok = run("VRR hold window (P10)", h, allFound(h));
             Log("VRR HoldWindowFix=1: player notice window in real 60 Hz ticks %s (GitHub #98)", hok ? "installed" : "NOT installed");
         }
-        if (vrrDone && cfg.vrr && cfg.hitStopFix) {
+        if (vrrDone) {  // GH #159: P11 is a no-op while vrr_hsOn = 0, so it installs with VRR and the menu switches it live
             auto h = collect("VRRHS");
             bool hok = allFound(h);
             if (hok) {
@@ -2076,8 +2076,10 @@ DWORD WINAPI Worker(LPVOID) {
                 if (hok) hs_callee = callee;
             }
             hok = run("VRR hit-stop (P11)", h, hok);
-            if (hok) vrr_hsOn = 1;
-            Log("VRR HitStopFix=1: hit-stop timers drain by real time while armed %s (GH #159)", hok ? "installed" : "NOT installed");
+            hsDone = hok;
+            vrr_hsOn = (hok && cfg.hitStopFix) ? 1u : 0u;
+            Log("VRR HitStopFix=%d: hit-stop timers drain by real time while armed - P11 %s, %s (GH #159, live menu switch)",
+                cfg.hitStopFix, hok ? "installed" : "NOT installed", vrr_hsOn ? "ON" : "OFF");
         }
     }
     // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).
@@ -3225,6 +3227,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.knownBuild = known;
         mh.wine = wine != nullptr;
         if (vrrDone) mh.vrrEnable = reinterpret_cast<volatile uint32_t*>(&vrr_enable);
+        if (hsDone) mh.hitStopOn = reinterpret_cast<volatile uint32_t*>(&vrr_hsOn);  // GH #159 HitStopFix live switch
         if (w3Done) {
             mh.w3Enable = &g_w3Enable;
             mh.w3UseSleep = &g_w3UseSleep;
