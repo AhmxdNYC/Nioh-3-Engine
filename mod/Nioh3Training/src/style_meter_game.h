@@ -63,6 +63,7 @@ static HWND g_sm_game;
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
 static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr_hitpen = SR_HIT_PENALTY; static int g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
+static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
 static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
 static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
 static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
@@ -139,6 +140,8 @@ static void SmReadIni(const char* ini, int reset) {
     c.comboMs = (int)GetPrivateProfileIntA("StyleMeter", "ComboMs", SM_COMBO_MS, ini); c.comboStep = (int)GetPrivateProfileIntA("StyleMeter", "ComboStep", SM_COMBO_STEP, ini);
     c.comboBase = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonus", SM_COMBO_BASE, ini); c.comboInc = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusStep", SM_COMBO_INC, ini);
     c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
+    c.varStep = (int)GetPrivateProfileIntA("StyleMeter", "VarietyStep", SM_VAR_STEP, ini); c.varBase = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonus", SM_VAR_BASE, ini);
+    c.varInc = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusStep", SM_VAR_INC, ini); c.varMax = (int)GetPrivateProfileIntA("StyleMeter", "VarietyMax", SM_VAR_MAX, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
@@ -170,6 +173,8 @@ static void SmReadIni(const char* ini, int reset) {
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
     Log("STYLE METER: multi-hit cap %d hits per use%s, loop penalty -%.0f per use after %d cycles of a 1- or 2-move loop%s",
         g_smc.multiHitCap, g_smc.multiHitCap ? "" : " (off)", g_smc.loopPts, g_smc.loopReps, g_smc.loopReps ? "" : " (off)");
+    Log("STYLE METER: move variety every %d distinct moves +%d (+%d each later) up to %d moves%s, per run (boss fight start / death / load)",
+        g_smc.varStep, g_smc.varBase, g_smc.varInc, g_smc.varMax, g_smc.varBase > 0 && g_smc.varMax >= g_smc.varStep ? "" : " (off)");
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.
@@ -625,6 +630,17 @@ static void SmFeed(double gdt) {
     const int bbSkill = pl && (skill > 0 || gsm.gs || ninMove);  // the player's move is a skill / guardian spirit / ninjutsu move
     for (int s = 0; s < N3T_SLOTS; ++s) { bbFl[s] = 0; bbNext[s] = SM_ACT_NONE; bbRow[s] = g_fp[s].valid ? SmBurstRow(g_fp[s].ctrl, g_fp[s].run.act, &bbFl[s], &bbNext[s]) : -1; }
     const int srWas = g_sr.on;
+    // human: move variety is per run: a death (edge) or a load / no player character starts a new one (a boss fight start too, below)
+    int varReset = 0;
+    {   static int varDead;
+        if (g_sm.varN > 0) {
+            const uint64_t me = PlayerChar(); const uint8_t* lg = GameState(); int d = 0;
+            if (!me || (lg && lg[2])) varReset = 1;
+            else { uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); }
+            if (d && !varDead) varReset = 1;
+            varDead = d;
+        }
+    }
     SrResult srRes[2]; int srDone = 0;  // [0] a gauntlet split this tick, then the fight's own end (a newer card replaces the older one)
     AcquireSRWLockExclusive(&g_sm_lock);
     for (int i = 0; i < nSrHit; ++i) {
@@ -632,10 +648,13 @@ static void SmFeed(double gdt) {
             Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
                 (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
             if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
-            SrReset(&g_sr); SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS);
+            SrReset(&g_sr); SrBossHitEx(&g_sr, &g_sm, srHit[i], srSeen[i], SR_FORM_MS); varReset = 2;
             Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
         }
     }
+    if (!srWas && g_sr.on) varReset = 2;  // a boss fight started with this tick's hit: the run starts here (before the hit is scored)
+    if (varReset && g_sm.varN > 0) { Log("STYLE VARIETY: new run (%s), %d distinct moves, %u milestones so far", varReset == 2 ? "boss fight start" : "death / load", g_sm.varN, g_sm.varBonuses); SmVarietyReset(&g_sm); }
+    const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts;
     const int r0 = g_sm.rank, a0 = g_sm.active;
     const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
@@ -685,6 +704,11 @@ static void SmFeed(double gdt) {
     if (deflect) pp = SmOnDeflect(&g_sm, &g_smc, g_sm_clock);
     float pac = -1.f;
     if (avCtr) { pac = SmOnAvoidCounter(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun); ctrPaidRun = run; }
+    if (pd > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DODGE);  // human: scored non-hit moves count as distinct moves too
+    if (pp > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DEFLECT);
+    if (pac > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);
+    if (pk > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_KI);
+    const uint32_t varN = g_sm.varBonuses - vb0; const float pvar = g_sm.varPts - vp0; const int varMile = g_sm.varMile;
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmComboTick(&g_sm, &g_smc, g_sm_clock);
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
@@ -755,8 +779,12 @@ static void SmFeed(double gdt) {
         if (pgs0 > 0.f) { SmFxPop2("Guardian Spirit", gsPts, pgs0); big += pgs0; }  // #127213 the skill's own points, then the bonus
         if (sumB > 0.f) { SmFxPop2("Guardian Spirit", psum, sumB); big += sumB; }  // human: summoned spirit's first hit (its points, then the bonus)
         if (pcombo > 0.f) {  // human: announced under the combo counter (not a pop-up line, which got lost among the others)
-            InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
+            InterlockedExchange(&g_sm_mileKind, 0); InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
             big += pcombo; }
+        if (varN && pvar > 0.f) {  // human: move variety milestone, same banner ("Variety x10! +30"); a combo milestone the same tick keeps it, this one pops up
+            if (pcombo > 0.f) { char l[32]; snprintf(l, sizeof l, "Variety x%d!", varMile); SmFxPop(l, pvar); }
+            else { InterlockedExchange(&g_sm_mileKind, 1); InterlockedExchange(&g_sm_comboMile, (LONG)varMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pvar + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen); }
+            big += pvar; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
         if (loopN && loopLost > 0.f) SmFxPopLoss("Repetitive!", loopLost);  // loop penalty: shown "-N"
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
@@ -770,13 +798,14 @@ static void SmFeed(double gdt) {
                 (void*)blkEv[i].hit, (void*)blkEv[i].vic, !!(blkEv[i].fl & SM_BLK_KI), blkEv[i].ki, !!(blkEv[i].fl & SM_BLK_HP0), pb / (float)blocked, g_smc.blockPct, blN, (int)g_pst_ki_hooked);
         }
     }
-    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN) {
+    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || varN || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN) {
         static int evl;
         if (evl++ < 4000) {
             char e[400]; int n = 0; e[0] = 0;
             if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
             if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
+            if (varN) n += snprintf(e + n, sizeof e - n, " variety %d moves +%.0f", varMile, pvar);
             if (loopN) n += snprintf(e + n, sizeof e - n, " repetitive x%u -%.0f (loop %u/%u uses)", loopN, loopLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
             if (capN) n += snprintf(e + n, sizeof e - n, " over multi-hit cap x%u", capN);
             if (allyHits > 0) n += snprintf(e + n, sizeof e - n, summonLive ? " summoned spirit hit x%ld +%.1f" : " ally hit x%ld (no summon window, not scored)", (long)allyHits, psum);
@@ -998,7 +1027,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
             static LONG mileGen; static double mileT = -1e18;  // milestone banner: 1.6 s, then fades over 0.6 s
             if (g_sm_comboMileGen != mileGen) { mileGen = g_sm_comboMileGen; mileT = now; }
             const double ma = now - mileT;
-            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts;
+            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts; st.mileKind = (int)g_sm_mileKind;
             st.mileA = ma < 0 ? 0.f : ma < 1600 ? 1.f : ma < 2200 ? 1.f - (float)((ma - 1600) / 600.0) : 0.f;
         }
         const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS) || (st.comboA > 0.f && st.comboA < 1.f) || (st.mileMs >= 0 && st.mileMs < 2300);
