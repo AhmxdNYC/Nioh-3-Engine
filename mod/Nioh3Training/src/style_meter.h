@@ -284,7 +284,9 @@ static inline float SmOnBlockedHit(SmState* s, const SmCfg* c, double t, uint32_
 // Guarded-hit detection (game glue feeds it from the hit apply 327DEC, which calls HP damage 787268 once and Ki damage 844604 once per hit,
 // both with the same hit object). One entry per (hit object, victim): SM_BLK_HP = the hit took HP (raw > 0), SM_BLK_HP0 = the HP damage
 // call came with 0, SM_BLK_KI = the hit did Ki damage. An entry is decided one tick after it was first noted (so both calls of one hit are
-// in): blocked = no HP damage and Ki damage or a 0 HP call. A hit that did HP damage is never a blocked hit (no double count).
+// in): blocked = Ki damage and no HP damage. A hit that did HP damage is never a blocked hit (no double count). A 0 HP call without Ki
+// damage is NOT a guard: live log 2026-11-25, 225 of 229 such 'blocked' hits were the player's own deflect (skill 0x67D2) / burst counter
+// (act 0x447) touching the attacker (Ki 0), each also scored as Deflect / Dodge; the real guards (boss in its guard action) had Ki 120-146.
 #define SM_BLK_Q 64
 enum { SM_BLK_KI = 1, SM_BLK_HP0 = 2, SM_BLK_HP = 4 };
 typedef struct { uint64_t hit, vic; float ki; uint8_t fl, age; } SmBlkEv;
@@ -302,7 +304,7 @@ static inline int SmBlkTake(SmBlkQ* q, SmBlkEv* out, int maxOut) {
     for (int i = 0; i < q->n; ++i) {
         SmBlkEv e = q->e[i];
         if (!e.age) { e.age = 1; q->e[k++] = e; continue; }
-        if (!(e.fl & SM_BLK_HP) && (e.fl & (SM_BLK_KI | SM_BLK_HP0))) { if (out && nb < maxOut) out[nb] = e; nb++; }
+        if (!(e.fl & SM_BLK_HP) && (e.fl & SM_BLK_KI) && e.ki > 0.f) { if (out && nb < maxOut) out[nb] = e; nb++; }
     }
     q->n = k;
     return nb;
