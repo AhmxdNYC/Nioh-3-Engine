@@ -1,4 +1,4 @@
-﻿
+
 - CURRENT 2026-11-25 6:30 pm EST: pc/0. Regression review TASK #136252 on a92a3b8b (incl. 2fcc9f02). Not installed. Human pid 65448, BR d37fc753. Do not install. Do not publish.
 - CURRENT 2026-11-25 6:06 pm EST: pc/0. Private main 5f51d6ab has port 8f406d2e and crash-fix 05eb07e7. Not installed. Live BR d37fc753, pid 65448 HUMAN SESSION, do not close. Do not publish. Do not merge ed587142 or bd5229ff. pc2 hold #136059 stays. Regression has no next task.
 - CURRENT 2026-11-23 2:32 pm EST: pc/0. Ally +131CA9 render-size guard is offline only, not installed. Live EF 0c05109e, CamKi 1ccc9c3a, TR 88c03a89, BR 7d8f87e2. No Nioh. Lock free. Do not publish. Next is Death Veil #60.
