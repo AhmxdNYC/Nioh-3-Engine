@@ -168,7 +168,7 @@ static void Tuning(void) {
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 60.f / 180.f));  // 8 different moves = 160 pts + 20 (5 distinct moves): D (120) full, 60 into C (180)
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 64.f / 180.f));  // 8 different moves = 160 pts + 24 (5 distinct moves): D (120) full, 64 into C (180)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -818,7 +818,7 @@ static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entrie
 // human 2026-11-25: move variety. Distinct scored moves per run; a bonus at 5, 10, .. 60 (20, 30, .. 130); not reset by decay / idle.
 static void MoveVariety(void) {
     SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
-    CHECK(c.varStep == 5 && c.varBase == 20 && c.varInc == 10 && c.varGrow == 3 && c.varMax == 60 && SM_VAR_IDS >= 64);
+    CHECK(c.varStep == 5 && c.varBase == 20 && c.varInc == 10 && c.varGrow == 3 && c.varPct == 120 && c.varMax == 60 && SM_VAR_IDS >= 64);
     c.decayDelayMs = 1000000;  // no decay in the first part
     double t = 1000; uint64_t run = 1; float total = 0.f; int paid = 0;
     for (uint32_t a = 100; a < 104; ++a) { SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); t += 100; }
@@ -828,17 +828,17 @@ static void MoveVariety(void) {
     SmOnHitUse(&s, &c, t, 900, run++, -1.f, 0, 1); CHECK(s.varN == 4);          // the summoned spirit's hit
     const float pts0 = s.pts + 1000.f * s.rank;
     const float ph = SmOnHitUse(&s, &c, t, 104, run++, -1.f, 0, 0);            // 5th distinct move: +20
-    CHECK(s.varN == 5 && s.varBonuses == 1 && s.varMile == 5 && near(s.varLastPts, 20) && near(s.varPts, 20));
+    CHECK(s.varN == 5 && s.varBonuses == 1 && s.varMile == 5 && near(s.varLastPts, 24) && near(s.varPts, 24));
     CHECK(near(ph, c.hit) && s.lastScore == t);                                // the hit's own value excludes the bonus
     (void)pts0;
     // multi-hit of one use counts once; the next milestones grow by 10
     const uint64_t mr = run++; for (int i = 0; i < 3; ++i) SmOnHitUse(&s, &c, t, 105, mr, -1.f, 0, 0); CHECK(s.varN == 6);
     for (uint32_t a = 106; a < 200; ++a) { const uint32_t b0 = s.varBonuses; SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); if (s.varBonuses != b0) { paid++; total += s.varLastPts; } t += 10; }
-    CHECK(s.varN == 60 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 1560.f) && near(total, 1540.f) && s.varMile == 60 && near(s.varLastPts, 295));
+    CHECK(s.varN == 60 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 1874.f) && near(total, 1850.f) && s.varMile == 60 && near(s.varLastPts, 354));
     // pure milestone table
     SmState q; SmReset(&q); float seen[13]; int ns = 0;
     for (uint32_t a = 1; a <= 70; ++a) { const float b = SmVarietyMove(&q, &c, 0, a); if (b > 0.f && ns < 13) seen[ns++] = b; }
-    CHECK(ns == 12 && near(seen[0], 20) && near(seen[1], 30) && near(seen[2], 43) && near(seen[3], 59) && near(seen[11], 295) && q.varN == 60);
+    CHECK(ns == 12 && near(seen[0], 24) && near(seen[1], 36) && near(seen[2], 52) && near(seen[3], 71) && near(seen[11], 354) && q.varN == 60);
     CHECK(SmVarietyMove(&q, &c, 0, 9999) == 0.f && q.varN == 60);               // no more after VarietyMax
     // the run survives decay to idle
     SmCfg d; RealDefaults(&d); SmState r; SmReset(&r); t = 0; run = 1;

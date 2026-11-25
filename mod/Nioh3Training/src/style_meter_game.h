@@ -146,6 +146,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.varStep = (int)GetPrivateProfileIntA("StyleMeter", "VarietyStep", SM_VAR_STEP, ini); c.varBase = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonus", SM_VAR_BASE, ini);
     c.varInc = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusStep", SM_VAR_INC, ini); c.varMax = (int)GetPrivateProfileIntA("StyleMeter", "VarietyMax", SM_VAR_MAX, ini);
     c.varGrow = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusGrow", SM_VAR_GROW, ini);
+    c.varPct = (int)GetPrivateProfileIntA("StyleMeter", "VarietyPct", SM_VAR_PCT, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
