@@ -43,6 +43,9 @@ std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
 std::atomic<int> g_sealHitsData{0},g_exitEndPct{0},g_exitAfterShotMs{-1};int dataHits=-1;
 SdhDurTable g_sealDurs;
+SdhDurTable g_sealLastHit;int lastHitNotes=0;  // TASK #136328
+float SealMulNow();
+void SealLastHitNote(uint32_t sid,double lc,double bs,const char*){if(!sid||lc<=0||bs<0||lc<=bs)return;++lastHitNotes;g_sealLastHit.Note(sid,(int)((lc-bs)*1000.0),SealMulNow());}
 std::atomic<int> g_exitSettleMs{-1};SdhResult g_sdhLastRead;bool g_sdhLastReadOk=false;  // TASK #135803: settle off unless a case sets it
 int SealDataHits(uint64_t,uint32_t,char* d,size_t n){snprintf(d,n,"stub");return dataHits;}
 
@@ -52,6 +55,7 @@ std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
 std::atomic<uint64_t> g_tailSeal{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_ghostReq{0};
 std::atomic<double> g_tailT0{0},g_ghostT{0},g_ghostHideAt{0},g_ghostReqAt{0},g_fxrT0{0};
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{100},g_fxrFwd{0},g_fxrSide{0};
+float SealMulNow(){return g_sealMul.load();}
 std::atomic<float> g_ftMul{0};std::atomic<int> g_rtMaxMs{1200};  // #129115: FastThrow / RunThrow rows (human #128855)
 bool g_sieNativeEnd=true;
 uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]={};
@@ -494,9 +498,16 @@ int main(){
  ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
  g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
  // TASK #136113: last hit closed, EndPct would hold, AfterShot 700 turns back at close+700. OFF (-1) keeps the hold.
- g_exitEndPct=90;g_exitAfterShotMs=700;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();
+ // TASK #136328: only once a full form of this core showed its last hit no later than this close (count not certain).
+ g_exitEndPct=90;g_exitAfterShotMs=700;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();g_sealLastHit.Reset();
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(!g_ghostReq);  // no full form yet: the hold decides
+ g_sealLastHit.Note(0x80D5F,60000,1.4f);  // a full form had a later hit: this close is not the last one (early escape case)
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);step(2.6,false);check(!g_ghostReq);
+ g_sealLastHit.Reset();g_sealLastHit.Note(0x80D5F,1,1.4f);  // full form's last hit closed at or before this one
  start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);step(1.4,false);check(!g_ghostReq);
  step(2.09,false);check(!g_ghostReq);step(2.11,false);check(g_ghostReq==456&&smokes==1);
+ dataHits=1;g_sealLastHit.Reset();  // certain data count: unchanged, no full form needed
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(g_ghostReq==456);dataHits=0;g_sealLastHit.Note(0x80D5F,1,1.4f);
  g_exitAfterShotMs=-1;start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(!g_ghostReq);
  {bool lv=false;g_exitAfterShotMs=-1;check(SoulTune(19,1,&lv)==0&&g_exitAfterShotMs==0&&ini[L"SealExitAfterShotMs"]==L"0");
   check(SoulTune(19,1,&lv)==50);check(SoulTune(19,-1,&lv)==0);check(SoulTune(19,-1,&lv)==-1);

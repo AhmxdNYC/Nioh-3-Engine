@@ -5486,6 +5486,12 @@ void SealIdleEndTick() {
 std::atomic<int> g_sealHitsData{1};
 SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
+SdhDurTable g_sealLastHit;  // TASK #136328: per-core last hit close (bind -> close) of full forms this session, game thread only
+void SealLastHitNote(uint32_t sid, double lastCloseSess, double boundSess, const char* why) {
+    if (!sid || lastCloseSess <= 0 || boundSess < 0 || lastCloseSess <= boundSess) return;
+    const int ms = (int)((lastCloseSess - boundSess) * 1000.0), was = g_sealLastHit.Get(sid);
+    Log("SealExitAfterShot core %X: full-form last hit closed %d ms after bind (%s, x1 %d ms, was %d)", sid, ms, why, g_sealLastHit.Note(sid, ms, g_sealMul.load()), was);
+}
 int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
     desc[0] = 0; g_sdhLastReadOk = false;
     uint64_t ai = 0, ctrl = 0, P = 0, X = 0, A = 0, RP = 0; uint32_t curId = 0; uint16_t n = 0;
@@ -6367,6 +6373,7 @@ void SealEndOnHitTick() {
             const int ms = (int)((Now() - boundAt) * 1000.0), was = g_sealDurs.Get(sid);
             const int now1x = g_sealDurs.Note(sid, ms, g_sealMul.load());
             Log("SealExitEndPct core %X: attack duration %d ms (bind -> own despawn, x1 %d ms, was %d)", sid, ms, now1x, was);
+            SealLastHitNote(sid, lastClose, boundAt - sess, "own despawn");  // TASK #136328
         }
         if (!on && seal && sid && !fired && !complete)
             Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
@@ -6624,8 +6631,19 @@ void SealEndOnHitTick() {
     // TASK #136113: the last projectile is already out. Turn back after SealExitAfterShotMs instead of waiting out the idle.
     // Does not delay a certain-count exit that already fired. -1 leaves the EndPct / idle hold as it is.
     const int afterShotMs = g_exitAfterShotMs.load();
-    const bool afterShotDue = afterShotMs >= 0 && !idleOnly && seal && want > 0 && bursts >= want && !open && lastClose > 0 &&
-                              (now - sess) >= lastClose + afterShotMs / 1000.0;
+    const bool afterShotTime = afterShotMs >= 0 && !idleOnly && seal && want > 0 && bursts >= want && !open && lastClose > 0 &&
+                               (now - sess) >= lastClose + afterShotMs / 1000.0;
+    // TASK #136328: a count that is not certain may be short (early escape between two bursts); see SdhAfterShotOk.
+    const int closeFromBindMs = (int)((lastClose - (boundAt - sess)) * 1000.0), lastHitMs = lowConf ? g_sealLastHit.At(sid, g_sealMul.load()) : 0;
+    const bool afterShotDue = afterShotTime && SdhAfterShotOk(!lowConf, bursts, want, shapeOk ? SdhMinBursts(shape) : 0, closeFromBindMs, lastHitMs, 150);
+    if (afterShotTime && !afterShotDue) {
+        static double heldLogged = -1;
+        if (heldLogged != sess) {
+            heldLogged = sess;
+            Log("SealExitAfterShot core %X: hit %d/%d closed at %.3f s but the count is not certain (data min %d, full-form last hit %d ms, this close %d ms after bind) - no early turn back, the hold decides",
+                sid, bursts, want, lastClose, shapeOk ? SdhMinBursts(shape) : 0, lastHitMs, closeFromBindMs);
+        }
+    }
     if (afterShotDue) {
         fire = true;
         static double shotLogged = -1;
@@ -6666,6 +6684,7 @@ void SealEndOnHitTick() {
         if (censusComplete && sid && boundAt > 0 && SealTimingIdentityMatches(seal, sid)) {
             const int ms = (int)((now - boundAt) * 1000.0), was = g_sealDurs.Get(sid);
             Log("SealExitEndPct core %X: attack duration %d ms (bind -> idle edge, x1 %d ms, was %d)", sid, ms, g_sealDurs.Note(sid, ms, g_sealMul.load()), was);
+            SealLastHitNote(sid, lastClose, boundAt - sess, "idle edge");  // TASK #136328
         }
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,

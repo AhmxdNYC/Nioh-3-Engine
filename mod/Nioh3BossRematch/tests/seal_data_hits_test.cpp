@@ -56,6 +56,15 @@ int main() {
     for (uint32_t c = 1; c <= 40; ++c) t.Note(0x1000 + c, 100 * c, 1.f);
     assert(t.n == 32 && t.Get(0x1000 + 40) == 4000);                         // full table: replaces a slot, newest readable
     char d[256]; SdhDescribe(r, d, sizeof d); puts(d);
+    {   // TASK #136328: SdhAfterShotOk (early escape: count not certain)
+        assert(SdhAfterShotOk(true, 2, 2, 0, 500, 0, 150));     // certain count: as before
+        assert(!SdhAfterShotOk(true, 1, 2, 0, 500, 0, 150));    // not all hits in
+        assert(!SdhAfterShotOk(false, 2, 2, 0, 900, 0, 150));   // no full form yet
+        assert(!SdhAfterShotOk(false, 2, 2, 0, 900, 2100, 150)); // a full form hit again later: a gap, not the end
+        assert(SdhAfterShotOk(false, 2, 2, 0, 1960, 2100, 150) && !SdhAfterShotOk(false, 2, 2, 0, 1940, 2100, 150));
+        assert(!SdhAfterShotOk(false, 2, 2, 3, 2200, 2100, 150)); // data has 3 timed bursts
+        assert(!SdhAfterShotOk(false, 0, 0, 0, 2200, 2100, 150));
+    }
     {   // TASK #135803: SdhHitsSettled (80D5F: no own window, 1 spawn; live burst 1 closed at 2042 ms, settle 200)
         SdhResult r; r.chain = 2; r.spawns = 1;
         assert(SdhMinBursts(r) == 0);
