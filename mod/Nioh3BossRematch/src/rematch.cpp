@@ -4238,6 +4238,7 @@ void NoFinToggle(int dir) {
 #if BR_SOULCORE
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
+#include "sub_pages_menu.h"  // TASK #137249 (human #137196): Soul cores / Style meter / Player stats / Boss damage and Ki pages
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
@@ -4406,21 +4407,19 @@ int ItemsBase(int* out, int cap) {
     }
     if (g_uiPages.page == uPlayer) {  // user #14267: player options (infinite health for now)
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
-#if BR_SOULCORE
-        add(kItScForms);  // human #61869: Soul core transformations ON / OFF
-        SctAddCoreRows(add);  // human #81220: per-core transformation ON / OFF
-        ScEqAddRows(add);  // human #129277: Equip core slot / Equip core
-        SctAddHubRow(add); // Player > Soul core tuning
-#endif  // BR_SOULCORE
-        PstAddPlayerRows(add);  // user #22389
+        // TASK #137249 (human #137196): each feature with 3+ settings is its own page (sub_pages_menu.h)
+        SubAddOpenRow(add, kSubSoulCores);  // human #61869 / #81220 / #129277 / #58117 rows
+        SubAddOpenRow(add, kSubStyle);  // human #126804
+        SubAddOpenRow(add, kSubPlayerStats);  // user #22389
         add(kItBack);
         return n;
     }
+    if (SubAddPage(add)) { add(kItBack); return n; }  // TASK #137249
 #if BR_SOULCORE
     if (g_uiPages.page == uSoulTune) { SctAddPage(add); add(kItBack); return n; }  // human #58117
     if (g_uiPages.page == uScOverlay) { add(kItScOverlay); for (int i = 0; i < kScOvN; ++i) add(kItScOvBase + i); add(kItBack); return n; }  // TASK #137007
 #endif  // BR_SOULCORE
-    if (g_uiPages.page == uBossVitals) { BvAddPage(add); PstAddBossRows(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
+    if (g_uiPages.page == uBossVitals) { BvAddPage(add); SubAddOpenRow(add, kSubBossKi); add(kItBack); return n; }  // TASK #137249: boss stat rows on their own page  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
         AddBossFightItems(add);
         add(kItBack);
@@ -5011,6 +5010,7 @@ void UiChange(int dir) {
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (BvChange(item, dir)) return;  // user #14320
+    if (SubOpenChange(item, dir)) return;  // TASK #137249
     if (PstChange(item, dir)) return;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, dir)) return;  // human #58117
@@ -5288,6 +5288,7 @@ bool UiAct() {
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
+    if (SubOpenChange(item, 0)) return false;  // TASK #137249: opens the page
     if (PstChange(item, 0)) return false;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, 0)) return false;  // human #58117: opens the page / A = one step up
@@ -5528,6 +5529,7 @@ const char* PageTitle(const char* movesTitle) {
     const int p = g_uiPages.page;
     if (p == uGate) return GateMode() == 2 ? "Return - Training" : GateMode() == 1 ? "Return - Boss Match" : "Return gate";
     if (p >= uSettingFirst && p < uSettingFirst + kConfigGroupN) return kConfigGroupLabels[p - uSettingFirst];
+    if (const char* st = SubPageTitle(p)) return st;  // TASK #137249
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Training - Choose an arena" : p == uPracticeHub ? "Training"
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
@@ -5547,12 +5549,9 @@ const char* ItemGroup(int item) {
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
-    if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
-#if BR_SOULCORE
-        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) || IsScOvItem(item) ? "Soul cores" :
-#endif  // BR_SOULCORE
-        nullptr;  // user #22389, human #61869
+    if (p == uBossVitals) return IsSubOpenItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389, TASK #137249
+    if (p == uPlayer) return item == kItCantDie ? "Health" : IsSubOpenItem(item) ? "Settings pages (A: open)" : nullptr;  // TASK #137249
+    if (IsSubPage(p)) return SubPageGroup(p, item);  // TASK #137249
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
@@ -5635,7 +5634,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             continue;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
-        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || SubOpenRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #if BR_SOULCORE
             || SctRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #endif  // BR_SOULCORE
@@ -5945,6 +5944,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (item == kItPageDefaults) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Restore this page to shipped defaults. Other pages stay unchanged; startup settings apply after restart.");
         else if (item == kItStagedStart) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Full climb plays every staged wave in order. Final wave requests only the last one and sets that boss's health to the script's pre-final fraction for this session. Nothing is written to the save.");
         else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        else if (const char* sbf = SubOpenFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : sbf);  // TASK #137249
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
         else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
