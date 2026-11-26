@@ -138,38 +138,40 @@ static void SrComposeBreakdown(HDC ref, uint32_t* px, const SrGeo* g, const SrRe
     SrText(ref, px, W, H, "POINTS BREAKDOWN", W / 2, SRX(17), SRX(23), FW_BOLD, 0, 1, SR_GOLD);
     SrFill(px, W, H, SRX(40), SRX(58), W - SRX(80), 1, 0xA89A6Cu, 140);
     char b[96];
-    snprintf(b, sizeof b, "%.0f", r->earnedTotal);
-    SrText(ref, px, W, H, b, W / 2, SRX(72), SRX(64), FW_BOLD, 0, 1, SR_VALUE);
-    SrText(ref, px, W, H, "style points earned this fight", W / 2, SRX(152), SRX(18), FW_NORMAL, 1, 1, SR_LABEL);
-    // sources, biggest first: name, bar, points, share
-    int ord[SM_PC_N], n = 0;
-    for (int i = 0; i < SM_PC_N; ++i) if (r->n.earned[i] >= 0.5f) ord[n++] = i;
-    for (int i = 1; i < n; ++i) { const int v = ord[i]; int j = i; while (j > 0 && r->n.earned[ord[j - 1]] < r->n.earned[v]) { ord[j] = ord[j - 1]; --j; } ord[j] = v; }
-    const float top = n ? r->n.earned[ord[0]] : 1.f, tot = r->earnedTotal > 0.f ? r->earnedTotal : 1.f;
-    const int rows = 15, y0 = 192, rh = 26, lx = SRX(40), bx = SRX(268), bwMax = SRX(170), vx = SRX(600);
-    if (n == 0) SrText(ref, px, W, H, "No points scored", W / 2, SRX(y0 + 40), SRX(18), FW_NORMAL, 1, 1, SR_LABEL);
-    const int shown = n > rows ? rows - 1 : n;  // more sources than rows: the smallest ones share an "Other" row
-    float other = 0.f; for (int i = shown; i < n; ++i) other += r->n.earned[ord[i]];
-    for (int i = 0; i < shown + (n > rows); ++i) {
-        const int y = SRX(y0 + i * rh); const int isOther = i == shown;
-        const float v = isOther ? other : r->n.earned[ord[i]];
-        if (isOther) snprintf(b, sizeof b, "Other (%d)", n - shown);
-        SrText(ref, px, W, H, isOther ? b : sm_pc_name[ord[i]], lx, y, SRX(18), FW_NORMAL, 0, 0, SR_LABEL);
-        const int bw = (int)(bwMax * v / top + 0.5f);
-        SrFill(px, W, H, bx, y + SRX(5), bwMax, SRX(13), 0x000000u, 120);
-        if (bw > 0) { SrFill(px, W, H, bx, y + SRX(5), bw, SRX(13), 0xC9A85Cu, 230); SrFill(px, W, H, bx, y + SRX(5), bw, SRX(4), 0xFFFFFFu, 40); }
-        snprintf(b, sizeof b, "%.0f  (%.0f%%)", v, v * 100.f / tot);
-        SrText(ref, px, W, H, b, vx, y, SRX(18), FW_BOLD, 0, 2, SR_VALUE);
+    // human 2026-11-26: earned vs lost, and the final score (earned - lost)
+    const float fin = r->earnedTotal - r->lostTotal;
+    const char* hl[3] = {"Earned", "Lost", "Final score"}; const float hv[3] = {r->earnedTotal, r->lostTotal, fin};
+    const uint32_t hc[3] = {0x9FD49Au, 0xE08A7Au, SR_VALUE};
+    for (int i = 0; i < 3; ++i) {
+        const int cx = W * (2 * i + 1) / 6;
+        SrText(ref, px, W, H, hl[i], cx, SRX(70), SRX(17), FW_NORMAL, 0, 1, SR_LABEL);
+        snprintf(b, sizeof b, i == 1 ? "-%.0f" : "%.0f", hv[i]);
+        SrText(ref, px, W, H, b, cx, SRX(92), SRX(i == 2 ? 40 : 32), FW_BOLD, 0, 1, hc[i]);
     }
-    // losses
-    const int ly = y0 + rows * rh + 24;
+    SrFill(px, W, H, SRX(40), SRX(150), W - SRX(80), 1, 0xA89A6Cu, 140);
+    // every source (0 = greyed), biggest first: name, bar, points, share of the points earned
+    int ord[SM_PC_N]; const int n = SM_PC_N;
+    for (int i = 0; i < n; ++i) ord[i] = i;
+    for (int i = 1; i < n; ++i) { const int v = ord[i]; int j = i; while (j > 0 && r->n.earned[ord[j - 1]] < r->n.earned[v]) { ord[j] = ord[j - 1]; --j; } ord[j] = v; }
+    const float top = r->n.earned[ord[0]] > 0.f ? r->n.earned[ord[0]] : 1.f, tot = r->earnedTotal > 0.f ? r->earnedTotal : 1.f;
+    const int y0 = 162, rh = 22, lx = SRX(40), bx = SRX(268), bwMax = SRX(170), vx = SRX(600);
+    for (int i = 0; i < n; ++i) {
+        const int c = ord[i], y = SRX(y0 + i * rh); const float v = r->n.earned[c] > 0.f ? r->n.earned[c] : 0.f; const int on = v >= 0.5f;
+        SrText(ref, px, W, H, sm_pc_name[c], lx, y, SRX(16), FW_NORMAL, 0, 0, on ? SR_LABEL : 0x6A6E74u);
+        const int bw = (int)(bwMax * v / top + 0.5f);
+        SrFill(px, W, H, bx, y + SRX(4), bwMax, SRX(12), 0x000000u, 120);
+        if (on && bw > 0) { SrFill(px, W, H, bx, y + SRX(4), bw, SRX(12), 0xC9A85Cu, 230); SrFill(px, W, H, bx, y + SRX(4), bw, SRX(4), 0xFFFFFFu, 40); }
+        if (on) snprintf(b, sizeof b, "%.0f  (%.0f%%)", v, v * 100.f / tot); else snprintf(b, sizeof b, "0");
+        SrText(ref, px, W, H, b, vx, y, SRX(16), FW_BOLD, 0, 2, on ? SR_VALUE : 0x6A6E74u);
+    }
+    // losses by cause
+    const int ly = y0 + n * rh + 10;
     SrFill(px, W, H, SRX(40), SRX(ly), W - SRX(80), 1, 0xA89A6Cu, 140);
-    snprintf(b, sizeof b, "Points lost: %.0f", r->lostTotal);
-    SrText(ref, px, W, H, b, W / 2, SRX(ly + 10), SRX(19), FW_BOLD, 0, 1, 0xE08A7Au);
+    SrText(ref, px, W, H, "Points lost to", W / 2, SRX(ly + 8), SRX(16), FW_NORMAL, 1, 1, SR_LABEL);
     for (int i = 0; i < SM_PL_N; ++i) {
         const float v = r->n.lost[i] > 0.f ? r->n.lost[i] : 0.f;
-        snprintf(b, sizeof b, "%s  %.0f", sm_pl_name[i], v);
-        SrText(ref, px, W, H, b, W * (2 * i + 1) / (2 * SM_PL_N), SRX(ly + 42), SRX(17), FW_NORMAL, 0, 1, v >= 0.5f ? 0xE6A050u : 0x6A6E74u);
+        snprintf(b, sizeof b, "%s  -%.0f", sm_pl_name[i], v);
+        SrText(ref, px, W, H, b, W * (2 * i + 1) / (2 * SM_PL_N), SRX(ly + 32), SRX(17), FW_BOLD, 0, 1, v >= 0.5f ? 0xE08A7Au : 0x6A6E74u);
     }
     SrFill(px, W, H, SRX(40), SRX(650 + (SR_STAT_ROWS - 8) * 28), W - SRX(80), 1, 0xA89A6Cu, 90);
     SrText(ref, px, W, H, "D-pad / arrows: back to the rank     A / Enter: close", W / 2, SRX(658 + (SR_STAT_ROWS - 8) * 28), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);

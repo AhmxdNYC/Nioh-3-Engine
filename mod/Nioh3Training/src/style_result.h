@@ -284,7 +284,7 @@ static inline void SrHudDrop(SrHud* h, int i) { if (i >= 0 && i < SR_HUD) { h->e
 static inline void SrHudExpire(SrHud* h, double wall, int keepMs) { for (int i = 0; i < SR_HUD; ++i) if (h->e[i].a && wall - h->e[i].last > (double)keepMs) SrHudDrop(h, i); }
 // human 2026-11-26: the points breakdown as one log line (sources with points, then losses).
 static inline int SrFmtPts(char* o, int n, const SrResult* r) {
-    int k = snprintf(o, n, "earned %.0f:", r->earnedTotal);
+    int k = snprintf(o, n, "final %.0f = earned %.0f - lost %.0f | earned:", r->earnedTotal - r->lostTotal, r->earnedTotal, r->lostTotal);
     for (int i = 0; i < SM_PC_N && k < n; ++i) if (r->n.earned[i] >= 0.5f) k += snprintf(o + k, n - k, " %s %.0f,", sm_pc_name[i], r->n.earned[i]);
     if (k < n) k += snprintf(o + k, n - k, " | lost %.0f:", r->lostTotal);
     for (int i = 0; i < SM_PL_N && k < n; ++i) if (k < n) k += snprintf(o + k, n - k, " %s %.0f,", sm_pl_name[i], r->n.lost[i] > 0.f ? r->n.lost[i] : 0.f);
