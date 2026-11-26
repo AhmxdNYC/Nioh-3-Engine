@@ -7091,6 +7091,10 @@ void FormCapTick() {
 // seen live, nothing open, past its last burst's end frame, + kFastEndGraceMs. Both speeds <= 1: no reads at all, the 645efbf5 behaviour.
 // No per-core ids. Logs: 'FastSummon phase', 'FastSummon data', 'FastSummon hit', 'FastSummon start'.
 constexpr int kFastLeadFrames = 4, kFastStartCapMs = 2000, kFastEndGraceMs = 150, kFastReadMs = 1000, kFastStartAgeMs = 200;
+// Live run_fs3 (C594B796, 3B1AB): the yokai stalled ~20 s after a data read + collider read on its spawn tick. Every read here is a
+// SEH-guarded read (no game call, no write); to rule them out, nothing of a chr is read until it is kFastQuietMs old (its spawn and
+// appear frames run untouched), and the pool walk runs only while some chr is that old.
+constexpr int kFastQuietMs = 400;
 void FastSummonPhaseTick() {
     struct St { uint64_t chr = 0; double t0 = 0, nextRead = 0; bool preDone = false, preOk = false, everHit = false, open = false, counted = false;
                 SdhResult d; int live = 0; };
@@ -7136,7 +7140,7 @@ void FastSummonPhaseTick() {
         if (!a) continue;
         St& x = c[i];
         if (x.chr != a) { x = St(); x.chr = a; x.t0 = now; }
-        if (!x.preDone && now >= x.nextRead) {
+        if (!x.preDone && now >= x.nextRead && (now - x.t0) * 1000.0 >= kFastQuietMs) {
             x.nextRead = now + 0.05;
             if (readData(x, "first action")) { x.preDone = x.preOk = true; }
             else if ((now - x.t0) * 1000.0 >= kFastReadMs) {
@@ -7147,7 +7151,9 @@ void FastSummonPhaseTick() {
     }
     // live attack colliders per chr
     int cnt[kFastMax] = {};
-    {
+    bool old[kFastMax] = {}, anyOld = false;
+    for (int i = 0; i < kFastMax; ++i) { old[i] = chrs[i] && c[i].chr == chrs[i] && (now - c[i].t0) * 1000.0 >= kFastQuietMs; anyOld |= old[i]; }
+    if (anyOld) {
         static std::vector<uint64_t> pool;
         uint64_t pb = 0;
         bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
@@ -7156,7 +7162,7 @@ void FastSummonPhaseTick() {
             const uint64_t o = pool[k]; uint64_t own = 0;
             if (!o || !Rd(o + 8, own) || !own) continue;
             int j = -1;
-            for (int i = 0; i < kFastMax; ++i) if (chrs[i] == own) { j = i; break; }
+            for (int i = 0; i < kFastMax; ++i) if (old[i] && chrs[i] == own) { j = i; break; }
             if (j < 0) continue;
             uint64_t ad = 0; uint32_t aid = 0;
             if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
@@ -7169,6 +7175,7 @@ void FastSummonPhaseTick() {
     for (int i = 0; i < n && i < kFastMax; ++i) {
         St& x = c[i];
         if (!chrs[i] || x.chr != chrs[i]) continue;
+        if (!old[i]) { ++nBlock; continue; }  // quiet window: not read, may still hit
         float f = 0; const int pos = x.preOk ? actPos(x, &f) : -2;
         const bool usable = x.preOk && x.d.firstIdx >= 0 && pos != -2;
         const bool certain = x.preOk && x.d.certain() && x.d.chain < SDH_MAXCHAIN;
