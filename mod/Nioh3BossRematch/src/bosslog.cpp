@@ -1376,11 +1376,15 @@ void CoreSeen(uint32_t id, int dir) {
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
 WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
 void PickEquipmentTick();
+void CorePreloadTick();  // #136368
+bool CoreResReady(uint32_t id);
+extern std::atomic<int> g_formPreload;  // [Spirit] FormPreloadCores (#136368)
 bool PickFormActive();
 void FccPress(double now, int dir);  // human #122288 crouch cancel (defined before FormHide4Tick)
 void FccPadTick(WORD bt, double now);
 void PickPoll() {
     PickEquipmentTick();
+    CorePreloadTick();  // #136368
     static int heldPrev = 0;
     const WORD bt = PickPadButtons();
     FccPadTick(bt, Now());  // human #122288: L3 edge, raw pad (below FormBlockPad)
@@ -1408,7 +1412,7 @@ void PickPoll() {
         FccPress(now, held);  // human #122288: crouch-cancel window + core count snapshot for this press
         if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
         else pressq::Clear(g_pressQ);
-        Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
+        Log("FormCore %X res=%d dir=%c transform=%d reason=%s t=%.3f", core, CoreResReady(core) ? 1 : 0, held == 1 ? 'L' : 'D', off ? 0 : 1,
             pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
             !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
     } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
@@ -5679,7 +5683,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_formPreload.store(IniInt(L"Spirit", L"FormPreloadCores", 1));  // #136368 g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
     g_orbSpawnMs.store(IniInt(L"Spirit", L"SealOrbSpawnMs", 1800));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
@@ -7092,6 +7096,54 @@ uint64_t FkGameKey(uint32_t id) {  // 0x134314(-, id) = 0x300000000 + id with th
         return ((uint64_t(*)(uint64_t, uint32_t))(g_base + Grva(0x134314)))(0, id);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
+    }
+}
+// #136368 (human #136365/#136374: 'weird delay' on the first one or two uses after starting the game). Live pid 51048: the first use of
+// 5216E bound its yokai 2.06 s after the press (cold-wait, the game loading that character), every later use 0.42 s; no mod work
+// in the gap (60 fps held). Fix, every core: once the equipped cores are known, request each one's character resources with the
+// game's own Load::Character call (3F9E58(id,2,0), the Training boss preload) and hold that ref while it stays equipped; an
+// unequipped core's ref goes back with 1C1DF80(id,0) (exact inverse). Already loaded = no ref taken. [Spirit] FormPreloadCores=0: off.
+std::atomic<int> g_formPreload{1};
+uint64_t FkGameKey(uint32_t id);
+uint64_t FkPack(uint64_t key);
+bool CoreResReady(uint32_t id) {
+    if (!id) return false;
+    const uint64_t key = FkGameKey(id);
+    const uint64_t e = key ? FkPack(key) : 0;
+    uint8_t v = 0;
+    return e && Rd(e + 0x2C8, v) && v != 0;
+}
+struct CorePre { uint32_t id = 0; double reqT = -1; bool held = false, done = false; };
+CorePre g_corePre[2];
+void CorePreloadTick() {  // game thread (PickPoll), 4 Hz
+    static double last = -100;
+    const double now = Now();
+    if (now - last < 0.25) return;
+    last = now;
+    const bool on = g_formPreload.load() != 0 && g_equippedReady.load() && gamerva::g_known;
+    for (int y = 0; y < 2; ++y) {
+        CorePre& p = g_corePre[y];
+        const uint32_t id = on ? g_equippedCore[y].load() : p.id;  // off / not ready: keep what we hold (a load screen must not drop it)
+        if (id == p.id) {
+            if (p.held && !p.done && (CoreResReady(id) || now - p.reqT > 30.0)) {
+                p.done = true;
+                Log("FormPreload Y%d core %X: %s %.0f ms after the request", y + 1, id, CoreResReady(id) ? "ready" : "still not ready", (now - p.reqT) * 1000.0);
+            }
+            continue;
+        }
+        if (p.held && p.id) {
+            const uint32_t old = p.id;
+            __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(old, 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+            Log("FormPreload Y%d core %X unequipped: ref released (1C1DF80)", y + 1, old);
+        }
+        p = CorePre{};
+        p.id = id;
+        if (!id) continue;
+        if (CoreResReady(id)) { p.done = true; Log("FormPreload Y%d core %X: already loaded, no request", y + 1, id); continue; }
+        bool fault = false;
+        __try { ((void (*)(uint32_t, uint32_t, uint32_t))(g_base + Grva(0x3F9E58)))(id, 2, 0); } __except (EXCEPTION_EXECUTE_HANDLER) { fault = true; }
+        p.held = !fault; p.reqT = now; p.done = fault;
+        Log("FormPreload Y%d core %X: %s t=%.3f", y + 1, id, fault ? "request faulted (left to the first use)" : "character resources requested (3F9E58)", now);
     }
 }
 uint64_t FkRec(uint32_t id) {

@@ -37,6 +37,7 @@ double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
 double PressSnapT(){return -100;}  // #136367 stub: no press snapshot
+void CorePreloadTick(){} bool CoreResReady(uint32_t){return false;}  // #136368 stubs: no game resources
 std::atomic<int> g_formSteer{0};  // TASK #136197: global FormSteer stub (FormCoreCallGet default)
 WORD PickPadButtons(){return buttons;}
 bool formActive=false;bool PickFormActive(){return formActive;}
