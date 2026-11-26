@@ -26,7 +26,7 @@ static SrResult Fight(const float* secAt, const float* gaugeAt, int hold, SrCoun
     SrBossHit(&f, &s, 1);
     for (int r = 0; r < SM_RANKS; ++r) { s.rank = r; s.active = 1; s.pts = gaugeAt[r] * c.rankPts[r]; for (double t = 0; t < secAt[r] * 1000.0; t += 16) SrTick(&f, &s, &c, 16); }
     f.dead[0] = 1;
-    SrResult res = SrFinishEx(&f, &s, hold, 0); res.n = n; res.penalty = n.damaged * SR_HIT_PENALTY / 100.f; res.rawAvg = res.avg; res.grade = SrGrade(f.atRank, f.ms, f.area, hold, res.penalty, &res.avg, &res.byAvg); res.n.deflects = n.dodges / 3; res.moves = moves; res.maMoves = ma;
+    SrResult res = SrFinishEx(&f, &s, hold, 0); res.n = n; res.penalty = n.damaged * SR_HIT_PENALTY / 100.f; res.rawAvg = res.avg; res.score = res.rawScore - res.penalty; if (res.score < 0.f) res.score = 0.f; res.grade = (int)res.score; if (res.grade > SM_RANKS - 1) res.grade = SM_RANKS - 1; res.n.displaces = n.dodges / 4; res.n.crouchCancels = n.dodges / 5; res.n.flux1 = n.kis / 4; res.n.flux2 = n.kis / 9; res.n.deflects = n.dodges / 3; res.moves = moves; res.maMoves = ma; res.inputs = (uint32_t)(f.ms / 1000.0 * 4.2); res.apm = f.ms > 0 ? (float)(res.inputs * 60000.0 / f.ms) : 0.f;
     return res;
 }
 int main(int argc, char** argv) {
@@ -40,6 +40,15 @@ int main(int argc, char** argv) {
     struct { const char* name; SrResult r; } fights[] = {
         {"good", Fight(tA, gA, SR_HOLD_PCT, nA, 34, 4)}, {"bursty", Fight(tB, gB, SR_HOLD_PCT, nB, 12, 0)}, {"sss", Fight(tC, gC, SR_HOLD_PCT, nC, 41, 7)},
     };
+    {   // human 2026-11-26: page 2 sample breakdowns
+        static const float e[3][SM_PC_N] = {{2400, 610, 180, 40, 420, 230, 160, 330, 260, 0, 40, 75, 100, 60, 25, 300, 280, 135, 200, 390},
+                                            {1500, 90, 30, 0, 120, 20, 0, 120, 0, 0, 40, 0, 0, 40, 0, 200, 24, 0, 0, 60},
+                                            {3900, 1250, 470, 0, 900, 230, 560, 1500, 500, 160, 160, 75, 450, 440, 0, 900, 1200, 310, 300, 1350}};
+        static const float l[3][SM_PL_N] = {{900, 380, 40}, {2400, 1100, 120}, {350, 0, 0}};
+        for (int fi = 0; fi < 3; ++fi) { SrResult* r = &fights[fi].r; r->earnedTotal = r->lostTotal = 0.f;
+            for (int i = 0; i < SM_PC_N; ++i) { r->n.earned[i] = e[fi][i]; r->earnedTotal += e[fi][i]; }
+            for (int i = 0; i < SM_PL_N; ++i) { r->n.lost[i] = l[fi][i]; r->lostTotal += l[fi][i]; } }
+    }
     const int H = 1080; const SrGeo g = SrGeom(H, SR_SCALE_PCT);
     const int VW = g.w + 80, VH = g.h + 80;
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
@@ -65,6 +74,18 @@ int main(int argc, char** argv) {
                 uint8_t* o = fr + ((size_t)y * VW + x) * 3; o[0] = (uint8_t)(br > 255 ? 255 : br); o[1] = (uint8_t)(bgc > 255 ? 255 : bgc); o[2] = (uint8_t)(bb > 255 ? 255 : bb);
             }
             char path[MAX_PATH]; snprintf(path, sizeof path, "%s/%s_%02d.ppm", out, fights[fi].name, n);
+            FILE* f = fopen(path, "wb"); if (!f) { printf("cannot write %s\n", path); return 1; }
+            fprintf(f, "P6\n%d %d\n255\n", VW, VH); fwrite(fr, 1, (size_t)VW * VH * 3, f); fclose(f);
+        }
+        {   // page 2 (points breakdown), settled
+            SrComposeBreakdown(mem, px, &g, &fights[fi].r); GdiFlush();
+            for (int y = 0; y < VH; ++y) for (int x = 0; x < VW; ++x) {
+                float br = 50, bgc = 52, bb = 48; const int cx = x - 40, cy = y - 40;
+                if (cx >= 0 && cx < g.w && cy >= 0 && cy < g.h) { const uint32_t q = px[cy * g.w + cx]; const float pa = (q >> 24) / 255.f;
+                    br = ((q >> 16) & 0xFF) + br * (1 - pa); bgc = ((q >> 8) & 0xFF) + bgc * (1 - pa); bb = (q & 0xFF) + bb * (1 - pa); }
+                uint8_t* o = fr + ((size_t)y * VW + x) * 3; o[0] = (uint8_t)(br > 255 ? 255 : br); o[1] = (uint8_t)(bgc > 255 ? 255 : bgc); o[2] = (uint8_t)(bb > 255 ? 255 : bb);
+            }
+            char path[MAX_PATH]; snprintf(path, sizeof path, "%s/%s_pts.ppm", out, fights[fi].name);
             FILE* f = fopen(path, "wb"); if (!f) { printf("cannot write %s\n", path); return 1; }
             fprintf(f, "P6\n%d %d\n255\n", VW, VH); fwrite(fr, 1, (size_t)VW * VH * 3, f); fclose(f);
         }

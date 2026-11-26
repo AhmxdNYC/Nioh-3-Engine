@@ -14,7 +14,7 @@ constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' 
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
 // human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
-constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 25;  // 24 = boss fight result card; human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 26;  // human 2026-11-26: 25 = show the meter (card only when OFF); 24 = boss fight result card; human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
 bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
 bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
@@ -44,7 +44,7 @@ int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)Tra
 // human #127379 one row per Nioh3Training [StyleMeter] key (#127568: defs = TR SM_* defaults) (same order as Nioh3Training's sm_menu_keys). kind: 0 on/off, 1 %, 2 ms, 3 points
 struct StyRow { const char* label; int def, kind; int steps[12]; const char* foot; };
 const StyRow kSty[kStyN] = {
-    {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit drops a rank. Saved."},
+    {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit costs half a rank. Saved."},
     {"Style rank size:", 100, 1, {25, 50, 75, 100, 125, 150, 200, 250, 300, 400, -1}, "Points each rank needs. 100% = default; higher = harder to rank up, lower = easier. Changes apply at once. Saved."},
     {"Style drain speed:", 100, 1, {0, 25, 50, 75, 100, 125, 150, 200, 300, 500, -1}, "How fast the meter drains after you stop scoring. 100% = default; 0% = it never drains. Changes apply at once. Saved."},
     {"Style drain delay:", 500, 2, {500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, -1}, "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved."},
@@ -69,6 +69,7 @@ const StyRow kSty[kStyN] = {
     {"Style meter opacity:", 100, 1, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole style meter is. 100% = solid. Applies at once. Saved."},
     {"Style meter always on:", 0, 0, {}, "ON = the meter stays on screen all the time (rank D, empty bar when idle). OFF = it shows only while you fight. Applies at once. Saved."},  // human #129172
     {"Boss fight result card:", 1, 0, {}, "ON = when a boss dies, a card shows your average style rank for the fight (first hit on the boss to its death) and what you used, until you press A or Enter. Needs the style meter ON. Fight length is never scored. Saved."},
+    {"Show style meter:", 1, 0, {}, "OFF = no style meter on screen during fights (no pop-ups or combo counter), but your play is still scored and the boss fight result card still shows at the end. Needs the style meter ON. Saved."},  // human 2026-11-26
 };
 const char* StyLabel(int what) { return kSty[what].label; }
 int StyDefault(int what) { return kSty[what].def; }
@@ -99,6 +100,7 @@ bool StyChange(int item, int dir) {
     char t[24]; StyValueText(what, v, t, sizeof t);
     Log("Rematch: menu %s -> %d (#126804)", StyLabel(what), v);
     if (what == 0) snprintf(g_msg, sizeof g_msg, v ? "Style meter ON: rank D to SSS for landed hits, Ki pulses after a hit and clean dodges, shown in any fight. Saved." : "Style meter OFF. Saved.");
+    else if (what == 25) snprintf(g_msg, sizeof g_msg, v ? "Style meter shown on screen. Saved." : "Style meter hidden: still scored, the boss fight result card still shows. Saved.");
     else snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved. Tell us what feels right with Report a problem.", StyLabel(what), t);
     return true;
 }
@@ -107,7 +109,8 @@ int StyKeysKnown() { using K = int (*)(); const auto f = (K)TrainingExport("Nioh
 template <class Add> void PstAddStyleRows(Add&& add) {
     if (TrainingExport("Nioh3Training_StyleSet")) {  // human #126804; #127379 rows 5+ only when Training knows those keys
         const int n = StyKeysKnown();
-        for (int i = 0; i < n; ++i) add(kItStyBase + i);
+        const int show = 25;  // human 2026-11-26 (Zack7214 1.8.43): 'Show style meter' sits right under the 'Style meter' switch
+        for (int i = 0; i < n; ++i) { if (i == show) continue; add(kItStyBase + i); if (i == 0 && show < n) add(kItStyBase + show); }
     }
 }
 // TASK #137249: Player > Player stats page rows (were flat on Player).

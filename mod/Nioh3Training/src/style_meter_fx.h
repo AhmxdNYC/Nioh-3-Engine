@@ -21,6 +21,7 @@
 #define SM_EASE_TAU_MS 90
 
 // #127171 pts = what the move / event itself is worth, bonus = the extra on top (0 = none); shown 'Label +pts +bonus'. count = merges.
+// pts < 0 = a loss (loop penalty, SmFxPopLoss), shown "Label -N".
 typedef struct { char label[24]; float pts, bonus; int count; double t0, tLast; } SmPop;
 typedef struct { SmPop p[SM_POPS]; int n; } SmPopQ;  // p[0] = oldest
 

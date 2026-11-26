@@ -21,7 +21,8 @@ static void HalfAndHalf(void) {
     SrBossHit(&f, &s, 0x1000);
     Run(&f, &s, &c, 1, 0.5f, 60000); Run(&f, &s, &c, 3, 0.5f, 60000);
     const SrResult r = Done(&f, &s, SR_HOLD_PCT);
-    CHECK(near(r.avg, 2.5, 0.01) && r.grade == 2 && r.byAvg == 2 && r.peak == 3);
+    CHECK(near(r.avg, 2.5, 0.01) && r.byAvg == 2 && r.peak == 3);
+    CHECK(r.byHold == 3 && r.grade == 3);  // rule 3 (2026-11-26): 50 % at A >= 45 % -> A
     CHECK(near(r.pctAt[1], 50, 0.1) && near(r.pctAt[3], 50, 0.1) && near(r.ms, 120000, 1));
 }
 // A few seconds at SSS in a long fight barely moves the average.
@@ -39,8 +40,8 @@ static void HoldRule(void) {
     Run(&f, &s, &c, 0, 0.f, 70000); Run(&f, &s, &c, 6, 0.9f, 30000);   // idle 70 %, SSS 30 %: average 2.07
     SrResult r = Done(&f, &s, SR_HOLD_PCT);
     CHECK(r.byAvg == 2 && r.grade == 0);                                // only 30 % at B or higher (and at C or higher): D
-    r = Done(&f, &s, 25);                                               // looser rule: 30 % >= 25 % at B
-    CHECK(r.grade == 2);
+    r = Done(&f, &s, 25);                                               // looser rule: 30 % >= 25 % at SSS: rule 3 gives SSS
+    CHECK(r.byHold == 6 && r.grade == 6);
     r = Done(&f, &s, 0);                                                // rule 2 off: the average alone
     CHECK(r.grade == r.byAvg);
 }
@@ -56,7 +57,21 @@ static void SssIsHard(void) {
     for (int r = 0; r < 6; ++r) Run(&f, &s, &c, r, 0.5f, 5000);
     Run(&f, &s, &c, 6, 0.3f, 60000);                                    // SSS with a low gauge: average under 6
     rr = Done(&f, &s, SR_HOLD_PCT);
-    CHECK(rr.grade == 5);
+    CHECK(rr.avg < 6.f && rr.byHold == 6 && rr.grade == 6);              // 2026-11-26 rule 3: 67 % of the fight at SSS earns SSS
+    // human's fight 2026-11-26 04:02: SSS 61 %, average 5.62 -> SS before; now SSS. 8 hits (1.00 penalty) take one grade off the score.
+    SrReset(&f); SrBossHit(&f, &s, 0x1000);
+    Run(&f, &s, &c, 1, 0.5f, 3900); Run(&f, &s, &c, 3, 0.5f, 3000); Run(&f, &s, &c, 4, 0.5f, 5800); Run(&f, &s, &c, 5, 0.5f, 7400); Run(&f, &s, &c, 6, 0.3f, 32700);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byAvg == 5 && rr.grade == 6);
+    rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 6 && rr.grade == 6);  // 1 hit: 0.125, still SSS
+    s.damaged += 8; rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 6 && rr.grade == 5); s.damaged -= 8;  // 8 hits: one grade off the score
+    // 40 % at SSS (under 45 %), 60 % at SS: SS
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 60000); Run(&f, &s, &c, 6, 0.5f, 40000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
+    CHECK(SR_HOLD_PCT == 50);  // human 2026-11-26: 47 % at SSS is not enough, 50 % is
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 53000); Run(&f, &s, &c, 6, 0.5f, 47000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 50000); Run(&f, &s, &c, 6, 0.5f, 50000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 6 && rr.grade == 6);
 }
 // Fight length is not scored: the same meter for 10 s or for 10 minutes grades the same. A one-tick kill grades from that one tick.
 static void NoClearTime(void) {
@@ -97,18 +112,115 @@ static void Lifecycle(void) {
     SrReset(&f); SrBossHit(&f, &s, 0xA); now[0].gone = 1; now[0].dead = 1;
     CHECK(SrStep(&f, now, 0, 0, 0, 1000) == 1);                         // gone after dying: fine
     SrReset(&f); SrBossHit(&f, &s, 0xA); memset(now, 0, sizeof now); now[0].dead = 1;
-    CHECK(SrStep(&f, now, 0, 1, 0, 1000) == 0 && !f.ending);            // another boss still up, not hit yet
+    CHECK(SrStep(&f, now, 1, 0, 0, 1000) == 1);                         // dying after the kill still gets the card
+    CHECK(SrStep(&f, now, 0, 0, 2000, 1000) == 2);
+}
+// Gauntlet: 3 bosses in a row, each spawning a few seconds after the last one died -> 3 fights, 3 results, each with its own time.
+// The next boss can already be up (not hit) while the previous one dies: it never holds that card back.
+static void Gauntlet(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; int cards = 0; double t = 0;
+    for (int b = 0; b < 3; ++b) {
+        const uint64_t a = 0x100 + b;
+        CHECK(SrBossHitEx(&f, &s, a, t, SR_FORM_MS) == 0 && f.on && f.nBoss == 1 && f.ms == 0);
+        Run(&f, &s, &c, b + 1, 0.5f, 20000 * (b + 1)); t += 20000 * (b + 1);
+        memset(now, 0, sizeof now);
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 0);         // still up (another boss up and not hit: no effect)
+        now[0].dead = 1;
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+        t += SR_END_DELAY_MS;
+        CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 2);
+        const SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0); SrReset(&f); ++cards;
+        CHECK(r.bosses == 1 && near(r.ms, 20000.0 * (b + 1), 1) && r.grade == b + 1);
+        t += 4000;                                                      // the next boss walks in later
+    }
+    CHECK(cards == 3);
+    // The next boss was already up (seen at the fight start) and is hit 1 s after the kill, inside the end wait: card for the first boss now.
+    SrReset(&f); t = 0;
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 2, 0.5f, 10000); t = 10000;
+    memset(now, 0, sizeof now); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 1 && f.nBoss == 1 && f.ending);  // not a form: caller finishes this fight first
+    SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0); SrReset(&f);
+    CHECK(r.bosses == 1 && near(r.ms, 10000, 1));
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 0 && f.on && f.nBoss == 1 && f.boss[0] == 0xB && f.ms == 0);
+    // A boss that only appears after the form window but is hit inside the end wait is the next boss too.
+    SrReset(&f); SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 5000, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 5000 + SR_FORM_MS + 1, SR_FORM_MS) == 1);
+}
+// Duo: two bosses up together, both hit -> one fight, one result with 2 bosses; the card waits for the second.
+static void Duo(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 3, 0.5f, 5000);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 0, SR_FORM_MS) == 0 && f.nBoss == 2);   // A still up: B joins whatever its seen time
+    now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 6000, SR_END_DELAY_MS) == 0);
+    Run(&f, &s, &c, 3, 0.5f, 5000);
+    now[1].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 11000, SR_END_DELAY_MS) == 1 && SrStep(&f, now, 0, 0, 14000, SR_END_DELAY_MS) == 2);
+    const SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0);
+    CHECK(r.bosses == 2 && near(r.ms, 10000, 1));
+}
+// Second form: a new actor that gets its bar just as the first form goes down (or a moment before) -> same fight, one result.
+static void SecondForm(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); Run(&f, &s, &c, 2, 0.5f, 8000);
+    now[0].hp0 = 1;                                                     // HP 0, death not applied yet: down
+    CHECK(SrStep(&f, now, 0, 0, 8000, SR_END_DELAY_MS) == 1);
+    now[0].gone = 1; now[0].hp0 = 0;                                    // the first form's actor is torn down
+    CHECK(SrStep(&f, now, 0, 0, 8500, SR_END_DELAY_MS) == 0 && f.dead[0]);
+    CHECK(SrBossHitEx(&f, &s, 0xB, 8000 + 1200, SR_FORM_MS) == 0 && f.nBoss == 2 && !f.ending);   // seen 1.2 s after: next form
+    memset(now, 0, sizeof now); now[0].gone = 1;
+    CHECK(SrStep(&f, now, 0, 0, 9500, SR_END_DELAY_MS) == 0);
+    Run(&f, &s, &c, 2, 0.5f, 8000);
+    now[1].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 17000, SR_END_DELAY_MS) == 1 && SrStep(&f, now, 0, 0, 20000, SR_END_DELAY_MS) == 2);
+    SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, 0);
+    CHECK(r.bosses == 2 && near(r.ms, 16000, 1));
+    SrReset(&f); memset(now, 0, sizeof now);                            // its bar showed a frame before the old HP read 0: still the form
+    SrBossHitEx(&f, &s, 0xA, 0, SR_FORM_MS); now[0].dead = 1;
+    CHECK(SrStep(&f, now, 0, 0, 3000, SR_END_DELAY_MS) == 1 && SrBossHitEx(&f, &s, 0xB, 3000 - 100, SR_FORM_MS) == 0 && f.nBoss == 2);
+}
+// Picture Scroll / mission end: a boss torn down right at the kill, and a load right after it.
+static void Teardown(void) {
+    SmState s; SmReset(&s); SrFight f; SrBossNow now[SR_BOSSES];
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, 100, 1000) == 1);        // HP 0 seen
+    now[0].hp0 = 0; now[0].gone = 1;
+    CHECK(SrStep(&f, now, 0, 0, 200, 1000) == 0 && f.dead[0]);          // then gone: killed, not 'left'
+    CHECK(SrStep(&f, now, 0, 0, 1200, 1000) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].gone = 1; now[0].hp0 = 1;                                    // gone on the same tick as the lethal hit (no HP 0 read)
+    CHECK(SrStep(&f, now, 0, 0, 0, 1000) == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; SrStep(&f, now, 0, 0, 0, 1000);                     // HP 0 then healed back (phase heal / floor): up again
+    now[0].hp0 = 0; CHECK(SrStep(&f, now, 0, 0, 50, 1000) == 0 && !f.ending);
+    now[0].gone = 1; CHECK(SrStep(&f, now, 0, 0, 60, 1000) == -1 && f.drop == SR_DROP_LEFT);
+    // load after the kill: the card at once (also with the player gone), not a drop
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, 0, 3000) == 1);
+    CHECK(SrStep(&f, now, 0, 1, 10, 3000) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 1, 1, 0, 3000) == 2);       // killed and the load on the same tick
+    // load with the boss up: drop (mission left / quit)
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    CHECK(SrStep(&f, now, 0, 1, 0, 3000) == -1 && f.drop == SR_DROP_LOAD);
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHit(&f, &s, 0xA);
+    CHECK(SrStep(&f, now, 1, 0, 0, 3000) == -1 && f.drop == SR_DROP_PLAYER);
 }
 // Counts are the difference over the fight; distinct moves / martial arts are sets.
 static void Counts(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
     SmOnHit(&s, &c, 0, 5, 1); SmOnHit(&s, &c, 10, 6, 2);                // before the fight: not counted
     SrBossHit(&f, &s, 0xA);
-    SmOnHit(&s, &c, 100, 7, 3); SmOnHit(&s, &c, 200, 8, 4); SmOnDodge(&s, &c, 300); SmOnDamaged(&s, &c, 400);
+    SmOnHit(&s, &c, 100, 7, 3); SmOnHit(&s, &c, 200, 8, 4); SmOnDodge(&s, &c, 300); SmOnBurst(&s, &c, 350); SmOnDamaged(&s, &c, 400);
     SrMove(&f, 7); SrMove(&f, 8); SrMove(&f, 7); SrMove(&f, SM_ACT_NONE); SrMartialArt(&f, 8); SrMartialArt(&f, 8);
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT);
-    CHECK(r.n.hits == 2 && r.n.dodges == 1 && r.n.damaged == 1 && r.moves == 2 && r.maMoves == 1);
-    char b[600]; CHECK(SrFmt(b, sizeof b, &r) > 0 && strstr(b, "moves 2") && strstr(b, "1 different"));
+    CHECK(r.n.bursts == 1 && r.n.hits == 2 && r.n.dodges == 1 && r.n.damaged == 1 && r.moves == 2 && r.maMoves == 1);
+    char b[600]; CHECK(SrFmt(b, sizeof b, &r) > 0 && strstr(b, "moves 2") && strstr(b, "1 different") && strstr(b, "burst breaks 1"));
 }
 // Dodge / Deflect / Counter: a clean avoid with another skill move in the window = counter; else during the deflect = deflect; else dodge.
 // (The glue never reports the deflect as 'another skill', so a deflect alone is a deflect.)
@@ -121,6 +233,8 @@ static void DodgeDeflectCounter(void) {
     SmDodgeStepEx(&d, 1, 1, 0, 0, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_COUNTER);                     // skill move: counter
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_COUNTER);                     // skill wins over the deflect flag
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); CHECK(SmDodgeStepEx(&d, 0, 0, 1, 0, 0) == SM_AV_NONE);                        // hit: nothing
+    CHECK(SmDodgeHurtGate(SM_AV_DODGE, 5000, 4400) == SM_AV_NONE && SmDodgeHurtGate(SM_AV_DODGE, 5000, 3400) == SM_AV_DODGE);  // knockdown
+    CHECK(SmDodgeHurtGate(SM_AV_DEFLECT, 5000, 4400) == SM_AV_DEFLECT && SmDodgeHurtGate(SM_AV_COUNTER, 5000, 4400) == SM_AV_COUNTER);
     SmDodgeStepEx(&d, 1, 0, 0, 1, 0); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 1, 0) == SM_AV_NONE);                        // guard flag, no i-frames
     SmDodgeStepEx(&d, 1, 1, 0, 1, 1); SmDodgeStepEx(&d, 0, 0, 0, 0, 0);
     SmDodgeStepEx(&d, 1, 1, 0, 0, 0); CHECK(SmDodgeStepEx(&d, 0, 0, 0, 0, 0) == SM_AV_DODGE);                       // no leak into the next window
@@ -130,24 +244,123 @@ static void DodgeDeflectCounter(void) {
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT);
     CHECK(r.n.deflects == 1 && r.n.dodges == 1 && r.n.counterAvoids == 1);
 }
-// Hit penalty: each hit taken lowers the average by 0.25 before grading; 0 = off.
+// Hit penalty: each hit taken lowers the grade score by 0.125 (8 hits = one grade); 0 = off. (human 2026-11-26: grade score)
 static void HitPenalty(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
     SrBossHit(&f, &s, 0x1000);
-    Run(&f, &s, &c, 3, 0.6f, 60000);                                   // A for the whole fight: 3.6
+    Run(&f, &s, &c, 3, 0.6f, 30000); Run(&f, &s, &c, 4, 0.5f, 30000);     // 100 % at A or higher, 50 % at S: S, score 4.00
     SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.grade == 3 && near(r.penalty, 0, 0.001));                  // no hits: A
+    CHECK(r.grade == 4 && r.byHold == 4 && near(r.score, 4.0, 0.01) && near(r.penalty, 0, 0.001));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 3, 0.6f, 60000);  // A for the whole fight: 3.00 (0 % at S)
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY); CHECK(r.grade == 3 && near(r.score, 3.0, 0.01));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 3, 0.6f, 40000); Run(&f, &s, &c, 4, 0.6f, 20000);  // 33 % at S: 3.67
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY); CHECK(r.grade == 3 && near(r.score, 3.667, 0.01) && near(r.nextPct, 33.3, 0.2));
     for (int i = 0; i < 4; ++i) SmOnDamaged(&s, &c, 100000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.n.damaged == 4 && near(r.penalty, 1.0, 0.001) && near(r.rawAvg, 3.6, 0.01) && near(r.avg, 2.6, 0.01) && r.grade == 2);  // 4 hits: B
-    for (int i = 0; i < 20; ++i) SmOnDamaged(&s, &c, 200000 + i * 5000);
+    CHECK(r.n.damaged == 4 && near(r.penalty, 0.5, 0.001) && near(r.rawScore, 3.667, 0.01) && near(r.score, 3.167, 0.01) && r.grade == 3);  // 4 hits: still A
+    for (int i = 0; i < 4; ++i) SmOnDamaged(&s, &c, 130000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.avg == 0.f && r.grade == 0);                               // never below 0
+    CHECK(near(r.score, 2.667, 0.01) && r.grade == 2 && r.byHold == 3);  // 8 hits: one grade (B)
+    for (int i = 0; i < 40; ++i) SmOnDamaged(&s, &c, 200000 + i * 5000);
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
+    CHECK(r.score == 0.f && r.grade == 0);                             // never below 0
     CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 3);              // penalty off
 }
+// human 2026-11-26 grade score examples: 04:53 fight (SSS 61 %) = 6.22, 04:45 fight (SS+ 51 %, SSS 19 %) = 5.38; SSS all fight = 7.00.
+static void GradeScore(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f;
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 1, 0.5f, 8000); Run(&f, &s, &c, 2, 0.5f, 2000); Run(&f, &s, &c, 3, 0.5f, 4000); Run(&f, &s, &c, 4, 0.5f, 5000); Run(&f, &s, &c, 5, 0.5f, 20000); Run(&f, &s, &c, 6, 0.5f, 61000);
+    SrResult r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 6 && near(r.score, 6.22, 0.01));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 1, 0.5f, 10000); Run(&f, &s, &c, 2, 0.5f, 5000); Run(&f, &s, &c, 3, 0.5f, 11000); Run(&f, &s, &c, 4, 0.5f, 23000); Run(&f, &s, &c, 5, 0.5f, 32000); Run(&f, &s, &c, 6, 0.5f, 19000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 5 && near(r.score, 5.38, 0.01) && near(r.nextPct, 19, 0.1));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 6, 0.5f, 10000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 6 && near(r.score, 7.0, 0.001));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 0, 0.5f, 10000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 0 && near(r.score, 0.0, 0.001));
+    // displacements are counted on the card
+    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; d.crouchCancels += 2; d.flux1 += 4; d.flux2 += 1; Run(&f, &d, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3 && r.n.crouchCancels == 2 && r.n.flux1 == 4 && r.n.flux2 == 1);
+    // points breakdown: only what was earned / lost during the fight (the difference from the fight start)
+    SmState e; SmReset(&e); e.earned[SM_PC_HIT] = 500.f; e.lost[SM_PL_DRAIN] = 40.f; SrReset(&f); SrBossHit(&f, &e, 0x1000);
+    e.earned[SM_PC_HIT] += 120.f; e.earned[SM_PC_DODGE] += 45.f; e.lost[SM_PL_DRAIN] += 30.f; e.lost[SM_PL_DAMAGE] += 60.f; Run(&f, &e, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &e, SR_HOLD_PCT);
+    CHECK(near(r.n.earned[SM_PC_HIT], 120, 0.01) && near(r.earnedTotal, 165, 0.01) && near(r.lostTotal, 90, 0.01));
+    { char lb[600]; SrFmtPts(lb, sizeof lb, &r); CHECK(strstr(lb, "final 75 = earned 165 - lost 90") && strstr(lb, "Hits 120") && strstr(lb, "Hits taken 60")); }
+}
+// Picture Scroll (2026-11-25 log 02:55-03:00): three wave bosses on the HUD bar, no boss slot. Boss 1 (own actor) dies, boss 2 gets the bar
+// 10 s later at another address, boss 3 reuses boss 2's actor address with a new handle / HP block (tag) 8 s after boss 2 died. One card each.
+static void PictureScroll(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f); SrHud h; memset(&h, 0, sizeof h);
+    SrBossNow now[SR_BOSSES]; int fresh = 0, cards = 0;
+    // tracker: new actor, same identity again, the same address with another tag = a new identity seen now
+    CHECK(SrHudSee(&h, 0xA0, 0x11, 1000, &fresh) == 0 && fresh && h.e[0].seen == 1000);
+    CHECK(SrHudSee(&h, 0xA0, 0x11, 1500, &fresh) == 0 && !fresh && h.e[0].seen == 1000 && h.e[0].last == 1500);
+    CHECK(SrHudSee(&h, 0xB0, 0x22, 1500, &fresh) == 1 && fresh && SrHudFind(&h, 0xB0) == 1);
+    CHECK(SrHudSee(&h, 0xB0, 0x33, 9000, &fresh) == 1 && fresh && h.e[1].tag == 0x33 && h.e[1].seen == 9000);
+    SrHudExpire(&h, 1500 + SR_HUD_KEEP_MS + 1, SR_HUD_KEEP_MS);               // 0xA0 off the bar too long: forgotten, 0xB0 kept
+    CHECK(SrHudFind(&h, 0xA0) < 0 && SrHudFind(&h, 0xB0) == 1);
+    CHECK(SrHudSee(&h, 0xC0, 1, 9100, 0) == 0 && SrHudSee(&h, 0xD0, 2, 9200, 0) == 2 && SrHudSee(&h, 0xE0, 3, 9300, 0) == 3);
+    CHECK(SrHudSee(&h, 0xF0, 4, 9400, &fresh) == 1 && fresh && SrHudFind(&h, 0xB0) < 0);  // full: the entry seen longest ago (0xB0, 9000) goes
+    SrHudDrop(&h, 0); CHECK(SrHudFind(&h, 0xC0) < 0);
+    CHECK(SrHudFind(&h, 0) < 0 && SrHudSee(&h, 0, 5, 1, &fresh) == -1 && !fresh);
+    // boss 1
+    double t = 0;
+    CHECK(SrBossHitTag(&f, &s, 0x540, 0x1F3E, -2500, SR_FORM_MS) == 0 && f.on && f.tag[0] == 0x1F3E);
+    Run(&f, &s, &c, 3, 0.5f, 22000); t += 22000; memset(now, 0, sizeof now);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    t += SR_END_DELAY_MS; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1); cards++; SrReset(&f);
+    // boss 2 (another address), first hit 2.5 s after its bar showed
+    t += 7000; CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x1F3D, t - 2500, SR_FORM_MS) == 0 && f.on && f.nBoss == 1);
+    Run(&f, &s, &c, 2, 0.5f, 100000); t += 100000; memset(now, 0, sizeof now);
+    now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    // boss 3 takes boss 2's address in the end wait, hit before the card: seen 2 s after the fight went down = not a form: card now, new fight
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x2F3C, t + 2000, SR_FORM_MS) == 1 && f.ending && f.nBoss == 1);
+    CHECK(SrFinish(&f, &s, SR_HOLD_PCT).bosses == 1); cards++; SrReset(&f);
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x2F3C, t + 2000, SR_FORM_MS) == 0 && f.on && !f.ending && f.tag[0] == 0x2F3C);
+    memset(now, 0, sizeof now);                                            // the same address, alive: up (no stale death from boss 2)
+    CHECK(SrStep(&f, now, 0, 0, t + 2100, SR_END_DELAY_MS) == 0 && !f.dead[0]);
+    Run(&f, &s, &c, 4, 0.5f, 160000); t += 160000;
+    now[0].hp0 = 1; CHECK(SrStep(&f, now, 0, 0, t, SR_END_DELAY_MS) == 1);
+    CHECK(SrStep(&f, now, 0, 0, t + SR_END_DELAY_MS, SR_END_DELAY_MS) == 2 && SrFinish(&f, &s, SR_HOLD_PCT).grade == 4); cards++;
+    CHECK(cards == 3);
+    // a new identity at a down boss's address inside the form window: its next form (same fight, up again)
+    SrReset(&f); memset(now, 0, sizeof now);
+    SrBossHitTag(&f, &s, 0x8E0, 0x77, 0, SR_FORM_MS); now[0].dead = 1; CHECK(SrStep(&f, now, 0, 0, 5000, SR_END_DELAY_MS) == 1);
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x78, 5000 + 1000, SR_FORM_MS) == 0 && !f.ending && !f.dead[0] && f.tag[0] == 0x78 && f.nBoss == 1);
+    memset(now, 0, sizeof now); CHECK(SrStep(&f, now, 0, 0, 6100, SR_END_DELAY_MS) == 0);
+    // the same tag again / an untagged (boss slot) hit: plain SrBossHitEx, no change for boss slots
+    CHECK(SrBossHitTag(&f, &s, 0x8E0, 0x78, 0, SR_FORM_MS) == 0 && f.nBoss == 1);
+    CHECK(SrBossHitTag(&f, &s, 0x900, 0, 0, SR_FORM_MS) == 0 && f.nBoss == 2 && f.tag[1] == 0);
+    CHECK(SrBossHitTag(&f, &s, 0x900, 0, 0, SR_FORM_MS) == 0 && f.nBoss == 2);
+    // a HUD boss and the player dying: dropped like any boss
+    SrReset(&f); memset(now, 0, sizeof now); SrBossHitTag(&f, &s, 0x540, 0x1F3E, 0, SR_FORM_MS);
+    CHECK(SrStep(&f, now, 1, 0, 0, SR_END_DELAY_MS) == -1 && f.drop == SR_DROP_PLAYER);
+}
+// human 2026-11-25: APM. Presses = not-held -> held edges of pad buttons, triggers (hysteresis), keys; first sample is no press.
+static void Apm(void) {
+    SrInput in; memset(&in, 0, sizeof in); uint32_t k[8] = {0};
+    CHECK(SrInputStep(&in, 0x1000, 0, 0, k) == 0);           // A held when tracking starts: not a press
+    CHECK(SrInputStep(&in, 0x1000, 0, 0, k) == 0);           // still held
+    CHECK(SrInputStep(&in, 0x3000, 0, 0, k) == 1);           // B pressed
+    CHECK(SrInputStep(&in, 0x0000, 0, 0, k) == 0 && SrInputStep(&in, 0x1001, 0, 0, k) == 2);  // release both, A + D-pad up = 2
+    CHECK(SrInputStep(&in, 0x1001, 200, 0, k) == 1);         // LT pulled
+    CHECK(SrInputStep(&in, 0x1001, 40, 0, k) == 0);          // half released, above the off threshold: still held
+    CHECK(SrInputStep(&in, 0x1001, 10, 0, k) == 0 && SrInputStep(&in, 0x1001, 70, 90, k) == 2);  // LT again + RT
+    k[0] = 1u << 2; k[2] = 1u << 1; CHECK(SrInputStep(&in, 0x1001, 70, 90, k) == 2);  // a mouse button + a key
+    CHECK(SrInputStep(&in, 0x1001, 70, 90, k) == 0);
+    // fight: counted only while on, not ending, with game time; APM = presses per minute of fight time
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
+    SrInputs(&f, 5, 16.7); CHECK(f.inputs == 0);             // no fight yet
+    SrBossHit(&f, &s, 0x1234); for (int i = 0; i < 3000; ++i) { SrInputs(&f, i % 20 == 0, 10); SrTick(&f, &s, &c, 10); }  // 30 s, 150 presses
+    SrInputs(&f, 9, 0); CHECK(f.inputs == 150);              // paused tick: not counted
+    SrResult r = SrFinish(&f, &s, 45); CHECK(r.inputs == 150 && near(r.apm, 300.0, 0.5));
+    char b[900]; SrFmt(b, sizeof b, &r); CHECK(strstr(b, "inputs 150 (APM 300)") != 0);
+    f.ending = 1; SrInputs(&f, 4, 10); CHECK(f.inputs == 150);  // end wait: not counted
+}
 int main(void) {
-    HitPenalty();
+    HitPenalty(); GradeScore();
     DodgeDeflectCounter(); HalfAndHalf(); ShortBurst(); HoldRule(); SssIsHard(); NoClearTime(); Lifecycle(); Counts();
+    Gauntlet(); Duo(); SecondForm(); Teardown(); PictureScroll(); Apm();
     printf("style_result_test: all %d checks passed\n", g_checks);
     return 0;
 }
