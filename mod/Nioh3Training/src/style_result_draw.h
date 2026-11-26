@@ -99,7 +99,7 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     // stats: two columns, label left / value right
     enum { SR_NSTAT = 2 * SR_STAT_ROWS };
     char v[SR_NSTAT][40]; const char* lab[SR_NSTAT] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Hits landed", "Counters",
-                                           "Dodges", "Deflects", "Displacements", "Ki pulses", "Hits taken", "Best combo", "APM", "Inputs", ""};
+                                           "Dodges", "Deflects", "Displacements", "Ki pulses", "Hits taken", "Best combo", "Crouch cancels", "APM", "Inputs"};
     for (int i = 0; i < SR_NSTAT; ++i) v[i][0] = 0;
     snprintf(v[0], 40, "%d", r->moves);
     if (r->n.maHits) snprintf(v[1], 40, "%u (%d different)", r->n.maHits, r->maMoves); else snprintf(v[1], 40, "0");
@@ -109,7 +109,8 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     snprintf(v[11], 40, "%u", r->n.displaces);  // human 2026-11-26
     if (r->n.kiPerfects) snprintf(v[12], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[12], 40, "%u", r->n.kis);
     snprintf(v[13], 40, "%u", r->n.damaged); snprintf(v[14], 40, "%u hits", r->comboBest);
-    snprintf(v[15], 40, "%.0f", r->apm); snprintf(v[16], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
+    snprintf(v[15], 40, "%u", r->n.crouchCancels);  // human 2026-11-26: TMTM / crouch cancels
+    snprintf(v[16], 40, "%.0f", r->apm); snprintf(v[17], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
     const int SR_HITS_TAKEN = 13;
     for (int i = 0; i < SR_NSTAT; ++i) {
         if (!lab[i][0]) continue;

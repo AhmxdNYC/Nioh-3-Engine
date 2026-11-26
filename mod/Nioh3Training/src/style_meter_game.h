@@ -18,12 +18,14 @@
 #include "style_meter.h"
 #include "style_meter_fx.h"  // #127085 pop-ups + motion
 #include "style_result.h"    // boss fight result card (average rank first boss hit -> boss death)
+#include "style_tmtm.h"      // human 2026-11-26: crouch (TMTM) cancel count for the result card
 #include "style_displace.h"  // human: Displacement! (avoid an attack with a move that repositions, then counter)
 #include "style_atlas_gen.h"
 #define COBJMACROS
 #include <wincodec.h>
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
+static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
  static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
@@ -176,6 +178,15 @@ static void SmReadIni(const char* ini, int reset) {
     c.burstMs = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakMs", SM_BURST_MS, ini);
     c.burstSkill = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakSkillOnly", 0, ini);
     c.burstCtrAct = (uint32_t)GetPrivateProfileIntA("StyleMeter", "BurstCounterAct", (int)SM_BURST_CTR_ACT, ini);  // the burst counter (0 = off)
+    {
+        SmTmtmCfgDefaults(&g_tmc);  // human 2026-11-26: crouch (TMTM) cancels: ini id lists (empty = default)
+        char tb[160] = {0}; uint32_t ids[SM_TMTM_IDS]; int k;
+        GetPrivateProfileStringA("StyleMeter", "TmtmThrowIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nThr = k; for (int i = 0; i < k; ++i) g_tmc.thr[i] = ids[i]; }
+        GetPrivateProfileStringA("StyleMeter", "TmtmContinueIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nCont = k; for (int i = 0; i < k; ++i) g_tmc.cont[i] = ids[i]; }
+        GetPrivateProfileStringA("StyleMeter", "CrouchIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nCrouch = k; for (int i = 0; i < k; ++i) g_tmc.crouch[i] = ids[i]; }
+        g_tmc.maxMs = (int)GetPrivateProfileIntA("StyleMeter", "TmtmMaxMs", SM_TMTM_MAX_MS, ini); if (g_tmc.maxMs < 17) g_tmc.maxMs = 17; if (g_tmc.maxMs > 500) g_tmc.maxMs = 500;
+        g_tmc.needAttack = GetPrivateProfileIntA("StyleMeter", "TmtmNeedAttack", 0, ini) != 0;
+    }
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
         float v[SM_RANKS]; int n = 0; const char* p = buf;
@@ -744,6 +755,10 @@ static void SmFeed(double gdt) {
     static SmChain useCh; static int useChInit;
     if (!useChInit) { useChInit = 1; SmChainReset(&useCh); }
     const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
+    // human 2026-11-26: crouch (TMTM) cancel: a Summoning Seal throw cut off by a crouch within a few frames (style_tmtm.h)
+    static SmTmtm tmtm; static int tmtmInit; if (!tmtmInit) { tmtmInit = 1; SmTmtmReset(&tmtm); }
+    const int crouchCancel = SmTmtmStep(&tmtm, &g_tmc, g_sm_clock, pl ? act : 0, pl && g_fp[FP_PL].run.hits > 0);
+    if (crouchCancel) { static int ccl; if (ccl++ < 2000) Log("STYLE CROUCH CANCEL: seal throw cut off by crouch act %u (%u so far)", (unsigned)act, tmtm.n); }
     // human 2026-11-26: slow move = the use's first landed hit came SlowMoveMs or more after the use started (its first run's start, so a
     // charge / wind-up segment of a chained martial art counts). General rule, no move ids. Acts that opened a hit window are learned as
     // attacks (SmAtkSet), so a later use is known as an attack during its wind-up (before its window opens).
@@ -892,6 +907,7 @@ static void SmFeed(double gdt) {
       if (av0 && !avoid) Log("STYLE DODGE: not paid, %.0f ms after the player took damage (knockdown / get-up i-frames), act %u", g_sm_clock - avHurtT, (unsigned)act); }
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
+    if (crouchCancel) g_sm.crouchCancels++;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
     const double landMs = slw.landed ? slw.landMs : -1.0;

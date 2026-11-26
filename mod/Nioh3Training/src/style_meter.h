@@ -214,6 +214,7 @@ typedef struct {
     uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
+    uint32_t crouchCancels; // human 2026-11-26: crouch (TMTM) cancels (style_tmtm.h, result card)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
     int drainHold;          // human 2026-11-26: set by the game glue each tick (slow-move wind-up near a boss): SmTick does not drain
     uint32_t varBonuses; int varMile; float varLastPts, varPts; float versPts;  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points

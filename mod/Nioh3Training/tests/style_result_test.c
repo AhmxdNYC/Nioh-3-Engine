@@ -278,8 +278,8 @@ static void GradeScore(void) {
     SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 0, 0.5f, 10000);
     r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 0 && near(r.score, 0.0, 0.001));
     // displacements are counted on the card
-    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; Run(&f, &d, &c, 2, 0.5f, 1000);
-    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3);
+    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; d.crouchCancels += 2; Run(&f, &d, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3 && r.n.crouchCancels == 2);
 }
 // Picture Scroll (2026-11-25 log 02:55-03:00): three wave bosses on the HUD bar, no boss slot. Boss 1 (own actor) dies, boss 2 gets the bar
 // 10 s later at another address, boss 3 reuses boss 2's actor address with a new handle / HP block (tag) 8 s after boss 2 died. One card each.
