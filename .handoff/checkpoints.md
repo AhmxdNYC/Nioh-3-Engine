@@ -1486,3 +1486,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-26 4:55 am EST | regression-pc/0 #137542 | A ea62ab30 + B 1ccb5b35 reviewed offline, PASS both | proven offline (audit 49=base, BR suite = base, sub_pages 62, scn test 117/119), not live | next: none for regression; pc decides merge | worktrees removed
 - 2026-11-26 1:43 am EST | pc2/0 #137517 menu hold-repeat EF fdcb490d live | proven on PC2 (shrine/field/pause) | next: pc decides on map pan speed with repeat ON; blacksmith check needs a save at a smithy | rig C:/nioh3-re/mr137517
+- 2026-11-26 2:05 am EST | pc2/0 #137587 menu hold-repeat EF f389259e live | proven on PC2 (map/shrine/pause/field) | next: pc decides ship; blacksmith needs a save at a smithy | rig C:/nioh3-re/mr137587
