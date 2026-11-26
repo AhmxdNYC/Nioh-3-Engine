@@ -6514,6 +6514,9 @@ void SealEndOnHitTick() {
         censusComplete = false;
         return; // reused/promoted actor cannot donate bursts or learning to this session
     }
+    // TASK #136981: spawn time of every source actor this press (the seal too), to tell body parts from thrown helpers below.
+    static std::map<uint64_t, double> srcAt; static double srcAtSess = -1;
+    if (srcAtSess != sess) { srcAt.clear(); srcAtSess = sess; }
     // Retain every noted actor from this press, including actors preceding the bound seal.
     for (int k = 0; k < 8; ++k) {
         const uint64_t actor = g_sehKid[k];
@@ -6523,6 +6526,7 @@ void SealEndOnHitTick() {
             // live #135318: 5129B's real hit comes from an actor the seal spawns (65A8A8). Its hits are in ITS loaded action data: read it the
             // same way and add it. Not certain / unreadable -> the data count is dropped (learned count or idle fallback).
             SealHelperDataJoin(actor, "spawn");
+            srcAt.emplace(actor, g_sehKidT[k]);
             Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
                 (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal);
         }
@@ -6532,6 +6536,7 @@ void SealEndOnHitTick() {
         if (std::find(sources.begin(), sources.end(), entry.actor) == sources.end()) {
             sources.push_back(entry.actor);
             SealHelperDataJoin(entry.actor, "press source");  // #135408: this list's helpers were never read
+            srcAt.emplace(entry.actor, entry.at);
             Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
                 (unsigned long long)entry.actor, entry.at, sourceSince, (unsigned long long)seal);
         }
@@ -6663,6 +6668,13 @@ void SealEndOnHitTick() {
     const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastCached(sid) == 1;
     if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
+            // TASK #136981 (human #136977, CF875): an actor spawned with the seal (within 100 ms) is part of the yokai's body, not a thrown
+            // helper (Kasha's cart comes 1.3 s later). Ending the form on its hit cut the yokai mid-attack: the player escaped the form.
+            { const auto hs = srcAt.find(a.first), ss = srcAt.find(seal);
+              if (hs != srcAt.end() && ss != srcAt.end() && std::fabs(hs->second - ss->second) < 0.100) {
+                  static double bodyLogSess = -1;
+                  if (bodyLogSess != sess) { bodyLogSess = sess; Log("SealExitOnHelper core %X: burst %d source %llX spawned with the seal (%.3f s apart) = body part, no helper exit", sid, bursts, (unsigned long long)a.first, std::fabs(hs->second - ss->second)); }
+                  continue; } }
             helpers.insert(a.first);
             if (helperSess != sess) {
                 helperSess = sess; helperOpen = now - sess;
