@@ -67,6 +67,11 @@ static void SssIsHard(void) {
     // 40 % at SSS (under 45 %), 60 % at SS: SS
     SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 60000); Run(&f, &s, &c, 6, 0.5f, 40000);
     rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
+    CHECK(SR_HOLD_PCT == 50);  // human 2026-11-26: 47 % at SSS is not enough, 50 % is
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 53000); Run(&f, &s, &c, 6, 0.5f, 47000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 50000); Run(&f, &s, &c, 6, 0.5f, 50000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 6 && rr.grade == 6);
 }
 // Fight length is not scored: the same meter for 10 s or for 10 minutes grades the same. A one-tick kill grades from that one tick.
 static void NoClearTime(void) {

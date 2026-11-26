@@ -32,7 +32,7 @@
 // Grade. Two rules, both must hold for rank R:
 //   1. floor(average) >= R                                (C for half the fight and A for the other half: average about 2.5 -> B)
 //   2. at least holdPct % of the fight was spent at rank R or higher   (a high average built on a short burst does not count)
-// or rule 3 alone (human 2026-11-26): holdPct % (45) of the fight at R or higher earns R, one grade lower per 1.00 of hit penalty.
+// or rule 3 alone (human 2026-11-26): holdPct % (50) of the fight at R or higher earns R, one grade lower per 1.00 of hit penalty.
 // The grade is the highest R that passes both. The card says which rule held it back when rule 2 lowered it.
 #ifndef STYLE_RESULT_H
 #define STYLE_RESULT_H
@@ -41,7 +41,7 @@
 
 #define SR_BOSSES 8
 #define SR_ACTS 192             // distinct move ids remembered per fight (more just stop counting)
-#define SR_HOLD_PCT 45          // [StyleMeter] ResultHoldPct (human 2026-11-25: was 50)
+#define SR_HOLD_PCT 50          // [StyleMeter] ResultHoldPct (human 2026-11-26: 50 with rule 3; 2026-11-25 was 45)
 #define SR_END_DELAY_MS 3000    // [StyleMeter] ResultEndDelayMs: wait after the last boss death for a next form
 #define SR_FORM_MS 1500         // [StyleMeter] ResultFormMs: a boss first seen this long after the fight went down is still its next form
 #define SR_FORM_SLACK_MS 500    // ... or this long before it (the next form's bar can show a frame before the old HP reads 0)
