@@ -16,6 +16,8 @@ OUT = sys.argv[1]
 os.makedirs(OUT, exist_ok=True)
 JSONL = os.path.join(OUT, "cores.jsonl")
 PROG = os.path.join(OUT, "progress.txt")
+# SURVEY_ONLY="638,13": test just these item indexes (one-core live checks)
+ONLY = {int(x) for x in os.environ.get("SURVEY_ONLY", "").split(",") if x.strip()}
 
 def say(s):
     print(s, flush=True)
@@ -203,6 +205,11 @@ def owned():
     rows, off, n = [], 0, None
     while True:
         line = pipe("spirit scstate %d" % off)
+        t_wait = time.time()
+        # right after Continue the player chain can still be null; wait for it instead of reading 0 cores
+        while "chain null" in line and time.time() - t_wait < 90:
+            time.sleep(3)
+            line = pipe("spirit scstate %d" % off)
         say("scstate " + line[:220])
         if not line.startswith("ok"):
             raise SystemExit("scstate failed: " + line)
@@ -370,7 +377,31 @@ def down_throws(expect, want=2, use=0):
         return got, "ok"
     return got, "short"
 
+def press_mode(btn, uses):
+    # SURVEY_PRESS=RIGHT: use whatever core the save already has on that d-pad slot, no shrine equip (one-core live checks)
+    kept = 0
+    for u in range(1, uses + 1):
+        try:
+            say("gauge " + pipe("spirit gauge max", timeout=6))
+        except Exception as ge:
+            say("gauge skip %s" % ge)
+        pos = log_size()
+        press(btn, 500)
+        time.sleep(12)
+        text, _ = read_from(pos)
+        rec = measure(text)
+        rec.update({"use": u, "btn": btn, "helper_exit": text.count("SealExitOnHelper"),
+                    "end_lines": re.findall(r"SealEndOnHit.*", text)[:3]})
+        open(JSONL, "a", encoding="utf-8").write(json.dumps(rec) + "\n")
+        say("use %d %s" % (u, json.dumps(rec)[:300]))
+        kept += 1 if rec["yokai"] else 0
+        time.sleep(3)
+    open(PROG, "w", encoding="utf-8").write("press mode %s kept %d/%d\n" % (btn, kept, uses))
+    return 0 if kept else 5
+
 def main():
+    if os.environ.get("SURVEY_PRESS"):
+        return press_mode(os.environ["SURVEY_PRESS"], int(os.environ.get("SURVEY_USES", "3")))
     n, rows = owned()
     say("owned %d listed %d" % (n, len(rows)))
     kept_rows = []
@@ -416,6 +447,8 @@ def main():
     for i, (idx, item) in enumerate(rows, 1):
         if idx in done:
             say("skip idx %d already kept" % idx)
+            continue
+        if ONLY and idx not in ONLY:
             continue
         pos = log_size()
         eq = pipe("spirit scequip 1 %d" % idx, timeout=12)

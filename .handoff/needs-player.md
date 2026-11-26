@@ -51,3 +51,4 @@
 - [ ] Restart for soul-core early-end fix (#135096) | reply 'restart' so Main PC loads Boss Rematch 0dd6b46f, then use C40E twice | Main PC
 - [ ] Soul cores on Main PC | play with BR D5BB22D5: each soul core form ends after its last burst, no cut-off, no learning use (5129B + an unused core); controller pad 0 OK | pc
 - [x] GH #178 weapon | ask the reporter which weapon he used in Ninja style when his character went slow-mo (his log cannot show it) | any (resolved 11-25 5:05 pm EST: pc2 #136083 shows authored move speed, weapon not needed)
+- [ ] Soul core range +20% (#136785) | it needs engine mapping of the attack hit-shape size: either top up the OpenRouter key so DeepSeek runs again (out of credits since 11-20), or reply 'Claude RE ok for range' to lift pause #92352 for this one job | Main PC

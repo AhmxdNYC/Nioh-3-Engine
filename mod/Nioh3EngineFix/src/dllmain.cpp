@@ -3581,6 +3581,7 @@ DWORD WINAPI Worker(LPVOID) {
             vi.menuRemote = &menu::Remote;
             vi.hudIdsRemote = &menu::RemoteHudIds;
             vi.pauseReason = &menu::GamePauseReason;
+            vi.menuRepeatGate = &menu::GameMenuRepeatGate;
             vpad::Start(vi);
             if (vpad::KeysWanted()) { menu::SetKeyFilter(&vpad::KeyFilter); menu::SetInputVirtual(&vpad::InputVirtual); }
         }

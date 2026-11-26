@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-26 5:09 am EST: regression-pc/0. #137566 PASS #137637 on EF 214404d7 (ASI f389259e). Not installed. Did not touch the game. Do not publish.
 - CURRENT 2026-11-25 9:22 pm EST: pc/1. #136492 live PASS, not installed. pc1/movesens-136492 526f1931. BR B48CCCF6 + TR 202776EC at D:/nioh3-re/soudmg-136492. Human game pid 67116 on BR E296BCF4, TR 5C5EA937. Lock free. Do not install before regression. Do not publish.
 - CURRENT 2026-11-25 8:03 pm EST: pc/0. Main PC live main 0d83711e: BR E296BCF4, TR 5C5EA937, pid 64668 since 8:03 pm EST (human away #136380). pc/1 owns the live check #136412 + delay #136363. Do not publish.
 - CURRENT 2026-11-25 8:00 pm EST: regression-pc/0. #136385 PASS offline on BR b5c54a7f (E296BCF4, pc1/coresw-136367). foreign_spawn 16, form_core_pick 143, audit 0 new. 7 BR tests fail on base too (msvc path). Not installed. Live check with pc. Do not publish.
@@ -238,3 +239,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - CURRENT 2026-11-18 7:28 pm EST: pc/1 #117821 done. 4 ViGEm replays (A1 A2 REN 60, B1 B2 MaxFps 120). No Nioh. Lock free. EF 1c8e1245, VirtualPad 0, MaxFps 120, HoldAttackFix 0, REN_FPS 120. No fix. Do not publish.
 - CURRENT 2026-11-18 10:45 pm EST: performance-pc/0 #118609 done (RESULT #118856). EF restored 1c8e1245, ini byte-identical, config/saves restored. No Nioh. Lock 381 free. ShadowMode parked, not in 1.8.23.
 - CURRENT 2026-11-25 11:13 am EST: pc/3. HUMAN HANDS-ON soul-core session #134961: Nioh pid 64560, BR e5b755af installed (05b5cce2 backed up), lock pc, marker pc/3. On 'good' switch core live per D:/nioh3-wt/hand-134961/SESSION.md (46 unique cores, idx list). Do not close or launch over it. Slot 2 copies work stopped by human.
+- CURRENT 2026-11-25 10:17 pm EST: pc/1. #136502 Fast summon staged (BR ED3FC89A), not installed. Do not publish.
+- CURRENT 2026-11-25 10:27 pm EST: pc/0. Fast summon installed on Main PC, BR ED3FC89A (main 7ff48e68), TR 202776EC. No Nioh. Lock free. Do not publish.
