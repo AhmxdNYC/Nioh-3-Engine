@@ -4140,7 +4140,7 @@ void FastThrowInstall() {
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
     g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));  // TASK #137013: 0 = Fast summon has no smoke
     Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
-        g_fastSpeed.load() > 0 ? "own value" : "= 90%% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
+        g_fastSpeed.load() > 0 ? "own value" : "= 90% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
     if (pct <= 1 && !tail && !sspeed && !fastOwn) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
@@ -6037,8 +6037,10 @@ bool FastSmokeHide(uint32_t id, uint64_t owner, uint64_t d, const uint64_t* sp) 
     bool smoke = ExitSmokeId(id);
     for (int i = 0; i < g_sxfN && !smoke; ++i) smoke = g_sxfIds[i] == id;
     const uint64_t pl = FkPlayer();
-    const bool ours = !owner || owner == pl || FastChr(owner);
     const int ms = (int)((Now() - g_pickT.load()) * 1000.0);
+    // live 11-26 (3B1AB): the big summon smoke 62557 is made on the seal's own object (not the player, not the yokai) +110 ms after the
+    // press, so any smoke id in the first 2 s of the press counts as this summon's; later only the player's / the yokai's own.
+    const bool ours = !owner || owner == pl || FastChr(owner) || (ms >= 0 && ms < 2000);
     if (!smoke || !ours) {
         if (g_fastFxLog.fetch_add(1) < 40) Log("FastSummon fx %X owner %llX (%s) +%d ms: kept", id, (unsigned long long)owner,
             owner == pl ? "player" : FastChr(owner) ? "yokai" : owner ? "other" : "none", ms);
@@ -6047,7 +6049,7 @@ bool FastSmokeHide(uint32_t id, uint64_t owner, uint64_t d, const uint64_t* sp) 
     const bool world = d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
     const bool muted = FxMute(id);
     if (!muted && world) ((float*)d)[13] -= 100000.f;
-    Log("FastSummon smoke %X owner %s +%d ms: %s", id, owner == pl ? "player" : owner ? "yokai" : "none", ms, muted ? "not spawned" : world ? "moved away" : "kept (no handle)");
+    Log("FastSummon smoke %X owner %s +%d ms: %s", id, owner == pl ? "player" : FastChr(owner) ? "yokai" : owner ? "other" : "none", ms, muted ? "not spawned" : world ? "moved away" : "kept (no handle)");
     return muted || world;
 }
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
