@@ -31,7 +31,7 @@ const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke for
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
                                       "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:", "Move sensitivity:", "Fast summon speed:"};  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0};
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -49,7 +49,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
     else if (w == 18) snprintf(b, n, "%d %%", (int)v);
     else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 20) { if (v <= 1) snprintf(b, n, "x1 (game)"); else snprintf(b, n, "x%d", (int)v); }  // TASK #136492
-    else if (w == 21) { if (v <= 0) snprintf(b, n, "= Transform"); else snprintf(b, n, "x%.1f", v); }  // TASK #136502
+    else if (w == 21) { if (v <= 0) snprintf(b, n, "90%% of Transform"); else snprintf(b, n, "x%.1f", v); }  // TASK #136502
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
     else if (w == 12 && v <= 0) snprintf(b, n, "OFF");
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
@@ -60,8 +60,75 @@ void SctValueText(int w, double v, char* b, size_t n) {
 // (Nioh3Training_SoulCoreEquip / SoulCoreEquipItem, soul_core_swap_game.h); these rows only pick a slot and a core and send one request on A.
 // TASK #136129: when SoulCoreCatalog is present the picker is every soul core in the item master, not only ones this save owns.
 #include "../../Nioh3Training/src/soul_core_swap.h"
-constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301;
-bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore; }
+constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301, kItScOverlay = 0xE0302;
+bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore || item == kItScOverlay; }
+// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot '<yokai name> | S / T / TM' ('Core <item>' until the name is known, #137305)
+// (S = the game's own summon or Fast summon, T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
+std::atomic<int> g_scOverlay{-1};
+bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 1) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
+const char* ScOverlayTag(uint32_t chr, bool formsOn) {
+    if (!chr) return "?";
+    const int c = bosslog::FormCoreCallGet(chr);
+    if (!formsOn || sc_call_game_path(c)) return "S";
+    return bosslog::FormCoreMoved(chr) ? "TM" : "T";
+}
+// TASK #137007 (human #137004): the overlay's look, on its own page (Player > Soul core overlay look), styled like the style meter rows.
+// [Menu] SoulCoreOverlay* keys, live (the overlay thread reads them every repaint) and saved.
+constexpr int uScOverlay = 951;
+constexpr int kItScOvOpen = 0xE0303, kItScOvBase = 0xE0310, kScOvN = 7;
+enum { kScOvSize = 0, kScOvX, kScOvY, kScOvAlpha, kScOvBox, kScOvColors, kScOvFont };
+struct ScOvRow { const char* label; const wchar_t* key; int def, kind, lo, hi; int steps[12]; const char* foot; };  // kind 0 on/off, 1 %, 4 per-mille (1% steps), 5 choice
+const ScOvRow kScOv[kScOvN] = {
+    {"Overlay size:", L"SoulCoreOverlaySize", 130, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size; default 130%. Applies at once. Saved."},
+    {"Overlay left/right:", L"SoulCoreOverlayX", 15, 4, 0, 1000, {}, "Where the overlay sits across the screen (its left edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},
+    {"Overlay up/down:", L"SoulCoreOverlayY", 970, 4, 0, 1000, {}, "Where the overlay sits down the screen (its bottom edge): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
+    {"Overlay opacity:", L"SoulCoreOverlayOpacity", 92, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 92, 100, -1}, "How see-through the whole overlay is. 100% = solid; default 92%. Applies at once. Saved."},
+    {"Overlay background:", L"SoulCoreOverlayBox", 1, 0, 0, 1, {}, "ON = text on a dark panel. OFF = outlined text only, nothing behind it (like the style meter). Applies at once. Saved."},
+    {"Overlay colors:", L"SoulCoreOverlayColors", 0, 5, 0, 2, {}, "Menu = the mod menu's white / green / gray. Style meter = the style meter's purple. Gold = warm gold. S lines are dimmer, TM lines brightest. Applies at once. Saved."},
+    {"Overlay font:", L"SoulCoreOverlayFont", 0, 5, 0, 2, {}, "Letter style: Normal (the menu's), Wide (more space between letters) or Bold (heavier strokes). Applies at once. Saved."},
+};
+const char* const kScOvChoice[2][3] = {{"Menu", "Style meter", "Gold"}, {"Normal", "Wide", "Bold"}};
+std::atomic<int> g_scOv[kScOvN];  // value + 1 (0 = not read from the ini yet)
+bool IsScOvItem(int item) { return item == kItScOvOpen || (item >= kItScOvBase && item < kItScOvBase + kScOvN); }
+int ScOvClamp(int w, int v) { return v < kScOv[w].lo ? kScOv[w].lo : v > kScOv[w].hi ? kScOv[w].hi : v; }
+int ScOvGet(int w) {
+    if (w < 0 || w >= kScOvN) return 0;
+    int v = g_scOv[w].load();
+    if (!v) { v = ScOvClamp(w, IniInt(L"Menu", kScOv[w].key, kScOv[w].def)) + 1; g_scOv[w].store(v); }
+    return v - 1;
+}
+int ScOvSet(int w, int v) {
+    v = ScOvClamp(w, v);
+    g_scOv[w].store(v + 1);
+    wchar_t t[16]; swprintf(t, 16, L"%d", v);
+    WritePrivateProfileStringW(L"Menu", kScOv[w].key, t, IniPath());
+    return v;
+}
+void ScOvReset() { for (int w = 0; w < kScOvN; ++w) ScOvSet(w, kScOv[w].def); }
+void ScOvPageReset() { ScOvReset(); g_scOverlay.store(1); WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", L"1", IniPath()); }
+int ScOvStep(int w, int v, int dir) {
+    const int k = kScOv[w].kind;
+    if (k == 0) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
+    if (k == 5) { const int span = kScOv[w].hi - kScOv[w].lo + 1, d = dir < 0 ? -1 : 1; return kScOv[w].lo + ((v - kScOv[w].lo + d) % span + span) % span; }
+    if (k == 4) { const int x = (v + 5) / 10 * 10 + (dir < 0 ? -10 : 10); return ScOvClamp(w, x); }
+    const int* st = kScOv[w].steps; int cnt = 0; while (cnt < 12 && st[cnt] >= 0) ++cnt;
+    if (dir >= 0) { for (int i = 0; i < cnt; ++i) if (st[i] > v) return st[i]; return dir ? st[cnt - 1] : st[0]; }  // A past the top wraps
+    for (int i = cnt - 1; i >= 0; --i) if (st[i] < v) return st[i];
+    return st[0];
+}
+void ScOvValueText(int w, int v, char* b, size_t n) {
+    const int k = kScOv[w].kind;
+    if (k == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
+    else if (k == 5) snprintf(b, n, "%s", kScOvChoice[w == kScOvFont][v < 0 ? 0 : v > 2 ? 2 : v]);
+    else if (k == 4) snprintf(b, n, "%d.%d %%", v / 10, v % 10);
+    else snprintf(b, n, "%d %%", v);
+}
+// Overlay colours (COLORREF): [theme][0 = S, 1 = T, 2 = TM, 3 = panel]
+const uint32_t kScOvTheme[3][4] = {
+    {0xB4B4B4, 0xFFFFFF, 0x6CFF6C, 0x181210},   // Menu: the mod menu's gray / white / green on its dark panel
+    {0xBE8CA0, 0xFFE1EB, 0xFF78D6, 0x260E1A},   // Style meter: muted / pale / bright purple on dark purple
+    {0x6E96AA, 0x96E1FF, 0x3CBEFF, 0x081218},   // Gold
+};
 int g_scEqSlot = 0;
 uint32_t g_scEqPick = SCW_EMPTY;
 int g_scEqSeq = -1;  // finished-request count when our request was sent (-1 = none outstanding)
@@ -73,6 +140,8 @@ bool ScEqRead(ScEqState* st) {
     return st->n >= 0;
 }
 template <class Add> void ScEqAddRows(Add&& add) {
+    add(kItScOverlay);  // TASK #137000
+    add(kItScOvOpen);  // TASK #137007: overlay look page
     if (!TrainingExport("Nioh3Training_SoulCoreEquip")) return;  // older Nioh3Training.asi: no rows
     add(kItScEqSlot); add(kItScEqCore);
 }
@@ -87,8 +156,116 @@ bool ScCatRead(ScCat* c) {
     c->n = n > SCW_MAX_IDS ? SCW_MAX_IDS : n;
     return true;
 }
+// TASK #137305: the yokai name of a soul core item (Nioh3Training_SoulCoreName: the game's own tables + text). false = not known (yet) / older TR.
+bool ScCoreName(uint16_t item, char* out, int cap) {
+    using F = int (*)(int, char*, int);
+    const auto f = (F)TrainingExport("Nioh3Training_SoulCoreName");
+    if (cap > 0) out[0] = 0;
+    return f && item && item != 0xFFFF && f(item, out, cap) > 0 && out[0];
+}
+// Item id of the core in Yang slot y (0/1), 0xFFFF = empty or not readable.
+uint16_t ScSlotItem(int y) {
+    ScCat cat;
+    if (ScCatRead(&cat)) return cat.slotItem[y];
+    ScEqState st;
+    if (!ScEqRead(&st)) return 0xFFFF;
+    const int it = st.slots[y] != SCW_EMPTY ? ScEqItemOf(st, st.slots[y]) : -1;
+    return it >= 0 ? (uint16_t)it : 0xFFFF;
+}
+// TASK #137007: overlay look rows (A / Left / Right). The open row enters uScOverlay.
+bool ScOvChange(int item, int dir) {
+    if (!IsScOvItem(item)) return false;
+    if (item == kItScOvOpen) {
+        if (dir) return true;  // the open row has no value
+        g_uiPages.Enter(uScOverlay, g_sel);
+        g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        Log("Rematch: Soul core overlay look page opened (TASK #137007)");
+        return true;
+    }
+    const int w = item - kItScOvBase, cur = ScOvGet(w);
+    const int v = ScOvSet(w, ScOvStep(w, cur, dir));
+    char t[24]; ScOvValueText(w, v, t, sizeof t);
+    Log("Rematch: menu %s -> %d (TASK #137007)", kScOv[w].label, v);
+    snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved.", kScOv[w].label, t);
+    return true;
+}
+bool ScOvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (!IsScOvItem(item)) return false;
+    if (item == kItScOvOpen) { snprintf(buf, n, "%s Soul core overlay look   A: open", mk); *color = sel ? cWhite : cGray; return true; }
+    const int w = item - kItScOvBase, v = ScOvGet(w);
+    char t[24]; ScOvValueText(w, v, t, sizeof t);
+    snprintf(buf, n, "%s %-22s %-12s Left / Right", mk, kScOv[w].label, t);
+    *color = sel ? cWhite : v != kScOv[w].def ? cYellow : cGray;
+    return true;
+}
+const char* ScOvFooter(int item) {
+    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 flip Yang 1 / Yang 2 between summon and Transform.";
+    if (item >= kItScOvBase && item < kItScOvBase + kScOvN) return kScOv[item - kItScOvBase].foot;
+    return nullptr;
+}
+// TASK #137007 (human #137004): F3 / F4 flip the core in Yang slot 1 / 2 between summon and Transform. Transform never picks 'moves':
+// the detection decides (TASK #136987). Going back to summon restores the summon kind the core had (the game's own or Fast summon).
+// TASK #137543 (regression #137316 gap 5): the summon kind is kept per core in [Spirit] FormCoreSummonKinds ("<core hex>:<kind>,..."), so a
+// restart still returns a Fast summon core to Fast summon. Newest entry first, at most 32 cores.
+constexpr int kScKeyMax = 32;
+int ScKeySummonRead(uint32_t* ids, int* kinds) {
+    wchar_t b[1024] = {}; GetPrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", L"", b, 1024, IniPath());
+    int n = 0;
+    for (wchar_t* p = b; *p && n < kScKeyMax;) {
+        wchar_t* e = nullptr; const unsigned long id = wcstoul(p, &e, 16);
+        if (e == p || *e != L':') break;
+        const long k = wcstol(e + 1, &p, 10);
+        if (id && !sc_call_forms((int)k)) { ids[n] = (uint32_t)id; kinds[n] = (int)k; ++n; }
+        while (*p == L',' || *p == L' ') ++p;
+    }
+    return n;
+}
+bool ScKeySummonGet(uint32_t id, int* kind) {
+    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
+    for (int i = 0; i < n; ++i) if (ids[i] == id) { *kind = kinds[i]; return true; }
+    return false;
+}
+void ScKeySummonPut(uint32_t id, int kind) {
+    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
+    wchar_t b[1024]; int len = swprintf(b, 1024, L"%X:%d", id, kind);
+    for (int i = 0, kept = 1; i < n && kept < kScKeyMax && len > 0 && len < 1000; ++i)
+        if (ids[i] != id) { len += swprintf(b + len, 1024 - len, L",%X:%d", ids[i], kinds[i]); ++kept; }
+    WritePrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", b, IniPath());
+}
+void ScCallKey(int y) {
+    uint32_t chr[2] = {};
+    const bool eq = bosslog::FormCoreEquippedIds(chr);
+    const uint16_t item = ScSlotItem(y);
+    if (!eq || !chr[y]) {
+        if (item == 0xFFFF || !item) ToastF(cYellow, 3000, "Yang %d: no soul core in this slot.", y + 1);
+        else ToastF(cYellow, 3000, "Yang %d (core %X): not detected yet. Load into the game first, then press F%d again.", y + 1, item, y + 3);
+        Log("Rematch: F%d soul core call: Yang %d not detected (eq=%d id=%X item=%X, TASK #137007)", y + 3, y + 1, eq ? 1 : 0, chr[y], item);
+        return;
+    }
+    const uint32_t id = chr[y];
+    const int cur = bosslog::FormCoreCallGet(id);
+    int want;
+    if (sc_call_forms(cur)) { int kind = SC_CALL_GAME; ScKeySummonGet(id, &kind); want = kind; }
+    else { ScKeySummonPut(id, cur); want = SC_CALL_TRANSFORM; }
+    const int now = bosslog::FormCoreCallSet(id, want);
+    const bool forms = bosslog::SoulCoreForms(nullptr);
+    Log("Rematch: F%d Yang %d core %X (item %X): %s -> %s (TASK #137007)", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
+    const char* what = sc_call_forms(now) ? "Transform" : now == SC_CALL_FAST_SUMMON ? "Fast summon" : "Summon";
+    if (sc_call_forms(now) && !forms) ToastF(cYellow, 4000, "Yang %d core %X: Transform (saved), but Soul core transformations is OFF in the menu.", y + 1, item);
+    else if (now == want) ToastF(sc_call_forms(now) ? cGreen : cWhite, 3000, "Yang %d core %X: %s from the next use.", y + 1, item, what);
+    else ToastF(cYellow, 4000, "Yang %d core %X: stays %s (the saved core list is full).", y + 1, item, what);
+}
 bool ScEqChange(int item, int dir) {
+    if (ScOvChange(item, dir)) return true;  // TASK #137007
     if (!IsScEqItem(item)) return false;
+    if (item == kItScOverlay) {  // TASK #137000: A flips, Left OFF, Right ON
+        const bool v = dir > 0 ? true : dir < 0 ? false : !ScOverlayOn();
+        g_scOverlay.store(v ? 1 : 0);
+        WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", v ? L"1" : L"0", IniPath());
+        Log("Rematch: soul core overlay %s (TASK #137000)", v ? "ON" : "OFF");
+        snprintf(g_msg, sizeof g_msg, v ? "Soul core overlay ON: bottom left, one line per Yang slot. Saved." : "Soul core overlay OFF. Saved.");
+        return true;
+    }
     ScEqState st;
     if (!ScEqRead(&st)) { snprintf(g_msg, sizeof g_msg, "Soul cores cannot be read right now (load a save first)."); return true; }
     if (item == kItScEqSlot) {
@@ -147,13 +324,25 @@ void ScEqPoll() {  // finished request -> message (called from the row text, men
     int seq = 0; const int r = res ? res(&seq) : SCW_FAULT;
     if (res && seq == g_scEqSeq) return;
     g_scEqSeq = -1; g_scEqPick = SCW_EMPTY;
+    if (r == SCW_DONE) {  // TASK #137000: finish like F2 (full spirit gauge, a toast), so a menu pick is ready to use at once
+        char rep[256]; Command("spirit gauge max", rep, sizeof rep);
+        Log("Rematch: menu Equip core done; %s (TASK #137000)", rep);
+        ToastF(cGreen, 4000, "Soul core equipped. Spirit gauge full.");
+    }
     snprintf(g_msg, sizeof g_msg, "%s", r == SCW_DONE ? "Core equipped. The d-pad shortcut moved to the new core." : r == SCW_REFUSED ? "The game refused that core for this slot (same as at a shrine)."
              : r == SCW_SAME ? "That core is already in this slot." : r == SCW_NO_GAME ? "No save loaded: nothing changed."
              : r == SCW_NO_ADD ? "That core is not in this save, and it could not be added, so nothing was equipped."
              : "Core change failed: nothing more was done (see Nioh3Training.log).");
 }
 bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (ScOvRowText(item, sel, mk, buf, n, color)) return true;  // TASK #137007
     if (!IsScEqItem(item)) return false;
+    if (item == kItScOverlay) {  // TASK #137000
+        const bool v = ScOverlayOn();
+        snprintf(buf, n, "%s Soul core overlay: %s   A / Left / Right", mk, v ? "ON" : "OFF");
+        *color = sel ? cWhite : v ? cGray : cYellow;
+        return true;
+    }
     ScEqPoll();
     ScEqState st; const bool ok = ScEqRead(&st);
     char sn[16]; ScwSlotName(g_scEqSlot, sn, sizeof sn);
@@ -378,7 +567,7 @@ bool SctChange(int item, int dir) {
         const int v = bosslog::FormCoreCallSet(id, sc_call_step(cur, dir < 0 ? -1 : 1));
         Log("Rematch: menu soul core %X call -> %s (TASK #136197)", id, sc_call_name(v));
         snprintf(g_msg, sizeof g_msg, "Core %X: %s from the next use. Saved.", id,
-                 v == SC_CALL_TRANSFORM_MOVE ? "transform, moveable (left stick steers after the attack)" : v == SC_CALL_TRANSFORM ? "transform (stick locked)"
+                 sc_call_forms(v) ? "transform (moves if the yokai can move, detected)"  // TASK #136987
                  : v == SC_CALL_FAST_SUMMON ? "fast summon (the game's own summon, sped up)" : "the game's own summon");  // TASK #136502
         return true;
     }
@@ -463,11 +652,13 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
+    if (const char* f = ScOvFooter(item)) return f;  // TASK #137007
+    if (item == kItScOverlay) return "Small text at the bottom left while you play: each Yang slot's core and how it plays. S = summon (the game's own or Fast summon), T = Transform, TM = Transform whose yokai has been seen moving (detected, nothing to set). Updates at once. [Menu] SoulCoreOverlay. Saved.";  // TASK #137000
     if (IsScEqItem(item)) return item == kItScEqSlot ? "Which soul core slot to change (Yang 1-2, then Yin). Shows the core in it now."
         : TrainingExport("Nioh3Training_SoulCoreCatalog")
             ? "Left / Right: every soul core in the game, including ones this save does not own. A: equip it into the slot above. One you do not own is added with the game's own item add, then equipped the same way as one you own. Live."
             : "Left / Right: pick an owned core. A: equip it into the slot above, like at a shrine (the game's own check; the d-pad shortcut follows). Live.";  // human #129277, #136123
-    if (IsScCoreItem(item)) return "Each core: Game's own / Transform (stick locked) / Transform moveable (left stick steers once the attack is over) / Fast summon (the game's own summon, faster toss and yokai; the game ends it). [Spirit] FormCoreCalls. Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
+    if (IsScCoreItem(item)) return "Each core: Game's own / Transform (the left stick steers only if that yokai moves, detected; still cores stay locked) / Fast summon (the game's own summon, faster toss and yokai; the game ends it). [Spirit] FormCoreCalls. Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;
@@ -491,8 +682,8 @@ const char* SctFooter(int item) {
     case 17: return "A core whose last hit is a projectile / helper: the form ends this long after that hit starts, the projectile stays visible. OFF = wait for the yokai. 50 ms steps, 0-5000. [Spirit] SealExitOnHelperMs. Live, saved.";
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
     case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
-    case 20: return "Every Transform moveable soul core: how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
-    case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). = Transform: same as Transform speed. x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
+    case 20: return "Every soul core yokai that moves (detected): how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
+    case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). 90% of Transform: a tiny bit slower than Transform speed, and no smoke ([Spirit] FastSummonSmoke=1 keeps it). x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }

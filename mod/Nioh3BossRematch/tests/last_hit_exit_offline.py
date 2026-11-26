@@ -105,7 +105,9 @@ pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.in
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
 bool FormCorePendingSet(int,bool b){return b;}bool FormCoreTransforms(uint32_t){return true;}bool FormCoreToggle(uint32_t){return false;}
-int FormCoreCallGet(uint32_t){return SC_CALL_TRANSFORM;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
+int g_stubCall=SC_CALL_TRANSFORM;bool g_stubMoved=false;
+int FormCoreCallGet(uint32_t){return g_stubCall;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
+bool FormCoreMoved(uint32_t){return g_stubMoved;}bool FormCoreEquippedIds(uint32_t o[2]){o[0]=o[1]=0;return false;}  // TASK #137000
 bool SoulCoreFormsSet(int,bool*){return true;}bool SoulCoreForms(bool*){return true;}
 void LoadExitSetting(){
 '''+load+r'''}
@@ -138,9 +140,9 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
  check(g_exitSettleMs==200);ini[L"SealExitSettleMs"]=L"-7";LoadExitSetting();check(g_exitSettleMs==-1);ini[L"SealExitSettleMs"]=L"9000";LoadExitSetting();check(g_exitSettleMs==3000);ini.clear();LoadExitSetting();  // TASK #135803
- check(g_exitEndPct==90);g_exitEndPct=0;  // TASK #135613: shipped 90; the cases below pin the old rule (0), the new rule is checked further down
+ check(g_exitEndPct==80);g_exitEndPct=0;  // TASK #135613 / #137035: shipped 80 (human settings); the cases below pin the old rule (0), the new rule is checked further down
  check(g_exitAfterShotMs==700);g_exitAfterShotMs=-1;  // TASK #136113: shipped 700; the older cases keep the EndPct hold
- check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
+ check(g_exitOnHelperMs==0);g_exitOnHelperMs=150; // #137035: shipped 0 (human settings); #108189: the rule stays ON at 150 ms for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
  check(std::abs(g_ghostReqAt.load()-(base+1.6))<.00001);step(1.6,true);step(1.7,false);check(smokes==1);
@@ -494,7 +496,7 @@ int main(){
  // live from the menu: row 18 is the atomic the tick reads
  {bool lv=false;check(SoulTune(18,0,&lv)==0&&lv);check(SoulTune(18,1,&lv)==5&&g_exitEndPct==5&&ini[L"SealExitEndPct"]==L"5");}
  g_exitEndPct=100;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
- ini.clear();LoadExitSetting();check(g_exitEndPct==90);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
+ ini.clear();LoadExitSetting();check(g_exitEndPct==80);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
  ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
  g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
  // TASK #136113: last hit closed, EndPct would hold, AfterShot 700 turns back at close+700. OFF (-1) keeps the hold.
@@ -538,14 +540,26 @@ int main(){
  SctChange(kItSctBase+10,1);check(g_fccMs==300&&ini[L"FormCrouchCancel"]==L"300");g_fccMs=0;SctRowText(kItSctBase+10,false,"",text,sizeof text,&color);check(strstr(text,"OFF"));
  g_fccMs=250;
  g_ftHooked=true;
- const double shipped[]={100,100,0,0,400,1.4,4,0,0,0,200};
+ const double shipped[]={100,100,0,0,400,1.6,2,0,0,0,200};  // #137035 human settings
  for(int w=0;w<11;++w) for(int j=0;j<4;++j) SoulTune(w,1,nullptr);
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
  check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
- check(g_ghostOn==1&&g_sieMinMs==300&&g_exitOnHelperMs==150&&g_exitEndPct==90&&ini[L"SealExitEndPct"]==L"90"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
+ check(g_ghostOn==1&&g_sieMinMs==0&&g_exitOnHelperMs==0&&g_exitEndPct==80&&ini[L"SealExitEndPct"]==L"80"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
- check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
+ check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.6"&&ini[L"SealTailSpeed"]==L"2.0");
+ {// TASK #137000: soul core overlay row (default ON, A flips, Left OFF, Right ON, saved) and the S / T / TM tag
+  ini.clear();g_scOverlay=-1;check(ScOverlayOn());char tx[512];uint32_t co=0;
+  check(ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co)&&strstr(tx,"Soul core overlay: ON"));
+  check(ScEqChange(kItScOverlay,0)&&!ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"0");
+  ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF")!=nullptr);
+  ScEqChange(kItScOverlay,1);check(ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"1");ScEqChange(kItScOverlay,-1);check(!ScOverlayOn());
+  g_scOverlay=-1;check(!ScOverlayOn());ini[L"SoulCoreOverlay"]=L"1";g_scOverlay=-1;check(ScOverlayOn());
+  check(strstr(SctFooter(kItScOverlay),"SoulCoreOverlay")!=nullptr&&IsScEqItem(kItScOverlay));
+  g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;check(!strcmp(ScOverlayTag(0x5129B,true),"T"));
+  g_stubMoved=true;check(!strcmp(ScOverlayTag(0x5129B,true),"TM"));check(!strcmp(ScOverlayTag(0x5129B,false),"S"));
+  g_stubCall=SC_CALL_GAME;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));g_stubCall=SC_CALL_FAST_SUMMON;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));
+  check(!strcmp(ScOverlayTag(0,true),"?"));g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;ini.clear();}
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }
 '''

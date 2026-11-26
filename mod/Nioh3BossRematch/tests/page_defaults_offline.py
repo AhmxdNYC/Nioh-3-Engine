@@ -13,7 +13,7 @@ code=r'''#include <cstdio>
 #include "../../Nioh3Training/src/practice_stats.h"
 #include "../../Nioh3Training/src/boss_vitals.h"
 #define BR_SOULCORE 1
-constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uRematch=902,uGate=900,uPracticeHub=906,uTools=905,uActions=2;
+constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uScOverlay=951,uStyle=960,uPlayerStats=961,uBossKi=962,uSoulCores=963,uRematch=902,uGate=900,uPracticeHub=906,uTools=905,uActions=2;
 // Dojo staged start (#89329): Actions page resets Full climb/Final wave only for a row with staged waves.
 int g_uiBoss=4,stagedAsk=-1;bool staged=false;volatile int g_stagedFinal=0;
 bool RowStaged(int row,uint16_t*,uint16_t*,uint32_t*){stagedAsk=row;return staged;}
@@ -53,7 +53,8 @@ void* TrainingExport(const char* s){
  EXP("SetMoveAllowed",allowSet);EXP("SetMoveRepeat",repeatSet);
  return nullptr;
 }
-namespace bosslog {int forms=0,cores=0,tune=0;bool SoulCoreFormsSet(int on,void*){forms=on;return true;}void FormCoreReset(){++cores;}void SoulTuneReset(){++tune;}}
+int styleVals[25],styleSets=0;int StyKeysKnown(){return 25;}int StyDefault(int w){return 1000+w;}int StySet(int w,int v){++styleSets;styleVals[w]=v;return v;}  // TASK #137249
+namespace bosslog {int forms=0,cores=0,tune=0;bool SoulCoreFormsSet(int on,void*){forms=on;return true;}void FormCoreReset(){++cores;}void SoulTuneReset(){++tune;}}int ovreset=0;void ScOvPageReset(){++ovreset;}
 struct N3Move {uint32_t chr,id;int cat,allowed;bool repeat,sequence;};
 N3Move kN3Moves[]={{123,10,1,0,true,false},{123,11,2,0,true,false},{999,12,1,0,true,false},{123,0,1,0,true,false},{123,13,1,1,false,true}};
 constexpr int N3_MOVE_COUNT=5,kMcSeq=99;
@@ -65,14 +66,21 @@ int checks=0;void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);exit(
 bool has(int a,int b,int c,int d){for(auto&v:calls)if(v==std::make_tuple(a,b,c,d))return true;return false;}
 void reset(int page){g_uiPages.page=page;calls.clear();available=true;failStat=false;activeChr=123;mode=2;waves=false;for(auto&v:stats)v=777;for(auto&v:vitals)v=777;}
 int main(){
- for(int page:{uPlayer,uFightOpts,uBossVitals,uBoss,uMoves,uMoveCat,uSoulTune})check(PageHasDefaults(page));
+ for(int page:{uPlayer,uFightOpts,uBossVitals,uBoss,uMoves,uMoveCat,uSoulTune,uScOverlay,uStyle,uPlayerStats,uBossKi,uSoulCores})check(PageHasDefaults(page));
  for(int page=0;page<6;++page)check(PageHasDefaults(uSettingFirst+page));
  for(int page:{0,1,2,3,900,903,904,907})check(!PageHasDefaults(page));
  reset(0);check(!ResetPageDefaults()&&calls.empty());
- reset(uPlayer);check(ResetPageDefaults());check(has(3,1,1,0));
+ // TASK #137249: Player keeps Health only; stats / soul cores / style meter / boss stats reset on their own pages
+ reset(uPlayer);check(ResetPageDefaults());check(has(3,1,1,0)&&calls.size()==1&&stats[PS_PLAYER_INF_KI]==777&&bosslog::forms==0&&bosslog::cores==0&&styleSets==0);
+ reset(uPlayerStats);check(ResetPageDefaults());check(!has(3,1,1,0));
  for(int id:{PS_PLAYER_INF_KI,PS_PLAYER_INF_NIN,PS_PLAYER_INF_SOUL,PS_DMG_DEALT,PS_KI_DEALT,PS_PLAYER_SPEED})check(stats[id]==PstDefault(id));
- check(stats[PS_DMG_TAKEN]==777&&stats[PS_FRAME_METER]==777);check(bosslog::forms==1&&bosslog::cores==1&&bosslog::tune==0);
+ check(stats[PS_DMG_TAKEN]==777&&stats[PS_FRAME_METER]==777);check(bosslog::forms==0&&bosslog::cores==0&&bosslog::tune==0);
+ reset(uSoulCores);check(ResetPageDefaults()&&calls.empty()&&bosslog::forms==1&&bosslog::cores==1&&bosslog::tune==0);
+ reset(uStyle);check(ResetPageDefaults()&&calls.empty()&&styleSets==25&&styleVals[0]==1000&&styleVals[24]==1024);
+ reset(uBossKi);check(ResetPageDefaults()&&vitals[0]==777);
+ check(stats[PS_DMG_TAKEN]==100&&stats[PS_BOSS_KI_DRAIN]==0&&stats[PS_KI_FLOOR]==100&&stats[PS_BOSS_SPEED]==100);check(stats[PS_PLAYER_INF_KI]==777);
  reset(uSoulTune);check(ResetPageDefaults()&&bosslog::tune==1&&calls.empty());
+ reset(uScOverlay);check(ResetPageDefaults()&&ovreset==1&&calls.empty());
  reset(uFightOpts);check(ResetPageDefaults());check(has(4,0,1,0)&&has(5,0,1,0));check(has(6,0,6000,1)&&has(6,1,1000,1));check(calls.size()==4);
  for(int page:{uRematch,uGate}) {reset(page);mode=1;check(PageHasDefaults(page)&&ResetPageDefaults());check(calls.size()==4&&has(4,0,1,0));}
  reset(uGate);waves=true;check(!PageHasDefaults(uGate)&&!ResetPageDefaults()&&calls.empty());
@@ -80,7 +88,7 @@ int main(){
  reset(uTools);check(PageHasDefaults(uTools)&&ResetPageDefaults()&&g_stSec==3&&calls.size()==1&&has(14,0,0,0));
  reset(uTools);activeChr=0;check(!PageHasDefaults(uTools));
  reset(uBossVitals);check(ResetPageDefaults());check(vitals[0]==0&&vitals[1]==0&&vitals[2]==100&&vitals[3]==100);
- check(stats[PS_DMG_TAKEN]==100&&stats[PS_BOSS_KI_DRAIN]==0&&stats[PS_KI_FLOOR]==100&&stats[PS_BOSS_SPEED]==100);check(stats[PS_PLAYER_INF_KI]==777);
+ check(stats[PS_DMG_TAKEN]==777&&stats[PS_BOSS_SPEED]==777);  // TASK #137249: boss stats moved to Boss damage and Ki
  reset(uBoss);check(ResetPageDefaults());check(has(7,123,0,0)&&has(8,3,1,0)&&has(9,3,0,0)&&has(10,123,1000,1));check(calls.size()==4);
  reset(uBoss);mode=1;check(ResetPageDefaults()&&has(8,3,0,0));
  reset(uBoss);activeChr=0;check(!ResetPageDefaults()&&calls.empty());
@@ -89,7 +97,7 @@ int main(){
  reset(uMoveCat);g_moveCat=kMcSeq;kN3Moves[4].repeat=true;check(ResetPageDefaults()&&calls.size()==1&&has(12,123,13,0));
  reset(uActions);staged=true;g_stagedFinal=1;check(PageHasDefaults(uActions)&&stagedAsk==g_uiBoss&&ResetPageDefaults()&&g_stagedFinal==0&&calls.empty());
  reset(uActions);staged=false;g_stagedFinal=1;check(!PageHasDefaults(uActions)&&!ResetPageDefaults()&&g_stagedFinal==1);
- reset(uPlayer);failStat=true;check(!ResetPageDefaults());
+ reset(uPlayerStats);failStat=true;check(!ResetPageDefaults());reset(uBossKi);failStat=true;check(!ResetPageDefaults());
  reset(uSettingFirst);for(auto&v:g_configValues.values)v={"custom",false};check(ResetPageDefaults()&&saves==1);
  check(g_configValues.values[0].text=="1"&&g_configValues.values[0].changed);check(g_configValues.values[1].text=="custom"&&!g_configValues.values[1].changed);check(g_configValues.values[2].text=="custom"&&!g_configValues.values[2].changed);
  printf("BR page defaults dispatch: %d checks PASS\n",checks);
@@ -134,3 +142,14 @@ exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct'
 assert found[0][15:20]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:20],[br.get(('Spirit',k)) for k in exit_keys])
 assert found[0][21]==float(br['Spirit','FastSummonSpeed'])==0,(found[0][21:])  # TASK #136502 Fast summon speed = Transform
 print('25 soul-core shipped-default cross-checks PASS')
+# TASK #137035 (human #137027 'Mods default should end up at my settings I got now'): shipped soul core rows = the human's
+# snapshot D:/nioh3-re/userdefaults-137027 (1:04 am EST 11-26). Changing one of these needs a new human OK.
+human={'SealSpeed':1.6,'SealTailSpeed':2,'SealIdleMinMs':0,'SealExitOnHelperMs':0,'SealExitEndPct':80,'FastThrow':8,'FormHide':4,
+ 'FormSteerMove':5,'FormCrouchCancel':200,'FormHideDelayMs':400,'SealExitRevealMs':100,'SealExitSmokeFwd':100,'SealGhostExit':1}
+for key,value in human.items():
+ assert float(br['Spirit',key])==value,(key,br['Spirit',key],value)
+assert fallbacks['SealSpeed']=='1.6' and fallbacks['SealTailSpeed']=='2',(fallbacks.get('SealSpeed'),fallbacks.get('SealTailSpeed'))
+for key,value in {'SealIdleMinMs':0,'SealExitOnHelperMs':0,'SealExitEndPct':80}.items():
+ assert re.search(r'IniInt\(L"Spirit", L"%s", %d\)'%(key,value),source),(key,value)
+assert re.search(r'PS_SOUL_DMG[^\n]*default 200',(repo/'mod/Nioh3Training/src/practice_stats.h').read_text())
+print('%d human-settings default checks PASS (#137035)'%(len(human)+6))

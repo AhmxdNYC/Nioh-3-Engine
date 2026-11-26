@@ -17,10 +17,13 @@ DEFAULT_LOGS = [
     'D:/nioh3-re/temp-archive/live95418/Nioh3BossRematch.log',
     'C:/Users/Ahmad Hamza/nioh3-engine/Temp/live96829/r0-Nioh3BossRematch.log',
     'C:/Users/Ahmad Hamza/nioh3-engine/Temp/live96829/rA-Nioh3BossRematch.log',
+    'D:/nioh3-re/temp-archive/cf875-136981/Nioh3BossRematch.log',  # TASK #136981: CF875 helpers spawn with the seal (body parts)
 ]
 BOUND = re.compile(r'SealEndOnHit seal=([0-9A-F]+) core ([0-9A-F]+) bound [\d.]+ s after the press, (\d+) bursts seen so far: (\d+) hit bursts known')
 SRC = re.compile(r'SealHitSource core ([0-9A-F]+) burst (\d+) actor=([0-9A-F]+) new=(\d+)')
 OPEN = re.compile(r'SealEndOnHit core ([0-9A-F]+) burst (\d+) opens .* ([\d.]+) s after the press')
+SPAWN = re.compile(r'SealHitSource core ([0-9A-F]+) actor=([0-9A-F]+) spawn=([\d.]+) snapshot=[\d.]+ bound=([0-9A-F]+)')
+BIND = re.compile(r'SealMotion core=([0-9A-F]+) seal=([0-9A-F]+) bind .* t=([\d.]+)')  # TASK #137052: real bind time
 IDLE = re.compile(r'SealIdleEnd seal=[0-9A-F]+ core ([0-9A-F]+): .* ([\d.]+) s after the press')
 
 
@@ -30,16 +33,23 @@ def forms(paths):
         p = Path(p)
         if not p.exists():
             print(f'missing log (skipped): {p}'); continue
-        cur = None
+        cur = None; last_bind = None
         for line in p.read_text(encoding='utf-8', errors='replace').splitlines():
+            mb = BIND.search(line)
+            if mb: last_bind = (mb.group(1), mb.group(2), float(mb.group(3)))
             m = BOUND.search(line)
             if m:
                 if cur and cur['bursts']: out.append(cur)
                 cur = None
                 if m.group(3) != '0': skipped += 1; continue  # bursts before bind: core id unknown in their lines
-                cur = dict(log=p.parent.name + '/' + p.name, seal=m.group(1), core=m.group(2), want=int(m.group(4)), bursts=[], pend={}, idle=None)
+                cur = dict(log=p.parent.name + '/' + p.name, seal=m.group(1), core=m.group(2), want=int(m.group(4)), bursts=[], pend={}, idle=None, spawn={},
+                           bind=last_bind[2] if last_bind and last_bind[:2] == (m.group(2), m.group(1)) else None)
                 continue
             if not cur: continue
+            m = SPAWN.search(line)
+            if m and m.group(1) == cur['core']:
+                cur['spawn'].setdefault(m.group(2), float(m.group(3)))
+                continue
             m = SRC.search(line)
             if m and m.group(1) == cur['core']:
                 cur['pend'].setdefault(int(m.group(2)), []).append((m.group(3) == cur['seal'], int(m.group(4))))
@@ -52,6 +62,12 @@ def forms(paths):
             m = IDLE.search(line)
             if m and m.group(1) == cur['core'] and cur['idle'] is None: cur['idle'] = float(m.group(2))
         if cur and cur['bursts']: out.append(cur)
+    for f in out:  # TASK #136981: helper spawn time relative to the seal's (0.5 s = thrown helper when not logged)
+        s = f['spawn'].get(f['seal'])
+        offs = [v - s for a, v in f['spawn'].items() if a != f['seal']] if s is not None else []
+        f['hoff'] = min(offs, key=abs) if offs else 0.5
+        # TASK #137052: a source spawned before the form began (bind) is a body part of the yokai, never a thrown helper
+        f['body'] = f['bind'] is not None and any(v <= f['bind'] for a, v in f['spawn'].items() if a != f['seal'])
     return out, skipped
 
 
@@ -65,7 +81,7 @@ def scenario(i, f):
     out = f' {{std::vector<B> b={{{",".join(items)}}};\n'
     for mode, seed in (('learned', f['want']), ('empty', 0)):
         out += (f'  {{R r[4];for(int k=0;k<4;++k){{if(k%2==0){{ini.clear();if({seed}>0)ini[L"{f["core"]}"]=L"{seed}";}}'
-                f'r[k]=run(b,{idle},k<2?-1:150,0x{f["core"]});}}'
+                f'r[k]=run(b,{idle},k<2?-1:150,0x{f["core"]},{0.016 if f["body"] else max(0.017, min(f["hoff"], f["bursts"][0][0] - 0.02)):.3f});}}'
                 f'printf("FORM|{i}|{f["core"]}|{f["log"]}|{mode}");for(auto& x:r)printf("|%.3f,%d,%d,%d",x.t,x.helperGhosted,x.kept,x.tail);printf("\\n");}}\n')
     return out + ' }\n'
 
@@ -75,8 +91,8 @@ def main():
     harness = (here / 'last_hit_exit_offline.py').read_text(encoding='utf-8')
     a = harness.index('int main(){'); b = harness.index("\n}\n'''", a)
     body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;int kept=0;int tail=0;};
-R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id){
- g_exitOnHelperMs=helperMs;g_tailSeal=0;start(-1,0,true,false,id);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id,double hoff){
+ g_exitOnHelperMs=helperMs;g_tailSeal=0;start(-1,0,true,false,id);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base+hoff;
  uint64_t next=0x100000;std::vector<std::pair<double,std::vector<uint64_t>>> live;R r;
  const double end=(idle>0?idle:bursts.back().t)+1.5;
  for(double t=0.016;t<=end&&r.t<0;t+=0.016){
@@ -90,7 +106,7 @@ R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id){
  censusMode=false;census.clear();g_sehKid[1]=0;g_sehKidT[1]=0;g_exitOnHelperMs=-1;return r;
 }
 int main(){
- ini.clear();LoadExitSetting();check(g_exitOnHelperMs==150);
+ ini.clear();LoadExitSetting();check(g_exitOnHelperMs==0);  // #137035: shipped 0 (human settings)
  ini[L"SealExitOnHelperMs"]=L"-1";LoadExitSetting();check(g_exitOnHelperMs==-1);
  ini[L"SealExitOnHelperMs"]=L"9000";LoadExitSetting();check(g_exitOnHelperMs==5000);ini.clear();
 '''
@@ -107,7 +123,8 @@ int main(){
         f = found[int(i)]
         helper_only = all(not s for _, owners in f['bursts'] for s, _ in owners)
         same = lambda a, b: abs(a[0] - b[0]) < 1e-6 and a[1:] == b[1:]
-        if helper_only:
+        body = f['body']  # TASK #137052: spawned before the form began = body part, never a helper exit
+        if helper_only and not body:
             first = f['bursts'][0][0]
             # use 1 plays in full (flag not learned yet) and learns; use 2 ends at the first helper burst + 150 ms, helper visible, seal at form speed
             # #108262: and the x2 tail seal is NOT set on the helper exit (fails if '&& !helperDue' is dropped from the g_tailSeal store),
@@ -118,7 +135,7 @@ int main(){
             kind = 'full once, then early'
         else:
             ok = same(n1, o1) and same(n2, o2) and n1[2] == n2[2] == 0  # same() also compares the x2 tail flag: non-helper exits keep it
-            kind = 'unchanged'
+            kind = 'body part: unchanged' if helper_only else 'unchanged'
         per.setdefault((core, mode, kind), [0, 0])[0 if ok else 1] += 1
         if not ok:
             fails += 1; print(f'FAIL form {i} core {core} {mode} {log}: off {o1} {o2} on {n1} {n2}')

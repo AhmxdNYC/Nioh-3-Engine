@@ -73,7 +73,7 @@ int main(void) {
     assert(PstDmgPct(0, 0, 1, 200, 50) == 100 /* an ally / NPC / unknown attacker hitting the player */ && PstDmgPct(0, 0, 0, 200, 50) == 100);
     /* TASK #136492: Soul core damage = a soul-core yokai hit on anyone but the player; default 100, 10..1000 */
     assert(PstSoulDmgPct(1, 0, 300) == 300 && PstSoulDmgPct(1, 1, 300) == 100 && PstSoulDmgPct(0, 0, 300) == 100);
-    assert(PstDefault(PS_SOUL_DMG) == 100 && PstClamp(PS_SOUL_DMG, 0) == 10 && PstClamp(PS_SOUL_DMG, 5000) == 1000 && !PstIsToggle(PS_SOUL_DMG));
+    assert(PstDefault(PS_SOUL_DMG) == 200 && PstClamp(PS_SOUL_DMG, 0) == 10 && PstClamp(PS_SOUL_DMG, 5000) == 1000 && !PstIsToggle(PS_SOUL_DMG));
     assert(PstDmgPct(1, 0, 1, 200, 50) == 100 /* the player hurting itself */ && PstDmgPct(1, 1, 0, 200, 0) == 200 /* player wins */);
     assert(PstScaleDmg(400, PstDmgPct(0, 1, 1, 100, 0)) == 0 && PstScaleDmg(400, PstDmgPct(1, 0, 0, 10, 100)) == 40);
     // frame meter toggle (default OFF)
