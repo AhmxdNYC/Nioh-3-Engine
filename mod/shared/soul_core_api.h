@@ -144,8 +144,10 @@ inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int
 // at f1.4; it stayed f1.4 for 4 s (and 19.8 s / 31 s in all) at x6, x1.44 runs the same wait in ~2.1 s. So the startup speed may only run
 // while the spawn action's own counter is moving: it has left the value it spawned at by minLead frames AND it advanced since the last tick.
 // A stalled counter (still being attached, or its last frame reached and waiting for the game's next action) = not moving = attack rate.
-inline bool sc_fast_spawn_moving(float fFirst, float fPrev, float fNow, float minLead) {
-    return fNow == fNow && fPrev == fPrev && fFirst == fFirst && fNow > fPrev + 0.05f && fNow >= fFirst + minLead;
+// Live #137872 run 2: the hold is 2.1-2.6 s, then f1.4->f46.1; the tick runs more often than the counter steps, so "advanced since the
+// last tick" flipped START/ATTACK 93 times. Moving = the counter last advanced under holdMs ago (msSinceAdvance < 0 = never advanced).
+inline bool sc_fast_spawn_moving(float fFirst, float fNow, int msSinceAdvance, float minLead, int holdMs) {
+    return fNow == fNow && fFirst == fFirst && msSinceAdvance >= 0 && msSinceAdvance < holdMs && fNow >= fFirst + minLead;
 }
 inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
                              float startMul, float endMul) {
