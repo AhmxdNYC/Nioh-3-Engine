@@ -3,7 +3,7 @@
 // Settings (saved in Nioh3Training.ini [Practice], every one defaults OFF / 100 % except NegKiMeter / FrameMeterReadout / KiWindow = ON):
 //   PS_PLAYER_INF_KI   PlayerInfiniteKi    0/1    player Ki (stamina) refilled to max whenever it drops (st+0xAC = st+0xB0, Player::RecoverStamina 5FB5C8)
 //   PS_DMG_DEALT       DamageDealtPct      10..1000 HP damage of hits whose attacker is the player (x0.1 .. x10) x pct / 100
-//   PS_SOUL_DMG        SoulCoreDamagePct   10..1000 (TASK #136492, human #136487) HP damage of hits whose attacker is a soul-core yokai (Boss Rematch
+//   PS_SOUL_DMG        SoulCoreDamagePct   10..1000, default 200 = 2x (TASK #136831, human #136823/#136827) (TASK #136492, human #136487) HP damage of hits whose attacker is a soul-core yokai (Boss Rematch
 //                                         Nioh3BossRematch_SoulCoreActorIs, same team as the player) on anyone but the player. One value for every core,
 //                                         everywhere (not only Practice). Live: a form hit is NOT the player's own, so 'Damage I deal' never scaled it.
 //   PS_DMG_TAKEN       DamageTakenPct      0..1000 HP damage of hits whose attacker is a Training boss (x0 .. x10) x pct / 100 ('Damage boss deals')
@@ -43,7 +43,7 @@ enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAI
        PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_PLAYER_INF_SOUL = 35, PS_SOUL_DMG = 36, PS_N = 37 }; // append-only ABI: 0 Row (default), 1 Ring
 static inline int PstIsToggle(int what) { return (what >= PS_FRAME_PROW && what <= PS_FRAME_STYLE) || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_PLAYER_INF_SOUL || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_SOUL_DMG || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
+static inline int PstDefault(int what) { return what == PS_SOUL_DMG ? 200 : what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
 enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };

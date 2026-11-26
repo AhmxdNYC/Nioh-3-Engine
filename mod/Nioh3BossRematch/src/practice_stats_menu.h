@@ -212,7 +212,7 @@ bool PstChange(int item, int dir) {
     else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player animation speed %s, from your next move. Training / spawned Boss Matches. Saved.", t);
     else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved for Training; not applied during Boss Matches.", t);
     else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved for Training; not applied during Boss Matches." : "Boss Ki drain OFF. Saved for Training; not applied during Boss Matches.", t);
-    else if (what == PS_SOUL_DMG) snprintf(g_msg, sizeof g_msg, "Soul core damage %s: every soul core's yokai hits (transform or the game's own summon), everywhere. 100%% = normal. Saved.", t);  // TASK #136492
+    else if (what == PS_SOUL_DMG) snprintf(g_msg, sizeof g_msg, "Soul core damage %s: every soul core's yokai hits (transform or the game's own summon), everywhere. 100%% = normal, default 200%% (2x). Saved.", t);  // TASK #136492
     else snprintf(g_msg, sizeof g_msg, "%s %s: scales HP and Ki damage of hits%s. Training / spawned Boss Matches. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " spawned bosses land");
     return true;
 }
@@ -269,7 +269,7 @@ const char* PstFooter(int item) {
     case PS_FRAME_STYLE: return "Choose straight rows or concentric rings. Each lane keeps its own visibility switch. Display only. Saved.";
     case PS_FRAME_SIZE: return "Ring size: Small, Medium, or Large. Applies only to Ring style; timing and lane settings stay the same. Saved.";
     case PS_PLAYER_INF_KI: return "Training / spawned Boss Matches: keep your Ki full. Does not apply to ordinary story fights. Saved.";
-    case PS_SOUL_DMG: return "Every soul core: scales the HP damage its yokai deals (one value for all cores, everywhere). Your own hits use Player damage. 100% = normal. [Practice] SoulCoreDamagePct. Saved.";  // TASK #136492
+    case PS_SOUL_DMG: return "Every soul core: scales the HP damage its yokai deals (one value for all cores, everywhere). Your own hits use Player damage. 100% = normal, default 200% (2x). [Practice] SoulCoreDamagePct. Saved.";  // TASK #136492
     case PS_DMG_DEALT: return "Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.";
     case PS_DMG_TAKEN: return "All spawned bosses in Training / Boss Matches: scale HP damage and Ki damage against you. 100% = normal; 0% = none. Saved.";
     case PS_KI_DEALT: return "Training / spawned Boss Matches: extra multiplier for your Ki damage only. 100% = normal; 0% = none. Combines with Player damage, capped at 1000%. Saved.";
