@@ -72,6 +72,79 @@ inline float sc_fast_speed_mul(int x10, float sealMul) {
     const float a = sealMul * (SC_FAST_SPEED_AUTO_PCT / 100.f);
     return sealMul > 1.f && a > 1.f ? a : 1.f;
 }
+// TASK #137323 (human #137208): Fast summon keeps the yokai's attack at the speed above but skips its startup (appear / wind-up before its
+// first hit) and its end pose (after its last hit until the game despawns it). One phase per press for all its yokai chrs:
+// START (armed by certain data only, see sc_fast_start_arm) until the first hit, ATTACK, END once every chr that hits is past its last hit (certain game-data count only) + grace.
+// [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off = the attack speed). Same rule for every core; the player is never touched.
+#define SC_FAST_PH_START 0
+#define SC_FAST_PH_ATTACK 1
+#define SC_FAST_PH_END 2
+#define SC_FAST_EDGE_DEFAULT 6.f
+#define SC_FAST_EDGE_MAX 12.f
+inline const char* sc_fast_phase_name(int p) { return p == SC_FAST_PH_START ? "start" : p == SC_FAST_PH_END ? "end" : "attack"; }
+inline float sc_fast_edge_clamp(float v) { return !(v > 1.f) ? 1.f : v > SC_FAST_EDGE_MAX ? SC_FAST_EDGE_MAX : v; }
+inline float sc_fast_phase_mul(int phase, float attackMul, float startMul, float endMul) {
+    const float m = phase == SC_FAST_PH_START ? startMul : phase == SC_FAST_PH_END ? endMul : 0.f;
+    return m > 1.f ? m : attackMul;
+}
+// The chr's place against its own action chain (game data, read when it hits): actPos = index of its current action in the chain,
+// -1 = a readable action outside the chain (it moved on), -2 = unreadable.
+// Before its first hit: reached the first hit's action at (start frame - lead).
+inline bool sc_fast_at_first(int actPos, int firstIdx, float frame, int firstStart, int leadFrames) {
+    if (firstIdx < 0 || actPos < 0) return false;
+    return actPos > firstIdx || (actPos == firstIdx && frame >= (float)(firstStart - leadFrames));
+}
+// After its last hit: in the last hit's action past its end frame, a later chain action, or out of the chain.
+inline bool sc_fast_past_last(int actPos, int lastIdx, float frame, int lastEnd) {
+    if (lastIdx < 0 || actPos == -2 || actPos < -2) return false;
+    return actPos == -1 || actPos > lastIdx || (actPos == lastIdx && frame > (float)lastEnd);
+}
+// Per chr end state: BLOCK (may still hit / unknown), DONE (all its data hits seen live and past its last), INERT (its data has no hit at all).
+#define SC_FAST_CHR_BLOCK 0
+#define SC_FAST_CHR_DONE 1
+#define SC_FAST_CHR_INERT 2
+inline int sc_fast_chr_end(bool dataOk, int bursts, int untimed, int spawns, bool chainCut, bool everHit, int liveBursts, bool openNow, bool pastLast) {
+    if (!dataOk) return SC_FAST_CHR_BLOCK;
+    if (!bursts && !untimed && !spawns && !everHit && !chainCut) return SC_FAST_CHR_INERT;
+    if (bursts <= 0 || untimed || spawns || chainCut) return SC_FAST_CHR_BLOCK;  // count not certain: leave the end alone
+    if (openNow || liveBursts < bursts || !pastLast) return SC_FAST_CHR_BLOCK;
+    return SC_FAST_CHR_DONE;
+}
+// TASK #137323 fix (live BR 33E76024, core 3B1AB): the phase must never speed a yokai before the data proves it safe. A x6 rate on the
+// spawn frame (phase defaulted to START) left the yokai frozen and the game's summon never ended (no re-summon on the next presses).
+// The startup skip arms only when a chr's own data is CERTAIN, it is still before its first hit in that chain, it is at least minAgeMs old
+// (its spawn / appear frames always play at the attack speed) and the speed is on. Never armed = attack speed, the 645efbf5 behaviour.
+inline bool sc_fast_start_arm(bool certain, int actPos, int firstIdx, float frame, int firstStart, int leadFrames, int ageMs, int minAgeMs, float startMul) {
+    if (!certain || !(startMul > 1.f) || ageMs < minAgeMs || firstIdx < 0 || actPos < 0 || actPos > firstIdx) return false;
+    return !sc_fast_at_first(actPos, firstIdx, frame, firstStart, leadFrames);
+}
+// A live attack collider counts as a hit only at / after the chr's first data hit (an appearance collider at spawn is not a hit). A chr
+// without usable data: counted (it can only block the end, never start a skip).
+inline bool sc_fast_hit_counts(bool usable, int actPos, int firstIdx, float frame, int firstStart, int leadFrames) {
+    if (!usable) return true;
+    return actPos == -1 || sc_fast_at_first(actPos, firstIdx, frame, firstStart, leadFrames);
+}
+// Press phase. startOn = armed and its first hit not reached yet (sticky off once reached / capped).
+inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int nDone, int nBlock, bool openAny, int msSinceLastClose, int graceMs) {
+    if (startOn && msSinceArm < startCapMs) return SC_FAST_PH_START;
+    if (nDone > 0 && nBlock == 0 && !openAny && msSinceLastClose >= graceMs) return SC_FAST_PH_END;
+    return SC_FAST_PH_ATTACK;
+}
+// TASK #137616 (human #137208): per-chr phase by the yokai's OWN action ids (live trace 11-26, core 3B1AB: C53 spawn, no hit rows, 2.3-7.2 s
+// -> C56 hit -> C54 two hits -> 1 end pose, no hit rows, 566 ms -> gone). An action "can hit" when its own data has a damaging row (timed or
+// untimed) or a spawn event; read from the yokai's loaded action file, no per-core list. START = still in the action it spawned in, which
+// cannot hit, it has never been in an action that can hit, and it is at least minAgeMs old and under capMs. END = it has been in an action
+// that can hit, is now in a known action of its file that cannot hit, and none of its attack colliders is open. Anything else (unknown /
+// unreadable action, an action that can hit, data unreadable) = ATTACK. Only no-hit actions are ever sped up, so damage timing never changes.
+#define SC_FAST_ACT_UNKNOWN 0
+#define SC_FAST_ACT_NOHIT 1
+#define SC_FAST_ACT_HIT 2
+inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
+                             float startMul, float endMul) {
+    if (!dataOk || actKind != SC_FAST_ACT_NOHIT) return SC_FAST_PH_ATTACK;
+    if (!everHitAct) return inSpawnAct && startMul > 1.f && ageMs >= minAgeMs && ageMs < capMs ? SC_FAST_PH_START : SC_FAST_PH_ATTACK;
+    return endMul > 1.f && !colliderOpen ? SC_FAST_PH_END : SC_FAST_PH_ATTACK;
+}
 // Step through the calls for a menu row (Left -1 / Right +1 / A 0 = next), wraps. TASK #136987: the menu offers
 // Game's own -> Transform -> Fast summon (Transform moveable is detected, not a choice).
 inline int sc_call_step(int c, int dir) {

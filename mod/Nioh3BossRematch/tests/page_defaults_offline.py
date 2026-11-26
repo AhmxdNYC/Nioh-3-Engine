@@ -141,6 +141,8 @@ assert found[0]==found[1] and found[0][14]==0,(found)
 exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct','SealExitAfterShotMs']
 assert found[0][15:20]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:20],[br.get(('Spirit',k)) for k in exit_keys])
 assert found[0][21]==float(br['Spirit','FastSummonSpeed'])==0,(found[0][21:])  # TASK #136502 Fast summon speed = Transform
+assert found[0][22:24]==[float(br['Spirit','FastSummonStartSpeed']),float(br['Spirit','FastSummonEndSpeed'])]==[1,6],(found[0][22:])  # TASK #137323
+assert fallbacks['FastSummonStartSpeed']=='1' and fallbacks['FastSummonEndSpeed']=='6'
 print('25 soul-core shipped-default cross-checks PASS')
 # TASK #137035 (human #137027 'Mods default should end up at my settings I got now'): shipped soul core rows = the human's
 # snapshot D:/nioh3-re/userdefaults-137027 (1:04 am EST 11-26). Changing one of these needs a new human OK.
