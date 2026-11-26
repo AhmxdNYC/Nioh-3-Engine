@@ -5683,7 +5683,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_formPreload.store(IniInt(L"Spirit", L"FormPreloadCores", 1));  // #136368 g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400)); g_formPreload.store(IniInt(L"Spirit", L"FormPreloadCores", 1));  // #136368
     g_orbSpawnMs.store(IniInt(L"Spirit", L"SealOrbSpawnMs", 1800));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
