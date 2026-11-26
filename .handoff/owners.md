@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-25 7:28 pm EST: regression-pc/0. #136328 escape fix c65d45af PASS #136337, BR 9A3E8E86 not installed. Live pid 39356 BR 28FAC399. Do not publish.
 - CURRENT 2026-11-25 7:26 pm EST: pc/1. #136328 early-escape fix c65d45af on pc1/escape-136328, BR 9A3E8E86 staged D:/nioh3-re/escape-136328, regression #136333. Not installed. Pid 39356 on BR 28FAC399. Do not publish.
 - CURRENT 2026-11-25 7:08 pm EST: pc/0. Main PC live main 2925f29f: BR 28FAC399, TR 5C5EA937, human pid 39356 since 7:08 pm EST. Do not close pid 39356 without a notice. Early escape open (pc/1). Do not publish.
 - CURRENT 2026-11-25 7:07 pm EST: regression-pc/0. #136304 PASS offline on merge 783d9d8f (soul-core API). BR 28FAC399 staged at D:/nioh3-re/scapi-main-136303. Audit 0 new. BR 15/22 (7 known fails). Not installed. Human pid 45648. Do not publish.
