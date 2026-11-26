@@ -53,17 +53,20 @@
 typedef struct {
     uint32_t hits, dodges, kis, kiPerfects, damaged, counters, nins, souls, styles, swapHits, gsHits, maHits, deflects, counterAvoids, bursts;
     uint32_t displaces, crouchCancels;
+    float earned[SM_PC_N], lost[SM_PL_N];  // human 2026-11-26: points by source / losses (card page 2)
 } SrCount;
 static inline SrCount SrCountOf(const SmState* s) {
     SrCount c; c.hits = s->hits; c.dodges = s->dodges; c.kis = s->kis; c.kiPerfects = s->kiPerfects; c.damaged = s->damaged;
     c.counters = s->counters; c.nins = s->nins; c.souls = s->souls; c.styles = s->styles; c.swapHits = s->swapHits; c.gsHits = s->gsHits;
-    c.maHits = s->maHits; c.deflects = s->deflects; c.counterAvoids = s->counterAvoids; c.bursts = s->bursts; c.displaces = s->displaces; c.crouchCancels = s->crouchCancels; return c;
+    c.maHits = s->maHits; c.deflects = s->deflects; c.counterAvoids = s->counterAvoids; c.bursts = s->bursts; c.displaces = s->displaces; c.crouchCancels = s->crouchCancels;
+    for (int i = 0; i < SM_PC_N; ++i) c.earned[i] = s->earned[i]; for (int i = 0; i < SM_PL_N; ++i) c.lost[i] = s->lost[i]; return c;
 }
 static inline SrCount SrCountSub(SrCount a, SrCount b) {
     SrCount c; c.hits = a.hits - b.hits; c.dodges = a.dodges - b.dodges; c.kis = a.kis - b.kis; c.kiPerfects = a.kiPerfects - b.kiPerfects;
     c.damaged = a.damaged - b.damaged; c.counters = a.counters - b.counters; c.nins = a.nins - b.nins; c.souls = a.souls - b.souls;
     c.styles = a.styles - b.styles; c.swapHits = a.swapHits - b.swapHits; c.gsHits = a.gsHits - b.gsHits; c.maHits = a.maHits - b.maHits; c.deflects = a.deflects - b.deflects; c.counterAvoids = a.counterAvoids - b.counterAvoids; c.bursts = a.bursts - b.bursts;
     c.displaces = a.displaces - b.displaces; c.crouchCancels = a.crouchCancels - b.crouchCancels;
+    for (int i = 0; i < SM_PC_N; ++i) c.earned[i] = a.earned[i] - b.earned[i]; for (int i = 0; i < SM_PL_N; ++i) c.lost[i] = a.lost[i] - b.lost[i];
     return c;
 }
 
@@ -74,6 +77,7 @@ typedef struct {
     int byHold;                  // highest rank held holdPct % of the fight (before the hit penalty)
     float score, rawScore;       // human 2026-11-26 grade score 0 .. 7 (after / before the hit penalty): grade = floor(score)
     float nextPct;               // % of the fight at the next rank or higher (SSS: at SSS)
+    float earnedTotal, lostTotal; // human 2026-11-26: all points earned / lost during the fight (card page 2; by source in n.earned / n.lost)
     float avg;                   // 0 .. 7, after the hit penalty (what the grade uses)
     float rawAvg, penalty;       // the meter average before the penalty / the penalty subtracted
     float pctAt[SM_RANKS];       // % of the fight spent at each rank
@@ -225,6 +229,8 @@ static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPc
     } else { r.rawScore = r.rawAvg; r.score = r.avg; r.byHold = r.grade; }  // ResultHoldPct 0: the average alone
     for (int i = 0; i < SM_RANKS; ++i) r.pctAt[i] = f->ms > 0 ? (float)(f->atRank[i] * 100.0 / f->ms) : (i == 0 ? 100.f : 0.f);
     r.peak = f->peak; r.ms = f->ms; r.moves = f->nActs; r.maMoves = f->nMa; r.comboBest = f->comboBest;
+    for (int i = 0; i < SM_PC_N; ++i) r.earnedTotal += r.n.earned[i] > 0.f ? r.n.earned[i] : 0.f;
+    for (int i = 0; i < SM_PL_N; ++i) r.lostTotal += r.n.lost[i] > 0.f ? r.n.lost[i] : 0.f;
     r.inputs = f->inputs; r.apm = f->ms > 0 ? (float)(f->inputs * 60000.0 / f->ms) : 0.f;
     for (int i = 0; i < f->nBoss; ++i) r.bosses += f->dead[i] || f->hp0[i];
     return r;
@@ -276,6 +282,14 @@ static inline int SrHudSee(SrHud* h, uint64_t a, uint64_t tag, double wall, int*
 static inline void SrHudDrop(SrHud* h, int i) { if (i >= 0 && i < SR_HUD) { h->e[i].a = h->e[i].tag = 0; h->e[i].seen = h->e[i].last = 0; } }
 // Off the bar for more than keepMs: forgotten (the address may be reused by a normal enemy later).
 static inline void SrHudExpire(SrHud* h, double wall, int keepMs) { for (int i = 0; i < SR_HUD; ++i) if (h->e[i].a && wall - h->e[i].last > (double)keepMs) SrHudDrop(h, i); }
+// human 2026-11-26: the points breakdown as one log line (sources with points, then losses).
+static inline int SrFmtPts(char* o, int n, const SrResult* r) {
+    int k = snprintf(o, n, "earned %.0f:", r->earnedTotal);
+    for (int i = 0; i < SM_PC_N && k < n; ++i) if (r->n.earned[i] >= 0.5f) k += snprintf(o + k, n - k, " %s %.0f,", sm_pc_name[i], r->n.earned[i]);
+    if (k < n) k += snprintf(o + k, n - k, " | lost %.0f:", r->lostTotal);
+    for (int i = 0; i < SM_PL_N && k < n; ++i) if (k < n) k += snprintf(o + k, n - k, " %s %.0f,", sm_pl_name[i], r->n.lost[i] > 0.f ? r->n.lost[i] : 0.f);
+    return k;
+}
 // One log / card line of the counts.
 static inline int SrFmt(char* o, int n, const SrResult* r) {
     return snprintf(o, n, "grade %s score %.2f (%.2f - %.2f for hits taken; held %s, next rank %.0f %%; average %.2f / raw %.2f, by average %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "

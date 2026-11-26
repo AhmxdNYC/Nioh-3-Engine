@@ -929,7 +929,7 @@ static void SmFeed(double gdt) {
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
     float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen == SM_LP_FULL) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f && g_sm.lpOn && g_sm.lpPen == SM_LP_HALF) {  // rank A looped use: its weapon switch bonus at LoopHalfPct % too
-        const float keep = psw * (float)g_smc.loopHalfPct / 100.f; SmSub(&g_sm, &g_smc, psw - keep); g_sm.loopHalfLost += psw - keep; psw = keep; }
+        const float keep = psw * (float)g_smc.loopHalfPct / 100.f; SmSub(&g_sm, &g_smc, psw - keep, SM_PL_NONE); g_sm.earned[SM_PC_SWAP] -= psw - keep; g_sm.loopHalfLost += psw - keep; psw = keep; }
     if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     if (gsMark) g_sm.gsUses++;
@@ -1060,6 +1060,7 @@ static void SmFeed(double gdt) {
     if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
     for (int i = 0; i < srDone; ++i) {
         char b[900]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
+        SrFmtPts(b, sizeof b, &srRes[i]); Log("STYLE RESULT POINTS: %s", b);  // human 2026-11-26: card page 2
         AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes[i]; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
     }
     {   static int bbl;  // human: Burst Break log (the live test reads these: burst run seen / hit in its wind-up / its end)
@@ -1236,14 +1237,22 @@ static int SrConfirmDown(void) {
     if (xgs) for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x1000)) return 1; }  // XINPUT_GAMEPAD_A
     return 0;
 }
+// human 2026-11-26: card page switch: D-pad left / right on any pad or the arrow keys. Returns 1 on a fresh press (edge), else 0.
+static int SrPageEdge(void) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried, was = 1;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    int down = (GetAsyncKeyState(VK_LEFT) & 0x8000) || (GetAsyncKeyState(VK_RIGHT) & 0x8000);
+    if (xgs) for (DWORD i = 0; i < 4 && !down; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x000C)) down = 1; }  // DPAD_LEFT | DPAD_RIGHT
+    const int edge = down && !was; was = down; return edge;
+}
 // Result card window (draw thread): shows the newest g_sr_card until the player presses confirm (A / Enter; ResultShowMs > 0 also times it
 // out), centred near the top of the game window. While the game is unfocused, loading or in a menu the card hides and comes back after.
 // The panel is composed once per card / size; only the grade letter's motion is redrawn, then just the fade.
 static void SrCardTick(int ok, int lay) {
-    static LONG gen; static SrResult r; static double t0 = -1e18, closeT = -1e18; static int shown, w, h, settled, closed = 1, wasDown = 1, sawUp, wasLay = -1, dirty;
+    static LONG gen; static SrResult r; static double t0 = -1e18, closeT = -1e18; static int shown, w, h, settled, closed = 1, wasDown = 1, sawUp, wasLay = -1, dirty, page;
     static HDC mem; static HBITMAP bmp; static uint32_t* px; static uint32_t* base; static RECT last;
     AcquireSRWLockShared(&g_smfx_lock);
-    if (g_sr_cardGen != gen) { gen = g_sr_cardGen; r = g_sr_card; t0 = g_sr_cardT; w = 0; closed = 0; wasDown = 1; sawUp = 0; }
+    if (g_sr_cardGen != gen) { gen = g_sr_cardGen; r = g_sr_card; t0 = g_sr_cardT; w = 0; closed = 0; wasDown = 1; sawUp = 0; page = 0; }
     ReleaseSRWLockShared(&g_smfx_lock);
     const double now = SmWallMs(), age = now - t0;
     if (!closed && ok && shown && age >= SR_ARM_MS) {
@@ -1277,6 +1286,13 @@ static void SrCardTick(int ok, int lay) {
         __try { SrComposeBase(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(px, 0, (size_t)g.w * g.h * 4); }
         memcpy(base, px, (size_t)g.w * g.h * 4);
         w = g.w; h = g.h; settled = 0; dirty = 1;
+        if (page) { __try { SrComposeBreakdown(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } settled = 1; }
+    }
+    // human 2026-11-26: D-pad left / right flips between the rank page and the points breakdown (while the card is up and armed)
+    if (SrPageEdge() && !closed && ok && shown && age >= SR_ARM_MS) {
+        page ^= 1; dirty = 1; settled = 1;
+        if (page) { __try { SrComposeBreakdown(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } }
+        else { __try { SrComposeFrame(mem, px, base, &g, &r, 1e9); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } }
     }
     if (!settled) {
         __try { SrComposeFrame(mem, px, base, &g, &r, age); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); }

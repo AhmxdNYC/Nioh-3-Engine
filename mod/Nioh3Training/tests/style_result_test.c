@@ -280,6 +280,12 @@ static void GradeScore(void) {
     // displacements are counted on the card
     SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; d.crouchCancels += 2; Run(&f, &d, &c, 2, 0.5f, 1000);
     r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3 && r.n.crouchCancels == 2);
+    // points breakdown: only what was earned / lost during the fight (the difference from the fight start)
+    SmState e; SmReset(&e); e.earned[SM_PC_HIT] = 500.f; e.lost[SM_PL_DRAIN] = 40.f; SrReset(&f); SrBossHit(&f, &e, 0x1000);
+    e.earned[SM_PC_HIT] += 120.f; e.earned[SM_PC_DODGE] += 45.f; e.lost[SM_PL_DRAIN] += 30.f; e.lost[SM_PL_DAMAGE] += 60.f; Run(&f, &e, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &e, SR_HOLD_PCT);
+    CHECK(near(r.n.earned[SM_PC_HIT], 120, 0.01) && near(r.earnedTotal, 165, 0.01) && near(r.lostTotal, 90, 0.01));
+    { char lb[600]; SrFmtPts(lb, sizeof lb, &r); CHECK(strstr(lb, "earned 165") && strstr(lb, "Hits 120") && strstr(lb, "Hits taken 60")); }
 }
 // Picture Scroll (2026-11-25 log 02:55-03:00): three wave bosses on the HUD bar, no boss slot. Boss 1 (own actor) dies, boss 2 gets the bar
 // 10 s later at another address, boss 3 reuses boss 2's actor address with a new handle / HP block (tag) 8 s after boss 2 died. One card each.

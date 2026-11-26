@@ -137,6 +137,16 @@
 #define SM_VAR_GROW 3         // ... VarietyBonusGrow: each later step grows by this much (20, 30, 43, 59, 78, 100, .. 295 at 60 moves)
 #define SM_VAR_MAX 60         // ... VarietyMax: no milestone past this many distinct moves (at most SM_VAR_IDS)
 #define SM_VAR_IDS 256        // distinct move ids remembered per run
+// Points breakdown (human 2026-11-26, result card page 2): every gain is booked to one source (SmAdd's cat), the versatility multiplier's
+// extra to SM_PC_VERS; losses to SM_PL_* (drain, hits taken, repetition). The hit path splits a hit into its base, the startup / slow-move
+// extra and the counter bonus.
+enum { SM_PC_HIT, SM_PC_STARTUP, SM_PC_COUNTER, SM_PC_BLOCK, SM_PC_DODGE, SM_PC_DEFLECT, SM_PC_DISPLACE, SM_PC_KI, SM_PC_MA, SM_PC_NIN,
+       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_VERS, SM_PC_N };
+static const char* const sm_pc_name[SM_PC_N] = {"Hits", "Slow / startup bonus", "Counters", "Blocked hits", "Dodges", "Deflects", "Displacements",
+       "Ki pulses", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Burst breaks",
+       "Combo milestones", "Variety milestones", "Versatility bonus"};
+enum { SM_PL_NONE = -1, SM_PL_DRAIN, SM_PL_DAMAGE, SM_PL_LOOP, SM_PL_N };
+static const char* const sm_pl_name[SM_PL_N] = {"Meter drain", "Hits taken", "Repetition"};
 // pseudo move ids for non-hit moves (variety set only; real act ids are small)
 #define SM_VAR_DODGE 0xFFFFFF01u
 #define SM_VAR_DEFLECT 0xFFFFFF02u
@@ -221,6 +231,8 @@ typedef struct {
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t crouchCancels; // human 2026-11-26: crouch (TMTM) cancels (style_tmtm.h, result card)
+    float earned[SM_PC_N], lost[SM_PL_N];  // human 2026-11-26: points by source / losses (result card page 2)
+    float useMult;          // the current use's startup / slow-move multiplier (to split its hits' points)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
     int drainFar;           // human 2026-11-26: set by the glue each tick: the nearest boss is over farCm away -> SmTick drains x farPct %
     int drainHold;          // human 2026-11-26: set by the game glue each tick (slow-move wind-up near a boss): SmTick does not drain
@@ -302,11 +314,13 @@ static inline int SmVersPct(const SmState* s, const SmCfg* c) {
     if (c->versStep <= 0 || s->varN < c->versStep) return 0;
     return c->versBasePct + (s->varN / c->versStep - 1) * c->versIncPct;
 }
-// Adds pts x the versatility multiplier; returns the points actually added (0 for pts <= 0).
-static inline float SmAdd(SmState* s, const SmCfg* c, float pts) {
+// Adds pts x the versatility multiplier, booked to source `cat` (SM_PC_*; the multiplier's extra to SM_PC_VERS); returns the points
+// actually added (0 for pts <= 0).
+static inline float SmAdd(SmState* s, const SmCfg* c, float pts, int cat) {
     if (pts <= 0.f) return 0.f;
+    if (cat >= 0 && cat < SM_PC_N) s->earned[cat] += pts;
     const int vp = SmVersPct(s, c);
-    if (vp > 0) { const float x = pts * (float)vp / 100.f; pts += x; s->versPts += x; }
+    if (vp > 0) { const float x = pts * (float)vp / 100.f; pts += x; s->versPts += x; s->earned[SM_PC_VERS] += x; }
     s->active = 1; s->pts += pts;
     while (s->rank < SM_RANKS - 1 && s->pts >= c->rankPts[s->rank]) { s->pts -= c->rankPts[s->rank]; s->rank++; }
     if (s->rank == SM_RANKS - 1 && s->pts > c->rankPts[s->rank]) s->pts = c->rankPts[s->rank];
@@ -314,8 +328,12 @@ static inline float SmAdd(SmState* s, const SmCfg* c, float pts) {
 }
 // Points lost (loop penalty): drains like SmTick's decay (below 0 drops a rank, refilled from that rank's top; at D it ends empty / idle).
 // Does not touch lastScore. Nothing to lose when idle.
-static inline void SmSub(SmState* s, const SmCfg* c, float pts) {
+// Points the meter can still lose (this rank's gauge + every lower rank's bar).
+static inline float SmHeld(const SmState* s, const SmCfg* c) { float a = s->active ? s->pts : 0.f; for (int r = 0; r < s->rank; ++r) a += c->rankPts[r]; return a; }
+// lcat: the loss's source (SM_PL_*; SM_PL_NONE = not booked).
+static inline void SmSub(SmState* s, const SmCfg* c, float pts, int lcat) {
     if (!(pts > 0.f) || !s->active) return;
+    if (lcat >= 0 && lcat < SM_PL_N) { const float h = SmHeld(s, c); s->lost[lcat] += pts < h ? pts : h; }
     s->pts -= pts;
     while (s->pts < 0.f) {
         if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
@@ -341,7 +359,7 @@ static inline int SmLoopTier(SmState* s, const SmCfg* c, int looped) {
     if (s->rank < c->loopFullRank) { s->loopHalfs++; return SM_LP_HALF; }
     return SM_LP_FULL;
 }
-static inline void SmLoopPay(SmState* s, const SmCfg* c) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts); }
+static inline void SmLoopPay(SmState* s, const SmCfg* c) { s->loopPens++; s->loopLost += c->loopPts; SmSub(s, c, c->loopPts, SM_PL_LOOP); }
 // A player use (act, run key): the first call of a new run steps the loop (and pays a looped use's penalty); returns its tier (SM_LP_*).
 static inline int SmLoopUse(SmState* s, const SmCfg* c, uint32_t act, uint64_t run) {
     if (!s->lpOn || run != s->lpRun) {
@@ -376,7 +394,7 @@ static inline float SmVarietyMove(SmState* s, const SmCfg* c, double t, uint32_t
     const int k = s->varN / c->varStep - 1;  // 0 = the first milestone; the step itself grows by varGrow each milestone
     float b = (float)(int)((float)(c->varBase + k * c->varInc + c->varGrow * k * (k - 1) / 2) * (float)c->varPct / 100.f + 0.5f);
     if (!(b > 0.f) || c->varBase <= 0) return 0.f;  // VarietyBonus 0 = off (the count still runs)
-    b = SmAdd(s, c, b); s->lastEvent = s->lastScore = t;
+    b = SmAdd(s, c, b, SM_PC_VARIETY); s->lastEvent = s->lastScore = t;
     s->varBonuses++; s->varMile = s->varN; s->varLastPts = b; s->varPts += b;
     return b;
 }
@@ -433,7 +451,8 @@ static inline float SmOnHitUseL(SmState* s, const SmCfg* c, double t, uint32_t a
     if (!summon && s->lpPen == SM_LP_HALF) pct = pct * c->loopHalfPct / 100;  // rank A: a looped use scores loopHalfPct % (still a scored hit / combo)
     if (s->useOn && act == s->useAct && run == s->useRun) f = s->useFactor * (float)c->multiPct / 100.f;
     else {
-        f = SmVariety(s, c, act) * SmHitMult(c, startupF, landMs);
+        s->useMult = SmHitMult(c, startupF, landMs);
+        f = SmVariety(s, c, act) * s->useMult;
         if (counter && c->counter > 0.f) { bonus = c->counter; s->counters++; }
         const int newUse = !s->useOn || run != s->useRun;  // a chained segment (same use key, new act) is not a new move
         s->useOn = 1; s->useAct = act; s->useRun = run; s->useFactor = f;
@@ -442,7 +461,13 @@ static inline float SmOnHitUseL(SmState* s, const SmCfg* c, double t, uint32_t a
     }
     const float p = (c->hit * f + bonus) * (float)pct / 100.f;
     if (pct != pct0) s->loopHalfLost += (c->hit * f + bonus) * (float)(pct0 - pct) / 100.f;
-    const float gain_ = SmAdd(s, c, p); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
+    const int cat = summon ? SM_PC_GS : pct0 != 100 ? SM_PC_BLOCK : SM_PC_HIT;
+    const float gain_ = SmAdd(s, c, p, cat); s->hits++; s->lastEvent = s->lastHit = t; if (p > 0.f) s->lastScore = t;
+    if (cat == SM_PC_HIT && p > 0.f) {  // book the startup / slow-move extra and the counter bonus to their own sources
+        const float m = s->useMult > 1.f ? s->useMult : 1.f, base = c->hit * f * (float)pct / 100.f;
+        const float su = base * (m - 1.f) / m, cb = bonus * (float)pct / 100.f;
+        s->earned[SM_PC_HIT] -= su + cb; s->earned[SM_PC_STARTUP] += su; s->earned[SM_PC_COUNTER] += cb;
+    }
     s->countedHits++;
     return gain_;
 }
@@ -566,7 +591,7 @@ static inline float SmOnSkill(SmState* s, const SmCfg* c, double t, int kind) {
     const float p = kind ? c->soul : c->nin;
     if (p <= 0.f) return 0.f;
     if (kind) { s->soulsScored++; s->lastSoul = t; }
-    const float gain_ = SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, kind ? SM_PC_SOUL : SM_PC_NIN); s->lastEvent = s->lastScore = t; return gain_;
 }
 // #127057 weapon swap attack: the active weapon slot changed (the game's GetActiveWeaponSlot) ...
 // Weapon switch (any way of switching: flash / swap attack, the quick-swap button, ...): a landed hit with a different weapon slot than the
@@ -578,7 +603,7 @@ static inline float SmWeaponHit(SmState* s, const SmCfg* c, double t, int slot) 
     s->hitSlot = slot; s->hitSlotT = t;
     if (!sw || c->swap <= 0.f) return 0.f;
     s->swapHits++;
-    const float gain_ = SmAdd(s, c, c->swap); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->swap, SM_PC_SWAP); s->lastEvent = s->lastScore = t; return gain_;
 }
 static inline void SmOnSwap(SmState* s, double t) { s->swaps++; s->lastSwap = t; s->swapPaid = 0; }
 // ... and a move that started within swapMs of that change landed a hit: one bonus per slot change (swap spam without hits scores nothing).
@@ -587,7 +612,7 @@ static inline float SmSwapHit(SmState* s, const SmCfg* c, double t, double runSt
     const double d = runStart - s->lastSwap;
     if (d < -(double)c->swapMs || d > (double)c->swapMs) return 0.f;
     s->swapPaid = 1; s->swapHits++;
-    const float gain_ = SmAdd(s, c, c->swap); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->swap, SM_PC_SWAP); s->lastEvent = s->lastScore = t; return gain_;
 }
 // #126843 Samurai <-> Ninja style switch: scores in combat, once per landed hit since the last scored switch.
 // #126913 mid soul core: a switch within combatMs of a scored soul core use also scores, once per such use (the form itself may land no
@@ -601,20 +626,20 @@ static inline float SmOnStyle(SmState* s, const SmCfg* c, double t) {
     const int byIdle = t - s->lastStyleT > (double)c->combatMs;
     if (!byHit && !bySoul && !byIdle) return 0.f;
     s->hitsAtStyle = s->hits; s->soulsAtStyle = s->soulsScored; s->lastStyleT = t;
-    const float gain_ = SmAdd(s, c, c->style); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->style, SM_PC_STYLE); s->lastEvent = s->lastScore = t; return gain_;
 }
 // Clean dodge / deflect: still counted when looped (it happened), but a looped one scores 0 and costs loopPts (no decay refresh).
 static inline float SmOnDodge(SmState* s, const SmCfg* c, double t) {
     s->dodges++; s->lastEvent = t;
     const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_DODGE), c->dodge);
     if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p); s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, SM_PC_DODGE); s->lastScore = t; return gain_;
 }
 static inline float SmOnDeflect(SmState* s, const SmCfg* c, double t) {
     s->deflects++; s->lastEvent = t;
     const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_DEFLECT), c->deflect);
     if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p); s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, SM_PC_DEFLECT); s->lastScore = t; return gain_;
 }
 // Counter by avoiding: dodge points; count = 1 when this move has not been counted as a counter yet (the hit counter may have been first).
 // act / run = the skill move (a loop step of that use, shared with its hits: a looped move's avoid scores 0, the penalty is paid once).
@@ -624,14 +649,14 @@ static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, in
     s->lastEvent = t;
     const float p = SmLoopScale(s, c, SmLoopUse(s, c, act, run), c->dodge);
     if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p); s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, SM_PC_COUNTER); s->lastScore = t; return gain_;
 }
 static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) {
     if (count) s->counterAvoids++;
     s->lastEvent = t;
     const float p = SmLoopScale(s, c, SmLoopEvent(s, c, SM_LOOP_COUNTER), c->dodge);
     if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p); s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, SM_PC_COUNTER); s->lastScore = t; return gain_;
 }
 // #127065 / #127075 ninjutsu gate: n gauge drops this tick -> 1 if it is a new throw. One per throw (drops within SM_NIN_GAP_MS of the
 // last one are the same throw, e.g. two +20 10 ms apart, act 34000 -> 34052), and only in Ninja mode (style 1; -1 = unknown is allowed).
@@ -662,7 +687,7 @@ static inline int SmGsStep(SmGsMove* g, double t, uint64_t run, float cur, int w
 static inline float SmGsPay(SmState* s, const SmCfg* c, SmGsMove* g, double t, float movePts) {
     if (!g->gs || g->paid || !(movePts > 0.f) || c->gs <= 0.f) return 0.f;
     g->paid = 1; s->gsHits++;
-    const float gain_ = SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->gs, SM_PC_GS); s->lastEvent = s->lastScore = t; return gain_;
 }
 // human: summoned guardian spirit (the attack that sends the spirit out, R2 + Triangle on PlayStation). Its hits come from the spirit's
 // own actor (same team as the player), so they are not the player's hits. A guardian spirit gauge spend opens a window of gsSummonMs;
@@ -679,7 +704,7 @@ static inline float SmSummonHits(SmState* s, const SmCfg* c, SmSummon* m, double
         if (c->multiHitCap > 0 && m->hitsN >= c->multiHitCap) { s->hits++; s->cappedHits++; s->lastEvent = s->lastHit = t; continue; }  // over the cap
         m->hitsN++; p += SmOnHitUse(s, c, t, m->act, m->run, -1.f, 0, 1);
     }
-    if (!m->paid && c->gs > 0.f) { m->paid = 1; s->gsHits++; *bonus = SmAdd(s, c, c->gs); s->lastEvent = s->lastScore = t; }
+    if (!m->paid && c->gs > 0.f) { m->paid = 1; s->gsHits++; *bonus = SmAdd(s, c, c->gs, SM_PC_GS); s->lastEvent = s->lastScore = t; }
     return p;
 }
 // #127295 martial art, from the game's own action data (no act ids, no input): the current action's 336-byte file row
@@ -702,7 +727,7 @@ static inline int SmMaStep(SmMaMove* m, uint64_t run, int skill, int other) {
 static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, float movePts) {
     if (!m->ma || m->other || m->paid || !(movePts > 0.f) || c->ma <= 0.f) return 0.f;
     m->paid = 1; s->maHits++;
-    const float gain_ = SmAdd(s, c, c->ma); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->ma, SM_PC_MA); s->lastEvent = s->lastScore = t; return gain_;
 }
 // human: Burst Break. A boss's red attack (the game's GreatAttack / unblockable flag, u16 row +0x04 bit 0x2000 of its current action row) is
 // interrupted by the player's hit (or the summoned guardian spirit's) during its wind-up. One SmBurst per boss slot, stepped once per tick
@@ -767,7 +792,7 @@ static inline int SmBurstAvoid(SmBurst* b, double ctrAwardT, double t, int avoid
 static inline float SmOnBurst(SmState* s, const SmCfg* c, double t) {
     s->bursts++;
     if (c->burst <= 0.f) return 0.f;
-    const float gain_ = SmAdd(s, c, c->burst); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->burst, SM_PC_BURST); s->lastEvent = s->lastScore = t; return gain_;
 }
 // #127075 Ki pulse with the perfect flag: perfect adds kiPerfect on top when the pulse scores at all.
 static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) {
@@ -775,12 +800,12 @@ static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) 
     if (c->kiHitMs > 0 && !(t - s->lastHit <= (double)c->kiHitMs)) return 0.f;
     float p = c->ki;
     if (perfect && c->kiPerfect > 0.f) { p += c->kiPerfect; s->kiPerfects++; }
-    const float gain_ = SmAdd(s, c, p); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, p, SM_PC_KI); s->lastEvent = s->lastScore = t; return gain_;
 }
 static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
     s->kis++;
     if (c->kiHitMs > 0 && !(t - s->lastHit <= (double)c->kiHitMs)) return 0.f;  // pulse after a whiff: no points, no decay reset
-    const float gain_ = SmAdd(s, c, c->ki); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->ki, SM_PC_KI); s->lastEvent = s->lastScore = t; return gain_;
 }
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->damaged++; s->lastEvent = t; s->combo = 0;  // getting hit breaks the combo
@@ -790,7 +815,7 @@ static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->useOn = 0; s->useAct = SM_ACT_NONE;
     if (c->damagePct < 100) {  // human 2026-11-26: a share of the full drop (this rank's points + the rank below's bar), drained like decay
         const float full = s->pts + (s->rank > 0 ? c->rankPts[s->rank - 1] : 0.f);
-        SmSub(s, c, full * (float)c->damagePct / 100.f);
+        SmSub(s, c, full * (float)c->damagePct / 100.f, SM_PL_DAMAGE);
         if (s->rank == 0 && !(s->pts > 0.f)) { s->pts = 0.f; s->active = 0; }  // an empty D goes idle (as the full drop does)
         return;
     }
@@ -814,7 +839,7 @@ static inline float SmComboHits(SmState* s, const SmCfg* c, double t, int n, uin
         const float b = SmComboMilestone(c, s->combo);
         if (b > 0.f) { bonus += b; *mile = s->combo; s->comboBonuses++; }
     }
-    if (bonus > 0.f) { bonus = SmAdd(s, c, bonus); s->lastEvent = s->lastScore = t; }
+    if (bonus > 0.f) { bonus = SmAdd(s, c, bonus, SM_PC_COMBO); s->lastEvent = s->lastScore = t; }
     return bonus;
 }
 // the combo ended (gap over comboMs): the count drops to 0. Per tick.
@@ -830,7 +855,8 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     float d = c->decayPerS * (1.f + (float)s->rank * (float)c->decayRankPct / 100.f) * (float)(idle / 1000.0);
     if (c->decayRampPct > 0) d *= 1.f + (float)c->decayRampPct / 100.f * (float)(idleAll / 1000.0);
     if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;
-    if (s->drainFar) d *= (float)c->farPct / 100.f;  // human 2026-11-26: the boss is far away (e.g. ran across the arena): half drain  // human 2026-11-26: D..B drain 40 % slower
+    if (s->drainFar) d *= (float)c->farPct / 100.f;  // human 2026-11-26: the boss is far away (e.g. ran across the arena): half drain
+    { const float h = SmHeld(s, c); s->lost[SM_PL_DRAIN] += d < h ? d : h; }  // human 2026-11-26: points breakdown
     s->pts -= d;
     while (s->pts < 0.f) {
         if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }

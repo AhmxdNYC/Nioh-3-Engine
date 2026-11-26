@@ -121,7 +121,58 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     }
     SrFill(px, W, H, W / 2, SRX(424), 1, SRX(SR_STAT_ROWS * 28 - 8), 0xA89A6Cu, 70);
     SrFill(px, W, H, SRX(40), SRX(650 + (SR_STAT_ROWS - 8) * 28), W - SRX(80), 1, 0xA89A6Cu, 90);
-    SrText(ref, px, W, H, "Press A or Enter to close", W / 2, SRX(658 + (SR_STAT_ROWS - 8) * 28), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
+    SrText(ref, px, W, H, "D-pad / arrows: points breakdown     A / Enter: close", W / 2, SRX(658 + (SR_STAT_ROWS - 8) * 28), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
+#undef SRX
+}
+// human 2026-11-26: page 2 of the card (D-pad left / right): every point earned in the fight by source, biggest first, and what was lost.
+static void SrComposeBreakdown(HDC ref, uint32_t* px, const SrGeo* g, const SrResult* r) {
+    const int W = g->w, H = g->h; const float k = g->k;
+#define SRX(v) ((int)((v) * k + 0.5f))
+    memset(px, 0, (size_t)W * H * 4);
+    SrFill(px, W, H, 0, 0, W, H, 0x0E0C0Bu, 222);
+    SrFill(px, W, H, 0, 0, W, SRX(58), 0x000000u, 70);
+    { const int t = SRX(2) > 1 ? SRX(2) : 1;
+      SrFill(px, W, H, 0, 0, W, t, 0xA89A6Cu, 255); SrFill(px, W, H, 0, H - t, W, t, 0xA89A6Cu, 255);
+      SrFill(px, W, H, 0, 0, t, H, 0xA89A6Cu, 255); SrFill(px, W, H, W - t, 0, t, H, 0xA89A6Cu, 255); }
+    SrFill(px, W, H, SRX(8), SRX(8), W - SRX(16), 1, 0xA89A6Cu, 90); SrFill(px, W, H, SRX(8), H - SRX(8), W - SRX(16), 1, 0xA89A6Cu, 90);
+    SrText(ref, px, W, H, "POINTS BREAKDOWN", W / 2, SRX(17), SRX(23), FW_BOLD, 0, 1, SR_GOLD);
+    SrFill(px, W, H, SRX(40), SRX(58), W - SRX(80), 1, 0xA89A6Cu, 140);
+    char b[96];
+    snprintf(b, sizeof b, "%.0f", r->earnedTotal);
+    SrText(ref, px, W, H, b, W / 2, SRX(72), SRX(64), FW_BOLD, 0, 1, SR_VALUE);
+    SrText(ref, px, W, H, "style points earned this fight", W / 2, SRX(152), SRX(18), FW_NORMAL, 1, 1, SR_LABEL);
+    // sources, biggest first: name, bar, points, share
+    int ord[SM_PC_N], n = 0;
+    for (int i = 0; i < SM_PC_N; ++i) if (r->n.earned[i] >= 0.5f) ord[n++] = i;
+    for (int i = 1; i < n; ++i) { const int v = ord[i]; int j = i; while (j > 0 && r->n.earned[ord[j - 1]] < r->n.earned[v]) { ord[j] = ord[j - 1]; --j; } ord[j] = v; }
+    const float top = n ? r->n.earned[ord[0]] : 1.f, tot = r->earnedTotal > 0.f ? r->earnedTotal : 1.f;
+    const int rows = 15, y0 = 192, rh = 26, lx = SRX(40), bx = SRX(268), bwMax = SRX(170), vx = SRX(600);
+    if (n == 0) SrText(ref, px, W, H, "No points scored", W / 2, SRX(y0 + 40), SRX(18), FW_NORMAL, 1, 1, SR_LABEL);
+    const int shown = n > rows ? rows - 1 : n;  // more sources than rows: the smallest ones share an "Other" row
+    float other = 0.f; for (int i = shown; i < n; ++i) other += r->n.earned[ord[i]];
+    for (int i = 0; i < shown + (n > rows); ++i) {
+        const int y = SRX(y0 + i * rh); const int isOther = i == shown;
+        const float v = isOther ? other : r->n.earned[ord[i]];
+        if (isOther) snprintf(b, sizeof b, "Other (%d)", n - shown);
+        SrText(ref, px, W, H, isOther ? b : sm_pc_name[ord[i]], lx, y, SRX(18), FW_NORMAL, 0, 0, SR_LABEL);
+        const int bw = (int)(bwMax * v / top + 0.5f);
+        SrFill(px, W, H, bx, y + SRX(5), bwMax, SRX(13), 0x000000u, 120);
+        if (bw > 0) { SrFill(px, W, H, bx, y + SRX(5), bw, SRX(13), 0xC9A85Cu, 230); SrFill(px, W, H, bx, y + SRX(5), bw, SRX(4), 0xFFFFFFu, 40); }
+        snprintf(b, sizeof b, "%.0f  (%.0f%%)", v, v * 100.f / tot);
+        SrText(ref, px, W, H, b, vx, y, SRX(18), FW_BOLD, 0, 2, SR_VALUE);
+    }
+    // losses
+    const int ly = y0 + rows * rh + 24;
+    SrFill(px, W, H, SRX(40), SRX(ly), W - SRX(80), 1, 0xA89A6Cu, 140);
+    snprintf(b, sizeof b, "Points lost: %.0f", r->lostTotal);
+    SrText(ref, px, W, H, b, W / 2, SRX(ly + 10), SRX(19), FW_BOLD, 0, 1, 0xE08A7Au);
+    for (int i = 0; i < SM_PL_N; ++i) {
+        const float v = r->n.lost[i] > 0.f ? r->n.lost[i] : 0.f;
+        snprintf(b, sizeof b, "%s  %.0f", sm_pl_name[i], v);
+        SrText(ref, px, W, H, b, W * (2 * i + 1) / (2 * SM_PL_N), SRX(ly + 42), SRX(17), FW_NORMAL, 0, 1, v >= 0.5f ? 0xE6A050u : 0x6A6E74u);
+    }
+    SrFill(px, W, H, SRX(40), SRX(650 + (SR_STAT_ROWS - 8) * 28), W - SRX(80), 1, 0xA89A6Cu, 90);
+    SrText(ref, px, W, H, "D-pad / arrows: back to the rank     A / Enter: close", W / 2, SRX(658 + (SR_STAT_ROWS - 8) * 28), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
 #undef SRX
 }
 // One card frame: the grade letter on its own transparent layer (the meter's rank-up motions tint / clear rects around the letter and

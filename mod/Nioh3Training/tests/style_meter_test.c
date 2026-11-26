@@ -1090,9 +1090,28 @@ static void DrainFar(void) {
     }
     SmCfg k = c; k.farPct = 150; k.farCm = -5; SmCfgClamp(&k); CHECK(k.farPct == 100 && k.farCm == 0);
 }
+// human 2026-11-26: points breakdown. Every gain is booked to its source; the parts add up to the points actually added.
+static void Breakdown(void) {
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 1000000; c.rankPts[0] = 100000.f;  // no decay, stay in D
+    SmState s; SmReset(&s); float added = 0.f;
+    added += SmOnHitExL(&s, &c, 0, 101, 1, 10.f, 1000.0, 1);       // slow move (1 s: x2.5) with a counter bonus
+    CHECK(near(s.earned[SM_PC_HIT], c.hit) && near(s.earned[SM_PC_STARTUP], c.hit * 1.5f) && near(s.earned[SM_PC_COUNTER], c.counter));
+    added += SmOnDodge(&s, &c, 10); added += SmOnKi(&s, &c, 20); added += SmOnBlockedHit(&s, &c, 30, 102, 2, -1.f, 0);
+    CHECK(near(s.earned[SM_PC_DODGE], c.dodge) && near(s.earned[SM_PC_KI], c.ki) && near(s.earned[SM_PC_BLOCK], c.hit * c.blockPct / 100.f));
+    for (uint32_t a = 200; a < 210; ++a) added += SmOnHitEx(&s, &c, 40, a, 10 + a, -1.f, 0);  // 12 distinct moves: variety milestones + versatility
+    CHECK(s.earned[SM_PC_VARIETY] > 0.f && s.earned[SM_PC_VERS] > 0.f);
+    float sum = 0.f; for (int i = 0; i < SM_PC_N; ++i) sum += s.earned[i];
+    CHECK(sum > 0.f && sum - (added + s.varPts) < 0.5f && (added + s.varPts) - sum < 0.5f);  // hits' returns + the milestones paid inside them
+    // losses: damage and drain, never more than the meter held
+    SmCfg d; RealDefaults(&d); SmState l; SmReset(&l); l.active = 1; l.rank = 2; l.pts = 50.f; l.lastScore = 0;
+    const float held = SmHeld(&l, &d); SmOnDamaged(&l, &d, 1);
+    CHECK(l.lost[SM_PL_DAMAGE] > 0.f && near(held - SmHeld(&l, &d), l.lost[SM_PL_DAMAGE]));
+    for (int i = 0; i < 2000; ++i) SmTick(&l, &d, 2.0 + i * 50.0, 50.0);
+    CHECK(!l.active && near(l.lost[SM_PL_DAMAGE] + l.lost[SM_PL_DRAIN], held));
+}
 int main(void) {
     SlowMove();
-    MoveVariety(); Versatility(); DecayLow(); DrainFar();
+    MoveVariety(); Versatility(); DecayLow(); DrainFar(); Breakdown();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();
