@@ -1948,3 +1948,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-26 6:45 am EST | regression-pc/0 | #137814 fsend-main pc3/fsend-main-137801 a3c5c451 (BR 135178B6) PASS #137823: 0 removed vs main fbc9edda + fsend 4ff0221f, audit 49=baseline, offline 35/12 same set as main. Not installed. Do not publish.
 - 2026-11-26 7:10 am EST | pc/0 | merged fsend-main a3c5c451 (BR 135178B6) into main after regression PASS #137823. Not installed. Do not publish.
 - 2026-11-26 6:46 am EST | pc2/0 | #137795 Fast summon 5129B end pose live on PC2, BR 867E1F6C (bridge #9439): end pose 150/144/143 ms at x6, colliders open, despawn normal, Transform unchanged. RESULT #137829. Restored BR 9086D554, saves, lock. Do not publish.
+- 2026-11-26 7:20 am EST | pc/0 | pc2 #137829 PASS Fast summon 5129B end pose 143-150 ms on BR 867E1F6C. Done TO-USER sent. pc2 TASK: enemy-hit check on merged BR 135178B6 (bridge #9440). Not installed on Main PC. Do not publish.
