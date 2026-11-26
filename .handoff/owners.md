@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-25 9:22 pm EST: pc/1. #136492 live PASS, not installed. pc1/movesens-136492 526f1931. BR B48CCCF6 + TR 202776EC at D:/nioh3-re/soudmg-136492. Human game pid 67116 on BR E296BCF4, TR 5C5EA937. Lock free. Do not install before regression. Do not publish.
 - CURRENT 2026-11-25 8:03 pm EST: pc/0. Main PC live main 0d83711e: BR E296BCF4, TR 5C5EA937, pid 64668 since 8:03 pm EST (human away #136380). pc/1 owns the live check #136412 + delay #136363. Do not publish.
 - CURRENT 2026-11-25 8:00 pm EST: regression-pc/0. #136385 PASS offline on BR b5c54a7f (E296BCF4, pc1/coresw-136367). foreign_spawn 16, form_core_pick 143, audit 0 new. 7 BR tests fail on base too (msvc path). Not installed. Live check with pc. Do not publish.
 - CURRENT 2026-11-25 7:29 pm EST: pc/0. Main PC live main 4d20adf0: BR 9A3E8E86, TR 5C5EA937, human pid 51048 since 7:29 pm EST. Do not close pid 51048 without a notice. Do not publish.
