@@ -74,7 +74,7 @@ inline float sc_fast_speed_mul(int x10, float sealMul) {
 }
 // TASK #137323 (human #137208): Fast summon keeps the yokai's attack at the speed above but skips its startup (appear / wind-up before its
 // first hit) and its end pose (after its last hit until the game despawns it). One phase per press for all its yokai chrs:
-// START until the first hit opens, ATTACK, END once every chr that hits is past its last hit (certain game-data count only) + grace.
+// START (armed by certain data only, see sc_fast_start_arm) until the first hit, ATTACK, END once every chr that hits is past its last hit (certain game-data count only) + grace.
 // [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off = the attack speed). Same rule for every core; the player is never touched.
 #define SC_FAST_PH_START 0
 #define SC_FAST_PH_ATTACK 1
@@ -110,9 +110,23 @@ inline int sc_fast_chr_end(bool dataOk, int bursts, int untimed, int spawns, boo
     if (openNow || liveBursts < bursts || !pastLast) return SC_FAST_CHR_BLOCK;
     return SC_FAST_CHR_DONE;
 }
-// Press phase. startReached = a chr's data says its first hit starts now, or (no usable data) a live hit opened. started = sticky.
-inline int sc_fast_group_phase(bool started, int msSincePress, int startCapMs, int nDone, int nBlock, bool openAny, int msSinceLastClose, int graceMs) {
-    if (!started) return msSincePress < startCapMs ? SC_FAST_PH_START : SC_FAST_PH_ATTACK;
+// TASK #137323 fix (live BR 33E76024, core 3B1AB): the phase must never speed a yokai before the data proves it safe. A x6 rate on the
+// spawn frame (phase defaulted to START) left the yokai frozen and the game's summon never ended (no re-summon on the next presses).
+// The startup skip arms only when a chr's own data is CERTAIN, it is still before its first hit in that chain, it is at least minAgeMs old
+// (its spawn / appear frames always play at the attack speed) and the speed is on. Never armed = attack speed, the 645efbf5 behaviour.
+inline bool sc_fast_start_arm(bool certain, int actPos, int firstIdx, float frame, int firstStart, int leadFrames, int ageMs, int minAgeMs, float startMul) {
+    if (!certain || !(startMul > 1.f) || ageMs < minAgeMs || firstIdx < 0 || actPos < 0 || actPos > firstIdx) return false;
+    return !sc_fast_at_first(actPos, firstIdx, frame, firstStart, leadFrames);
+}
+// A live attack collider counts as a hit only at / after the chr's first data hit (an appearance collider at spawn is not a hit). A chr
+// without usable data: counted (it can only block the end, never start a skip).
+inline bool sc_fast_hit_counts(bool usable, int actPos, int firstIdx, float frame, int firstStart, int leadFrames) {
+    if (!usable) return true;
+    return actPos == -1 || sc_fast_at_first(actPos, firstIdx, frame, firstStart, leadFrames);
+}
+// Press phase. startOn = armed and its first hit not reached yet (sticky off once reached / capped).
+inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int nDone, int nBlock, bool openAny, int msSinceLastClose, int graceMs) {
+    if (startOn && msSinceArm < startCapMs) return SC_FAST_PH_START;
     if (nDone > 0 && nBlock == 0 && !openAny && msSinceLastClose >= graceMs) return SC_FAST_PH_END;
     return SC_FAST_PH_ATTACK;
 }

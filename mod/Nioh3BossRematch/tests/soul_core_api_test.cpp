@@ -90,14 +90,26 @@ int main() {
     CHECK(sc_fast_chr_end(true, 0, 0, 0, false, true, 1, false, true) == SC_FAST_CHR_BLOCK);     // 'inert' part that hit: unknown
     CHECK(sc_fast_chr_end(true, 1, 0, 0, false, false, 0, false, false) == SC_FAST_CHR_BLOCK);   // hitter that has not hit yet
     // press phase
-    CHECK(sc_fast_group_phase(false, 100, 2000, 0, 0, false, 1 << 30, 150) == SC_FAST_PH_START);
-    CHECK(sc_fast_group_phase(false, 2000, 2000, 0, 0, false, 1 << 30, 150) == SC_FAST_PH_ATTACK);  // startup cap
-    CHECK(sc_fast_group_phase(true, 500, 2000, 0, 1, true, 1 << 30, 150) == SC_FAST_PH_ATTACK);
-    CHECK(sc_fast_group_phase(true, 900, 2000, 1, 0, false, 100, 150) == SC_FAST_PH_ATTACK);        // grace
-    CHECK(sc_fast_group_phase(true, 900, 2000, 1, 0, false, 150, 150) == SC_FAST_PH_END);
-    CHECK(sc_fast_group_phase(true, 900, 2000, 1, 1, false, 500, 150) == SC_FAST_PH_ATTACK);        // a helper still may hit
-    CHECK(sc_fast_group_phase(true, 900, 2000, 1, 0, true, 500, 150) == SC_FAST_PH_ATTACK);         // something open
-    CHECK(sc_fast_group_phase(true, 900, 2000, 0, 0, false, 500, 150) == SC_FAST_PH_ATTACK);        // only inert chrs: no end skip
+    CHECK(sc_fast_group_phase(true, 100, 2000, 0, 0, false, 1 << 30, 150) == SC_FAST_PH_START);
+    CHECK(sc_fast_group_phase(true, 2000, 2000, 0, 0, false, 1 << 30, 150) == SC_FAST_PH_ATTACK);  // startup cap
+    CHECK(sc_fast_group_phase(false, 500, 2000, 0, 1, true, 1 << 30, 150) == SC_FAST_PH_ATTACK);
+    CHECK(sc_fast_group_phase(false, 900, 2000, 1, 0, false, 100, 150) == SC_FAST_PH_ATTACK);        // grace
+    CHECK(sc_fast_group_phase(false, 900, 2000, 1, 0, false, 150, 150) == SC_FAST_PH_END);
+    CHECK(sc_fast_group_phase(false, 900, 2000, 1, 1, false, 500, 150) == SC_FAST_PH_ATTACK);        // a helper still may hit
+    CHECK(sc_fast_group_phase(false, 900, 2000, 1, 0, true, 500, 150) == SC_FAST_PH_ATTACK);         // something open
+    CHECK(sc_fast_group_phase(false, 900, 2000, 0, 0, false, 500, 150) == SC_FAST_PH_ATTACK);        // only inert chrs: no end skip
+    CHECK(sc_fast_group_phase(false, 0, 2000, 0, 0, false, 1 << 30, 150) == SC_FAST_PH_ATTACK);  // not armed: attack speed from the spawn frame
+    // arm: certain data only, before the first hit, old enough, speed on (live 3B1AB: C53:0 > 1:0, not certain -> never armed)
+    CHECK(!sc_fast_start_arm(false, 0, -1, 0.f, 0, 4, 500, 200, 6.f));      // 3B1AB-like data: no timed hit, not certain
+    CHECK(!sc_fast_start_arm(true, 0, 1, 0.f, 20, 4, 0, 200, 6.f));         // spawn frame: never
+    CHECK(!sc_fast_start_arm(true, 0, 1, 0.f, 20, 4, 199, 200, 6.f) && sc_fast_start_arm(true, 0, 1, 0.f, 20, 4, 200, 200, 6.f));
+    CHECK(!sc_fast_start_arm(true, 0, 1, 0.f, 20, 4, 500, 200, 1.f));       // FastSummonStartSpeed off
+    CHECK(!sc_fast_start_arm(true, 1, 1, 17.f, 20, 4, 500, 200, 6.f) && sc_fast_start_arm(true, 1, 1, 15.f, 20, 4, 500, 200, 6.f));  // at first hit - lead: no
+    CHECK(!sc_fast_start_arm(true, -1, 1, 0.f, 20, 4, 500, 200, 6.f) && !sc_fast_start_arm(true, -2, 1, 0.f, 20, 4, 500, 200, 6.f) && !sc_fast_start_arm(true, 2, 1, 0.f, 20, 4, 500, 200, 6.f));
+    // appearance collider (before the data's first hit) is not a hit; no usable data -> counted
+    CHECK(!sc_fast_hit_counts(true, 0, 1, 5.f, 20, 4) && sc_fast_hit_counts(true, 1, 1, 18.f, 20, 4) && sc_fast_hit_counts(true, -1, 1, 0.f, 20, 4) && sc_fast_hit_counts(false, 0, -1, 0.f, 0, 4));
+    // keys 1/1 (off): every phase gives the 645efbf5 rate
+    for (int p = 0; p < 3; ++p) CHECK(sc_fast_phase_mul(p, 1.44f, 1.f, 1.f) == 1.44f);
     printf(g_fail ? "soul_core_api_test: %d FAIL\n" : "soul_core_api_test: PASS%.0d\n", g_fail);
     return g_fail ? 1 : 0;
 }
