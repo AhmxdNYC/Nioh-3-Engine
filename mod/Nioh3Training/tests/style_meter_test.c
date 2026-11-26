@@ -9,11 +9,17 @@
 #include "../src/style_meter_fx.h"
 // The mechanics cases below were written against the first tuning; pin it so they keep testing the rules, not the numbers.
 static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
+static void DamageHalf(void);
 static void PinnedDefaults(SmCfg* c) {
     static const float old[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
     SmCfgDefaults(c); c->decayPerS = 12.f; c->decayDelayMs = 2500; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
     // #127568: the shipped defaults moved to the human's tuning; the mechanics cases keep the numbers they were written for.
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
+    c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
+    c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
+    c->versStep = 0; c->decayLowPct = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
+    c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
+    c->slowMs = 0;  // slow-move multiplier / drain pause (human 2026-11-26) came later: covered by SlowMove()
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -162,11 +168,11 @@ static void Clamp(void) {
 // human #126755: shipped tuning is 2.5x the first (#126785); #127568: now the human's Main PC tuning.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 60.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
+    CHECK(near(c.rankPts[0], 120.f) && near(c.rankPts[1], 180.f) && near(c.deflect, 23.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
-    for (uint32_t i = 0; i < 4; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 20.f / 90.f));  // 4 different moves = 80 pts: D (60) full, 20 into C (90)
+    for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 74.4f / 180.f));  // 8 different moves = 4 x 20 + 4 x 22 (x1.10 from the 5th) + 24 x 1.10 (5 distinct moves): D (120) full, 74.4 into C (180)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -219,7 +225,7 @@ static void StyleSoul(void) {
     CHECK(near(SmOnStyle(&s, &c, 1600), c.style) && SmOnStyle(&s, &c, 1700) == 0.f);  // the 2nd use pays one more, then spam stops
 }
 static void Ramp(void) {  // human #126972: drain speeds up with idle time past the delay; 0 = flat (old behaviour)
-    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f; c.decayRampPct = 0;
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f; c.decayRampPct = 0; c.decayLowPct = 100;
     SmState a; SmReset(&a); a.active = 1; a.rank = 2; a.pts = 100.f; a.lastScore = 0;
     SmTick(&a, &c, 2000.0, 1000.0); const float flat = 100.f - a.pts;            // 1 s slice at idle 2 s, no ramp
     CHECK(near(flat, 10.f));
@@ -454,7 +460,694 @@ static void Combo(void) {  // combo: hits within comboMs, broken by a gap or a h
     SmCfg z = c; z.comboBase = 0; z.comboMax = 0; SmState q; SmReset(&q);
     CHECK(SmComboHits(&q, &z, 0, 20, &m) == 0.f && q.combo == 20);         // bonus off: still counts
 }
+static float Use(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run) { return SmOnHit(s, c, t, act, run); }
+static void Loop(void) {  // loop penalty: period 1 / period 2 past loopReps cycles cost loopPts per use, hits score 0
+    SmCfg c; RealDefaults(&c);
+    CHECK(c.loopReps == 2 && near(c.loopPts, 10.f) && c.multiHitCap == 4);
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank (the rank tiers: LoopTiers())
+    {   // the default (2): A A fine, the 3rd A costs; A B A B fine, the 5th use costs
+        SmCfg d = c; d.hit = 10.f; d.repeatPct = 100; d.multiPct = 100; d.startupPct = 0; d.counter = 0.f; SmState u; SmReset(&u);
+        CHECK(near(SmOnHit(&u, &d, 10, 7, 1), 10.f) && near(SmOnHit(&u, &d, 20, 7, 2), 10.f) && SmOnHit(&u, &d, 30, 7, 3) == 0.f && u.loopPens == 1);
+        SmReset(&u); for (int i = 0; i < 4; ++i) CHECK(near(SmOnHit(&u, &d, 10.0 * i, i & 1 ? 21 : 20, (uint64_t)i + 10), 10.f));
+        CHECK(SmOnHit(&u, &d, 50, 20, 20) == 0.f && u.loopPens == 1);
+    }
+    c.loopReps = 3;  // the cases below were written for 3 cycles
+    c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 100.f;
+    SmState s; SmReset(&s); uint64_t r = 1; double t = 0;
+    // period 1: A A A score, the 4th A costs 10 and scores 0 (all its hits), the 5th too; the decay delay is not refreshed
+    for (int i = 0; i < 3; ++i) CHECK(near(Use(&s, &c, t += 10, 7, r++), 10.f));
+    CHECK(near(s.pts, 30.f) && s.loopPens == 0);
+    const double ls = s.lastScore;
+    CHECK(Use(&s, &c, t += 10, 7, r) == 0.f && near(s.pts, 20.f) && s.loopPens == 1 && s.lastScore == ls);
+    CHECK(Use(&s, &c, t += 10, 7, r++) == 0.f && near(s.pts, 20.f) && s.loopPens == 1);   // 2nd hit of that use: 0, no second penalty
+    CHECK(Use(&s, &c, t += 10, 7, r++) == 0.f && near(s.pts, 10.f) && s.loopPens == 2);   // 5th A
+    CHECK(s.hits == 6 && s.countedHits == 3);
+    CHECK(near(Use(&s, &c, t += 10, 8, r++), 10.f));    // B breaks it (A A A A A B: 2-cycle check sees only A B)
+    CHECK(near(Use(&s, &c, t += 10, 7, r++), 10.f) && s.loopPens == 2);  // A B A: fine
+    // period 2: A B A B A B score, the 7th use (A) and 8th (B) cost
+    SmReset(&s); r = 100;
+    for (int i = 0; i < 6; ++i) CHECK(near(Use(&s, &c, t += 10, i & 1 ? 21 : 20, r++), 10.f));
+    CHECK(s.loopPens == 0 && near(s.pts, 60.f));
+    CHECK(Use(&s, &c, t += 10, 20, r++) == 0.f && s.loopPens == 1 && near(s.pts, 50.f));
+    CHECK(Use(&s, &c, t += 10, 21, r++) == 0.f && s.loopPens == 2 && near(s.pts, 40.f));
+    CHECK(near(Use(&s, &c, t += 10, 22, r++), 10.f) && s.loopPens == 2);   // C breaks it
+    CHECK(near(Use(&s, &c, t += 10, 20, r++), 10.f) && near(Use(&s, &c, t += 10, 21, r++), 10.f));  // a new loop starts counting from scratch
+    // reset: A A A B A A A never costs; an unknown act breaks a loop too
+    SmReset(&s); r = 200;
+    const uint32_t seq[] = {7, 7, 7, 8, 7, 7, 7, 7, 7, SM_ACT_NONE, 7, 7, 7, 0, 7, 7, 7};
+    int pen = 0; for (unsigned i = 0; i < sizeof seq / sizeof seq[0]; ++i) { const uint32_t p0 = s.loopPens; Use(&s, &c, t += 10, seq[i], r++); if (s.loopPens != p0) pen |= 1 << i; }
+    CHECK(pen == (1 << 7 | 1 << 8));  // only the 4th and 5th A of the second run
+    // the penalty drains like decay: below 0 drops a rank (refilled from its top); at D it ends empty / idle
+    SmReset(&s); r = 300; SmCfg k = c; k.loopPts = 30.f;
+    for (int i = 0; i < 3; ++i) Use(&s, &k, t += 10, 9, r++);
+    KiFree(&s, &k, t); KiFree(&s, &k, t); KiFree(&s, &k, t);   // + 3 x 30: 120 = rank C, 20 in
+    CHECK(s.rank == 1 && near(s.pts, 20.f));
+    Use(&s, &k, t += 10, 9, r++); CHECK(s.rank == 0 && near(s.pts, 90.f) && s.active);   // 20 - 30 -> D at 90
+    k.loopPts = 1000.f; Use(&s, &k, t += 10, 9, r++); CHECK(s.rank == 0 && s.pts == 0.f && !s.active && s.loopPens == 2);
+    // summoned spirit hits between the player's hits do not split or repeat the player's use
+    SmReset(&s); SmSummon m; SmSummonReset(&m); SmSummonOpen(&m, 0, 999, 50); float b;
+    Use(&s, &c, 10, 60, 1); SmSummonHits(&s, &c, &m, 20, 1, &b); Use(&s, &c, 30, 60, 1); SmSummonHits(&s, &c, &m, 40, 1, &b); Use(&s, &c, 50, 60, 1);
+    CHECK(s.lpN1 == 1 && s.loopPens == 0 && s.lpHits == 3);
+    // off / clamp
+    SmCfg z = c; z.loopReps = 0; SmReset(&s); for (int i = 0; i < 10; ++i) CHECK(near(Use(&s, &z, i, 7, (uint64_t)i + 1), 10.f));
+    SmCfg q = c; q.loopReps = 1; q.loopPts = -5.f; SmCfgClamp(&q); CHECK(q.loopReps == 2 && q.loopPts == 0.f);
+    q.loopReps = 99; SmCfgClamp(&q); CHECK(q.loopReps == 7); q.loopReps = -1; SmCfgClamp(&q); CHECK(q.loopReps == 0);
+}
+static void LoopAvoid(void) {  // human 2026-11-25: dodges / deflects / avoid counters are moves in the loop sequence
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f; c.multiHitCap = 0;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopReps == 2 && near(c.loopPts, 10.f));
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank
+    SmState s; SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);  // 10 in
+    // deflect x3: the 3rd scores 0 and costs 10 (still counted as a deflect), no decay refresh
+    CHECK(near(SmOnDeflect(&s, &c, 10), c.deflect) && near(SmOnDeflect(&s, &c, 20), c.deflect));
+    const float p2 = s.pts; const double ls = s.lastScore;
+    CHECK(SmOnDeflect(&s, &c, 30) == 0.f && near(s.pts, p2 - 10.f) && s.loopPens == 1 && near(s.loopLost, 10.f) && s.deflects == 3 && s.lastScore == ls);
+    CHECK(SmOnDeflect(&s, &c, 40) == 0.f && s.loopPens == 2);  // 4th too
+    CHECK(near(SmOnHit(&s, &c, 50, 7, 2), 10.f) && near(SmOnDeflect(&s, &c, 60), c.deflect));  // an attack breaks it
+    // dodge x3 the same
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);
+    CHECK(near(SmOnDodge(&s, &c, 10), c.dodge) && near(SmOnDodge(&s, &c, 20), c.dodge) && SmOnDodge(&s, &c, 30) == 0.f && s.loopPens == 1 && s.dodges == 3);
+    // dodge deflect dodge deflect dodge: the 5th costs
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);
+    CHECK(near(SmOnDodge(&s, &c, 10), c.dodge) && near(SmOnDeflect(&s, &c, 20), c.deflect) && near(SmOnDodge(&s, &c, 30), c.dodge) && near(SmOnDeflect(&s, &c, 40), c.deflect));
+    CHECK(SmOnDodge(&s, &c, 50) == 0.f && s.loopPens == 1);
+    // attack deflect attack deflect attack: the 5th (an attack use) costs, all its hits 0; attack deflect attack is fine
+    SmReset(&s); uint64_t r = 10;
+    CHECK(near(SmOnHit(&s, &c, 10, 7, r++), 10.f) && near(SmOnDeflect(&s, &c, 20), c.deflect) && near(SmOnHit(&s, &c, 30, 7, r++), 10.f) && s.loopPens == 0);
+    CHECK(near(SmOnDeflect(&s, &c, 40), c.deflect) && SmOnHit(&s, &c, 50, 7, r) == 0.f && SmOnHit(&s, &c, 55, 7, r++) == 0.f && s.loopPens == 1);
+    // a dodge inside an attack does not split that attack's use: A (hit, dodge, hit) A is A D A, no penalty
+    SmReset(&s); r = 20;
+    SmOnHit(&s, &c, 10, 7, r); SmOnDodge(&s, &c, 15); CHECK(near(SmOnHit(&s, &c, 20, 7, r), 10.f) && near(SmOnHit(&s, &c, 30, 7, ++r), 10.f) && s.loopPens == 0);
+    // avoid counter: a step of its own move, shared with that move's hits (one step, one penalty per move)
+    SmReset(&s); r = 30;
+    for (int i = 0; i < 2; ++i) { CHECK(near(SmOnAvoidCounterUse(&s, &c, 10.0 * i, 1, 40, r), c.dodge)); CHECK(near(SmOnHit(&s, &c, 10.0 * i + 5, 40, r++), 10.f)); }
+    CHECK(s.loopPens == 0 && s.lpN1 == 2);
+    CHECK(SmOnAvoidCounterUse(&s, &c, 30, 1, 40, r) == 0.f && SmOnHit(&s, &c, 35, 40, r++) == 0.f && s.loopPens == 1 && s.counterAvoids == 3);
+    SmReset(&s); SmOnHit(&s, &c, 0, 7, 1);  // the move-less form uses its own pseudo id
+    CHECK(near(SmOnAvoidCounter(&s, &c, 10, 1), c.dodge) && near(SmOnAvoidCounter(&s, &c, 20, 0), c.dodge) && SmOnAvoidCounter(&s, &c, 30, 0) == 0.f && s.loopPens == 1);
+    // loop off: avoids always score
+    SmCfg z = c; z.loopReps = 0; SmReset(&s); SmOnHit(&s, &z, 0, 7, 1); for (int i = 0; i < 5; ++i) CHECK(near(SmOnDeflect(&s, &z, 10.0 + i), z.deflect));
+}
+static void MultiCap(void) {  // multi-hit cap: per use only the first multiHitCap hits score / count toward the combo
+    SmCfg c; RealDefaults(&c); c.loopReps = 0; c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    SmState s; SmReset(&s); uint32_t mile = 0;
+    for (int i = 0; i < 4; ++i) CHECK(near(SmOnHit(&s, &c, 100 + i, 7, 1), 10.f));
+    const float p4 = s.pts; const double ls = s.lastScore;
+    CHECK(SmOnHit(&s, &c, 200, 7, 1) == 0.f && SmOnHit(&s, &c, 201, 7, 1) == 0.f);
+    CHECK(near(s.pts, p4) && s.lastScore == ls && s.lastHit == 201 && s.hits == 6 && s.countedHits == 4 && s.cappedHits == 2);
+    // the glue feeds the combo only the counted hits: 6 real hits -> combo 4
+    SmComboHits(&s, &c, 201, (int)s.countedHits, &mile); CHECK(s.combo == 4);
+    // a new use starts its own count
+    CHECK(near(SmOnHit(&s, &c, 300, 8, 2), 10.f) && s.countedHits == 5);
+    // combo does not advance past the cap: a 14-hit move then a 10-hit move = 8 counted, no 10-hit milestone
+    SmState q; SmReset(&q); uint32_t h0 = q.countedHits;
+    for (int i = 0; i < 14; ++i) SmOnHit(&q, &c, 1000, 30, 1);
+    float bon = SmComboHits(&q, &c, 1000, (int)(q.countedHits - h0), &mile); h0 = q.countedHits;
+    for (int i = 0; i < 10; ++i) SmOnHit(&q, &c, 1100, 31, 2);
+    bon += SmComboHits(&q, &c, 1100, (int)(q.countedHits - h0), &mile);
+    CHECK(q.combo == 8 && bon == 0.f && q.hits == 24);
+    // summoned guardian spirit: one use of its own, capped the same way
+    SmState u; SmReset(&u); SmSummon m; SmSummonReset(&m); SmSummonOpen(&m, 0, 77, 17076); float b = 0;
+    const float ps = SmSummonHits(&u, &c, &m, 100, 6, &b);
+    CHECK(near(ps, 40.f) && u.hits == 6 && u.countedHits == 4 && u.cappedHits == 2 && m.hitsN == 4);
+    CHECK(SmSummonHits(&u, &c, &m, 200, 2, &b) == 0.f && u.hits == 8 && u.countedHits == 4);
+    SmSummonOpen(&m, 300, 78, 17076); CHECK(near(SmSummonHits(&u, &c, &m, 300, 1, &b), 10.f));  // a new summon counts again
+    // 0 = no cap
+    SmCfg z = c; z.multiHitCap = 0; SmState w; SmReset(&w);
+    for (int i = 0; i < 10; ++i) CHECK(near(SmOnHit(&w, &z, i, 7, 1), 10.f));
+    CHECK(w.countedHits == 10 && w.cappedHits == 0);
+    SmCfg k = c; k.multiHitCap = -3; SmCfgClamp(&k); CHECK(k.multiHitCap == 0);
+    // negative pop-up (loop penalty): pushed as a loss, merges like any other line
+    SmPopQ pq; memset(&pq, 0, sizeof pq);
+    SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 0, 1200); SmPopPush2(&pq, "Repetitive!", -10.f, 0.f, 100, 1200);
+    CHECK(pq.n == 1 && near(pq.p[0].pts, -20.f) && pq.p[0].count == 2);
+}
+// Multi-segment martial art = one use for the cap. Infinite Retribution as logged 2026-11-25: 25351 (3 hits) -> 25352 (13 hits) -> 25353
+// (1 hit), all skill word 0x42B, back to back. Per tick: SmChainStep(run, act, skill, word), then the tick's hits with the use key.
+typedef struct { uint32_t act; int hits, skill; uint32_t w; } ChainSeg;
+static uint64_t g_chainRun = 5000;
+static void ChainPlay(SmState* s, const SmCfg* c, SmChain* ch, double* t, const ChainSeg* g, int n) {
+    for (int i = 0; i < n; ++i) {
+        const uint64_t run = ++g_chainRun << 32 | g[i].act;
+        for (int k = 0; k < 2 + g[i].hits; ++k) {  // a wind-up tick, one tick per hit, a recovery tick
+            const uint64_t key = SmChainStep(ch, run, g[i].act, g[i].skill, g[i].w);
+            if (k >= 1 && k <= g[i].hits) SmOnHit(s, c, *t, g[i].act, key);
+            *t += 16;
+        }
+    }
+}
+static void MultiChain(void) {
+    SmCfg c; RealDefaults(&c); c.loopReps = 0; c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    const ChainSeg ir[3] = {{25351, 3, 1, 0x42B}, {25352, 13, 1, 0x42B}, {25353, 1, 1, 0x42B}};
+    SmState s; SmReset(&s); SmChain ch; SmChainReset(&ch); double t = 1000; uint32_t mile = 0;
+    ChainPlay(&s, &c, &ch, &t, ir, 3);
+    CHECK(s.hits == 17 && s.countedHits == 4 && s.cappedHits == 13 && near(s.pts, 40.f));  // was 3 + 4 + 1 = 8 counted
+    SmComboHits(&s, &c, t, (int)s.countedHits, &mile); CHECK(s.combo == 4);
+    // the same martial art cast again right after (its lead-in act repeats): a new use, 4 more
+    ChainPlay(&s, &c, &ch, &t, ir, 3);
+    CHECK(s.countedHits == 8 && s.hits == 34);
+    // a gap tick (no act / not the player) between segments: separate uses
+    SmState g; SmReset(&g); SmChainReset(&ch);
+    ChainPlay(&g, &c, &ch, &t, ir, 1); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); ChainPlay(&g, &c, &ch, &t, ir + 1, 1);
+    CHECK(g.countedHits == 3 + 4);
+    // a different skill word, or a plain (non-skill) attack, after a martial art: a new use
+    const ChainSeg mix[3] = {{25351, 3, 1, 0x42B}, {25368, 3, 1, 0x6EC0}, {25094, 3, 0, 0x55}};
+    SmState m; SmReset(&m); SmChainReset(&ch); ChainPlay(&m, &c, &ch, &t, mix, 3);
+    CHECK(m.countedHits == 9);
+    // plain attack strings (no skill row) keep one use per run, as before
+    const ChainSeg str[2] = {{25094, 5, 0, 0x55}, {25095, 5, 0, 0x55}};
+    SmState p; SmReset(&p); SmChainReset(&ch); ChainPlay(&p, &c, &ch, &t, str, 2);
+    CHECK(p.countedHits == 8);
+    // row unreadable on a segment's first ticks: tentatively the same use, decided when readable
+    SmState u; SmReset(&u); SmChainReset(&ch);
+    const uint64_t r1 = ++g_chainRun << 32 | 25351, r2 = ++g_chainRun << 32 | 25352, r3 = ++g_chainRun << 32 | 25368;
+    CHECK(SmChainStep(&ch, r1, 25351, 1, 0x42B) == r1);
+    CHECK(SmChainStep(&ch, r2, 25352, -1, 0) == r1 && SmChainStep(&ch, r2, 25352, 1, 0x42B) == r1);  // same move once known
+    CHECK(SmChainStep(&ch, r3, 25368, -1, 0) == r1 && SmChainStep(&ch, r3, 25368, 1, 0x6EC0) == r3);  // another move once known
+    CHECK(SmChainStep(&ch, r3, 25368, 1, 0x6EC0) == r3);
+    const uint64_t r4 = ++g_chainRun << 32 | 25369; uint64_t k4 = 0;
+    for (int i = 0; i <= SM_CHAIN_WAIT; ++i) k4 = SmChainStep(&ch, r4, 25369, -1, 0);
+    CHECK(k4 == r4);  // never readable: a new use after SM_CHAIN_WAIT ticks
+    // loop penalty sees one use per cast: three casts in a row with the default LoopReps 2 -> the 3rd costs
+    SmCfg l = c; l.loopReps = 2; l.loopFullRank = l.loopHalfRank = 0; SmState q; SmReset(&q); SmChainReset(&ch);
+    for (int i = 0; i < 3; ++i) { ChainPlay(&q, &l, &ch, &t, ir, 3); SmChainStep(&ch, 0, SM_ACT_NONE, -1, 0); }
+    CHECK(q.loopPens == 1 && q.countedHits == 8);
+}
+// One cast must never loop with itself (human 2026-11-25 regression). Replays of the game log: per tick SmChainStep, then the tick's hits
+// (SmOnHitEx, use key) and the avoid counter (SmOnAvoidCounterUse) as the glue feeds them. ev = per-segment ticks with a hit and / or an
+// avoid counter. rawAvoid = 1 keys the avoid by the segment's own run (the bug: the glue passed `run`, not the use key).
+typedef struct { int tick, hits, avoid; } LoopEv;
+typedef struct { uint32_t act; int ticks, skill; uint32_t w; const LoopEv* ev; int nev; } LoopSeg;
+static void LoopReplay(SmState* s, const SmCfg* c, SmChain* ch, double* t, const LoopSeg* g, int n, int rawAvoid) {
+    for (int i = 0; i < n; ++i) {
+        const uint64_t run = ++g_chainRun << 32 | g[i].act; int counted = 0;
+        for (int k = 0; k < g[i].ticks; ++k) {
+            const uint64_t key = SmChainStep(ch, run, g[i].act, g[i].skill, g[i].w);
+            for (int e = 0; e < g[i].nev; ++e) if (g[i].ev[e].tick == k) {
+                for (int h = 0; h < g[i].ev[e].hits; ++h) SmOnHitEx(s, c, *t, g[i].act, key, 11.f, 0);
+                if (g[i].ev[e].avoid) { SmOnAvoidCounterUse(s, c, *t, !counted, g[i].act, rawAvoid ? run : key); counted = 1; }
+            }
+            *t += 16.7;
+        }
+    }
+}
+// human 2026-11-25 rank tiers: D..B no penalty, A = 50 % points (nothing taken off), S+ = 0 and -10; a zero-Ki loop on a human boss is free.
+static void LoopTiers(void) {
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f; c.multiHitCap = 0;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopHalfRank == 3 && c.loopFullRank == 4 && c.loopHalfPct == 50);
+    SmState s; uint64_t r = 1;
+    for (int rk = 0; rk < SM_RANKS; ++rk) {  // A A A at each rank: the 3rd is looped
+        SmReset(&s); s.active = 1; s.rank = rk; s.pts = 500.f;
+        CHECK(near(Use(&s, &c, 10, 7, r++), 10.f) && near(Use(&s, &c, 20, 7, r++), 10.f));
+        const float p0 = s.pts; const float p = Use(&s, &c, 30, 7, r);
+        const float p2 = Use(&s, &c, 31, 7, r++);  // 2nd hit of the same use: same tier, no second penalty
+        if (rk < 3) CHECK(near(p, 10.f) && near(p2, 10.f) && s.loopPens == 0 && s.loopHalfs == 0 && s.loopFrees == 1 && near(s.pts, p0 + 20.f));
+        else if (rk == 3) CHECK(near(p, 5.f) && near(p2, 5.f) && s.loopPens == 0 && s.loopHalfs == 1 && near(s.loopHalfLost, 10.f) && near(s.pts, p0 + 10.f));
+        else CHECK(p == 0.f && p2 == 0.f && s.loopPens == 1 && near(s.pts, p0 - 10.f));
+    }
+    // rank A: a looped use still feeds the combo (countedHits), a looped S use does not
+    SmReset(&s); s.active = 1; s.rank = 3; s.pts = 500.f; Use(&s, &c, 10, 7, r++); Use(&s, &c, 20, 7, r++); Use(&s, &c, 30, 7, r++); CHECK(s.countedHits == 3);
+    SmReset(&s); s.active = 1; s.rank = 4; s.pts = 500.f; Use(&s, &c, 10, 7, r++); Use(&s, &c, 20, 7, r++); Use(&s, &c, 30, 7, r++); CHECK(s.countedHits == 2);
+    // avoids: deflect x3 at A = half, at S = 0 and -10, at B = full
+    SmReset(&s); s.active = 1; s.rank = 3; s.pts = 500.f; SmOnDeflect(&s, &c, 10); SmOnDeflect(&s, &c, 20);
+    CHECK(near(SmOnDeflect(&s, &c, 30), c.deflect * 0.5f) && s.loopPens == 0);
+    SmReset(&s); s.active = 1; s.rank = 4; s.pts = 500.f; SmOnDodge(&s, &c, 10); SmOnDodge(&s, &c, 20);
+    CHECK(SmOnDodge(&s, &c, 30) == 0.f && s.loopPens == 1);
+    SmReset(&s); s.active = 1; s.rank = 2; s.pts = 500.f; SmOnDodge(&s, &c, 10); SmOnDodge(&s, &c, 20);
+    CHECK(near(SmOnDodge(&s, &c, 30), c.dodge) && s.loopPens == 0);
+    // zero-Ki loop on a human boss: free at SSS too, the sequence still counts (penalty back as soon as it ends)
+    SmReset(&s); s.active = 1; s.rank = 6; s.pts = 500.f; s.lpFree = 1;
+    for (int i = 0; i < 6; ++i) CHECK(near(Use(&s, &c, 10.0 * i, 7, r++), 10.f));
+    CHECK(s.loopPens == 0 && s.lpN1 == 6 && s.loopFrees == 4);
+    s.lpFree = 0; CHECK(Use(&s, &c, 100, 7, r++) == 0.f && s.loopPens == 1);
+    // ini clamp: half rank never above the full rank
+    SmCfg q = c; q.loopFullRank = 2; q.loopHalfRank = 5; q.loopHalfPct = 150; SmCfgClamp(&q); CHECK(q.loopHalfRank == 2 && q.loopHalfPct == 100);
+}
+static void LoopOneCast(void) {
+    SmCfg c; RealDefaults(&c); c.hit = 10.f; c.repeatPct = 100; c.multiPct = 100; c.startupPct = 0; c.counter = 0.f;
+    for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = 1000.f;
+    CHECK(c.loopReps == 2);
+    c.loopFullRank = c.loopHalfRank = 0;  // the S+ rule at every rank
+    // Switch Glaive Lightning Blade (X+LB), log 08:23:33: 25616 (LB, 5 f, no skill row) -> 25376 (6 f, skill word 0xF53B, no hit) ->
+    // 25377 (85 f, 0xF53B, the counter slash): hit + avoid counter at 9127 ms, hit + avoid counter at 9728 ms (two boss windows)
+    const LoopEv lb1[2] = {{13, 1, 1}, {49, 1, 1}};
+    const LoopSeg lbA[3] = {{25616, 5, 0, 0, 0, 0}, {25376, 6, 1, 0xF53B, 0, 0}, {25377, 85, 1, 0xF53B, lb1, 2}};
+    // log 03:43:27: avoid at 50 ms, hits at 217 / 417 ms, avoid at 517, hit at 850, avoid at 1101 (3 windows, 3 hits)
+    const LoopEv lb2[6] = {{3, 0, 1}, {13, 1, 0}, {25, 1, 0}, {31, 0, 1}, {51, 1, 0}, {66, 0, 1}};
+    const LoopSeg lbB[3] = {{25612, 3, 0, 0, 0, 0}, {25376, 8, 1, 0xF53B, 0, 0}, {25377, 85, 1, 0xF53B, lb2, 6}};
+    SmState s; SmChain ch; double t = 1000;
+    // the bug reproduced: the avoid keyed by 25377's run, the hits by the chain's (25376's) -> the logged "repetitive x2 -20 (loop 4/1)"
+    // and "loop 3/1", "loop 4/1", "loop 5/1" on one cast
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbA, 3, 1); CHECK(s.loopPens == 2 && s.lpN1 == 4);
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbB, 3, 1); CHECK(s.loopPens == 3 && s.lpN1 == 5);
+    // fixed: one cast = one step, every hit / avoid of it scores
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbA, 3, 0);
+    CHECK(s.loopPens == 0 && s.lpN1 == 1 && s.countedHits == 2 && near(s.pts, 2 * c.hit + 2 * c.dodge));
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0);
+    CHECK(s.loopPens == 0 && s.lpN1 == 1 && s.countedHits == 3 && s.counterAvoids == 1 && near(s.pts, 3 * c.hit + 3 * c.dodge));
+    // a genuine repeat still costs: the 3rd cast in a row is looped (its hits and avoids 0, one penalty), the 2nd is not
+    SmReset(&s); SmChainReset(&ch);
+    LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0); CHECK(s.loopPens == 0 && s.lpN1 == 2);
+    const float p2 = s.pts; LoopReplay(&s, &c, &ch, &t, lbA, 3, 0);
+    CHECK(s.loopPens == 1 && s.lpN1 == 3 && near(s.pts, p2 - c.loopPts) && s.countedHits == 5);
+    // cast, other move, cast, other move, cast: A B A B A, the 5th costs (period 2 unchanged)
+    const LoopEv x1[1] = {{10, 1, 0}}; const LoopSeg xs[1] = {{25150, 30, 0, 0, x1, 1}};
+    SmReset(&s); SmChainReset(&ch);
+    LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); LoopReplay(&s, &c, &ch, &t, xs, 1, 0); LoopReplay(&s, &c, &ch, &t, lbB, 3, 0); LoopReplay(&s, &c, &ch, &t, xs, 1, 0);
+    CHECK(s.loopPens == 0); LoopReplay(&s, &c, &ch, &t, lbA, 3, 0); CHECK(s.loopPens == 1);
+    // Sword Swift Step Heavy, log 07:48:25: 25563 (15 f step, 0xCCF6) -> 25564 (slash: hit + held avoid counter at 850 ms, hit 100 ms later)
+    const LoopEv sh[2] = {{51, 1, 1}, {57, 1, 0}};
+    const LoopSeg ssh[2] = {{25563, 15, 1, 0xCCF6, 0, 0}, {25564, 60, 1, 0xCCF6, sh, 2}};
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, ssh, 2, 1); CHECK(s.loopPens == 1);  // logged "loop 3/1" on one cast
+    SmReset(&s); SmChainReset(&ch); LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); CHECK(s.loopPens == 0 && s.lpN1 == 1);
+    LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); LoopReplay(&s, &c, &ch, &t, ssh, 2, 0); CHECK(s.loopPens == 1 && s.lpN1 == 3);
+}
+static void BurstBreak(void) {  // human: a boss's red (GreatAttack) attack interrupted by a hit in its wind-up
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE;
+    CHECK(near(c.burst, 40) && c.burstMs == 1500 && c.burstSkill == 0);
+    // interrupted: burst row, hit at 300 ms, the action changes (stagger) at 600 ms before any unblockable collider -> award
+    SmBurstReset(&b);
+    CHECK(SmBurstStep(&b, &c, 0, 1, 10, 100, 0, N, 0, 0, 0, &e) == SM_BB_NONE);  // a normal action first
+    CHECK(SmBurstStep(&b, &c, 100, 1, 11, 200, 1, 0x205, 0, 0, 0, &e) == SM_BB_NONE && b.burst);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 11, 200, 1, 0x205, 0, 1, 22, &e) == SM_BB_NONE && b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 600, 1, 12, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.act == 200 && e.newAct == 300 && near((float)e.ago, 300) && near(e.hitPts, 22) && e.hits == 1);
+    CHECK(near(SmOnBurst(&s, &c, 600), 40) && s.bursts == 1 && s.lastScore == 600);
+    // completes normally: hit in the wind-up, then the unblockable collider comes out -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 20, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 100, 1, 20, 200, 1, N, 0, 1, 20, &e);
+    SmBurstStep(&b, &c, 500, 1, 20, 200, 1, N, 1, 0, 0, &e);  // run.great
+    CHECK(SmBurstStep(&b, &c, 900, 1, 21, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.great);
+    // burst run with no hit at all: not even a candidate
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 25, 200, 1, N, 0, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 800, 1, 26, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // hit after the unblockable window opened: not counted -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 30, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 400, 1, 30, 200, 1, N, 1, 0, 0, &e);
+    SmBurstStep(&b, &c, 500, 1, 30, 200, 1, N, 1, 1, 20, &e); CHECK(b.hits == 0);
+    CHECK(SmBurstStep(&b, &c, 700, 1, 31, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // collider and hit in the same tick: the attack is out, the hit is too late
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 35, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 300, 1, 35, 200, 1, N, 1, 1, 20, &e); CHECK(b.hits == 0);
+    // non-burst run hit and interrupted: none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 40, 200, 0, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 100, 1, 40, 200, 0, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 200, 1, 41, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // unread row (-1) never marks a burst
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 45, 200, -1, N, 0, 1, 20, &e); CHECK(!b.burst);
+    // same tick: the hit and the action change arrive together -> the hit counts for the old (burst) run
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 50, 200, 1, N, 0, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 51, 300, 0, N, 0, 1, 18, &e) == SM_BB_AWARD && e.hits == 1 && e.ago == 0.0 && near(e.hitPts, 18));
+    CHECK(b.hits == 0 && b.act == 300);  // the new run did not get that hit too
+    // one award per burst run: several hits in the wind-up, one award when it ends; the next (non-burst) run gives none
+    SmBurstReset(&b); int aw = 0;
+    SmBurstStep(&b, &c, 0, 1, 60, 200, 1, N, 0, 0, 0, &e);
+    for (int i = 1; i <= 4; ++i) aw += SmBurstStep(&b, &c, 100.0 * i, 1, 60, 200, 1, N, 0, 1, 20, &e) == SM_BB_AWARD;
+    aw += SmBurstStep(&b, &c, 600, 1, 61, 300, 0, N, 0, 1, 20, &e) == SM_BB_AWARD; CHECK(e.hits == 5);
+    for (int i = 0; i < 5; ++i) aw += SmBurstStep(&b, &c, 700.0 + 100 * i, 1, 61, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD;
+    aw += SmBurstStep(&b, &c, 1500, 1, 62, 400, 0, N, 0, 0, 0, &e) == SM_BB_AWARD;
+    CHECK(aw == 1);
+    // too late: the burst run ends more than BurstBreakMs after the last counted hit
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 70, 200, 1, N, 0, 1, 20, &e);  // first tick: marked and hit together (row read first)
+    CHECK(b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 1501, 1, 71, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.late);
+    // continuation: the wind-up flows into its row's next action, or into another burst row -> none
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 80, 200, 1, 0x12C, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 81, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont);
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 85, 200, 1, 0xFFFF, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 86, 201, 1, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont);
+    // boss gone mid wind-up: forgotten, no award
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 90, 200, 1, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 100, 0, 0, N, -1, N, 0, 0, 0, &e) == SM_BB_NONE && !b.on);
+    // BurstBreakSkillOnly: a plain hit is a miss, a skill / guardian spirit hit (2) awards
+    SmCfg k = c; k.burstSkill = 1;
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 100, 200, 1, N, 0, 1, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 300, 1, 101, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.noSkill);
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 110, 200, 1, N, 0, 2, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 300, 1, 111, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.hitKind == 2);
+    // bonus 0: still counted, no points; clamp
+    SmCfg z = c; z.burst = 0; SmState q; SmReset(&q); CHECK(SmOnBurst(&q, &z, 0) == 0.f && q.bursts == 1 && !q.active);
+    SmCfg n = c; n.burst = -5; n.burstMs = 5; n.burstSkill = 7; SmCfgClamp(&n); CHECK(n.burst == 0.f && n.burstMs == 100 && n.burstSkill == 1);
+    // burst counter (live 2026-11-25: player act 1095 hits after the red attack is out, the boss goes to its broken action ~80 ms later)
+    CHECK(c.burstCtrAct == 1095u);
+    CHECK(SmBurstHitKind(&c, 1095, 0) == SM_BB_HIT_CTR && SmBurstHitKind(&c, 1095, 1) == SM_BB_HIT_CTR);
+    CHECK(SmBurstHitKind(&c, 25570, 1) == SM_BB_HIT_SKILL && SmBurstHitKind(&c, 25094, 0) == SM_BB_HIT);
+    SmCfg off = c; off.burstCtrAct = 0; CHECK(SmBurstHitKind(&off, 1095, 0) == SM_BB_HIT);
+    // the counter alone, after the collider: award (a plain hit there still does not count, see above)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 120, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 1000, 1, 120, 0x4E8E, 1, 0x2, 1, 0, 0, &e);
+    SmBurstStep(&b, &c, 1400, 1, 120, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e); CHECK(b.hits == 1 && b.ctr == 1);
+    CHECK(SmBurstStep(&b, &c, 1480, 1, 121, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.great && e.ctr == 1 && e.hitKind == SM_BB_HIT_CTR && near(e.hitPts, 20) && near((float)e.ago, 80));
+    // the live 'no break' case: plain hits in the wind-up, the collider, then the counter -> now an award (was a miss: collider already out)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 130, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 250, 1, 130, 0x4E8E, 1, 0x2, 0, SM_BB_HIT, 20, &e);
+    SmBurstStep(&b, &c, 900, 1, 130, 0x4E8E, 1, 0x2, 1, SM_BB_HIT_SKILL, 16, &e);  // collider + a skill hit in one tick: not counted
+    CHECK(b.hits == 1);
+    CHECK(SmBurstStep(&b, &c, 1450, 1, 130, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e) == SM_BB_NONE && b.hits == 2 && b.hit == SM_BB_HIT_CTR);
+    CHECK(SmBurstStep(&b, &c, 1530, 1, 131, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.hits == 2);
+    // the counter hit and the action change in the same tick: the old run's, award
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 140, 200, 1, N, 0, 0, 0, &e); SmBurstStep(&b, &c, 500, 1, 140, 200, 1, N, 1, 0, 0, &e);
+    CHECK(SmBurstStep(&b, &c, 700, 1, 141, 300, 0, N, 0, SM_BB_HIT_CTR, 20, &e) == SM_BB_AWARD && e.ctr == 1 && b.ctr == 0);
+    // the counter still needs the action to end (in time, not into its continuation)
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 150, 200, 1, 0x12C, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 151, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.cont && e.ctr);
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 155, 200, 1, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 1600, 1, 156, 300, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.late);
+    // the counter on a non-burst run: nothing
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 160, 200, 0, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &c, 100, 1, 161, 300, 0, N, 0, 0, 0, &e) == SM_BB_NONE);
+    // BurstBreakSkillOnly: the counter counts as a skill hit
+    SmBurstReset(&b); SmBurstStep(&b, &k, 0, 1, 170, 200, 1, N, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstStep(&b, &k, 100, 1, 171, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && !e.noSkill);
+}
+static void BurstCounterAvoid(void) {  // human: a burst counter shows Burst Break, not also Dodge! (its i-frames avoid the red attack)
+    SmCfg c; SmCfgDefaults(&c); SmBurst b; SmBurstEnd e; const uint32_t N = SM_ACT_NONE; const double never = -1e18;
+    CHECK(SmBurstAvoid(0, never, 0, SM_AV_NONE) == 0 && SmBurstAvoid(0, never, 1000, SM_AV_DODGE) == 0);
+    // live order: counter hit, the dodge a few ticks later (held), then the action change -> award, the held dodge is dropped
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 10, 0x4E8E, 1, 0x2, 0, 0, 0, &e); SmBurstStep(&b, &c, 1000, 1, 10, 0x4E8E, 1, 0x2, 1, 0, 0, &e);
+    CHECK(SmBurstAvoid(&b, never, 1100, SM_AV_DODGE) == 0);  // a dodge before any counter hit is a real dodge
+    SmBurstStep(&b, &c, 1400, 1, 10, 0x4E8E, 1, 0x2, 0, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 1467, SM_AV_DODGE) == 1 && b.held == SM_AV_DODGE);
+    CHECK(SmBurstAvoid(&b, never, 1470, SM_AV_DODGE) == 0);  // a second avoid in the same run is its own
+    CHECK(SmBurstStep(&b, &c, 1483, 1, 11, 0x4E4B, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.held == SM_AV_DODGE && b.held == 0);
+    // the dodge closes in the same tick as (or just after) the award: same event, not paid; later avoids are paid again
+    CHECK(SmBurstAvoid(&b, 1483, 1483, SM_AV_DODGE) == 1 && b.held == 0);
+    CHECK(SmBurstAvoid(&b, 1483, 1483 + SM_BURST_AVOID_MS, SM_AV_COUNTER) == 1);
+    CHECK(SmBurstAvoid(&b, 1483, 1484 + SM_BURST_AVOID_MS, SM_AV_DODGE) == 0);
+    CHECK(SmBurstAvoid(&b, 1483, 1000, SM_AV_DODGE) == 0);  // before the award time: not it
+    // held, but the run ends without a Burst Break (flows into its continuation): the held avoid comes back to be paid
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 20, 200, 1, 0x12C, 1, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 50, SM_AV_DEFLECT) == 1);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 21, 0x12C, 0, N, 0, 0, 0, &e) == SM_BB_MISS && e.held == SM_AV_DEFLECT);
+    // a plain-hit Burst Break (guardian spirit / wind-up hit) does not touch avoids
+    SmBurstReset(&b);
+    SmBurstStep(&b, &c, 0, 1, 30, 200, 1, N, 0, SM_BB_HIT_SKILL, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 100, SM_AV_DODGE) == 0 && b.held == 0);
+    CHECK(SmBurstStep(&b, &c, 300, 1, 31, 300, 0, N, 0, 0, 0, &e) == SM_BB_AWARD && e.held == 0 && e.ctr == 0);
+    // non-burst run: never held
+    SmBurstReset(&b); SmBurstStep(&b, &c, 0, 1, 40, 200, 0, N, 0, SM_BB_HIT_CTR, 20, &e);
+    CHECK(SmBurstAvoid(&b, never, 100, SM_AV_DODGE) == 0);
+}
+static void Blocked(void) {  // human: a guarded hit is worth BlockPct % (default 50) of the same hit, same use rules, counts in the combo
+    SmCfg r; RealDefaults(&r); CHECK(r.blockPct == 50);
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SmState h; SmReset(&h);
+    const float full = SmOnHitEx(&h, &c, 1000, 7, 1, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 1000, 7, 1, -1.f, 0), full * 0.5f) && s.blocked == 1 && s.hits == 1 && s.lastHit == 1000 && s.active);
+    // same use: multi-hit factor applies to the blocked hit exactly as to a normal hit
+    const float h2 = SmOnHitEx(&h, &c, 1010, 7, 1, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 1010, 7, 1, -1.f, 0), h2 * 0.5f) && s.blocked == 2);
+    // a new use of the same move: variety penalty as for a normal hit; a blocked hit fills the variety history like a hit
+    const float h3 = SmOnHitEx(&h, &c, 2000, 7, 2, -1.f, 0);
+    CHECK(near(SmOnBlockedHit(&s, &c, 2000, 7, 2, -1.f, 0), h3 * 0.5f));
+    // startup and counter bonus scale too
+    SmState a; SmReset(&a); SmState b; SmReset(&b);
+    const float hc = SmOnHitEx(&b, &c, 0, 9, 3, 60.f, 1);
+    CHECK(near(SmOnBlockedHit(&a, &c, 0, 9, 3, 60.f, 1), hc * 0.5f) && a.counters == 1);
+    // a normal hit after a blocked hit of the same use continues the use (multi-hit)
+    SmState m; SmReset(&m); SmOnBlockedHit(&m, &c, 0, 11, 4, -1.f, 0);
+    CHECK(near(SmOnHitEx(&m, &c, 5, 11, 4, -1.f, 0), c.hit * c.multiPct / 100.f));
+    // pct 100 = a normal hit; 0 = off (nothing counted)
+    SmCfg f = c; f.blockPct = 100; SmState q; SmReset(&q); CHECK(near(SmOnBlockedHit(&q, &f, 0, 5, 1, -1.f, 0), c.hit));
+    SmCfg z = c; z.blockPct = 0; SmState o; SmReset(&o); CHECK(SmOnBlockedHit(&o, &z, 0, 5, 1, -1.f, 0) == 0.f && o.blocked == 0 && o.hits == 0 && !o.active);
+    SmCfg k = c; k.blockPct = -3; SmCfgClamp(&k); CHECK(k.blockPct == 0); k.blockPct = 250; SmCfgClamp(&k); CHECK(k.blockPct == 100);
+    // the combo counts blocked hits like hits (the game glue passes hits + blocked)
+    uint32_t mi = 0; SmState cb; SmReset(&cb); SmComboHits(&cb, &c, 0, 1 + 1, &mi); CHECK(cb.combo == 2);
+}
+static void BlockQueue(void) {  // which hits were guarded: (hit, victim) entries, decided one tick after the first note
+    SmBlkQ q; memset(&q, 0, sizeof q); SmBlkEv o[4];
+    SmBlkNote(&q, 0x100, 0xA0, SM_BLK_KI, 12.f);                // guarded: Ki damage, no HP damage call
+    SmBlkNote(&q, 0x200, 0xA0, SM_BLK_HP, 0.f);                 // normal hit: HP then Ki (same hit object)
+    SmBlkNote(&q, 0x200, 0xA0, SM_BLK_KI, 8.f);
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_HP0, 0.f);                // 0 HP damage call: a guard only with the Ki damage below
+    SmBlkNote(&q, 0x400, 0xB0, SM_BLK_KI, 5.f);                 // Ki first, HP damage comes in the next tick (still one hit)
+    SmBlkNote(&q, 0x350, 0xB0, SM_BLK_HP0, 0.f);                // 0 HP call and no Ki damage: the player's deflect / burst counter, not a guard
+    SmBlkNote(&q, 0x360, 0xA0, SM_BLK_KI, 0.f);                 // Ki call with 0: nothing guarded
+    CHECK(q.n == 6);
+    CHECK(SmBlkTake(&q, o, 4) == 0 && q.n == 6);                // nothing is decided on the tick it was noted
+    SmBlkNote(&q, 0x400, 0xB0, SM_BLK_HP, 0.f);
+    SmBlkNote(&q, 0x300, 0xB0, SM_BLK_KI, 3.f);                 // late Ki of the 0-HP hit merges (a guard: Ki damage, 0 HP)
+    SmBlkNote(&q, 0x500, 0xA0, SM_BLK_KI, 1.f);                 // new this tick
+    CHECK(SmBlkTake(&q, o, 4) == 2 && q.n == 1);
+    CHECK(o[0].hit == 0x100 && near(o[0].ki, 12.f) && o[0].fl == SM_BLK_KI);
+    CHECK(o[1].hit == 0x300 && o[1].fl == (SM_BLK_HP0 | SM_BLK_KI) && near(o[1].ki, 3.f));
+    CHECK(SmBlkTake(&q, o, 0) == 1 && q.n == 0);                // counted even when no copy is wanted
+    // one hit object on two victims: separate entries
+    SmBlkNote(&q, 0x600, 0xA0, SM_BLK_HP, 0.f); SmBlkNote(&q, 0x600, 0xB0, SM_BLK_KI, 2.f);
+    SmBlkTake(&q, o, 4); CHECK(SmBlkTake(&q, o, 4) == 1 && o[0].vic == 0xB0);
+    SmBlkNote(&q, 0, 0xA0, SM_BLK_KI, 1.f); SmBlkNote(&q, 0x700, 0, SM_BLK_KI, 1.f); SmBlkNote(&q, 0x700, 0xA0, 0, 1.f); CHECK(q.n == 0);  // bad input ignored
+    for (int i = 0; i < SM_BLK_Q + 3; ++i) SmBlkNote(&q, 0x1000 + (uint64_t)i, 0xA0, SM_BLK_KI, 1.f);
+    CHECK(q.n == SM_BLK_Q && q.dropped == 3);
+    SmBlkTake(&q, 0, 0); CHECK(SmBlkTake(&q, 0, 0) == SM_BLK_Q && q.n == 0);
+}
+// human 2026-11-25: move variety. Distinct scored moves per run; a bonus at 5, 10, .. 60 (20, 30, .. 130); not reset by decay / idle.
+static void MoveVariety(void) {
+    SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
+    CHECK(c.varStep == 5 && c.varBase == 20 && c.varInc == 10 && c.varGrow == 3 && c.varPct == 120 && c.varMax == 60 && SM_VAR_IDS >= 64);
+    c.decayDelayMs = 1000000;  // no decay in the first part
+    c.versStep = 0;            // the versatility multiplier is tested in Versatility()
+    double t = 1000; uint64_t run = 1; float total = 0.f; int paid = 0;
+    for (uint32_t a = 100; a < 104; ++a) { SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); t += 100; }
+    CHECK(s.varN == 4 && s.varBonuses == 0);
+    SmOnHitUse(&s, &c, t, 100, run++, -1.f, 0, 0); CHECK(s.varN == 4);          // a repeat is not new
+    SmOnHitUse(&s, &c, t, 0, run++, -1.f, 0, 0); SmOnHitUse(&s, &c, t, SM_ACT_NONE, run++, -1.f, 0, 0); CHECK(s.varN == 4);  // unknown ids
+    SmOnHitUse(&s, &c, t, 900, run++, -1.f, 0, 1); CHECK(s.varN == 4);          // the summoned spirit's hit
+    const float pts0 = s.pts + 1000.f * s.rank;
+    const float ph = SmOnHitUse(&s, &c, t, 104, run++, -1.f, 0, 0);            // 5th distinct move: +20
+    CHECK(s.varN == 5 && s.varBonuses == 1 && s.varMile == 5 && near(s.varLastPts, 24) && near(s.varPts, 24));
+    CHECK(near(ph, c.hit) && s.lastScore == t);                                // the hit's own value excludes the bonus
+    (void)pts0;
+    // multi-hit of one use counts once; the next milestones grow by 10
+    const uint64_t mr = run++; for (int i = 0; i < 3; ++i) SmOnHitUse(&s, &c, t, 105, mr, -1.f, 0, 0); CHECK(s.varN == 6);
+    for (uint32_t a = 106; a < 200; ++a) { const uint32_t b0 = s.varBonuses; SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); if (s.varBonuses != b0) { paid++; total += s.varLastPts; } t += 10; }
+    CHECK(s.varN == 100 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 1874.f) && near(total, 1850.f) && s.varMile == 60 && near(s.varLastPts, 354));
+    // pure milestone table
+    SmState q; SmReset(&q); float seen[13]; int ns = 0;
+    for (uint32_t a = 1; a <= 70; ++a) { const float b = SmVarietyMove(&q, &c, 0, a); if (b > 0.f && ns < 13) seen[ns++] = b; }
+    CHECK(ns == 12 && near(seen[0], 24) && near(seen[1], 36) && near(seen[2], 52) && near(seen[3], 71) && near(seen[11], 354) && q.varN == 70);
+    CHECK(SmVarietyMove(&q, &c, 0, 9999) == 0.f && q.varN == 71);               // no more bonus after VarietyMax (the count goes on)
+    // the run survives decay to idle
+    SmCfg d; RealDefaults(&d); SmState r; SmReset(&r); t = 0; run = 1;
+    for (uint32_t a = 1; a <= 4; ++a) SmOnHitUse(&r, &d, t, a, run++, -1.f, 0, 0);
+    for (int i = 0; i < 400; ++i) { t += 50; SmTick(&r, &d, t, 50); }
+    CHECK(!r.active && r.varN == 4);
+    SmOnHitUse(&r, &d, t, 5, run++, -1.f, 0, 0); CHECK(r.varBonuses == 1 && r.active);
+    // pseudo ids (dodge / deflect / avoid counter / Ki): one move each
+    SmVarietyReset(&r); CHECK(r.varN == 0 && r.varMile == 0 && r.varBonuses == 1);
+    SmVarietyMove(&r, &d, t, SM_VAR_DODGE); SmVarietyMove(&r, &d, t, SM_VAR_DODGE); SmVarietyMove(&r, &d, t, SM_VAR_DEFLECT);
+    SmVarietyMove(&r, &d, t, SM_VAR_COUNTER); SmVarietyMove(&r, &d, t, SM_VAR_KI); CHECK(r.varN == 4 && r.varBonuses == 1);
+    SmOnBlockedHit(&r, &d, t, 77, run++, -1.f, 0); CHECK(r.varN == 5 && r.varBonuses == 2);  // a blocked hit scores, so it counts
+    // a looped (penalized) use does not count: A A, a new run, then the 3rd A in a row
+    SmState l; SmReset(&l); SmCfg lc; RealDefaults(&lc); CHECK(lc.loopReps == 2); lc.loopFullRank = lc.loopHalfRank = 0;
+    SmOnHitUse(&l, &lc, 0, 50, 1, -1.f, 0, 0); SmOnHitUse(&l, &lc, 10, 50, 2, -1.f, 0, 0); SmVarietyReset(&l);
+    SmOnHitUse(&l, &lc, 20, 50, 3, -1.f, 0, 0); CHECK(l.lpPen && l.varN == 0);
+    // VarietyBonus 0: off (the count still runs); clamp
+    SmCfg o; RealDefaults(&o); o.varBase = 0; SmState z; SmReset(&z);
+    for (uint32_t a = 1; a <= 10; ++a) SmVarietyMove(&z, &o, 0, a);
+    CHECK(z.varN == 10 && z.varBonuses == 0 && z.varPts == 0.f);
+    SmCfg k; RealDefaults(&k); k.varStep = 0; k.varMax = 500; k.varBase = -3; k.varInc = -1; SmCfgClamp(&k);
+    CHECK(k.varStep == 1 && k.varMax == SM_VAR_IDS && k.varBase == 0 && k.varInc == 0);
+}
+// human 2026-11-26: getting hit costs half a rank drop (this rank's points + the rank below's bar, x DamagePenaltyPct 50 %).
+static void DamageHalf(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.damagePct == 50);
+    SmState s; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f;   // A 60 / 180, B bar = 130: full drop 190, half 95
+    SmOnDamaged(&s, &c, 1);
+    CHECK(s.rank == 2 && near(s.pts, 95.f) && s.active && s.damaged == 1 && s.combo == 0);
+    SmOnDamaged(&s, &c, 2);  // same combo (grace): nothing more
+    CHECK(s.rank == 2 && near(s.pts, 95.f));
+    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // B 95, C bar = rankPts[1]: half of (95 + C)
+    { const float want = 95.f - (95.f + c.rankPts[1]) * 0.5f; CHECK(s.rank == 1 && near(s.pts, want + c.rankPts[1])); }
+    // at D: half the gauge, still active; an empty D goes idle
+    SmReset(&s); s.active = 1; s.rank = 0; s.pts = 40.f; SmOnDamaged(&s, &c, 1); CHECK(s.rank == 0 && near(s.pts, 20.f) && s.active);
+    SmReset(&s); s.active = 1; s.rank = 0; s.pts = 0.f; SmOnDamaged(&s, &c, 1); CHECK(!s.active);
+    // 100 % = the old rule
+    SmCfg f = c; f.damagePct = 100; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &f, 1); CHECK(s.rank == 2 && s.pts == 0.f);
+}
+// human 2026-11-26: versatility multiplier on every gain: 5 distinct moves +10 %, 10 +15 %, 15 +20 %, .. no cap; resets with the run.
+static void Versatility(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.versStep == 5 && c.versBasePct == 10 && c.versIncPct == 5);
+    c.decayDelayMs = 1000000; c.varBase = 0;  // no decay, no milestone bonus: only the multiplier
+    SmState s; SmReset(&s); double t = 1000; uint64_t run = 1;
+    CHECK(SmVersPct(&s, &c) == 0);
+    for (uint32_t a = 100; a < 104; ++a) { const float p = SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); CHECK(near(p, c.hit)); t += 100; }
+    CHECK(SmVersPct(&s, &c) == 0);
+    { const float p = SmOnHitUse(&s, &c, t, 104, run++, -1.f, 0, 0); CHECK(s.varN == 5 && SmVersPct(&s, &c) == 10 && near(p, c.hit * 1.10f)); }  // the 5th move's own hit
+    { const float p = SmOnDodge(&s, &c, t); CHECK(near(p, c.dodge * 1.10f)); }  // every gain, not only hits
+    SmVarietyMove(&s, &c, t, SM_VAR_DODGE); CHECK(s.varN == 6);  // (the glue feeds the dodge's pseudo id)
+    for (uint32_t a = 105; a < 109; ++a) SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0);
+    CHECK(s.varN == 10 && SmVersPct(&s, &c) == 15);
+    { const float p = SmOnHitUse(&s, &c, t, 109, run++, -1.f, 0, 0); CHECK(s.varN == 11 && near(p, c.hit * 1.15f)); }
+    struct { int n, pct; } tbl[] = {{14, 15}, {15, 20}, {20, 25}, {50, 55}, {100, 105}, {200, 205}};
+    for (unsigned i = 0; i < sizeof tbl / sizeof tbl[0]; ++i) { SmState q; SmReset(&q); for (uint32_t a = 1; a <= (uint32_t)tbl[i].n; ++a) SmVarietyMove(&q, &c, 0, a); CHECK(q.varN == tbl[i].n && SmVersPct(&q, &c) == tbl[i].pct); }
+    CHECK(s.versPts > 0.f);
+    SmVarietyReset(&s); CHECK(SmVersPct(&s, &c) == 0);  // a new run (fight start / death / load)
+    { const float p = SmOnHitUse(&s, &c, t, 300, run++, -1.f, 0, 0); CHECK(near(p, c.hit)); }
+    // the milestone bonus itself is multiplied (5th move: +24 x 1.10)
+    SmCfg m; RealDefaults(&m); m.decayDelayMs = 1000000; SmState v; SmReset(&v);
+    for (uint32_t a = 1; a <= 5; ++a) SmVarietyMove(&v, &m, 0, a);
+    CHECK(near(v.varLastPts, 24.f * 1.10f));
+    // off
+    SmCfg o; RealDefaults(&o); o.versStep = 0; SmState z; SmReset(&z); for (uint32_t a = 1; a <= 30; ++a) SmVarietyMove(&z, &o, 0, a); CHECK(SmVersPct(&z, &o) == 0);
+}
+// human 2026-11-26: D..B drain 40 % slower (DecayLowPct 60), A+ unchanged.
+static void DecayLow(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 60);
+    SmCfg f = c; f.decayLowPct = 100;
+    for (int r = 0; r < SM_RANKS; ++r) {
+        SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
+        const double t = (double)c.decayDelayMs + 100.0;
+        SmTick(&a, &c, t, 100); SmTick(&b, &f, t, 100);
+        const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
+        CHECK(lb > 0.f && a.rank == r && b.rank == r);
+        if (r <= 2) CHECK(near(la, lb * 0.6f)); else CHECK(near(la, lb));
+    }
+}
+// human 2026-11-26: slow move. Time from the use's start to its first landed hit >= SlowMoveMs (500) = x2 on the use's hits, never below
+// the startup ramp; the drain pause holds SmTick while the wind-up runs near a boss, capped per use.
+static void SlowMove(void) {
+    SmCfg c; RealDefaults(&c);
+    CHECK(c.slowMs == 500 && c.slowPct == 200 && c.slowCm == 500 && c.slowMaxMs == 5000);
+    // human 2026-11-26 curve: 0.5 s x2, 1 s x2.5, 1.5 s+ x3 (cap); under 0.5 s x1
+    CHECK(c.slowStepPct == 100 && c.slowTopPct == 300);
+    CHECK(near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 1000.0), 2.5f) && near(SmSlowMult(&c, 1500.0), 3.f));
+    CHECK(near(SmSlowMult(&c, 2000.0), 3.f) && near(SmSlowMult(&c, 2500.0), 3.f) && near(SmSlowMult(&c, 9000.0), 3.f));
+    { SmCfg f = c; f.slowStepPct = 0; CHECK(near(SmSlowMult(&f, 2500.0), 2.f)); f.slowTopPct = 50; SmCfgClamp(&f); CHECK(f.slowTopPct == f.slowPct); }
+    CHECK(SmSlowNear(&c, 499.f) && SmSlowNear(&c, 500.f) && !SmSlowNear(&c, 501.f) && !SmSlowNear(&c, -1.f));
+    { SmCfg a = c; a.slowCm = 0; CHECK(SmSlowNear(&a, 99999.f) && !SmSlowNear(&a, -1.f)); }
+    // multiplier: never below the old ramp, x2 from 500 ms
+    CHECK(near(SmSlowMult(&c, -1.0), 1.f) && near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 4000.0), 3.f));
+    for (float f = 0.f; f <= 120.f; f += 5.f) for (double l = -1.0; l <= 2000.0; l += 100.0) {
+        const float m = SmHitMult(&c, f, l); CHECK(m >= SmStartupMult(&c, f) - 0.0001f && m >= SmSlowMult(&c, l) - 0.0001f); }
+    CHECK(near(SmHitMult(&c, 10.f, 600.0), 2.1f) && near(SmHitMult(&c, 37.5f, 100.0), 1.5f) && near(SmHitMult(&c, 37.5f, 700.0), 2.2f));
+    SmCfg up = c; up.startupPct = 200; CHECK(near(SmHitMult(&up, 60.f, 700.0), 3.f));  // ramp x3 > curve x2.2  // a higher ramp wins
+    SmCfg off = c; off.slowMs = 0; CHECK(near(SmHitMult(&off, 10.f, 900.0), 1.f));
+    // scoring: a fast-window hit of a use that took 800 ms to land pays x2.3 (curve); its later hits keep that factor; legacy calls unchanged
+    SmState s; SmReset(&s);
+    CHECK(near(SmOnHitExL(&s, &c, 0, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit));
+    CHECK(near(SmOnHitExL(&s, &c, 10, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit * c.multiPct / 100.f));
+    SmState q; SmReset(&q); CHECK(near(SmOnHitEx(&q, &c, 0, 5, 1, 10.f, 0), c.hit) && near(SmOnHitExL(&q, &c, 9, 6, 2, 10.f, 300.0, 0), c.hit));
+    SmState bq; SmReset(&bq); CHECK(near(SmOnBlockedHitL(&bq, &c, 0, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit * c.blockPct / 100.f));
+    // pause bookkeeping: use start t0 = 1000 (game ms)
+    SmSlow w; SmSlowReset(&w);
+    CHECK(SmSlowUse(&w, 77, 1000.0) == 1 && SmSlowUse(&w, 77, 1234.0) == 0 && w.t0 == 1000.0);
+    CHECK(SmSlowHold(&w, &c, 1400.0, 16.0, 1, 100.f) == 0);   // under 500 ms
+    CHECK(SmSlowHold(&w, &c, 1500.0, 16.0, 1, 100.f) == 1);   // 500 ms in, boss 1 m away
+    CHECK(SmSlowHold(&w, &c, 1516.0, 16.0, 0, 100.f) == 0);   // not an attack
+    CHECK(SmSlowHold(&w, &c, 1532.0, 16.0, 1, 600.f) == 0);   // boss too far
+    CHECK(SmSlowHold(&w, &c, 1548.0, 16.0, 1, -1.f) == 0);    // distance unknown
+    SmCfg any = c; any.slowCm = 0; CHECK(SmSlowHold(&w, &any, 1564.0, 16.0, 1, 5000.f) == 1);  // 0 = any distance
+    CHECK(near((float)w.heldMs, 32.f));
+    CHECK(SmSlowLand(&w, 1900.0) == 1 && near((float)w.landMs, 900.f) && SmSlowLand(&w, 2000.0) == 0);
+    CHECK(SmSlowHold(&w, &c, 2000.0, 16.0, 1, 100.f) == 0);   // landed: drain resumes
+    // cap: 5000 ms (default) of pause per use, then never again for that use; a new use starts fresh
+    SmCfg k = c; k.slowMaxMs = 100; SmSlow v; SmSlowReset(&v); SmSlowUse(&v, 5, 0.0); int held = 0, capT = 0;
+    for (int i = 0; i < 50; ++i) { held += SmSlowHold(&v, &k, 500.0 + 16.0 * i, 16.0, 1, 100.f); if (v.capNew) capT++; }
+    CHECK(held == 7 && capT == 1 && v.capped && v.heldMs >= 100.0);
+    SmSlowUse(&v, 6, 2000.0); CHECK(!v.capped && SmSlowHold(&v, &k, 2600.0, 16.0, 1, 100.f) == 1);
+    SmCfg np = c; np.slowMaxMs = 0; SmSlow u; SmSlowReset(&u); SmSlowUse(&u, 9, 0.0); CHECK(SmSlowHold(&u, &np, 900.0, 16.0, 1, 100.f) == 0);
+    SmSlow z; SmSlowReset(&z); SmSlowUse(&z, 0, 0.0); CHECK(SmSlowHold(&z, &c, 900.0, 16.0, 1, 100.f) == 0);  // no use (key 0)
+    // SmTick: a held tick does not drain (and the decay clock stands still: the ramp does not grow), released it drains as before
+    SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = 3; a.pts = b.pts = 100.f; a.lastScore = b.lastScore = 0;
+    double t = 0; for (int i = 0; i < 125; ++i) { t += 16.0; a.drainHold = 1; SmTick(&a, &c, t, 16.0); SmTick(&b, &c, t, 16.0); }
+    CHECK(a.rank == 3 && near(a.pts, 100.f) && (b.rank < 3 || b.pts < 100.f) && near((float)a.lastScore, 2000.f));
+    a.drainHold = 0; SmTick(&a, &c, t + 600.0, 600.0); CHECK(a.pts < 100.f);   // 600 ms after the pause: the 500 ms delay ran out, drains
+    SmState g; SmReset(&g); g.active = 1; g.rank = 3; g.pts = 50.f; g.lastScore = 0; SmTick(&g, &c, 5000.0, 16.0); const float d1 = 50.f - g.pts;
+    SmState h; SmReset(&h); h.active = 1; h.rank = 3; h.pts = 50.f; h.lastScore = 0; h.drainHold = 1; SmTick(&h, &c, 3000.0, 2000.0); h.drainHold = 0;
+    SmTick(&h, &c, 5000.0, 16.0); CHECK(50.f - h.pts < d1 && h.rank == 3 && g.rank == 3);  // the paused 2 s did not grow the ramp
+    // attack learning
+    SmAtkSet as; memset(&as, 0, sizeof as);
+    CHECK(!SmAtkKnown(&as, 42)); SmAtkLearn(&as, 42); SmAtkLearn(&as, 42); CHECK(SmAtkKnown(&as, 42) && as.n == 1);
+    SmAtkLearn(&as, SM_ACT_NONE); SmAtkLearn(&as, 0); CHECK(as.n == 1 && !SmAtkKnown(&as, 0));
+    for (uint32_t i = 1000; i < 1000 + SM_ATK_IDS + 3; ++i) SmAtkLearn(&as, i);
+    CHECK(as.n == SM_ATK_IDS && SmAtkKnown(&as, 1000 + SM_ATK_IDS + 2) && !SmAtkKnown(&as, 42));
+    // clamp
+    SmCfg cl = c; cl.slowMs = -3; cl.slowPct = 50; cl.slowCm = -1; cl.slowMaxMs = -9; SmCfgClamp(&cl);
+    CHECK(cl.slowMs == 0 && cl.slowPct == 100 && cl.slowCm == 0 && cl.slowMaxMs == 0);
+    // legacy cases: PinnedDefaults turns it off
+    SmCfg pn; SmCfgDefaults(&pn); CHECK(pn.slowMs == 0 && near(SmHitMult(&pn, 10.f, 900.0), 1.f));
+}
+// human 2026-11-26: the nearest boss over 5 m away: drain at half speed at every rank (the glue sets drainFar).
+static void DrainFar(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.farCm == 500 && c.farPct == 50);
+    for (int r = 0; r < SM_RANKS; ++r) {
+        SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
+        const double t = (double)c.decayDelayMs + 100.0;
+        b.drainFar = 1; SmTick(&a, &c, t, 100); SmTick(&b, &c, t, 100);
+        const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
+        CHECK(la > 0.f && near(lb, la * 0.5f));
+    }
+    SmCfg k = c; k.farPct = 150; k.farCm = -5; SmCfgClamp(&k); CHECK(k.farPct == 100 && k.farCm == 0);
+}
+// human 2026-11-26: points breakdown. Every gain is booked to its source; the parts add up to the points actually added.
+static void Breakdown(void) {
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 1000000; c.rankPts[0] = 100000.f;  // no decay, stay in D
+    SmState s; SmReset(&s); float added = 0.f;
+    added += SmOnHitExL(&s, &c, 0, 101, 1, 10.f, 1000.0, 1);       // slow move (1 s: x2.5) with a counter bonus
+    CHECK(near(s.earned[SM_PC_HIT], c.hit) && near(s.earned[SM_PC_STARTUP], c.hit * 1.5f) && near(s.earned[SM_PC_COUNTER], c.counter));
+    added += SmOnDodge(&s, &c, 10); added += SmOnKi(&s, &c, 20); added += SmOnBlockedHit(&s, &c, 30, 102, 2, -1.f, 0);
+    CHECK(near(s.earned[SM_PC_DODGE], c.dodge) && near(s.earned[SM_PC_KI], c.ki) && near(s.earned[SM_PC_BLOCK], c.hit * c.blockPct / 100.f));
+    for (uint32_t a = 200; a < 210; ++a) added += SmOnHitEx(&s, &c, 40, a, 10 + a, -1.f, 0);  // 12 distinct moves: variety milestones + versatility
+    CHECK(s.earned[SM_PC_VARIETY] > 0.f && s.earned[SM_PC_VERS] > 0.f);
+    float sum = 0.f; for (int i = 0; i < SM_PC_N; ++i) sum += s.earned[i];
+    CHECK(sum > 0.f && sum - (added + s.varPts) < 0.5f && (added + s.varPts) - sum < 0.5f);  // hits' returns + the milestones paid inside them
+    // losses: damage and drain, never more than the meter held
+    SmCfg d; RealDefaults(&d); SmState l; SmReset(&l); l.active = 1; l.rank = 2; l.pts = 50.f; l.lastScore = 0;
+    const float held = SmHeld(&l, &d); SmOnDamaged(&l, &d, 1);
+    CHECK(l.lost[SM_PL_DAMAGE] > 0.f && near(held - SmHeld(&l, &d), l.lost[SM_PL_DAMAGE]));
+    for (int i = 0; i < 2000; ++i) SmTick(&l, &d, 2.0 + i * 50.0, 50.0);
+    CHECK(!l.active && near(l.lost[SM_PL_DAMAGE] + l.lost[SM_PL_DRAIN], held));
+}
+// human 2026-11-26: the hurt chain covers the reaction run and the get-up run after it, nothing later.
+static void HurtChain(void) {
+    SmHurtChain h; SmHurtReset(&h);
+    CHECK(SmHurtStep(&h, 0, 10, 0) == 0);
+    CHECK(SmHurtStep(&h, 100, 10, 1) == 1);          // hit while in run 10 (an attack)
+    CHECK(SmHurtStep(&h, 117, 11, 0) == 1);          // the knockdown starts just after the hit
+    CHECK(SmHurtStep(&h, 3800, 11, 0) == 1);         // 3.7 s knockdown: still hurt
+    CHECK(SmHurtStep(&h, 3817, 12, 0) == 1);         // the get-up
+    CHECK(SmHurtStep(&h, 6500, 12, 0) == 1);
+    CHECK(SmHurtStep(&h, 6517, 13, 0) == 0);         // the next move is the player's own
+    CHECK(SmHurtStep(&h, 6600, 14, 0) == 0);
+    SmHurtReset(&h); SmHurtStep(&h, 0, 20, 1); SmHurtStep(&h, 500, 21, 0); CHECK(SmHurtStep(&h, 900, 22, 0) == 0);  // a flinch (hit run 20), a move, then a roll: free
+    CHECK(SmDodgeHurtGate(SM_AV_DODGE, 6500 + SM_DODGE_HURT_MS - 1, 6500) == SM_AV_NONE && SmDodgeHurtGate(SM_AV_DODGE, 6500 + SM_DODGE_HURT_MS, 6500) == SM_AV_DODGE);
+}
+// human 2026-11-26 Flux: one flux row = Flux 1, two back-to-back = Flux 2; a same-stance press (no flux row) is nothing.
+static void Flux(void) {
+    SmFluxDet f; SmFluxReset(&f);
+    CHECK(SmFluxStep(&f, 1, 0) == 0);                                  // attack
+    CHECK(SmFluxStep(&f, 2, -1) == 0 && SmFluxStep(&f, 2, 0) == 0);    // pulse start (row read a tick late)
+    CHECK(SmFluxStep(&f, 3, 1) == 0 && SmFluxStep(&f, 3, 1) == 0);     // flux row
+    CHECK(SmFluxStep(&f, 4, 0) == 1);                                  // idle: Flux 1 done
+    CHECK(SmFluxStep(&f, 5, 1) == 0 && SmFluxStep(&f, 6, 1) == 0 && SmFluxStep(&f, 7, 0) == 2);  // Flux 2
+    CHECK(SmFluxStep(&f, 8, 0) == 0 && SmFluxStep(&f, 9, 0) == 0);     // same-stance press: no flux row
+    CHECK(SmFluxStep(&f, 10, 1) == 0 && SmFluxStep(&f, 0, -1) == 1);   // the player gone mid-chain: it still counts
+    SmCfg c; RealDefaults(&c); CHECK(near(c.fluxPts, 15.f) && near(c.flux2Pts, 10.f));
+    SmState s; SmReset(&s); CHECK(SmOnFlux(&s, &c, 1000, 1) == 0.f);  // no hit yet: nothing
+    SmOnHit(&s, &c, 1000, 7, 1);
+    CHECK(near(SmOnFlux(&s, &c, 1500, 1), 15.f) && near(SmOnFlux(&s, &c, 2000, 2), 25.f) && near(s.earned[SM_PC_FLUX], 40.f));
+    CHECK(SmOnFlux(&s, &c, 1000 + c.kiHitMs + 1, 1) == 0.f && SmOnFlux(&s, &c, 2000, 0) == 0.f);
+    // human 2026-11-26: grapple on a Ki-broken boss: flat 100
+    CHECK(near(c.grapplePts, 100.f) && near(SmOnGrapple(&s, &c, 2100), 100.f) && s.grapples == 1 && near(s.earned[SM_PC_GRAPPLE], 100.f));
+}
 int main(void) {
+    SlowMove();
+    MoveVariety(); Versatility(); DecayLow(); DrainFar(); Breakdown(); HurtChain(); Flux();
+    DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
+    BurstBreak();
+    BurstCounterAvoid();
+    Blocked(); BlockQueue();
     Combo();
     GuardianSummon();
     WeaponSwitch();

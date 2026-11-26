@@ -5241,6 +5241,7 @@ static __attribute__((noinline)) void Exec(char* line) {
 // Every pump frame, for each actor that has a boss HP/Ki bar (gauge rows hud+0x3C0, 0x60 B, +4 id -> FindWrapper, as BossGaugeRowsUpdate 1D21EF8 does) plus the
 // boss-mode actor, log: Ki-break start/end, finisher (grapple) state on/off and every HP hit during a break or a finisher state, with the raw bits for in-game RE.
 static int g_cfg_kibreak_log = 1; static volatile LONG g_kb_lines;
+static volatile LONG g_sm_grappleEv;  // human 2026-11-26: Ki-break grapple finishers seen by KiBreakTick (style meter +GrapplePts)
 #define KB_MAX 4
 #include "kb_slot.h"
 static struct { uint64_t a; uint32_t who; int broken, fin, valid; uint64_t hp, hm; DWORD tBreak, tFin, tLastWin, seen; uint64_t dmgBreak; int hitsBreak, finInBreak, nBreaks; } g_kb[KB_MAX];
@@ -5519,6 +5520,7 @@ static __attribute__((noinline)) void KiBreakTick(void) {
         if (fin && !g_kb[s].fin) {
             g_kb[s].tFin = now; int inBreak = broken || g_kb[s].broken || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1500);
             if (inBreak) g_kb[s].finInBreak++;
+            if (inBreak && hc > 1) InterlockedIncrement(&g_sm_grappleEv);  // human 2026-11-26: a grapple on a Ki-broken boss (not the HP-floor death blow)
             KbLog("KIFINISHER state on boss %p: 35=%d B0=%d 2C=%d, HP %llu/%llu, Ki %.1f/%.1f, %s bits1060 %016llX 1068 %016llX",
                   (void*)a, s35, sB0, s2C, hc, hm, kc, km, hc <= 1 ? "HP floor (death blow)" : inBreak ? "Ki broken -> GRAPPLE (Ki-break finisher)" : "not Ki broken (down/other finisher)", w0, w1);
         }
