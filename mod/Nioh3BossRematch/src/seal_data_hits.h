@@ -202,7 +202,19 @@ static inline int SdhMinBursts(const SdhResult& r) { return r.bursts > 0 ? r.bur
 // Certain data count: unchanged. Not certain: the live count must also reach the data minimum, and this form's last close must be at or
 // past the latest last-hit close (bind -> close) of a full form of this core this session (lastHitMs, SdhDurTable at x1). No full form yet
 // = no early turn back (the EndPct / settle / idle hold decides, the rule before #136113). Same rule for every core id.
-static inline bool SdhAfterShotOk(bool certain, int bursts, int want, int minBursts, int closeFromBindMs, int lastHitMs, int tolMs) {
+// A chain with no damaging window, no untimed row and no spawn (live 3B1AB: data 0/0/0) says nothing about when the
+// hits end. The learned count is then a truncated form, and EndPct / after-shot must not turn the player back.
+static inline bool SdhNoHitSource(const SdhResult& r) {
+    return r.bursts <= 0 && !r.untimed && !r.spawns;
+}
+// Low-confidence EndPct time. Empty chain: always -1 (hold for the yokai's idle edge / despawn), even after a
+// duration was learned. Otherwise SdhExitAtMs. Unread data (shapeOk false) keeps the old rule.
+static inline int SdhLowConfExitMs(bool shapeOk, const SdhResult& r, int pct, int hitExitMs, int boundMs, int durMs) {
+    if (shapeOk && SdhNoHitSource(r)) return -1;
+    return SdhExitAtMs(false, pct, hitExitMs, boundMs, durMs);
+}
+static inline bool SdhAfterShotOk(bool certain, int bursts, int want, int minBursts, int closeFromBindMs, int lastHitMs, int tolMs, bool noHitSource = false) {
+    if (noHitSource && !certain) return false;
     if (want <= 0 || bursts < want) return false;
     if (certain) return true;
     if (bursts < minBursts || lastHitMs <= 0) return false;

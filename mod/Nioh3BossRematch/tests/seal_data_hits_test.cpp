@@ -78,6 +78,12 @@ int main() {
         SdhResult u; u.untimed = 2; assert(SdhMinBursts(u) == 1);
         // TASK #138494: live 3B1AB (13:57): chain with no window / untimed / spawn, learned 1, hit 1 closed 755 ms -> never settled
         SdhResult z; z.chain = 7; assert(!SdhHitsSettled(true, z, 1, 1, false, 755, 961, 200) && !SdhHitsSettled(true, z, 3, 3, false, 755, 5000, 200));
+        // live 14:03: first full form learned 2375 ms, EndPct 80% then cut the next press at 1.907 s (idle was 2.375 s)
+        assert(SdhNoHitSource(z) && SdhLowConfExitMs(true, z, 80, 1907, 0, 2375) == -1);
+        assert(SdhLowConfExitMs(false, z, 80, 1907, 0, 2375) == SdhExitAtMs(false, 80, 1907, 0, 2375));  // unread data: old rule
+        assert(!SdhAfterShotOk(false, 3, 1, 0, 1590, 1590, 150, true));  // empty chain: after-shot does not turn back
+        assert(SdhAfterShotOk(true, 2, 2, 0, 500, 0, 150, true));        // a certain count is unchanged
+        SdhResult sp; sp.spawns = 1; assert(!SdhNoHitSource(sp) && SdhLowConfExitMs(true, sp, 80, 600, 0, 2375) == 1900);
         assert(SdhHitsSettled(true, u, 1, 1, false, 755, 955, 200));  // untimed rows still settle
         // live E0E94 (16:54): own 2 + 1 spawn that never hit, learned 2 -> released at close 2640 + 200
         SdhResult o; o.bursts = 2; o.spawns = 1; assert(SdhMinBursts(o) == 2 && SdhHitsSettled(true, o, 2, 2, false, 2640, 2840, 200));

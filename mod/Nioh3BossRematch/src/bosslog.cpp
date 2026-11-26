@@ -6685,7 +6685,10 @@ void SealEndOnHitTick() {
     const bool lowConf = endPct > 0 && seal && want > 0 && !sdh.fromData;
     const int endDur = lowConf ? g_sealDurs.At(sid, g_sealMul.load()) : 0;
     const int nowMs = (int)((now - sess) * 1000.0), boundMs = (int)((boundAt - sess) * 1000.0);
-    const int endAtMs = lowConf ? SdhExitAtMs(false, endPct, nowMs, boundMs, endDur) : nowMs;
+    // TASK #138494: 3B1AB has no hit source, so the learned want (1) and the first full form's duration must not
+    // release EndPct at 80% on the next press (live 14:03 cut at 1.907 s, idle was 2.375 s). Hold for the yokai's own end.
+    const bool noHitSource = shapeOk && SdhNoHitSource(shape);
+    const int endAtMs = lowConf ? SdhLowConfExitMs(shapeOk, shape, endPct, nowMs, boundMs, endDur) : nowMs;
     bool endHold = lowConf && (endAtMs < 0 || nowMs < endAtMs);
     // TASK #135803: every hit the game data allows is in and closed for SealExitSettleMs -> the attack is over, no idle wait to EndPct
     if (endHold && SdhHitsSettled(shapeOk, shape, bursts, want, open, (int)(lastClose * 1000.0), nowMs, g_exitSettleMs.load())) {
@@ -6863,7 +6866,7 @@ void SealEndOnHitTick() {
                                (now - sess) >= lastClose + afterShotMs / 1000.0;
     // TASK #136328: a count that is not certain may be short (early escape between two bursts); see SdhAfterShotOk.
     const int closeFromBindMs = (int)((lastClose - (boundAt - sess)) * 1000.0), lastHitMs = lowConf ? g_sealLastHit.At(sid, g_sealMul.load()) : 0;
-    const bool afterShotDue = afterShotTime && SdhAfterShotOk(!lowConf, bursts, want, shapeOk ? SdhMinBursts(shape) : 0, closeFromBindMs, lastHitMs, 150);
+    const bool afterShotDue = afterShotTime && SdhAfterShotOk(!lowConf, bursts, want, shapeOk ? SdhMinBursts(shape) : 0, closeFromBindMs, lastHitMs, 150, noHitSource);
     if (afterShotTime && !afterShotDue) {
         static double heldLogged = -1;
         if (heldLogged != sess) {
@@ -7251,7 +7254,7 @@ void FastSummonPhaseTick() {
         // TASK #137872 run 4: the game's own hold at f1.4 ran 8.9-35 s with no rate change, so the startup cap counts from the pose start, not the spawn.
         const int runAge = x.runT < 0 ? 0 : (int)((now - x.runT) * 1000.0);
         int np = sc_fast_chr_phase(x.ok, kind, moving, x.everHit, cnt[i] > 0, age >= kFastStartMinMs ? runAge + kFastStartMinMs : 0,
-                                         kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul);
+                                         kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul, x.ph == SC_FAST_PH_END);
         // TASK #138533: the recovery tail of a hit action (past its own last damaging row in the data, no collider open) is end pose too.
         if (np == SC_FAST_PH_ATTACK && endMul > 1.f && x.ok && sc_fast_hit_tail(kind, x.everHit, actEnd, s.f, cnt[i] > 0)) {
             np = SC_FAST_PH_END;
