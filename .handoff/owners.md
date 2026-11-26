@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-26 9:53 am EST: regression-pc/0. #138053 1.8.43 RC e7f1fdc5 PASS #138079. Not installed. Do not publish.
 - CURRENT 2026-11-26 5:09 am EST: regression-pc/0. #137566 PASS #137637 on EF 214404d7 (ASI f389259e). Not installed. Did not touch the game. Do not publish.
 - CURRENT 2026-11-25 9:22 pm EST: pc/1. #136492 live PASS, not installed. pc1/movesens-136492 526f1931. BR B48CCCF6 + TR 202776EC at D:/nioh3-re/soudmg-136492. Human game pid 67116 on BR E296BCF4, TR 5C5EA937. Lock free. Do not install before regression. Do not publish.
 - CURRENT 2026-11-25 8:03 pm EST: pc/0. Main PC live main 0d83711e: BR E296BCF4, TR 5C5EA937, pid 64668 since 8:03 pm EST (human away #136380). pc/1 owns the live check #136412 + delay #136363. Do not publish.
