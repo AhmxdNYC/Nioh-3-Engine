@@ -1452,3 +1452,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-25 10:27 pm EST | pc/0 | done: Fast summon merged 7ff48e68 + installed BR ED3FC89A | proven live by pc/1 (5216E 1.25 s -> 0.12 s), regression PASS #136799 | next: range scale #136785 on top of 7ff48e68 | mod/Nioh3BossRematch
 
 2026-11-25 10:38 pm EST | pc/1 | #136825 soul core damage 2x: ini SoulCoreDamagePct=200 on Main PC | proven live #136845 (13/13 x2.00) | next: if lead wants 2x as shipped default, change PS_SOUL_DMG default in Nioh3Training + regression | harness Temp/live136825/run.ps1 (copy of live136492/run3 without ASI swaps)
+
+2026-11-25 11:05 pm EST | pc/1 | #136831 all-in build BR 861E3EEC + TR 334061ED installed | proven live #136901 (3/3 x2.00 with no ini key, FastSummon +131/+114 ms) | next: regression TASK on pc1/allin-136831 75bfe7db, then merge; range waits on RE | harness Temp/live136831 (drive.py pipe name must be \\.\pipe\...)
