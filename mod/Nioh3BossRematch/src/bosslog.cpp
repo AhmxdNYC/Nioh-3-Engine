@@ -2801,6 +2801,42 @@ std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // FormBlockLS is put back when the form ends. The keys are re-read about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{5};
 // TASK #136197 / #136987: any Transform use may steer; the travel / idle-body detection below decides (still cores never arm).
+// TASK #137000 (human #136998): cores whose yokai the travel / idle detection has armed at least once (overlay shows TM). Same id table as
+// FormCoreCalls (call 1 = moved), saved [Spirit] FormCoresMoved. Guarded by g_coreEditLock.
+ScCallTable g_movedTab;
+bool g_movedLoaded = false;
+static void MovedLoadLocked() {
+    if (g_movedLoaded) return;
+    g_movedLoaded = true;
+    wchar_t b[SC_TABLE_MAX * 16] = L"";
+    GetPrivateProfileStringW(L"Spirit", L"FormCoresMoved", L"", b, (DWORD)(sizeof b / sizeof b[0]), IniPath());
+    sc_table_parse(&g_movedTab, b);
+}
+static void FormCoreMarkMoved(uint32_t id) {
+    if (!id) return;
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    MovedLoadLocked();
+    const bool add = sc_table_get(&g_movedTab, id) < 0 && sc_table_set(&g_movedTab, id, 1);
+    if (add) {
+        wchar_t b[SC_TABLE_MAX * 16] = L"";
+        sc_table_format(&g_movedTab, b, sizeof b / sizeof b[0]);
+        WritePrivateProfileStringW(L"Spirit", L"FormCoresMoved", b, IniPath());
+    }
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    if (add) Log("FormCore %X: yokai moves (detected) -> overlay TM (TASK #137000)", id);
+}
+static bool FormCoreMovedImpl(uint32_t id) {
+    if (!id) return false;
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    MovedLoadLocked();
+    const bool m = sc_table_get(&g_movedTab, id) > 0;
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    return m;
+}
+static bool FormCoreEquippedIdsImpl(uint32_t out[2]) {
+    out[0] = g_equippedCore[0].load(); out[1] = g_equippedCore[1].load();
+    return g_equippedReady.load();
+}
 static bool FormSteerForCore() {
     const uint32_t core = g_pickCore.load(std::memory_order_relaxed);
     int c = -1;
@@ -4432,6 +4468,7 @@ static bool FormSteerTick(double now) {
             if (travelCm > 0 && rootD >= (float)travelCm && rootD < 3000.f) {
                 g_fh4.steer = true;
                 g_fh4.steerD = rootD;
+                FormCoreMarkMoved(g_pickCore.load(std::memory_order_relaxed));  // TASK #137000
                 Log("FormSteer: yokai moved %.0f cm from where it started -> left stick steers t=%.3f", rootD, now);
                 return true;
             }
@@ -4469,6 +4506,7 @@ static bool FormSteerTick(double now) {
     }
     if (cm > 0 && d >= (float)cm) {
         g_fh4.steer = true;
+        FormCoreMarkMoved(g_pickCore.load(std::memory_order_relaxed));  // TASK #137000
         float gap = -1.f;
         float atk[4] = {};
         if (Copy(atk, g_fh4.seal + 0x110, 12) && std::isfinite(atk[0]) && std::isfinite(atk[1]) && std::isfinite(atk[2])) {
@@ -7858,6 +7896,8 @@ int FormCoreCallSet(uint32_t id, int call) {
     return now;
 }
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
+bool FormCoreMoved(uint32_t id) { return FormCoreMovedImpl(id); }  // TASK #137000
+bool FormCoreEquippedIds(uint32_t out[2]) { return FormCoreEquippedIdsImpl(out); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {
     const bool v = dir ? dir > 0 : !g_scForms.load();
     g_scForms.store(v);

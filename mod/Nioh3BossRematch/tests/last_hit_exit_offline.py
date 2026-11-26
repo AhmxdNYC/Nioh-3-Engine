@@ -105,7 +105,9 @@ pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.in
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
 bool FormCorePendingSet(int,bool b){return b;}bool FormCoreTransforms(uint32_t){return true;}bool FormCoreToggle(uint32_t){return false;}
-int FormCoreCallGet(uint32_t){return SC_CALL_TRANSFORM;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
+int g_stubCall=SC_CALL_TRANSFORM;bool g_stubMoved=false;
+int FormCoreCallGet(uint32_t){return g_stubCall;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
+bool FormCoreMoved(uint32_t){return g_stubMoved;}bool FormCoreEquippedIds(uint32_t o[2]){o[0]=o[1]=0;return false;}  // TASK #137000
 bool SoulCoreFormsSet(int,bool*){return true;}bool SoulCoreForms(bool*){return true;}
 void LoadExitSetting(){
 '''+load+r'''}
@@ -546,6 +548,18 @@ int main(){
  check(g_ghostOn==1&&g_sieMinMs==300&&g_exitOnHelperMs==150&&g_exitEndPct==90&&ini[L"SealExitEndPct"]==L"90"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
  check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
+ {// TASK #137000: soul core overlay row (default ON, A flips, Left OFF, Right ON, saved) and the S / T / TM tag
+  ini.clear();g_scOverlay=-1;check(ScOverlayOn());char tx[512];uint32_t co=0;
+  check(ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co)&&strstr(tx,"Soul core overlay: ON"));
+  check(ScEqChange(kItScOverlay,0)&&!ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"0");
+  ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF")!=nullptr);
+  ScEqChange(kItScOverlay,1);check(ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"1");ScEqChange(kItScOverlay,-1);check(!ScOverlayOn());
+  g_scOverlay=-1;check(!ScOverlayOn());ini[L"SoulCoreOverlay"]=L"1";g_scOverlay=-1;check(ScOverlayOn());
+  check(strstr(SctFooter(kItScOverlay),"SoulCoreOverlay")!=nullptr&&IsScEqItem(kItScOverlay));
+  g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;check(!strcmp(ScOverlayTag(0x5129B,true),"T"));
+  g_stubMoved=true;check(!strcmp(ScOverlayTag(0x5129B,true),"TM"));check(!strcmp(ScOverlayTag(0x5129B,false),"S"));
+  g_stubCall=SC_CALL_GAME;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));g_stubCall=SC_CALL_FAST_SUMMON;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));
+  check(!strcmp(ScOverlayTag(0,true),"?"));g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;ini.clear();}
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }
 '''

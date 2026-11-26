@@ -6125,6 +6125,32 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     return k;
 }
 
+#if BR_SOULCORE
+// TASK #137000: the soul core overlay lines (UI overlay thread). 0 = nothing to show (off, or no save / equipment not readable).
+int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
+    if (max < 2 || !ScOverlayOn()) return 0;
+    uint16_t items[2] = {0xFFFF, 0xFFFF};
+    ScCat cat;
+    if (ScCatRead(&cat)) { items[0] = cat.slotItem[0]; items[1] = cat.slotItem[1]; }
+    else {
+        ScEqState st;
+        if (!ScEqRead(&st)) return 0;
+        for (int y = 0; y < 2; ++y) { const int it = st.slots[y] != SCW_EMPTY ? ScEqItemOf(st, st.slots[y]) : -1; items[y] = it >= 0 ? (uint16_t)it : 0xFFFF; }
+    }
+    uint32_t chr[2] = {};
+    const bool eq = bosslog::FormCoreEquippedIds(chr);
+    const bool forms = bosslog::SoulCoreForms(nullptr);
+    int n = 0;
+    for (int y = 0; y < 2; ++y) {
+        if (items[y] == 0xFFFF || !items[y]) continue;
+        const char* tag = ScOverlayTag(eq ? chr[y] : 0, forms);
+        snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
+        colors[n] = tag[0] == 'S' ? cGray : tag[1] ? cGreen : cWhite;
+        ++n;
+    }
+    return n;
+}
+#endif
 bool Toast(char* buf, size_t n, uint32_t& color) {
     bool on = false;
     AcquireSRWLockShared(&g_lock);

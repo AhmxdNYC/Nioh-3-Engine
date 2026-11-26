@@ -249,6 +249,76 @@ void SoulPairKeys() {
 }
 #include "menu_bridge_impl.h"
 
+#if BR_SOULCORE
+// TASK #137000 (human #136998 / #137004): soul core overlay, bottom left of the game window. Its own small layered topmost window and thread,
+// so it shows with the EngineFix-hosted menu and the standalone one alike. Hidden while the mod menu is open, the game is not in front or minimized,
+// or there is nothing to show. Text is the menu's stroke font on the toast panel colour; redrawn only when a line changes.
+namespace scov {
+HWND g_wnd = nullptr, g_gameWnd = nullptr;
+char g_lines[2][64] = {};
+uint32_t g_colors[2] = {};
+int g_n = 0, g_px = 20;
+BOOL CALLBACK FindGameOv(HWND h, LPARAM) {
+    DWORD pid = 0; GetWindowThreadProcessId(h, &pid);
+    if (pid != GetCurrentProcessId() || h == g_wnd || h == addon::ui::g_wnd || !IsWindowVisible(h) || GetWindow(h, GW_OWNER)) return TRUE;
+    RECT r; GetClientRect(h, &r);
+    if (r.right - r.left < 320) return TRUE;
+    g_gameWnd = h; return FALSE;
+}
+void PaintOv(HDC dc, int w, int h) {
+    HBRUSH key = CreateSolidBrush(RGB(255, 0, 255)); RECT all = {0, 0, w, h}; FillRect(dc, &all, key); DeleteObject(key);
+    HBRUSH bg = CreateSolidBrush(RGB(16, 18, 24)); FillRect(dc, &all, bg); DeleteObject(bg);
+    const int lh = g_px + g_px / 5, pad = g_px / 3;
+    for (int i = 0; i < g_n; ++i) {
+        SetTextColor(dc, g_colors[i] & 0xFFFFFF);
+        N3StrokeText(dc, pad, pad + i * lh, g_lines[i], (int)strlen(g_lines[i]), g_px, N3StrokeWidth(g_px));
+    }
+}
+LRESULT CALLBACK OvProc(HWND h, UINT m, WPARAM w, LPARAM l) {
+    if (m == WM_NCHITTEST) return HTTRANSPARENT;
+    return DefWindowProcW(h, m, w, l);
+}
+DWORD WINAPI OvThread(void*) {
+    WNDCLASSEXW wc = {sizeof(wc)};
+    wc.lpfnWndProc = OvProc; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"Nioh3BossRematchSoulCoreOverlay";
+    RegisterClassExW(&wc);
+    g_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP,
+                            0, 0, 10, 10, nullptr, nullptr, wc.hInstance, nullptr);
+    if (!g_wnd) { Log("SoulCoreOverlay: window could not be created (%lu)", GetLastError()); return 0; }
+    Log("SoulCoreOverlay: ready ([Menu] SoulCoreOverlay, TASK #137000)");
+    bool shown = false; RECT last = {};
+    char was[2][64] = {}; uint32_t wasC[2] = {}; int wasN = -1, wasPx = 0;
+    for (;;) {
+        Sleep(250);
+        MSG msg; while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
+        if (!g_gameWnd || !IsWindow(g_gameWnd)) { g_gameWnd = nullptr; EnumWindows(FindGameOv, 0); }
+        char lines[2][64] = {}; uint32_t colors[2] = {};
+        const bool fg = g_gameWnd && !IsIconic(g_gameWnd) && GetForegroundWindow() == g_gameWnd;
+        const int n = fg && !addon::ui::g_open.load() ? addon::rematch::ScOverlayLines(lines, colors, 2) : 0;
+        if (n <= 0) { if (shown) { ShowWindow(g_wnd, SW_HIDE); shown = false; } continue; }
+        RECT cr; GetClientRect(g_gameWnd, &cr); POINT o = {0, 0}; ClientToScreen(g_gameWnd, &o);
+        if (cr.right <= 0 || cr.bottom <= 0) continue;
+        const int px = cr.bottom / 54 < 14 ? 14 : cr.bottom / 54;  // 20 px at 1080p, the menu's size
+        int wmax = 0;
+        for (int i = 0; i < n; ++i) { const SIZE sz = N3StrokeMeasure((int)strlen(lines[i]), px, N3StrokeWidth(px)); if (sz.cx > wmax) wmax = sz.cx; }
+        const int lh = px + px / 5, pad = px / 3, w = wmax + 2 * pad, h = n * lh + 2 * pad;
+        const int x = o.x + cr.right * 15 / 1000, y = o.y + cr.bottom - cr.bottom * 30 / 1000 - h;  // bottom left, 1.5% / 3% in
+        const RECT want = {x, y, x + w, y + h};
+        const bool changed = n != wasN || px != wasPx || memcmp(lines, was, sizeof was) || memcmp(colors, wasC, sizeof wasC);
+        if (!shown || memcmp(&want, &last, sizeof last)) {
+            SetWindowPos(g_wnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            last = want; shown = true;
+        }
+        if (changed || wasN < 0) {
+            memcpy(g_lines, lines, sizeof g_lines); memcpy(g_colors, colors, sizeof g_colors); g_n = n; g_px = px;
+            N3StrokeWindow(g_wnd, PaintOv);
+            memcpy(was, lines, sizeof was); memcpy(wasC, colors, sizeof wasC); wasN = n; wasPx = px;
+        }
+    }
+}
+}  // namespace scov
+#endif
+
 UINT VkFromName(const wchar_t* s);
 bool EngineHostReady() {
     const HMODULE engine = GetModuleHandleW(L"Nioh3EngineFix.asi");
@@ -378,6 +448,9 @@ bool Start() {
     rematch::UiSettingsPrepare();
     // One worker. It retries the host API until the in-game menu has presented,
     // then attaches. Standalone F7 is only if EngineFix never shows up.
+#if BR_SOULCORE
+    if (HANDLE ov = CreateThread(nullptr, 0, scov::OvThread, nullptr, 0, nullptr)) CloseHandle(ov);  // TASK #137000
+#endif
     g_bridgeAvailable.store(true);
     if (HANDLE th = CreateThread(nullptr, 0, UiThread, nullptr, 0, nullptr)) {
         CloseHandle(th);

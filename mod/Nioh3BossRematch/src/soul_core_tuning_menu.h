@@ -60,8 +60,18 @@ void SctValueText(int w, double v, char* b, size_t n) {
 // (Nioh3Training_SoulCoreEquip / SoulCoreEquipItem, soul_core_swap_game.h); these rows only pick a slot and a core and send one request on A.
 // TASK #136129: when SoulCoreCatalog is present the picker is every soul core in the item master, not only ones this save owns.
 #include "../../Nioh3Training/src/soul_core_swap.h"
-constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301;
-bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore; }
+constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301, kItScOverlay = 0xE0302;
+bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore || item == kItScOverlay; }
+// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot 'Core <item> | S / T / TM'
+// (S = the game's own summon or Fast summon, T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
+std::atomic<int> g_scOverlay{-1};
+bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 1) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
+const char* ScOverlayTag(uint32_t chr, bool formsOn) {
+    if (!chr) return "?";
+    const int c = bosslog::FormCoreCallGet(chr);
+    if (!formsOn || sc_call_game_path(c)) return "S";
+    return bosslog::FormCoreMoved(chr) ? "TM" : "T";
+}
 int g_scEqSlot = 0;
 uint32_t g_scEqPick = SCW_EMPTY;
 int g_scEqSeq = -1;  // finished-request count when our request was sent (-1 = none outstanding)
@@ -73,6 +83,7 @@ bool ScEqRead(ScEqState* st) {
     return st->n >= 0;
 }
 template <class Add> void ScEqAddRows(Add&& add) {
+    add(kItScOverlay);  // TASK #137000
     if (!TrainingExport("Nioh3Training_SoulCoreEquip")) return;  // older Nioh3Training.asi: no rows
     add(kItScEqSlot); add(kItScEqCore);
 }
@@ -89,6 +100,14 @@ bool ScCatRead(ScCat* c) {
 }
 bool ScEqChange(int item, int dir) {
     if (!IsScEqItem(item)) return false;
+    if (item == kItScOverlay) {  // TASK #137000: A flips, Left OFF, Right ON
+        const bool v = dir > 0 ? true : dir < 0 ? false : !ScOverlayOn();
+        g_scOverlay.store(v ? 1 : 0);
+        WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", v ? L"1" : L"0", IniPath());
+        Log("Rematch: soul core overlay %s (TASK #137000)", v ? "ON" : "OFF");
+        snprintf(g_msg, sizeof g_msg, v ? "Soul core overlay ON: bottom left, one line per Yang slot. Saved." : "Soul core overlay OFF. Saved.");
+        return true;
+    }
     ScEqState st;
     if (!ScEqRead(&st)) { snprintf(g_msg, sizeof g_msg, "Soul cores cannot be read right now (load a save first)."); return true; }
     if (item == kItScEqSlot) {
@@ -147,6 +166,11 @@ void ScEqPoll() {  // finished request -> message (called from the row text, men
     int seq = 0; const int r = res ? res(&seq) : SCW_FAULT;
     if (res && seq == g_scEqSeq) return;
     g_scEqSeq = -1; g_scEqPick = SCW_EMPTY;
+    if (r == SCW_DONE) {  // TASK #137000: finish like F2 (full spirit gauge, a toast), so a menu pick is ready to use at once
+        char rep[256]; Command("spirit gauge max", rep, sizeof rep);
+        Log("Rematch: menu Equip core done; %s (TASK #137000)", rep);
+        ToastF(cGreen, 4000, "Soul core equipped. Spirit gauge full.");
+    }
     snprintf(g_msg, sizeof g_msg, "%s", r == SCW_DONE ? "Core equipped. The d-pad shortcut moved to the new core." : r == SCW_REFUSED ? "The game refused that core for this slot (same as at a shrine)."
              : r == SCW_SAME ? "That core is already in this slot." : r == SCW_NO_GAME ? "No save loaded: nothing changed."
              : r == SCW_NO_ADD ? "That core is not in this save, and it could not be added, so nothing was equipped."
@@ -154,6 +178,12 @@ void ScEqPoll() {  // finished request -> message (called from the row text, men
 }
 bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsScEqItem(item)) return false;
+    if (item == kItScOverlay) {  // TASK #137000
+        const bool v = ScOverlayOn();
+        snprintf(buf, n, "%s Soul core overlay: %s   A / Left / Right", mk, v ? "ON" : "OFF");
+        *color = sel ? cWhite : v ? cGray : cYellow;
+        return true;
+    }
     ScEqPoll();
     ScEqState st; const bool ok = ScEqRead(&st);
     char sn[16]; ScwSlotName(g_scEqSlot, sn, sizeof sn);
@@ -463,6 +493,7 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
+    if (item == kItScOverlay) return "Small text at the bottom left while you play: each Yang slot's core and how it plays. S = summon (the game's own or Fast summon), T = Transform, TM = Transform whose yokai has been seen moving (detected, nothing to set). Updates at once. [Menu] SoulCoreOverlay. Saved.";  // TASK #137000
     if (IsScEqItem(item)) return item == kItScEqSlot ? "Which soul core slot to change (Yang 1-2, then Yin). Shows the core in it now."
         : TrainingExport("Nioh3Training_SoulCoreCatalog")
             ? "Left / Right: every soul core in the game, including ones this save does not own. A: equip it into the slot above. One you do not own is added with the game's own item add, then equipped the same way as one you own. Live."

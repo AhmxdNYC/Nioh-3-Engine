@@ -6,6 +6,9 @@ root = Path(__file__).resolve().parent.parent
 src = (root / 'src/bosslog.cpp').read_text(encoding='utf-8')
 state = src[src.index('std::atomic<bool> g_scForms{true};'):src.index('std::atomic<int> g_fkSwap{0};')]
 api = src[src.index('int FormCoreSeen('):src.index('bool SoulCoreForms(bool*')]
+# TASK #137000: the real moved-core table (FormCoresMoved) and its two public calls
+moved = src[src.index('ScCallTable g_movedTab;'):src.index('static bool FormSteerForCore()')]
+moved += 'bool FormCoreMoved(uint32_t id) { return FormCoreMovedImpl(id); }\nbool FormCoreEquippedIds(uint32_t out[2]) { return FormCoreEquippedIdsImpl(out); }\n'
 pre = r'''
 #include <windows.h>
 #include "press_queue.h"
@@ -198,13 +201,20 @@ int main(){
  for(uint32_t id=1;id<=16;++id)check(FormCoreTransforms(id));
  check(g_pendingPick[1]==-1&&g_pendingPick[2]==-1&&!ini.count(L"FormCorePendingLeft")&&!ini.count(L"FormCorePendingDown"));
  check(g_slotCore[1]==0x5129B&&g_slotSeen[1]&&g_pickOff); // learned identity and ongoing press retained
+ // TASK #137000: a core the detection saw move is remembered (overlay TM), saved, read back after a restart; others stay T
+ ini.erase(L"FormCoresMoved");g_movedLoaded=false;sc_table_clear(&g_movedTab);
+ check(!FormCoreMoved(0x5129B)&&!FormCoreMoved(0));FormCoreMarkMoved(0x5129B);FormCoreMarkMoved(0x5129B);FormCoreMarkMoved(0);
+ check(FormCoreMoved(0x5129B)&&!FormCoreMoved(0x5216E)&&ini[L"FormCoresMoved"]==L"5129B:1");
+ FormCoreMarkMoved(0xCF875);check(ini[L"FormCoresMoved"]==L"5129B:1,CF875:1");
+ g_movedLoaded=false;sc_table_clear(&g_movedTab);check(FormCoreMoved(0xCF875)&&FormCoreMoved(0x5129B)&&!FormCoreMoved(0xA2ACB));
+ {uint32_t e[2]={9,9};g_equippedCore[0]=0x5129B;g_equippedCore[1]=0;g_equippedReady=true;check(FormCoreEquippedIds(e)&&e[0]==0x5129B&&e[1]==0);g_equippedReady=false;check(!FormCoreEquippedIds(e));}
  printf("form-core picker + menu: %d checks PASS (offline; no game)\n",checks);
 }
 '''
 out = root / 'build' / 'form-core-test'
 out.mkdir(parents=True, exist_ok=True)
 unit = out / 'picker.cpp'
-unit.write_text(pre + state + api + ui, encoding='utf-8')
+unit.write_text(pre + state + api + moved + ui, encoding='utf-8')
 setup = Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 exe = out / 'picker.exe'
 cmd = f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /I"{root / "src"}" /Fo"{out / "picker.obj"}" /Fe"{exe}" "{unit}"'
