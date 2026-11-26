@@ -88,6 +88,10 @@ int main() {
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, false, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_END);    // action 1 after the hits
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, true, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // a collider still open
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_UNKNOWN, false, true, false, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
+    // TASK #138557: live 14:18, end pose had started, then act FFFF frame -1. Hold it. A later hit action or an open collider leaves it.
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_UNKNOWN, false, true, false, 9000, 200, 4000, 6.f, 6.f, true) == SC_FAST_PH_END);
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_HIT, false, true, false, 9000, 200, 4000, 6.f, 6.f, true) == SC_FAST_PH_ATTACK);
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, true, 9000, 200, 4000, 6.f, 6.f, true) == SC_FAST_PH_ATTACK);
     CHECK(sc_fast_chr_phase(false, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // data unreadable
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 1.f, 6.f) == SC_FAST_PH_ATTACK);   // start off
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, false, 9000, 200, 4000, 6.f, 1.f) == SC_FAST_PH_ATTACK);  // end off

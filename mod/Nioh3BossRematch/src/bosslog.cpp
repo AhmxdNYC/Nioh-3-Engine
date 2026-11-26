@@ -7253,7 +7253,7 @@ void FastSummonPhaseTick() {
         // TASK #137872 run 4: the game's own hold at f1.4 ran 8.9-35 s with no rate change, so the startup cap counts from the pose start, not the spawn.
         const int runAge = x.runT < 0 ? 0 : (int)((now - x.runT) * 1000.0);
         const int np = sc_fast_chr_phase(x.ok, kind, moving, x.everHit, cnt[i] > 0, age >= kFastStartMinMs ? runAge + kFastStartMinMs : 0,
-                                         kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul);
+                                         kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul, x.ph == SC_FAST_PH_END);
         if (np != x.ph) {
             Log("FastSummon phase chr %llX core %X %s->%s in act %X (%s) f=%.1f, %d colliders, %d ms old, +%d ms after the press, rate x%.2f t=%.3f",
                 (unsigned long long)x.chr, core, sc_fast_phase_name(x.ph), sc_fast_phase_name(np), s.act,

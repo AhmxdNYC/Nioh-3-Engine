@@ -150,7 +150,11 @@ inline bool sc_fast_spawn_moving(float fFirst, float fNow, int msSinceAdvance, f
     return fNow == fNow && fFirst == fFirst && msSinceAdvance >= 0 && msSinceAdvance < holdMs && fNow >= fFirst + minLead;
 }
 inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
-                             float startMul, float endMul) {
+                             float startMul, float endMul, bool holdEnd = false) {
+    // TASK #138557 (human #138550, live 14:18 Ninja 3B1AB): the end pose started on action 1, then 150 ms later the
+    // action read as unknown (frame -1) and the x6 dropped. The gold pose after that stayed at attack speed.
+    // Once the end pose has started, keep it until a real hit action or an open attack collider. Same rule for every core.
+    if (holdEnd && endMul > 1.f && actKind != SC_FAST_ACT_HIT && !colliderOpen) return SC_FAST_PH_END;
     if (!dataOk || actKind != SC_FAST_ACT_NOHIT) return SC_FAST_PH_ATTACK;
     if (!everHitAct) return inSpawnAct && startMul > 1.f && ageMs >= minAgeMs && ageMs < capMs ? SC_FAST_PH_START : SC_FAST_PH_ATTACK;
     return endMul > 1.f && !colliderOpen ? SC_FAST_PH_END : SC_FAST_PH_ATTACK;
