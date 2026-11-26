@@ -26,6 +26,7 @@
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
+static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (human 2026-11-26)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
  static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
@@ -190,6 +191,7 @@ static void SmReadIni(const char* ini, int reset) {
         GetPrivateProfileStringA("StyleMeter", "CrouchIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nCrouch = k; for (int i = 0; i < k; ++i) g_tmc.crouch[i] = ids[i]; }
         g_tmc.maxMs = (int)GetPrivateProfileIntA("StyleMeter", "TmtmMaxMs", SM_TMTM_MAX_MS, ini); if (g_tmc.maxMs < 17) g_tmc.maxMs = 17; if (g_tmc.maxMs > 500) g_tmc.maxMs = 500;
         g_tmc.needAttack = GetPrivateProfileIntA("StyleMeter", "TmtmNeedAttack", 0, ini) != 0;
+        GetPrivateProfileStringA("StyleMeter", "FluxSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_flux_skill = ids[0];
     }
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -753,6 +755,10 @@ static void SmFeed(double gdt) {
     if (run != ninRun) { ninRun = run; ninMove = 0; }
     if (nin) ninMove = 1;
     uint32_t skw = 0xFFFFFFFFu; const int skill = pl ? SmSkillWord(g_fp[FP_PL].ctrl, act, &skw) : -1;
+    // human 2026-11-26: Flux 1 / Flux 2 (Ki pulse + switch to another stance): the game's flux row (skill word FluxSkill)
+    static SmFluxDet fluxd; static int fluxInit; if (!fluxInit) { fluxInit = 1; SmFluxReset(&fluxd); }
+    const int fluxDone = SmFluxStep(&fluxd, pl ? run : 0, skill < 0 ? -1 : skill > 0 && skw == g_cfg_flux_skill);
+    if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain)", fluxDone, (unsigned)act); }
     const int maMark = pl ? SmMaStep(&mam, run, skill, gsm.gs || ninMove) : 0;
     // multi-segment martial arts (Infinite Retribution 25351 -> 25352 -> 25353): back-to-back runs of one skill word are one use for the
     // multi-hit cap / loop penalty (style_meter.h SmChainStep); variety, startup and the counter bonus stay per run
@@ -881,14 +887,16 @@ static void SmFeed(double gdt) {
     const int srWas = g_sr.on;
     // human: move variety is per run: a death (edge) or a load / no player character starts a new one (a boss fight start too, below)
     int varReset = 0;
+    int plDeadNow = 0;  // human 2026-11-26: also gates dodges (no "Dodge!" in a death animation)
     {   static int varDead;
+        const uint64_t me = PlayerChar(); const uint8_t* lg = GameState(); int d = 0;
+        if (me && !(lg && lg[2])) { uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); }
+        plDeadNow = d;
         if (g_sm.varN > 0) {
-            const uint64_t me = PlayerChar(); const uint8_t* lg = GameState(); int d = 0;
             if (!me || (lg && lg[2])) varReset = 1;
-            else { uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); }
             if (d && !varDead) varReset = 1;
-            varDead = d;
         }
+        varDead = d;
     }
     SrResult srRes[2]; int srDone = 0;  // [0] a gauntlet split this tick, then the fight's own end (a newer card replaces the older one)
     AcquireSRWLockExclusive(&g_sm_lock);
@@ -907,11 +915,16 @@ static void SmFeed(double gdt) {
     const int r0 = g_sm.rank, a0 = g_sm.active;
     int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
     static double avHurtT = -1e18; if (taken > 0) avHurtT = g_sm_clock;
+    {   static SmHurtChain hch; static int hchInit; if (!hchInit) { hchInit = 1; SmHurtReset(&hch); }
+        if (SmHurtStep(&hch, g_sm_clock, pl ? run : 0, taken > 0)) avHurtT = g_sm_clock;  // human 2026-11-26: the whole knockdown + get-up
+    }
     { const int av0 = avoid; avoid = SmDodgeHurtGate(avoid, g_sm_clock, avHurtT);  // knockdown / get-up i-frames are not a dodge
-      if (av0 && !avoid) Log("STYLE DODGE: not paid, %.0f ms after the player took damage (knockdown / get-up i-frames), act %u", g_sm_clock - avHurtT, (unsigned)act); }
+      if (av0 && !avoid) Log("STYLE DODGE: not paid, %.0f ms after the player's hurt / knockdown / get-up (i-frames), act %u", g_sm_clock - avHurtT, (unsigned)act); }
+    if (avoid && plDeadNow) { Log("STYLE DODGE: not paid, the player is dead (act %u)", (unsigned)act); avoid = 0; }  // human 2026-11-26
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (crouchCancel) g_sm.crouchCancels++;
+    if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
     static int slowNear;  // human 2026-11-26: x2 only when a boss was within SlowMovePauseCm as the slow move landed (no far-away farming)

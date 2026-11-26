@@ -5,7 +5,7 @@
 #define STYLE_RESULT_DRAW_H
 
 #define SR_CARD_W 640           // 1080p design size (scaled by the client height and StyleMeterScale)
-#define SR_STAT_ROWS 9  // stats rows (2 columns): human 2026-11-26 +1 row for Displacements
+#define SR_STAT_ROWS 10  // stats rows (2 columns): human 2026-11-26 +1 row for Displacements, +1 for Flux 1 / Flux 2
 #define SR_CARD_H (692 + (SR_STAT_ROWS - 8) * 28)  // human 2026-11-25: +28 for the APM / Inputs row
 #define SR_FADE_IN_MS 250
 #define SR_FADE_OUT_MS 350
@@ -99,19 +99,21 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     // stats: two columns, label left / value right
     enum { SR_NSTAT = 2 * SR_STAT_ROWS };
     char v[SR_NSTAT][40]; const char* lab[SR_NSTAT] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Hits landed", "Counters",
-                                           "Dodges", "Deflects", "Displacements", "Ki pulses", "Hits taken", "Best combo", "Crouch cancels", "APM", "Inputs"};
+                                           "Flux 1", "Dodges", "Deflects", "Displacements", "Ki pulses", "Hits taken", "Best combo", "Crouch cancels", "APM", "Inputs", "Flux 2"};
     for (int i = 0; i < SR_NSTAT; ++i) v[i][0] = 0;
     snprintf(v[0], 40, "%d", r->moves);
     if (r->n.maHits) snprintf(v[1], 40, "%u (%d different)", r->n.maHits, r->maMoves); else snprintf(v[1], 40, "0");
     snprintf(v[2], 40, "%u", r->n.nins); snprintf(v[3], 40, "%u", r->n.souls); snprintf(v[4], 40, "%u", r->n.gsHits); snprintf(v[5], 40, "%u", r->n.swapHits);
     snprintf(v[6], 40, "%u", r->n.styles);
-    snprintf(v[7], 40, "%u", r->n.hits); if (r->n.bursts) snprintf(v[8], 40, "%u (%u burst)", r->n.counters + r->n.counterAvoids, r->n.bursts); else snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids); snprintf(v[9], 40, "%u", r->n.dodges); snprintf(v[10], 40, "%u", r->n.deflects);
-    snprintf(v[11], 40, "%u", r->n.displaces);  // human 2026-11-26
-    if (r->n.kiPerfects) snprintf(v[12], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[12], 40, "%u", r->n.kis);
-    snprintf(v[13], 40, "%u", r->n.damaged); snprintf(v[14], 40, "%u hits", r->comboBest);
-    snprintf(v[15], 40, "%u", r->n.crouchCancels);  // human 2026-11-26: TMTM / crouch cancels
-    snprintf(v[16], 40, "%.0f", r->apm); snprintf(v[17], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
-    const int SR_HITS_TAKEN = 13;
+    snprintf(v[7], 40, "%u", r->n.hits); if (r->n.bursts) snprintf(v[8], 40, "%u (%u burst)", r->n.counters + r->n.counterAvoids, r->n.bursts); else snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids);
+    snprintf(v[9], 40, "%u", r->n.flux1); snprintf(v[19], 40, "%u", r->n.flux2);  // human 2026-11-26: Flux 1 / Flux 2
+    snprintf(v[10], 40, "%u", r->n.dodges); snprintf(v[11], 40, "%u", r->n.deflects);
+    snprintf(v[12], 40, "%u", r->n.displaces);  // human 2026-11-26
+    if (r->n.kiPerfects) snprintf(v[13], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[13], 40, "%u", r->n.kis);
+    snprintf(v[14], 40, "%u", r->n.damaged); snprintf(v[15], 40, "%u hits", r->comboBest);
+    snprintf(v[16], 40, "%u", r->n.crouchCancels);  // human 2026-11-26: TMTM / crouch cancels
+    snprintf(v[17], 40, "%.0f", r->apm); snprintf(v[18], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
+    const int SR_HITS_TAKEN = 14;
     for (int i = 0; i < SR_NSTAT; ++i) {
         if (!lab[i][0]) continue;
         const int col = i / SR_STAT_ROWS, row = i % SR_STAT_ROWS, y = SRX(422 + row * 28);

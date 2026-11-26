@@ -231,6 +231,7 @@ typedef struct {
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t crouchCancels; // human 2026-11-26: crouch (TMTM) cancels (style_tmtm.h, result card)
+    uint32_t flux1, flux2;  // human 2026-11-26: Flux 1 / Flux 2 (SmFluxStep, result card)
     float earned[SM_PC_N], lost[SM_PL_N];  // human 2026-11-26: points by source / losses (result card page 2)
     float useMult;          // the current use's startup / slow-move multiplier (to split its hits' points)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
@@ -887,6 +888,41 @@ static inline int SmDodgeStepEx(SmDodge* d, int enemyActive, int ifr, int tookHi
 // human 2026-11-25: a knockdown / get-up has i-frames inside the boss's next hit window (log: acts 10087 / 10084 / 1480, a median 0.6 s
 // after the player took damage, 132 false "Dodge!"). A plain dodge (no skill row) closing this soon after the player was hurt is not paid.
 #define SM_DODGE_HURT_MS 1500
+// human 2026-11-26 (log 07:17, Takeda): a knockdown (act 1476, 3.7 s) then the get-up (1475) paid "Dodge +45" 4 s after the hit. The hurt
+// time now follows the hurt chain: the run the player is in when hit (or the one starting within SM_HURT_NEXT_MS after it), and the run right
+// after that one (the get-up), refresh lastHurt every tick; the gate then runs SM_DODGE_HURT_MS past the chain's end.
+#define SM_HURT_NEXT_MS 150
+// human 2026-11-26 Flux (Ki pulse R1 + a stance switch to another stance, pressed together; up to two switches): the game plays it as its own
+// action row with skill word SM_FLUX_SKILL (0xCEC4; first switch acts 25298.., second 25339..). A same-stance press plays a plain row
+// (no flux). One flux row = Flux 1, two back-to-back = Flux 2. Per tick: run = the player's run key, isFlux = this run's row is a flux row
+// (1), not (0), unread yet (-1). Returns the finished chain's length (1, 2, ..) on the tick it ends, else 0.
+#define SM_FLUX_SKILL 0xCEC4u
+typedef struct { uint64_t run; int dec, len; } SmFluxDet;
+static inline void SmFluxReset(SmFluxDet* f) { f->run = 0; f->dec = 0; f->len = 0; }
+static inline int SmFluxStep(SmFluxDet* f, uint64_t run, int isFlux) {
+    int out = 0;
+    if (!run) { out = f->len; SmFluxReset(f); return out; }
+    if (run != f->run) { f->run = run; f->dec = 0; }
+    if (!f->dec && isFlux >= 0) {
+        f->dec = 1;
+        if (isFlux) f->len++;
+        else if (f->len) { out = f->len; f->len = 0; }
+    }
+    return out;
+}
+typedef struct { uint64_t run, lastRun; double hitT; int left; } SmHurtChain;  // left = chained runs still to follow (the get-up)
+static inline void SmHurtReset(SmHurtChain* h) { h->run = h->lastRun = 0; h->hitT = -1e18; h->left = 0; }
+// Per tick: run = the player's run key (0 = none), hurt = the player took damage this tick. Returns 1 while the hurt chain lasts.
+static inline int SmHurtStep(SmHurtChain* h, double t, uint64_t run, int hurt) {
+    if (hurt) { h->hitT = t; h->run = run; h->left = 1; }
+    else if (run != h->lastRun && h->run) {
+        if (t - h->hitT <= (double)SM_HURT_NEXT_MS && h->lastRun == h->run) h->run = run;   // the reaction starts just after the hit
+        else if (h->lastRun == h->run && h->left > 0) { h->run = run; h->left--; }           // the get-up after the reaction
+        else h->run = 0;
+    }
+    h->lastRun = run;
+    return h->run != 0 && run == h->run;
+}
 static inline int SmDodgeHurtGate(int avoid, double t, double lastHurt) { return avoid == SM_AV_DODGE && t - lastHurt < (double)SM_DODGE_HURT_MS ? SM_AV_NONE : avoid; }
 static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) { return SmDodgeStepEx(d, enemyActive, ifr, tookHit, 0, 0) != 0; }
 // Visible: something to show, and a boss fight is live or the last event is recent.

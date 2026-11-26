@@ -1109,9 +1109,34 @@ static void Breakdown(void) {
     for (int i = 0; i < 2000; ++i) SmTick(&l, &d, 2.0 + i * 50.0, 50.0);
     CHECK(!l.active && near(l.lost[SM_PL_DAMAGE] + l.lost[SM_PL_DRAIN], held));
 }
+// human 2026-11-26: the hurt chain covers the reaction run and the get-up run after it, nothing later.
+static void HurtChain(void) {
+    SmHurtChain h; SmHurtReset(&h);
+    CHECK(SmHurtStep(&h, 0, 10, 0) == 0);
+    CHECK(SmHurtStep(&h, 100, 10, 1) == 1);          // hit while in run 10 (an attack)
+    CHECK(SmHurtStep(&h, 117, 11, 0) == 1);          // the knockdown starts just after the hit
+    CHECK(SmHurtStep(&h, 3800, 11, 0) == 1);         // 3.7 s knockdown: still hurt
+    CHECK(SmHurtStep(&h, 3817, 12, 0) == 1);         // the get-up
+    CHECK(SmHurtStep(&h, 6500, 12, 0) == 1);
+    CHECK(SmHurtStep(&h, 6517, 13, 0) == 0);         // the next move is the player's own
+    CHECK(SmHurtStep(&h, 6600, 14, 0) == 0);
+    SmHurtReset(&h); SmHurtStep(&h, 0, 20, 1); SmHurtStep(&h, 500, 21, 0); CHECK(SmHurtStep(&h, 900, 22, 0) == 0);  // a flinch (hit run 20), a move, then a roll: free
+    CHECK(SmDodgeHurtGate(SM_AV_DODGE, 6500 + SM_DODGE_HURT_MS - 1, 6500) == SM_AV_NONE && SmDodgeHurtGate(SM_AV_DODGE, 6500 + SM_DODGE_HURT_MS, 6500) == SM_AV_DODGE);
+}
+// human 2026-11-26 Flux: one flux row = Flux 1, two back-to-back = Flux 2; a same-stance press (no flux row) is nothing.
+static void Flux(void) {
+    SmFluxDet f; SmFluxReset(&f);
+    CHECK(SmFluxStep(&f, 1, 0) == 0);                                  // attack
+    CHECK(SmFluxStep(&f, 2, -1) == 0 && SmFluxStep(&f, 2, 0) == 0);    // pulse start (row read a tick late)
+    CHECK(SmFluxStep(&f, 3, 1) == 0 && SmFluxStep(&f, 3, 1) == 0);     // flux row
+    CHECK(SmFluxStep(&f, 4, 0) == 1);                                  // idle: Flux 1 done
+    CHECK(SmFluxStep(&f, 5, 1) == 0 && SmFluxStep(&f, 6, 1) == 0 && SmFluxStep(&f, 7, 0) == 2);  // Flux 2
+    CHECK(SmFluxStep(&f, 8, 0) == 0 && SmFluxStep(&f, 9, 0) == 0);     // same-stance press: no flux row
+    CHECK(SmFluxStep(&f, 10, 1) == 0 && SmFluxStep(&f, 0, -1) == 1);   // the player gone mid-chain: it still counts
+}
 int main(void) {
     SlowMove();
-    MoveVariety(); Versatility(); DecayLow(); DrainFar(); Breakdown();
+    MoveVariety(); Versatility(); DecayLow(); DrainFar(); Breakdown(); HurtChain(); Flux();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();

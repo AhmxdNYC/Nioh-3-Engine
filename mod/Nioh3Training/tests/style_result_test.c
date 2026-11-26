@@ -278,8 +278,8 @@ static void GradeScore(void) {
     SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 0, 0.5f, 10000);
     r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 0 && near(r.score, 0.0, 0.001));
     // displacements are counted on the card
-    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; d.crouchCancels += 2; Run(&f, &d, &c, 2, 0.5f, 1000);
-    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3 && r.n.crouchCancels == 2);
+    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; d.crouchCancels += 2; d.flux1 += 4; d.flux2 += 1; Run(&f, &d, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3 && r.n.crouchCancels == 2 && r.n.flux1 == 4 && r.n.flux2 == 1);
     // points breakdown: only what was earned / lost during the fight (the difference from the fight start)
     SmState e; SmReset(&e); e.earned[SM_PC_HIT] = 500.f; e.lost[SM_PL_DRAIN] = 40.f; SrReset(&f); SrBossHit(&f, &e, 0x1000);
     e.earned[SM_PC_HIT] += 120.f; e.earned[SM_PC_DODGE] += 45.f; e.lost[SM_PL_DRAIN] += 30.f; e.lost[SM_PL_DAMAGE] += 60.f; Run(&f, &e, &c, 2, 0.5f, 1000);
