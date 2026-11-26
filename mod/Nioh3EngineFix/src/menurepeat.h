@@ -109,6 +109,9 @@ inline uint32_t Step(State& s, uint32_t raw, bool active, uint64_t t, int speed)
 // pans with it, #137566); instead, while a stick direction is held past the same first delay, the matching D-pad button is
 // pressed for a short pulse once per period, so the menu cursor keeps moving like a held D-pad. A real D-pad press of the
 // same direction wins (no extra pulse). Only the dominant axis counts (no diagonal pulses). Off outside game menus.
+// #138487 (human #138485): the game ignores the stick in its lists, so waiting the first delay before the first pulse
+// made every new direction stall 0.4 s (flick up -> down = a dead gap). A fresh tilt now pulses at once, like a D-pad
+// press, then repeats after the first delay. A direction already held when the menu opens still waits the full delay.
 struct StickBit {
     uint64_t downSince = 0, nextPulse = 0, pressUntil = 0;
     bool pressSeen = false;  // the current pulse was reported pressed on at least one poll
@@ -117,6 +120,7 @@ struct StickBit {
 struct StickState {
     StickBit b[4];           // up, down, left, right
     bool wasActive = false;
+    uint32_t stale = 0;      // stick bits held since before the menu opened (no instant pulse until released once)
     uint32_t pulses = 0;
 };
 // stick = kSU|kSD|kSL|kSR bits already reduced to the dominant axis; dpad = the real D-pad bits held now.
@@ -126,14 +130,26 @@ inline uint32_t StickStep(StickState& s, uint32_t stick, uint32_t dpad, bool act
     if (!active || !s.wasActive) {
         for (StickBit& x : s.b) x = StickBit{};
         s.wasActive = active;
+        s.stale = active ? stick : 0;
         if (!active) return 0;
     }
+    s.stale &= stick;
     const uint64_t period = (uint64_t)PeriodMs(speed), pulse = period / 3 < 34 ? period / 3 : 34;
     uint32_t out = 0;
     for (int i = 0; i < 4; ++i) {
         StickBit& x = s.b[i];
         if (!(stick & kIn[i]) || (dpad & kOut[i])) { x = StickBit{}; continue; }
-        if (!x.downSince) { x.downSince = t ? t : 1; x.nextPulse = t + kDelayMs; continue; }
+        if (!x.downSince) {
+            x.downSince = t ? t : 1;
+            x.nextPulse = t + kDelayMs;
+            if (!(s.stale & kIn[i])) {  // #138487: fresh tilt = instant first step
+                x.pressUntil = t + (pulse ? pulse : 1);
+                x.pressSeen = true;
+                ++s.pulses;
+                out |= kOut[i];
+            }
+            continue;
+        }
         if (x.pressUntil) {
             if (t < x.pressUntil || !x.pressSeen) { x.pressSeen = true; out |= kOut[i]; continue; }
             x.pressUntil = 0; x.relSeen = false;  // this poll is released

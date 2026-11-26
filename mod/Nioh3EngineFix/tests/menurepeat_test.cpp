@@ -101,12 +101,15 @@ int main() {
         for (int i = 0; i < 200; ++i, t += 8) q |= Step(g, kDDown, e.Update(ControlOff(true, 0), t), t, 1);
         CHECK(q == 0);
     }
-    {   // #138311 left stick = D-pad: no pulse before 400 ms, then ~1 D-pad press per period; never outside a menu
+    {   // #138311 left stick = D-pad; #138487: a fresh tilt steps at once, then nothing more before 400 ms, then ~1 press per period
         StickState s; uint64_t t = 1000; int edges = 0; bool prev = false; uint32_t any = 0;
-        for (int i = 0; i < 50; ++i, t += 8) any |= StickStep(s, kSD, 0, true, t, 1);   // 400 ms
-        CHECK(any == 0);
+        StickStep(s, 0, 0, true, t, 1); t += 8;                                            // menu open, stick centred
+        CHECK(StickStep(s, kSD, 0, true, t, 1) == kDDown); t += 8;                         // instant first step
+        int first = 0; bool pv = true;
+        for (int i = 0; i < 49; ++i, t += 8) { const bool d = (StickStep(s, kSD, 0, true, t, 1) & kDDown) != 0; if (d && !pv) ++first; pv = d; }
+        CHECK(first == 0 && s.pulses == 1);
         for (int i = 0; i < 113; ++i, t += 8) { const uint32_t o = StickStep(s, kSD, 0, true, t, 1); any |= o; const bool d = (o & kDDown) != 0; if (d && !prev) ++edges; prev = d; }
-        CHECK(any == kDDown && edges >= 9 && edges <= 11 && s.pulses >= 9);
+        CHECK(any == kDDown && edges >= 9 && edges <= 11 && s.pulses >= 10);
         StickState g; uint64_t u = 1000; uint32_t q = 0;
         for (int i = 0; i < 300; ++i, u += 8) q |= StickStep(g, kSU | kSL, 0, false, u, 1);
         CHECK(q == 0 && g.pulses == 0);
@@ -125,6 +128,24 @@ int main() {
         StickStep(s, kSU, 0, false, t += 8, 1);
         any = 0; for (int i = 0; i < 49; ++i, t += 8) any |= StickStep(s, kSU, 0, true, t, 1);
         CHECK(any == 0);
+    }
+    {   // #138487 flick up -> down without a centre pause: down steps on its first poll, no 400 ms gap
+        StickState s; uint64_t t = 1000;
+        StickStep(s, 0, 0, true, t, 1); t += 8;
+        CHECK(StickStep(s, kSU, 0, true, t, 1) == kDUp); t += 8;
+        for (int i = 0; i < 10; ++i, t += 8) StickStep(s, kSU, 0, true, t, 1);
+        CHECK(StickStep(s, 0, 0, true, t, 1) == 0); t += 8;                                // passes the centre for one poll
+        CHECK(StickStep(s, kSD, 0, true, t, 1) == kDDown); t += 8;
+        for (int i = 0; i < 10; ++i, t += 8) StickStep(s, kSD, 0, true, t, 1);
+        CHECK(StickStep(s, kSL, 0, true, t, 1) == kDLeft);                                 // axis change, no centre poll at all
+        CHECK(s.pulses == 3);
+    }
+    {   // #138487 a stick held when the menu opens: no instant step, full delay; released and tilted again = instant
+        StickState s; uint64_t t = 1000; uint32_t any = 0;
+        for (int i = 0; i < 49; ++i, t += 8) any |= StickStep(s, kSR, 0, true, t, 1);
+        CHECK(any == 0);
+        StickStep(s, 0, 0, true, t += 8, 1);
+        CHECK(StickStep(s, kSR, 0, true, t += 8, 1) == kDRight);
     }
     {   // dominant axis: a mostly-down diagonal pulses only D-down
         CHECK(StickDominant(kSD | kSR, 22000, -30000) == kSD);
