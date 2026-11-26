@@ -395,6 +395,15 @@
    ]
   },
   {
+   "rva": "0x3F9E58",
+   "kind": "code",
+   "pattern": "48 89 5C 24 10 55 56 57 41 56 41 57 48 8B EC 48 83 EC 70 48",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
    "rva": "0x3FC663",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 40 38 AB 08 01 00 00",
@@ -841,6 +850,15 @@
    "rva": "0x1C0F6D2",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? BA 01 00 00 00 E8 ?? ?? ?? ?? 48 85 C0 74 10 48",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
+   "rva": "0x1C1DF80",
+   "kind": "code",
+   "pattern": "44 8B C2 BA 02 00 00 00 E9 ?? ?? ?? ?? CC CC CC 48 83 EC 78",
    "offset": 0,
    "used_in": [
     "bosslog.cpp"

@@ -14,6 +14,12 @@
 //   int Nioh3BossRematch_SoulCoreDetected(uint32_t* ids, int max)    cores the menu shows (equipped + seen), returns count
 //   int Nioh3BossRematch_SoulCoreCallGet(uint32_t id)                the call that core uses on its next use
 //   int Nioh3BossRematch_SoulCoreCallSet(uint32_t id, int call)      sets it, saved to [Spirit] FormCoreCalls; returns the call now in effect
+//   int Nioh3BossRematch_SoulCoreMoveSensGet(void)                   move sensitivity for every Transform moveable core (x1..x8, [Spirit] FormSteerMove)
+//   int Nioh3BossRematch_SoulCoreMoveSensSet(int x)                  sets it (clamped x1..x8), live + saved; returns the value now in effect
+//     (API version 2, TASK #136492 / human #136487: one value for all cores; x1 = the game's own step, default x5)
+//   int Nioh3BossRematch_SoulCoreDamageGet(void)                     'Soul core damage' % for every core's yokai hits (10..1000, 100 = normal), -1 = no Training
+//   int Nioh3BossRematch_SoulCoreDamageSet(int pct)                  sets it (Nioh3Training [Practice] SoulCoreDamagePct, everywhere), returns the value now in effect
+//   int Nioh3BossRematch_SoulCoreActorIs(uint64_t chr)               1 = chr is a soul-core yokai seen in the last 60 s (what Training's damage hook asks)
 // Pure logic, no game reads: tested offline by mod/Nioh3BossRematch/tests/soul_core_api_test.cpp.
 #pragma once
 #include <stdint.h>
@@ -21,7 +27,7 @@
 #include <stdlib.h>
 #include <wchar.h>
 
-#define SC_API_VERSION 1
+#define SC_API_VERSION 2  // 2: move sensitivity (TASK #136492)
 enum ScCall { SC_CALL_GAME = 0, SC_CALL_TRANSFORM = 1, SC_CALL_TRANSFORM_MOVE = 2, SC_CALL_N = 3 };
 
 inline const char* sc_call_name(int c) {
@@ -32,6 +38,11 @@ inline const char* sc_call_name(int c) {
     default: return 0;
     }
 }
+// TASK #136492: global move sensitivity range (FormSteerBoost multiplies one stick step by it).
+#define SC_MOVE_SENS_MIN 1
+#define SC_MOVE_SENS_MAX 8
+#define SC_MOVE_SENS_DEFAULT 5
+inline int sc_move_sens_clamp(int x) { return x < SC_MOVE_SENS_MIN ? SC_MOVE_SENS_MIN : x > SC_MOVE_SENS_MAX ? SC_MOVE_SENS_MAX : x; }
 inline bool sc_call_valid(int c) { return c >= 0 && c < SC_CALL_N; }
 inline bool sc_call_forms(int c) { return c == SC_CALL_TRANSFORM || c == SC_CALL_TRANSFORM_MOVE; }
 // Step through the calls for a menu row (Left -1 / Right +1 / A 0 = next), wraps.

@@ -46,6 +46,10 @@ int main() {
     wchar_t s[12]; s[11] = L'Q';
     sc_table_format(&t, s, 11);
     CHECK(s[11] == L'Q' && wcslen(s) < 11);
+    // TASK #136492: one move sensitivity for every moveable core, x1..x8, menu default x5
+    CHECK(SC_API_VERSION >= 2 && SC_MOVE_SENS_DEFAULT == 5);
+    CHECK(sc_move_sens_clamp(0) == 1 && sc_move_sens_clamp(-7) == 1 && sc_move_sens_clamp(1) == 1);
+    CHECK(sc_move_sens_clamp(5) == 5 && sc_move_sens_clamp(8) == 8 && sc_move_sens_clamp(99) == 8);
     printf(g_fail ? "soul_core_api_test: %d FAIL\n" : "soul_core_api_test: PASS%.0d\n", g_fail);
     return g_fail ? 1 : 0;
 }

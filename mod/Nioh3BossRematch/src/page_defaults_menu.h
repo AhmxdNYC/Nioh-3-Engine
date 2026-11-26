@@ -38,7 +38,7 @@ bool ResetPageDefaults() {
     if (page == uPlayer) {
         using Set = int (*)(int,int);
         if (const auto set = (Set)TrainingExport("Nioh3Training_SetPlayerCantDie")) ok = set(1,1) >= 0;
-        const int ids[] = {PS_PLAYER_INF_KI,PS_PLAYER_INF_NIN,PS_PLAYER_INF_SOUL,PS_DMG_DEALT,PS_KI_DEALT,PS_PLAYER_SPEED};
+        const int ids[] = {PS_PLAYER_INF_KI,PS_PLAYER_INF_NIN,PS_PLAYER_INF_SOUL,PS_DMG_DEALT,PS_SOUL_DMG,PS_KI_DEALT,PS_PLAYER_SPEED};
         ok = ResetPracticeStats(ids) && ok;
 #if BR_SOULCORE
         bosslog::SoulCoreFormsSet(1,nullptr);

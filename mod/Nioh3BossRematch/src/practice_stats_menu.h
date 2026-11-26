@@ -108,7 +108,7 @@ template <class Add> void PstAddPlayerRows(Add&& add) {
         for (int i = 0; i < kStyN && i < n; ++i) add(kItStyBase + i);
     }
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); if (PstGet(PS_SOUL_DMG) >= 0) add(kItPstBase + PS_SOUL_DMG); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
 // Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
 // Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
@@ -146,7 +146,7 @@ const char* PstLabel(int what) {
     if (what == PS_KI_FLOOR) return "Negative Ki depth:";
     if (what == PS_KI_LOG) return "Log Ki breaks:";
     if (what == PS_NEG_KI_METER) return "Negative Ki meter:";  // user #23400
-    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Player Ki damage:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss animation speed:" : what == PS_PLAYER_SPEED ? "Player animation speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki:" : what == PS_DMG_DEALT ? "Player damage:" : what == PS_DMG_TAKEN ? "Boss damage:" : "Boss Ki drain:";
+    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Player Ki damage:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss animation speed:" : what == PS_PLAYER_SPEED ? "Player animation speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki:" : what == PS_DMG_DEALT ? "Player damage:" : what == PS_SOUL_DMG ? "Soul core damage:" : what == PS_DMG_TAKEN ? "Boss damage:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
@@ -212,6 +212,7 @@ bool PstChange(int item, int dir) {
     else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player animation speed %s, from your next move. Training / spawned Boss Matches. Saved.", t);
     else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved for Training; not applied during Boss Matches.", t);
     else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved for Training; not applied during Boss Matches." : "Boss Ki drain OFF. Saved for Training; not applied during Boss Matches.", t);
+    else if (what == PS_SOUL_DMG) snprintf(g_msg, sizeof g_msg, "Soul core damage %s: every soul core's yokai hits (transform or the game's own summon), everywhere. 100%% = normal. Saved.", t);  // TASK #136492
     else snprintf(g_msg, sizeof g_msg, "%s %s: scales HP and Ki damage of hits%s. Training / spawned Boss Matches. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " spawned bosses land");
     return true;
 }
@@ -268,6 +269,7 @@ const char* PstFooter(int item) {
     case PS_FRAME_STYLE: return "Choose straight rows or concentric rings. Each lane keeps its own visibility switch. Display only. Saved.";
     case PS_FRAME_SIZE: return "Ring size: Small, Medium, or Large. Applies only to Ring style; timing and lane settings stay the same. Saved.";
     case PS_PLAYER_INF_KI: return "Training / spawned Boss Matches: keep your Ki full. Does not apply to ordinary story fights. Saved.";
+    case PS_SOUL_DMG: return "Every soul core: scales the HP damage its yokai deals (one value for all cores, everywhere). Your own hits use Player damage. 100% = normal. [Practice] SoulCoreDamagePct. Saved.";  // TASK #136492
     case PS_DMG_DEALT: return "Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.";
     case PS_DMG_TAKEN: return "All spawned bosses in Training / Boss Matches: scale HP damage and Ki damage against you. 100% = normal; 0% = none. Saved.";
     case PS_KI_DEALT: return "Training / spawned Boss Matches: extra multiplier for your Ki damage only. 100% = normal; 0% = none. Combines with Player damage, capped at 1000%. Saved.";

@@ -1376,11 +1376,15 @@ void CoreSeen(uint32_t id, int dir) {
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
 WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
 void PickEquipmentTick();
+void CorePreloadTick();  // #136368
+bool CoreResReady(uint32_t id);
+extern std::atomic<int> g_formPreload;  // [Spirit] FormPreloadCores (#136368)
 bool PickFormActive();
 void FccPress(double now, int dir);  // human #122288 crouch cancel (defined before FormHide4Tick)
 void FccPadTick(WORD bt, double now);
 void PickPoll() {
     PickEquipmentTick();
+    CorePreloadTick();  // #136368
     static int heldPrev = 0;
     const WORD bt = PickPadButtons();
     FccPadTick(bt, Now());  // human #122288: L3 edge, raw pad (below FormBlockPad)
@@ -1408,7 +1412,7 @@ void PickPoll() {
         FccPress(now, held);  // human #122288: crouch-cancel window + core count snapshot for this press
         if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
         else pressq::Clear(g_pressQ);
-        Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
+        Log("FormCore %X res=%d dir=%c transform=%d reason=%s t=%.3f", core, CoreResReady(core) ? 1 : 0, held == 1 ? 'L' : 'D', off ? 0 : 1,
             pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
             !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
     } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
@@ -5679,7 +5683,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400)); g_formPreload.store(IniInt(L"Spirit", L"FormPreloadCores", 1));  // #136368
     g_orbSpawnMs.store(IniInt(L"Spirit", L"SealOrbSpawnMs", 1800));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
@@ -7094,6 +7098,70 @@ uint64_t FkGameKey(uint32_t id) {  // 0x134314(-, id) = 0x300000000 + id with th
         return 0;
     }
 }
+// #136368 (human #136365/#136374: 'weird delay' on the first one or two uses after starting the game). Live pid 51048: the first use of
+// 5216E bound its yokai 2.06 s after the press (cold-wait, the game loading that character), every later use 0.42 s; no mod work
+// in the gap (60 fps held). Fix, every core: once the equipped cores are known, request each one's character resources with the
+// game's own Load::Character call (3F9E58(id,2,0), the Training boss preload) and hold that ref while it stays equipped; an
+// unequipped core's ref goes back with 1C1DF80(id,0) (exact inverse). Already loaded = no ref taken. [Spirit] FormPreloadCores=0: off.
+std::atomic<int> g_formPreload{1};
+uint64_t FkGameKey(uint32_t id);
+uint64_t FkPack(uint64_t key);
+bool CoreResReady(uint32_t id) {
+    if (!id) return false;
+    const uint64_t key = FkGameKey(id);
+    const uint64_t e = key ? FkPack(key) : 0;
+    uint8_t v = 0;
+    return e && Rd(e + 0x2C8, v) && v != 0;
+}
+struct CorePre { uint32_t id = 0; double reqT = -1; bool held = false, done = false; };
+CorePre g_corePre[2];
+// #136427 (regression): the live yokai holds no type-3 ref of its own (notes/rva-1C1DF80-2026-10-15.md s3), so an Equip core swap
+// mid-form must not drop our ref while that core's yokai is out: a release waits here until no form and no ghost seal are alive.
+uint32_t g_preRelease[8]; int g_preReleaseN = 0;
+void CorePreloadTick() {  // game thread (PickPoll), 4 Hz
+    static double last = -100;
+    const double now = Now();
+    if (now - last < 0.25) return;
+    last = now;
+    const bool busy = PickFormActive() || PickGhostAlive();
+    if (g_preReleaseN && !busy) {
+        for (int i = 0; i < g_preReleaseN; ++i) {
+            __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(g_preRelease[i], 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+            Log("FormPreload core %X: deferred ref released (1C1DF80), form over", g_preRelease[i]);
+        }
+        g_preReleaseN = 0;
+    }
+    const bool on = g_formPreload.load() != 0 && g_equippedReady.load() && gamerva::g_known;
+    for (int y = 0; y < 2; ++y) {
+        CorePre& p = g_corePre[y];
+        const uint32_t id = on ? g_equippedCore[y].load() : p.id;  // off / not ready: keep what we hold (a load screen must not drop it)
+        if (id == p.id) {
+            if (p.held && !p.done && (CoreResReady(id) || now - p.reqT > 30.0)) {
+                p.done = true;
+                Log("FormPreload Y%d core %X: %s %.0f ms after the request", y + 1, id, CoreResReady(id) ? "ready" : "still not ready", (now - p.reqT) * 1000.0);
+            }
+            continue;
+        }
+        if (p.held && p.id) {
+            const uint32_t old = p.id;
+            if (busy && g_preReleaseN < (int)(sizeof g_preRelease / sizeof g_preRelease[0])) {
+                g_preRelease[g_preReleaseN++] = old;
+                Log("FormPreload Y%d core %X unequipped during a form: ref release deferred until the form ends", y + 1, old);
+            } else {
+                __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(old, 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+                Log("FormPreload Y%d core %X unequipped: ref released (1C1DF80)", y + 1, old);
+            }
+        }
+        p = CorePre{};
+        p.id = id;
+        if (!id) continue;
+        if (CoreResReady(id)) { p.done = true; Log("FormPreload Y%d core %X: already loaded, no request", y + 1, id); continue; }
+        bool fault = false;
+        __try { ((void (*)(uint32_t, uint32_t, uint32_t))(g_base + Grva(0x3F9E58)))(id, 2, 0); } __except (EXCEPTION_EXECUTE_HANDLER) { fault = true; }
+        p.held = !fault; p.reqT = now; p.done = fault;
+        Log("FormPreload Y%d core %X: %s t=%.3f", y + 1, id, fault ? "request faulted (left to the first use)" : "character resources requested (3F9E58)", now);
+    }
+}
 uint64_t FkRec(uint32_t id) {
     uint64_t ctx = 0, db = 0;
     if (!Rd(g_base + Grva(0x45B9E30), ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) return 0;
@@ -7557,7 +7625,8 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"FastThrow", 1, 1, 16, false}, {L"RunThrowMaxMs", 100, 0, 3000, false}, {L"SealTailRampMs", 50, 0, 1000, false},  // human #128855 throw layers
                           {nullptr, 0, 0, 0, false},  // 14 = the menu's Start + end speed row (no value of its own, #129070)
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
-                          {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false}};  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
+                          {L"FormSteerMove", 1, 1, 8, false}};  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
     if (live) *live = which < 5 || (which >= 7 && which < 11) || which >= 15 || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
@@ -7565,7 +7634,7 @@ double SoulTune(int which, int dir, bool* live) {
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
-             : which == 19 ? (double)g_exitAfterShotMs.load() : g_frz[which - 7].load();
+             : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load() : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7574,7 +7643,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
@@ -7598,6 +7667,7 @@ double SoulTune(int which, int dir, bool* live) {
     case 17: g_exitOnHelperMs.store((int)v); break;
     case 18: g_exitEndPct.store((int)v); break;
     case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
+    case 20: g_formSteerMove.store((int)v); break;  // TASK #136492: FormSteerBoost reads it per step; FormSteerPoll reads the same ini key
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
@@ -7608,7 +7678,7 @@ double SoulTune(int which, int dir, bool* live) {
 }
 
 void SoulTuneReset() {
-    for (int which = 0; which < 20; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
+    for (int which = 0; which < 21; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
@@ -7774,8 +7844,30 @@ void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 void FormKeySealDesc(uint32_t id) { if (PressSpawnForeign(id, 0)) return; g_fkSealDesc.store(id); PickLearn(id); }  // #95567
+// TASK #136492 (human #136487): chrs the seal spawn note saw next to the player = soul-core yokai (any core, any call). Training's
+// 'Soul core damage' asks Nioh3BossRematch_SoulCoreActorIs(attacker) on each hit (live 11-25: a form hit's attacker is not the player).
+// 8 most recent, each counts for 60 s after its last note; Training also requires the player's team.
+static std::atomic<uint64_t> g_scActor[8];
+static std::atomic<uint32_t> g_scActorTick[8];
+static std::atomic<unsigned> g_scActorN{0};
+static void ScActorNote(uint64_t chr) {
+    const uint32_t now = GetTickCount();
+    for (int i = 0; i < 8; ++i) if (g_scActor[i].load() == chr) { g_scActorTick[i].store(now); return; }
+    const unsigned k = g_scActorN.fetch_add(1) % 8;
+    g_scActorTick[k].store(now);
+    g_scActor[k].store(chr);
+    static std::atomic<int> logs{0};
+    if (logs.fetch_add(1) < 40) Log("SoulCoreActor: %llX is a soul-core yokai for 60 s (Soul core damage, TASK #136492)", (unsigned long long)chr);
+}
+int ScActorIs(uint64_t chr) {
+    if (!chr) return 0;
+    const uint32_t now = GetTickCount();
+    for (int i = 0; i < 8; ++i) if (g_scActor[i].load() == chr && now - g_scActorTick[i].load() < 60000u) return 1;
+    return 0;
+}
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     { uint32_t key = 0; if (chr && Rd(chr, key) && PressSpawnForeign(key >> 4, chr)) return; }  // #95567: a wave enemy is never a seal
+    if (chr && dist >= 0 && dist < 15.f) ScActorNote(chr);  // TASK #136492, before the FormKey gates: the game's own summon counts too
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
@@ -8171,6 +8263,26 @@ extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDetected(uint32_t*
 }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallGet(uint32_t id) { return bosslog::FormCoreCallGet(id); }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallSet(uint32_t id, int call) { return bosslog::FormCoreCallSet(id, call); }
+// TASK #136492 (human #136487): one move sensitivity for every Transform moveable core ([Spirit] FormSteerMove, menu row Move sensitivity).
+// TASK #136492: 1 = chr is a soul-core yokai seen in the last 60 s (Nioh3Training 'Soul core damage' asks this per hit).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreActorIs(uint64_t chr) { return bosslog::ScActorIs(chr); }
+// TASK #136492: 'Soul core damage' % lives in Nioh3Training ([Practice] SoulCoreDamagePct, practice stat 36); -1 = Training missing / too old.
+static int ScTrainingStat(int set, int v) {
+    HMODULE t = GetModuleHandleA("Nioh3Training.asi");
+    if (!t) return -1;
+    if (set) { const auto f = (int (*)(int, int, int))GetProcAddress(t, "Nioh3Training_PracticeStatSet"); return f ? f(36, v, 1) : -1; }
+    const auto g = (int (*)(int))GetProcAddress(t, "Nioh3Training_PracticeStatGet");
+    return g ? g(36) : -1;
+}
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDamageGet(void) { return ScTrainingStat(0, 0); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDamageSet(int pct) { return ScTrainingStat(1, pct); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensGet(void) { return (int)bosslog::SoulTune(20, 0, nullptr); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensSet(int x) {
+    const int want = sc_move_sens_clamp(x);
+    int v = (int)bosslog::SoulTune(20, 0, nullptr);
+    for (int i = 0; i < SC_MOVE_SENS_MAX && v != want; ++i) v = (int)bosslog::SoulTune(20, want > v ? 1 : -1, nullptr);  // same path as the menu row (live + ini)
+    return v;
+}
 #endif
 
 namespace fight {

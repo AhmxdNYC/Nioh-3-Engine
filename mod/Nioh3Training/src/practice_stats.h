@@ -3,6 +3,9 @@
 // Settings (saved in Nioh3Training.ini [Practice], every one defaults OFF / 100 % except NegKiMeter / FrameMeterReadout / KiWindow = ON):
 //   PS_PLAYER_INF_KI   PlayerInfiniteKi    0/1    player Ki (stamina) refilled to max whenever it drops (st+0xAC = st+0xB0, Player::RecoverStamina 5FB5C8)
 //   PS_DMG_DEALT       DamageDealtPct      10..1000 HP damage of hits whose attacker is the player (x0.1 .. x10) x pct / 100
+//   PS_SOUL_DMG        SoulCoreDamagePct   10..1000 (TASK #136492, human #136487) HP damage of hits whose attacker is a soul-core yokai (Boss Rematch
+//                                         Nioh3BossRematch_SoulCoreActorIs, same team as the player) on anyone but the player. One value for every core,
+//                                         everywhere (not only Practice). Live: a form hit is NOT the player's own, so 'Damage I deal' never scaled it.
 //   PS_DMG_TAKEN       DamageTakenPct      0..1000 HP damage of hits whose attacker is a Training boss (x0 .. x10) x pct / 100 ('Damage boss deals')
 //   PS_BOSS_KI_DRAIN   BossKiDrainPerSec   0..1000 Training bosses lose this much Ki per second (0 = off; floor Ki 0.5 = one hit from a break)
 //   PS_BOSS_SPEED     BossSpeedPct        10..300 Training/Rematch boss animation speed (ComputeMotionSpeed 134E68 hook, notes/boss-speed-lever-22389.md)
@@ -37,16 +40,16 @@
 enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_NEG_KI_METER = 17, PS_FRAME_LEGEND = 18, PS_FRAME_READOUT = 19, PS_FRAME_KI = 20, PS_KI_WINDOW = 21, PS_FRAME_IFR = 22,
        // human #38180 frame-meter visibility: PLAYER row + one key (legend) entry group each, all default ON
        PS_FRAME_PROW = 23, PS_KEY_STARTUP = 24, PS_KEY_ACTIVE = 25, PS_KEY_RECOVERY = 26, PS_KEY_UNBLOCK = 27, PS_KEY_GRAB = 28, PS_KEY_OTHER = 29, PS_KEY_TIMING = 30, PS_KEY_KI = 31, PS_KEY_IFR = 32,
-       PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_PLAYER_INF_SOUL = 35, PS_N = 36 }; // append-only ABI: 0 Row (default), 1 Ring
+       PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_PLAYER_INF_SOUL = 35, PS_SOUL_DMG = 36, PS_N = 37 }; // append-only ABI: 0 Row (default), 1 Ring
 static inline int PstIsToggle(int what) { return (what >= PS_FRAME_PROW && what <= PS_FRAME_STYLE) || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_PLAYER_INF_SOUL || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_SOUL_DMG || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
 enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };
 static inline int PstClamp(int what, int v) {
     const int sp = what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED;
-    const int lo = sp || what == PS_DMG_DEALT ? 10 : 0;
+    const int lo = sp || what == PS_DMG_DEALT || what == PS_SOUL_DMG ? 10 : 0;
     const int hi = what == PS_FRAME_SIZE ? 2 : PstIsToggle(what) ? 1 : what == PS_TIME_OF_DAY ? PS_TOD_STEPS : what == PS_WEATHER ? PS_WX_N - 1 : sp ? 300 : 1000;
     return v < lo ? lo : v > hi ? hi : v;
 }
@@ -102,6 +105,8 @@ static inline int PstNinjutsuFill(int on, float cur, float max) {
 }
 // Damage multiplier of one hit by ATTACKER side (hit apply 327DEC: attacker = 325F40(hit) = owner character of [hit+0x198], victim = [hit+0x1C8]).
 // Player's hits on someone else -> dealt; a Training boss's hits -> boss; anyone else (allies, NPCs, the player hurting itself, unknown attacker) -> 100.
+// TASK #136492: a soul-core yokai's hit on anyone but the player uses 'Soul core damage' (soul %); otherwise unchanged (100).
+static inline int PstSoulDmgPct(int atkSoul, int vicPlayer, int soul) { return atkSoul && !vicPlayer ? soul : 100; }
 static inline int PstDmgPct(int atkPlayer, int atkBoss, int vicPlayer, int dealt, int boss) {
     if (atkPlayer) return vicPlayer ? 100 : dealt;
     return atkBoss ? boss : 100;
