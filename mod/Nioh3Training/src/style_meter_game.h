@@ -69,6 +69,7 @@ static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_
 static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
 static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
+static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
 static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
 static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
 static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
@@ -140,6 +141,11 @@ static void SmReadIni(const char* ini, int reset) {
     c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
     c.damagePct = (int)GetPrivateProfileIntA("StyleMeter", "DamagePenaltyPct", SM_DAMAGE_PCT, ini);  // human 2026-11-26
+    c.decayLowRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowRank", SM_DECAY_LOW_RANK, ini);  // human 2026-11-26: D..B drain slower
+    c.decayLowPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowPct", SM_DECAY_LOW_PCT, ini);
+    c.versStep = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityStep", SM_VERS_STEP, ini);  // human 2026-11-26: versatility multiplier
+    c.versBasePct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityBasePct", SM_VERS_BASE_PCT, ini);
+    c.versIncPct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityIncPct", SM_VERS_INC_PCT, ini);
     c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
     c.startupMaxF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMaxFrames", SM_STARTUP_MAX_F, ini);
     c.startupPct = (int)GetPrivateProfileIntA("StyleMeter", "StartupBonusPct", SM_STARTUP_PCT, ini);
@@ -864,7 +870,7 @@ static void SmFeed(double gdt) {
     }
     if (!srWas && g_sr.on) varReset = 2;  // a boss fight started with this tick's hit: the run starts here (before the hit is scored)
     if (varReset && g_sm.varN > 0) { Log("STYLE VARIETY: new run (%s), %d distinct moves, %u milestones so far", varReset == 2 ? "boss fight start" : "death / load", g_sm.varN, g_sm.varBonuses); SmVarietyReset(&g_sm); }
-    const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts;
+    const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts; const int vers0 = SmVersPct(&g_sm, &g_smc);
     const int r0 = g_sm.rank, a0 = g_sm.active;
     int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
     static double avHurtT = -1e18; if (taken > 0) avHurtT = g_sm_clock;
@@ -1052,8 +1058,9 @@ static void SmFeed(double gdt) {
             InterlockedExchange(&g_sm_mileKind, 0); InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
             big += pcombo; }
         if (varN && pvar > 0.f) {  // human: move variety milestone, same banner ("Variety x10! +30"); a combo milestone the same tick keeps it, this one pops up
-            if (pcombo > 0.f) { char l[32]; snprintf(l, sizeof l, "Variety x%d!", varMile); SmFxPop(l, pvar); }
-            else { InterlockedExchange(&g_sm_mileKind, 1); InterlockedExchange(&g_sm_comboMile, (LONG)varMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pvar + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen); }
+            const int vpc = SmVersPct(&g_sm, &g_smc);
+            if (pcombo > 0.f) { char l[40]; if (vpc > 0) snprintf(l, sizeof l, "Variety x%d! x%.2f", varMile, 1.0 + vpc / 100.0); else snprintf(l, sizeof l, "Variety x%d!", varMile); SmFxPop(l, pvar); }
+            else { InterlockedExchange(&g_sm_versPct, (LONG)vpc); InterlockedExchange(&g_sm_mileKind, 1); InterlockedExchange(&g_sm_comboMile, (LONG)varMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pvar + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen); }
             big += pvar; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
         if ((loopN || loopHalfN) && loopLost + loopHalfLost > 0.f) SmFxPopLoss("Repetitive!", loopLost + loopHalfLost);  // loop penalty (S+: lost, A: not paid): "-N"
@@ -1076,6 +1083,7 @@ static void SmFeed(double gdt) {
             if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
             if (varN) n += snprintf(e + n, sizeof e - n, " variety %d moves +%.0f", varMile, pvar);
+            if (SmVersPct(&g_sm, &g_smc) != vers0) n += snprintf(e + n, sizeof e - n, " versatility %d moves x%.2f (+%.0f so far)", g_sm.varN, 1.0 + SmVersPct(&g_sm, &g_smc) / 100.0, g_sm.versPts);
             if (loopN) n += snprintf(e + n, sizeof e - n, " repetitive x%u -%.0f (loop %u/%u uses)", loopN, loopLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
             if (loopHalfN) n += snprintf(e + n, sizeof e - n, " repetitive-half x%u (%.0f not paid, loop %u/%u uses)", loopHalfN, loopHalfLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
             if (loopFreeN) n += snprintf(e + n, sizeof e - n, " repetitive-free x%u (%s, loop %u/%u uses)", loopFreeN, g_sm.lpFree ? "zero-Ki human boss" : "rank below A", (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
@@ -1299,7 +1307,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
             static LONG mileGen; static double mileT = -1e18;  // milestone banner: 1.6 s, then fades over 0.6 s
             if (g_sm_comboMileGen != mileGen) { mileGen = g_sm_comboMileGen; mileT = now; }
             const double ma = now - mileT;
-            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts; st.mileKind = (int)g_sm_mileKind;
+            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts; st.mileKind = (int)g_sm_mileKind; st.versPct = (int)g_sm_versPct;
             st.mileA = ma < 0 ? 0.f : ma < 1600 ? 1.f : ma < 2200 ? 1.f - (float)((ma - 1600) / 600.0) : 0.f;
         }
         const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS) || (st.comboA > 0.f && st.comboA < 1.f) || (st.mileMs >= 0 && st.mileMs < 2300);

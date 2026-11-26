@@ -17,6 +17,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
+    c->versStep = 0; c->decayLowPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
     c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
 }
 #define SmCfgDefaults PinnedDefaults
@@ -170,7 +171,7 @@ static void Tuning(void) {
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 64.f / 180.f));  // 8 different moves = 160 pts + 24 (5 distinct moves): D (120) full, 64 into C (180)
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 74.4f / 180.f));  // 8 different moves = 4 x 20 + 4 x 22 (x1.10 from the 5th) + 24 x 1.10 (5 distinct moves): D (120) full, 74.4 into C (180)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -223,7 +224,7 @@ static void StyleSoul(void) {
     CHECK(near(SmOnStyle(&s, &c, 1600), c.style) && SmOnStyle(&s, &c, 1700) == 0.f);  // the 2nd use pays one more, then spam stops
 }
 static void Ramp(void) {  // human #126972: drain speeds up with idle time past the delay; 0 = flat (old behaviour)
-    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f; c.decayRampPct = 0;
+    SmCfg c; RealDefaults(&c); c.decayDelayMs = 0; c.decayRankPct = 0; c.decayPerS = 10.f; c.decayRampPct = 0; c.decayLowPct = 100;
     SmState a; SmReset(&a); a.active = 1; a.rank = 2; a.pts = 100.f; a.lastScore = 0;
     SmTick(&a, &c, 2000.0, 1000.0); const float flat = 100.f - a.pts;            // 1 s slice at idle 2 s, no ramp
     CHECK(near(flat, 10.f));
@@ -914,6 +915,7 @@ static void MoveVariety(void) {
     SmCfg c; RealDefaults(&c); SmState s; SmReset(&s);
     CHECK(c.varStep == 5 && c.varBase == 20 && c.varInc == 10 && c.varGrow == 3 && c.varPct == 120 && c.varMax == 60 && SM_VAR_IDS >= 64);
     c.decayDelayMs = 1000000;  // no decay in the first part
+    c.versStep = 0;            // the versatility multiplier is tested in Versatility()
     double t = 1000; uint64_t run = 1; float total = 0.f; int paid = 0;
     for (uint32_t a = 100; a < 104; ++a) { SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); t += 100; }
     CHECK(s.varN == 4 && s.varBonuses == 0);
@@ -928,12 +930,12 @@ static void MoveVariety(void) {
     // multi-hit of one use counts once; the next milestones grow by 10
     const uint64_t mr = run++; for (int i = 0; i < 3; ++i) SmOnHitUse(&s, &c, t, 105, mr, -1.f, 0, 0); CHECK(s.varN == 6);
     for (uint32_t a = 106; a < 200; ++a) { const uint32_t b0 = s.varBonuses; SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); if (s.varBonuses != b0) { paid++; total += s.varLastPts; } t += 10; }
-    CHECK(s.varN == 60 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 1874.f) && near(total, 1850.f) && s.varMile == 60 && near(s.varLastPts, 354));
+    CHECK(s.varN == 100 && s.varBonuses == 12 && paid == 11 && near(s.varPts, 1874.f) && near(total, 1850.f) && s.varMile == 60 && near(s.varLastPts, 354));
     // pure milestone table
     SmState q; SmReset(&q); float seen[13]; int ns = 0;
     for (uint32_t a = 1; a <= 70; ++a) { const float b = SmVarietyMove(&q, &c, 0, a); if (b > 0.f && ns < 13) seen[ns++] = b; }
-    CHECK(ns == 12 && near(seen[0], 24) && near(seen[1], 36) && near(seen[2], 52) && near(seen[3], 71) && near(seen[11], 354) && q.varN == 60);
-    CHECK(SmVarietyMove(&q, &c, 0, 9999) == 0.f && q.varN == 60);               // no more after VarietyMax
+    CHECK(ns == 12 && near(seen[0], 24) && near(seen[1], 36) && near(seen[2], 52) && near(seen[3], 71) && near(seen[11], 354) && q.varN == 70);
+    CHECK(SmVarietyMove(&q, &c, 0, 9999) == 0.f && q.varN == 71);               // no more bonus after VarietyMax (the count goes on)
     // the run survives decay to idle
     SmCfg d; RealDefaults(&d); SmState r; SmReset(&r); t = 0; run = 1;
     for (uint32_t a = 1; a <= 4; ++a) SmOnHitUse(&r, &d, t, a, run++, -1.f, 0, 0);
@@ -972,8 +974,47 @@ static void DamageHalf(void) {
     // 100 % = the old rule
     SmCfg f = c; f.damagePct = 100; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &f, 1); CHECK(s.rank == 2 && s.pts == 0.f);
 }
+// human 2026-11-26: versatility multiplier on every gain: 5 distinct moves +10 %, 10 +15 %, 15 +20 %, .. no cap; resets with the run.
+static void Versatility(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.versStep == 5 && c.versBasePct == 10 && c.versIncPct == 5);
+    c.decayDelayMs = 1000000; c.varBase = 0;  // no decay, no milestone bonus: only the multiplier
+    SmState s; SmReset(&s); double t = 1000; uint64_t run = 1;
+    CHECK(SmVersPct(&s, &c) == 0);
+    for (uint32_t a = 100; a < 104; ++a) { const float p = SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0); CHECK(near(p, c.hit)); t += 100; }
+    CHECK(SmVersPct(&s, &c) == 0);
+    { const float p = SmOnHitUse(&s, &c, t, 104, run++, -1.f, 0, 0); CHECK(s.varN == 5 && SmVersPct(&s, &c) == 10 && near(p, c.hit * 1.10f)); }  // the 5th move's own hit
+    { const float p = SmOnDodge(&s, &c, t); CHECK(near(p, c.dodge * 1.10f)); }  // every gain, not only hits
+    SmVarietyMove(&s, &c, t, SM_VAR_DODGE); CHECK(s.varN == 6);  // (the glue feeds the dodge's pseudo id)
+    for (uint32_t a = 105; a < 109; ++a) SmOnHitUse(&s, &c, t, a, run++, -1.f, 0, 0);
+    CHECK(s.varN == 10 && SmVersPct(&s, &c) == 15);
+    { const float p = SmOnHitUse(&s, &c, t, 109, run++, -1.f, 0, 0); CHECK(s.varN == 11 && near(p, c.hit * 1.15f)); }
+    struct { int n, pct; } tbl[] = {{14, 15}, {15, 20}, {20, 25}, {50, 55}, {100, 105}, {200, 205}};
+    for (unsigned i = 0; i < sizeof tbl / sizeof tbl[0]; ++i) { SmState q; SmReset(&q); for (uint32_t a = 1; a <= (uint32_t)tbl[i].n; ++a) SmVarietyMove(&q, &c, 0, a); CHECK(q.varN == tbl[i].n && SmVersPct(&q, &c) == tbl[i].pct); }
+    CHECK(s.versPts > 0.f);
+    SmVarietyReset(&s); CHECK(SmVersPct(&s, &c) == 0);  // a new run (fight start / death / load)
+    { const float p = SmOnHitUse(&s, &c, t, 300, run++, -1.f, 0, 0); CHECK(near(p, c.hit)); }
+    // the milestone bonus itself is multiplied (5th move: +24 x 1.10)
+    SmCfg m; RealDefaults(&m); m.decayDelayMs = 1000000; SmState v; SmReset(&v);
+    for (uint32_t a = 1; a <= 5; ++a) SmVarietyMove(&v, &m, 0, a);
+    CHECK(near(v.varLastPts, 24.f * 1.10f));
+    // off
+    SmCfg o; RealDefaults(&o); o.versStep = 0; SmState z; SmReset(&z); for (uint32_t a = 1; a <= 30; ++a) SmVarietyMove(&z, &o, 0, a); CHECK(SmVersPct(&z, &o) == 0);
+}
+// human 2026-11-26: D..B drain 30 % slower (DecayLowPct 70), A+ unchanged.
+static void DecayLow(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 70);
+    SmCfg f = c; f.decayLowPct = 100;
+    for (int r = 0; r < SM_RANKS; ++r) {
+        SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
+        const double t = (double)c.decayDelayMs + 100.0;
+        SmTick(&a, &c, t, 100); SmTick(&b, &f, t, 100);
+        const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
+        CHECK(lb > 0.f && a.rank == r && b.rank == r);
+        if (r <= 2) CHECK(near(la, lb * 0.7f)); else CHECK(near(la, lb));
+    }
+}
 int main(void) {
-    MoveVariety();
+    MoveVariety(); Versatility(); DecayLow();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();
