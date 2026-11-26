@@ -52,7 +52,7 @@ int main() {
         State s; uint64_t t = 1000;
         uint32_t any = 0;
         for (int i = 0; i < 300; ++i, t += 8) any |= Step(s, 0x1000 | 0x2000 | 0x0010 | kLT, true, t, 1);  // A, B, Start, LT
-        CHECK(any == kLT);
+        CHECK(any == 0);  // #137566: LT is analog, never released
     }
     {   // menu opens while the button is already held: full delay from the open, no instant repeat
         State s; uint64_t t = 1000;

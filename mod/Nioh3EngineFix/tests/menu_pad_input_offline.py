@@ -165,14 +165,14 @@ int main() {
       }
       CHECK(!early && edges >= 9 && edges <= 12);
       CHECK(strstr(g_mlog, "game menu hold-repeat: first repeat") != nullptr); }
-    ResetAll(); g_gameMenuOpen = 1;  // left stick down + LB + LT also repeat; A and the right stick are never touched
+    ResetAll(); g_gameMenuOpen = 1;  // LB repeats; left stick, LT, A and the right stick are never touched (#137566)
     { bool stickRel = false, lbRel = false, ltRel = false, aRel = false, rsRel = false;
       for (ULONGLONG t = 1000; t < 2400; t += 8) {
           const auto st = Feed(t, A | LB, 0, -30000, 5000, 6000, 200, 0);
           stickRel |= st.Gamepad.sThumbLY == 0; lbRel |= !(st.Gamepad.wButtons & LB); ltRel |= st.Gamepad.bLeftTrigger == 0;
           aRel |= !(st.Gamepad.wButtons & A); rsRel |= st.Gamepad.sThumbRX != 5000 || st.Gamepad.sThumbRY != 6000;
       }
-      CHECK(stickRel && lbRel && ltRel && !aRel && !rsRel); }
+      CHECK(!stickRel && lbRel && !ltRel && !aRel && !rsRel); }
     ResetAll(); g_gameMenuOpen = 1; g_cfg.gmRepeat = 0;  // row off: pass-through
     { bool allDown = true; for (ULONGLONG t = 1000; t < 3000; t += 8) allDown &= (Feed(t, DD).Gamepad.wButtons & DD) != 0; CHECK(allDown); }
     ResetAll(); g_gameMenuOpen = 1; g_open = 1;  // the mod menu is open: it owns the pad (blank), no repeat bookkeeping

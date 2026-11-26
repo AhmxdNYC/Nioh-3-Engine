@@ -8,7 +8,7 @@ setup = next((p for p in (REPO / "tools/msvc/setup_x64.bat", pathlib.Path(r"D:/n
 mc = (ROOT / "src/menu.cpp").read_text(encoding="utf-8-sig")
 for need, why in (("menurepeat::Step(g_mrep[idx], raw, act, t, g_cfg.gmRepeatSpeed)", "pad hook must run the repeat step"),
                   ("g_cfg.gmRepeat && g_gameMenuOpen && !g_open && !s.latch", "repeat only while a game menu is open and the mod menu is closed"),
-                  ("g_gameMenuOpen = (g_menuShown || g_stopPaused)", "gate must follow the game's menu signal / pause flags"),
+                  ("g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown)", "gate must follow the game's menu signal / pause flags / control-off (#137478)"),
                   ('!strcmp(key, "GameMenuRepeat")', "rows must be on Settings > Game")):
     if need not in mc: sys.exit("FAIL: " + why)
 src = ROOT / "tests/menurepeat_test.cpp"

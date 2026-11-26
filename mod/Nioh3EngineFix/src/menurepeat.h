@@ -14,7 +14,10 @@ namespace menurepeat {
 // bits in the caller's "raw" word: XInput wButtons (low 16) plus the menu.cpp extras (B_SU..B_RT)
 constexpr uint32_t kDUp = 0x0001, kDDown = 0x0002, kDLeft = 0x0004, kDRight = 0x0008, kLB = 0x0100, kRB = 0x0200;
 constexpr uint32_t kSU = 1u << 16, kSD = 1u << 17, kSL = 1u << 18, kSR = 1u << 19, kLT = 1u << 20, kRT = 1u << 21;
-constexpr uint32_t kRepeatable = kDUp | kDDown | kDLeft | kDRight | kLB | kRB | kSU | kSD | kSL | kSR | kLT | kRT;
+// #137566: only digital buttons repeat. The left stick and the triggers are analog: screens like the map pan / zoom with
+// them, and a repeat release there changed the pan speed (PC2 live: 104-108 px/s with repeat vs 46-47 px/s without).
+// So the stick and triggers always pass through untouched; the D-pad and bumpers keep the menu cursor moving.
+constexpr uint32_t kRepeatable = kDUp | kDDown | kDLeft | kDRight | kLB | kRB;
 constexpr int kBits = 22;
 
 // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu), 2 Fast

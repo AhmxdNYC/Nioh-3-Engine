@@ -128,7 +128,7 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
-    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / stick / bumpers / triggers repeat in the game's own menus (#137069)
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat (stick + triggers untouched, #137566) in the game's own menus (#137069)
     int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
