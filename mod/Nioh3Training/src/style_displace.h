@@ -30,7 +30,7 @@
 #define SM_VAR_DISPLACE 0xFFFFFF05u  // variety pseudo id (next to SM_VAR_KI)
 #define SM_LOOP_DISPLACE 0xFFFFFF05u // loop sequence pseudo id (next to SM_LOOP_COUNTER)
 
-#define SM_DP_PTS 65          // [StyleMeter] DisplacePts: replaces the window's Dodge! / Counter! (45): +20 for doing it with a displacement move
+#define SM_DP_PTS 80          // [StyleMeter] DisplacePts: replaces the window's Dodge! / Counter! (45) (human 2026-11-26: 80, was 65)
 #define SM_DP_FOLLOW_MS 1500  // DisplaceFollowMs: the counter hit must land this soon after the boss's hit window closed (live 2026-11-25:
                               // Swift Step Heavy's slash lands ~850 ms into it, 0.93 / 0.98 s after a window that closed early in the step;
                               // a cancel's Y attack 0.9 .. 1.25 s after; 900 ms missed 2 of 7 clean uses)

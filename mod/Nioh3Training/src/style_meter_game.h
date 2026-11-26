@@ -32,6 +32,7 @@ static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alph
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
 static int g_cfg_sm_ingame = 1;  // DrawInGame: 1 = meter + result card drawn into the game's frames by Nioh3EngineFix (OBS Game Capture records them)
 static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen (rank D, empty bar) between hits
+static int g_cfg_sm_show = 1;  // human 2026-11-26 ShowMeter 0 = the meter (and its pop-ups / combo) is not drawn; scoring and the result card still run
 #define SM_BAR_HK_DEF 1.7f  // = style_meter_draw.h default (#127273)
 static float g_sm_bar_hk = SM_BAR_HK_DEF;  // human #129225 [StyleMeter] BarHeightPct (100 = 1.7x sprite gauge height), live
 #define SM_BAR_HK g_sm_bar_hk
@@ -65,7 +66,8 @@ static void SmFxPopLoss(const char* label, float pts) {  // a loss (loop penalty
 static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
-static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr_hitpen = SR_HIT_PENALTY; static int g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
+static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
+static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
 static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
 static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
@@ -79,6 +81,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
+    g_cfg_sm_show = (int)GetPrivateProfileIntA("StyleMeter", "ShowMeter", 1, ini) ? 1 : 0;  // human 2026-11-26
     { int bp = (int)GetPrivateProfileIntA("StyleMeter", "BarHeightPct", 100, ini); if (bp < 50 || bp > 400) bp = 100; g_sm_bar_hk = SM_BAR_HK_DEF * (float)bp / 100.f; }  // human #129225 thicker bar
     { int lp = (int)GetPrivateProfileIntA("StyleMeter", "LetterPct", 60, ini); if (lp < 15 || lp > 150) lp = 60; g_sm_letter_pct = lp; }  // human #129306 smaller rank letter
     g_sm_bar_style = (int)GetPrivateProfileIntA("StyleMeter", "BarStyle", 0, ini) ? 1 : 0;
@@ -94,7 +97,8 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_ingame = (int)GetPrivateProfileIntA("StyleMeter", "DrawInGame", 1, ini) != 0;
     g_cfg_sm_alpha = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterOpacity", 100, ini); if (g_cfg_sm_alpha < 20 || g_cfg_sm_alpha > 100) g_cfg_sm_alpha = 100;
     g_cfg_sr = (int)GetPrivateProfileIntA("StyleMeter", "ResultCard", 1, ini) ? 1 : 0;
-    g_cfg_sr_hitpen = (int)GetPrivateProfileIntA("StyleMeter", "ResultHitPenalty", SR_HIT_PENALTY, ini); if (g_cfg_sr_hitpen < 0 || g_cfg_sr_hitpen > 700) g_cfg_sr_hitpen = SR_HIT_PENALTY;
+    { char hp[32]; GetPrivateProfileStringA("StyleMeter", "ResultHitPenalty", "", hp, sizeof hp, ini);  // hundredths, decimals allowed (12.5)
+      g_cfg_sr_hitpen = hp[0] ? (float)atof(hp) : SR_HIT_PENALTY; } if (!(g_cfg_sr_hitpen >= 0.f && g_cfg_sr_hitpen <= 700.f)) g_cfg_sr_hitpen = SR_HIT_PENALTY;
     g_cfg_sr_scale = (int)GetPrivateProfileIntA("StyleMeter", "ResultScalePct", SR_SCALE_PCT, ini); if (g_cfg_sr_scale < 50 || g_cfg_sr_scale > 300) g_cfg_sr_scale = SR_SCALE_PCT;
     g_cfg_sr_hold = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPct", SR_HOLD_PCT, ini); if (g_cfg_sr_hold < 0 || g_cfg_sr_hold > 100) g_cfg_sr_hold = SR_HOLD_PCT;
     g_cfg_sr_delay = (int)GetPrivateProfileIntA("StyleMeter", "ResultEndDelayMs", SR_END_DELAY_MS, ini); if (g_cfg_sr_delay < 0 || g_cfg_sr_delay > 20000) g_cfg_sr_delay = SR_END_DELAY_MS;
@@ -135,6 +139,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.decayRampPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRampPct", SM_DECAY_RAMP_PCT, ini);  // #126972
     c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
+    c.damagePct = (int)GetPrivateProfileIntA("StyleMeter", "DamagePenaltyPct", SM_DAMAGE_PCT, ini);  // human 2026-11-26
     c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
     c.startupMaxF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMaxFrames", SM_STARTUP_MAX_F, ini);
     c.startupPct = (int)GetPrivateProfileIntA("StyleMeter", "StartupBonusPct", SM_STARTUP_PCT, ini);
@@ -244,6 +249,7 @@ static const SmMenuKey sm_menu_keys[] = {
     {"StyleMeterX", SM_DEF_X, 0, 1100, 1}, {"StyleMeterY", SM_DEF_Y, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (SM_DEF_X / Y = the -1 default place)
     {"AlwaysOn", 0, 0, 1},  // human #129172 index 23
     {"ResultCard", 1, 0, 1},  // index 24: boss fight result card (style_result.h)
+    {"ShowMeter", 1, 0, 1},   // index 25 (human 2026-11-26): 0 = no meter on screen, the result card still shows
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
 static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
@@ -1253,7 +1259,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
         const int lay = SmLayerOk();
         SrCardTick(g_cfg_sm && gameOk && fg && !loading && !menu, lay);
         if (lay != wasLay) { if (shown) { if (wasLay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); } shown = 0; wasLay = lay; }
-        const int want = g_cfg_sm && g_sm_vis && gameOk && fg && !loading && !menu;
+        const int want = g_cfg_sm && g_cfg_sm_show && g_sm_vis && gameOk && fg && !loading && !menu;  // ShowMeter 0: card only
         if (!want) { if (shown) { if (lay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_sm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_sm_game, &o);
         if (cr.right <= 0 || cr.bottom <= 0) continue;

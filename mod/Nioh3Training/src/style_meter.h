@@ -98,6 +98,7 @@
 #define SM_LOOP_DEFLECT 0xFFFFFF02u
 #define SM_LOOP_COUNTER 0xFFFFFF03u  // an avoid counter with no move key (SmOnAvoidCounter; the game glue passes the move)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
+#define SM_DAMAGE_PCT 50    // [StyleMeter] DamagePenaltyPct (human 2026-11-26, more casual): getting hit costs half a rank drop (100 = the old full drop)
 // human 2026-11-25: the loop penalty depends on the rank when the looped use starts: D..B none (the use scores in full), A = the use
 // scores LoopHalfPct % (no points taken off), S and up = scores 0 and costs LoopPenaltyPts. Ranks 0 D .. 6 SSS.
 #define SM_LOOP_HALF_RANK 3  // [StyleMeter] LoopHalfRank: from this rank a looped use scores LoopHalfPct % (3 = A)
@@ -136,6 +137,7 @@ typedef struct {
     int repeatPct, repeatFloorPct, multiPct;
     int decayDelayMs; float decayPerS; int decayRankPct; int decayRampPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
+    int damagePct;                        // human 2026-11-26: getting hit costs this % of a full rank drop (100 = one rank down, gauge empty)
     float kiPerfect;                      // #127075 extra points for a perfect Ki pulse (on top of ki)
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
@@ -210,7 +212,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
-    c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS;
+    c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
     c->blockPct = SM_BLOCK_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
@@ -224,6 +226,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->decayDelayMs < 0) c->decayDelayMs = 0; if (c->decayPerS < 0) c->decayPerS = 0; if (c->decayRankPct < 0) c->decayRankPct = 0; if (c->decayRampPct < 0) c->decayRampPct = 0;
     if (c->combatMs < 0) c->combatMs = 0;
     if (c->damageGraceMs < 0) c->damageGraceMs = 0;
+    if (c->damagePct < 0) c->damagePct = 0; if (c->damagePct > 100) c->damagePct = 100;
     if (c->kiHitMs < 0) c->kiHitMs = 0;
     if (c->startupMinF < 0) c->startupMinF = 0; if (c->startupMaxF <= c->startupMinF) c->startupMaxF = c->startupMinF + 1;
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
@@ -675,11 +678,17 @@ static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->damaged++; s->lastEvent = t; s->combo = 0;  // getting hit breaks the combo
     if (s->dodge.inWin) s->dodge.hit = 1;
-    if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) { s->pts = 0.f; return; }  // same combo: no second drop
+    if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) { if (c->damagePct >= 100) s->pts = 0.f; return; }  // same combo: no second drop
     s->lastDamaged = t;
+    s->useOn = 0; s->useAct = SM_ACT_NONE;
+    if (c->damagePct < 100) {  // human 2026-11-26: a share of the full drop (this rank's points + the rank below's bar), drained like decay
+        const float full = s->pts + (s->rank > 0 ? c->rankPts[s->rank - 1] : 0.f);
+        SmSub(s, c, full * (float)c->damagePct / 100.f);
+        if (s->rank == 0 && !(s->pts > 0.f)) { s->pts = 0.f; s->active = 0; }  // an empty D goes idle (as the full drop does)
+        return;
+    }
     if (s->rank > 0) s->rank--;
     s->pts = 0.f; s->active = s->rank > 0;
-    s->useOn = 0; s->useAct = SM_ACT_NONE;
 }
 // human: combo. n landed hits this tick (the player's and the summoned spirit's). A gap over comboMs starts a new combo; every comboStep-th
 // hit of one combo pays a milestone bonus (comboBase, +comboInc each later milestone, capped at comboMax). Returns the bonus paid;

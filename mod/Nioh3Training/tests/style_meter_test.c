@@ -9,6 +9,7 @@
 #include "../src/style_meter_fx.h"
 // The mechanics cases below were written against the first tuning; pin it so they keep testing the rules, not the numbers.
 static void RealDefaults(SmCfg* c) { SmCfgDefaults(c); }
+static void DamageHalf(void);
 static void PinnedDefaults(SmCfg* c) {
     static const float old[SM_RANKS] = {40.f, 60.f, 80.f, 100.f, 130.f, 160.f, 200.f};
     SmCfgDefaults(c); c->decayPerS = 12.f; c->decayDelayMs = 2500; for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = old[i];
@@ -16,6 +17,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
+    c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -954,9 +956,25 @@ static void MoveVariety(void) {
     SmCfg k; RealDefaults(&k); k.varStep = 0; k.varMax = 500; k.varBase = -3; k.varInc = -1; SmCfgClamp(&k);
     CHECK(k.varStep == 1 && k.varMax == SM_VAR_IDS && k.varBase == 0 && k.varInc == 0);
 }
+// human 2026-11-26: getting hit costs half a rank drop (this rank's points + the rank below's bar, x DamagePenaltyPct 50 %).
+static void DamageHalf(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.damagePct == 50);
+    SmState s; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f;   // A 60 / 180, B bar = 130: full drop 190, half 95
+    SmOnDamaged(&s, &c, 1);
+    CHECK(s.rank == 2 && near(s.pts, 95.f) && s.active && s.damaged == 1 && s.combo == 0);
+    SmOnDamaged(&s, &c, 2);  // same combo (grace): nothing more
+    CHECK(s.rank == 2 && near(s.pts, 95.f));
+    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // B 95, C bar = rankPts[1]: half of (95 + C)
+    { const float want = 95.f - (95.f + c.rankPts[1]) * 0.5f; CHECK(s.rank == 1 && near(s.pts, want + c.rankPts[1])); }
+    // at D: half the gauge, still active; an empty D goes idle
+    SmReset(&s); s.active = 1; s.rank = 0; s.pts = 40.f; SmOnDamaged(&s, &c, 1); CHECK(s.rank == 0 && near(s.pts, 20.f) && s.active);
+    SmReset(&s); s.active = 1; s.rank = 0; s.pts = 0.f; SmOnDamaged(&s, &c, 1); CHECK(!s.active);
+    // 100 % = the old rule
+    SmCfg f = c; f.damagePct = 100; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &f, 1); CHECK(s.rank == 2 && s.pts == 0.f);
+}
 int main(void) {
     MoveVariety();
-    Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
+    DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();
     Blocked(); BlockQueue();

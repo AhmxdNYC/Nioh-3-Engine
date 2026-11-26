@@ -44,7 +44,7 @@
 #define SR_END_DELAY_MS 3000    // [StyleMeter] ResultEndDelayMs: wait after the last boss death for a next form
 #define SR_FORM_MS 1500         // [StyleMeter] ResultFormMs: a boss first seen this long after the fight went down is still its next form
 #define SR_FORM_SLACK_MS 500    // ... or this long before it (the next form's bar can show a frame before the old HP reads 0)
-#define SR_HIT_PENALTY 25        // [StyleMeter] ResultHitPenalty: average lost per hit taken, in hundredths (25 = 0.25)
+#define SR_HIT_PENALTY 12.5f     // [StyleMeter] ResultHitPenalty: average lost per hit taken, in hundredths (12.5 = 0.125; human 2026-11-26: half of 25)
 #define SR_SCALE_PCT 140        // [StyleMeter] ResultScalePct: card size (100 = 640 px wide at 1080p)
 #define SR_SHOW_MS 0            // [StyleMeter] ResultShowMs: 0 = the card stays up until the player presses confirm; > 0 = also hides after that many wall ms
 
@@ -188,11 +188,11 @@ static inline int SrGrade(const double* atRank, double ms, double area, int hold
     return g;
 }
 // hitPenaltyCenti: average lost per hit taken, in hundredths (0 = none).
-static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPct, int hitPenaltyCenti) {
+static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPct, float hitPenaltyCenti) {
     SrResult r; uint8_t* p = (uint8_t*)&r; for (unsigned i = 0; i < sizeof r; ++i) p[i] = 0;
     r.n = SrCountSub(SrCountOf(s), f->c0);
     r.rawAvg = f->ms > 0 ? (float)(f->area / f->ms) : 0.f;
-    r.penalty = hitPenaltyCenti > 0 ? (float)r.n.damaged * (float)hitPenaltyCenti / 100.f : 0.f;
+    r.penalty = hitPenaltyCenti > 0 ? (float)r.n.damaged * hitPenaltyCenti / 100.f : 0.f;
     r.grade = SrGrade(f->atRank, f->ms, f->area, holdPct, r.penalty, &r.avg, &r.byAvg); r.hold = holdPct;
     for (int i = 0; i < SM_RANKS; ++i) r.pctAt[i] = f->ms > 0 ? (float)(f->atRank[i] * 100.0 / f->ms) : (i == 0 ? 100.f : 0.f);
     r.peak = f->peak; r.ms = f->ms; r.moves = f->nActs; r.maMoves = f->nMa; r.comboBest = f->comboBest;

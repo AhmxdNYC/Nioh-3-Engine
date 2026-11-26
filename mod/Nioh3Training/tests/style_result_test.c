@@ -229,7 +229,7 @@ static void DodgeDeflectCounter(void) {
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT);
     CHECK(r.n.deflects == 1 && r.n.dodges == 1 && r.n.counterAvoids == 1);
 }
-// Hit penalty: each hit taken lowers the average by 0.25 before grading; 0 = off.
+// Hit penalty: each hit taken lowers the average by 0.125 (was 0.25) before grading; 0 = off.
 static void HitPenalty(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
     SrBossHit(&f, &s, 0x1000);
@@ -238,8 +238,10 @@ static void HitPenalty(void) {
     CHECK(r.grade == 3 && near(r.penalty, 0, 0.001));                  // no hits: A
     for (int i = 0; i < 4; ++i) SmOnDamaged(&s, &c, 100000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.n.damaged == 4 && near(r.penalty, 1.0, 0.001) && near(r.rawAvg, 3.6, 0.01) && near(r.avg, 2.6, 0.01) && r.grade == 2);  // 4 hits: B
-    for (int i = 0; i < 20; ++i) SmOnDamaged(&s, &c, 200000 + i * 5000);
+    CHECK(r.n.damaged == 4 && near(r.penalty, 0.5, 0.001) && near(r.rawAvg, 3.6, 0.01) && near(r.avg, 3.1, 0.01) && r.grade == 3);  // 4 hits: still A (0.125 each)
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, 25);
+    CHECK(near(r.penalty, 1.0, 0.001) && near(r.avg, 2.6, 0.01) && r.grade == 2);  // the old 0.25: B
+    for (int i = 0; i < 40; ++i) SmOnDamaged(&s, &c, 200000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
     CHECK(r.avg == 0.f && r.grade == 0);                               // never below 0
     CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 3);              // penalty off
