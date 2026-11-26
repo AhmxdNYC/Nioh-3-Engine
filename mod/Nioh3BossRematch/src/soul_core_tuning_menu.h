@@ -186,7 +186,8 @@ bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32
     *color = sel ? cWhite : g_scEqPick == SCW_EMPTY ? cGray : cYellow;
     return true;
 }
-// human #135018: hands-on pair stepping from the keyboard (no menu, no chat). F2 = next pair of owned cores (distinct items, inventory order)
+// human #135018: hands-on pair stepping from the keyboard (no menu, no chat). F2 = next pair (TASK #136451: every soul core in the game when
+// Nioh3Training has SoulCoreCatalog, else owned cores; distinct items, list order, wraps after the last)
 // into Yang 1 + Yang 2, Shift+F2 = previous pair, F6 = flag the pair now equipped (Nioh3BossRematch.log + Nioh3BossRematch_flags.txt).
 // Uses the same Nioh3Training_SoulCoreEquip request as the menu rows, one slot at a time; then fills the spirit gauge.
 struct ScPairList { uint32_t idx[256]; uint16_t item[256]; int n; uint32_t slots[SCW_NSLOT]; };
@@ -215,11 +216,21 @@ uint32_t g_scPairWant[2] = {SCW_EMPTY, SCW_EMPTY};
 uint16_t g_scPairItems[2] = {0, 0};
 int g_scPairNo = 0, g_scPairOf = 0;
 ULONGLONG g_scPairT0 = 0;
+bool g_scPairCat = false;  // TASK #136451 (human #136449): this step walks every soul core in the item master (SoulCoreCatalog), not only owned ones
 // Send one slot's request; 1 sent, 0 busy (retry), 2 nothing to do (already there), -1 failed.
 int ScPairSend(int slot) {
     using E = int (*)(int, int); using R = int (*)(int*);
     const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquip"); const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
     if (!eq || !res) return -1;
+    if (g_scPairCat) {  // catalog step: equip by item id (an unowned core is added by the game's own item add, as the menu row does)
+        const auto eqi = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem");
+        ScCat c; if (!eqi || !ScCatRead(&c)) return -1;
+        if (c.slotItem[slot] == g_scPairItems[slot]) return 2;
+        int sq = 0; res(&sq);
+        const int qi = eqi(slot, (int)g_scPairItems[slot]);
+        if (qi == 1) g_scPairSeq = sq;
+        return qi == 1 ? 1 : qi == 0 ? 0 : -1;
+    }
     ScPairList L; if (!ScPairRead(&L)) return -1;
     const uint32_t want = g_scPairWant[slot];
     if (L.slots[slot] == want) return 2;
@@ -245,8 +256,35 @@ void ScPairFinish(bool ok, int r) {
     Log("Rematch: pair %d/%d on: Yang 1 core %X, Yang 2 core %X; %s (human #135018)", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1], rep);
     ToastF(cGreen, 5000, "Pair %d of %d: core %X (Yang 1) + core %X (Yang 2). F6 flag, F2 next", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
 }
+// Catalog pairs: entries (2p, 2p+1) of the item-master list, so F2 reaches the last core in the game, then wraps to pair 1.
+int ScPairCatPick(const uint16_t* ids, int n, uint16_t inYang1, int dir, int* a, int* b) {
+    const int npairs = (n + 1) / 2;
+    int cur = -1;
+    for (int i = 0; i < n; ++i) if (ids[i] == inYang1) { cur = i; break; }
+    const int p = cur < 0 ? (dir > 0 ? 0 : npairs - 1) : ((cur / 2 + dir) % npairs + npairs) % npairs;
+    *a = p * 2; *b = *a + 1 < n ? *a + 1 : (*a ? 0 : -1);
+    return p;
+}
 void ScPairStep(int dir) {
     if (g_scPairStage) { ToastF(cYellow, 2000, "Still changing cores..."); return; }
+    ScCat cat;
+    if (TrainingExport("Nioh3Training_SoulCoreEquipItem") && ScCatRead(&cat) && cat.n >= 2) {
+        int a = 0, b = 0;
+        const int p = ScPairCatPick(cat.ids, cat.n, cat.slotItem[0], dir, &a, &b);
+        g_scPairCat = true;
+        g_scPairItems[0] = cat.ids[a]; g_scPairItems[1] = cat.ids[b];
+        g_scPairWant[0] = g_scPairWant[1] = SCW_EMPTY;
+        g_scPairNo = p + 1; g_scPairOf = (cat.n + 1) / 2;
+        const bool sw = cat.slotItem[1] == g_scPairItems[0];
+        g_scPairOrder[0] = sw ? 1 : 0; g_scPairOrder[1] = sw ? 0 : 1;
+        g_scPairStage = 1; g_scPairT0 = Ms();
+        Log("Rematch: F2 pair %d/%d of every core in the game (%d cores): Yang 1 core %X, Yang 2 core %X (TASK #136451)", g_scPairNo, g_scPairOf, cat.n, g_scPairItems[0], g_scPairItems[1]);
+        const int s = ScPairSend(g_scPairOrder[0]);
+        if (s == 2) g_scPairStage = 2; else if (s == 0) g_scPairStage = 4; else if (s < 0) ScPairFinish(false, s);
+        ToastF(cWhite, 3000, "Changing to pair %d of %d (all %d cores): core %X + core %X...", g_scPairNo, g_scPairOf, cat.n, g_scPairItems[0], g_scPairItems[1]);
+        return;
+    }
+    g_scPairCat = false;
     ScPairList L;
     if (!TrainingExport("Nioh3Training_SoulCoreEquip") || !ScPairRead(&L)) { ToastF(cYellow, 3000, "Soul cores cannot be read right now (load a save first)."); return; }
     if (L.n < 2) { ToastF(cYellow, 3000, "Fewer than 2 soul cores owned."); return; }
