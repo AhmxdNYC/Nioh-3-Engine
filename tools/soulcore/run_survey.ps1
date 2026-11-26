@@ -61,8 +61,7 @@ try {
   if ($LASTEXITCODE -ne 0) {
     $st = py -m uo_bridge.gamelock status nioh3 2>&1 | Out-String
     T "lock status: $st"
-    if ($st -notmatch "'holder': 'pc'") { throw "lock not acquired" }
-    T "lock already held by this pc"
+    throw "lock not acquired (held by another seat; never launch over it, #138626)"
   }
   $script:gotLock = $true
   New-Item -ItemType Directory -Force (Split-Path $marker) | Out-Null

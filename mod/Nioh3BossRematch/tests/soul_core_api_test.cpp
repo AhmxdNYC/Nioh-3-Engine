@@ -102,6 +102,17 @@ int main() {
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(0.f, 1.4f, 2000, 2.f, 100), false, true, 2000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(0.f, 13.f, 16, 2.f, 100), false, true, 2400, 200, 4000, 6.f, 6.f) == SC_FAST_PH_START);
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(0.f, 46.1f, 150, 2.f, 100), false, true, 2700, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
+    // TASK #138533: hit-action recovery tail (3B1AB C54: data last hit ends f116, action runs to f143)
+    CHECK(sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 116, 130.f, false));             // tail
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 116, 117.5f, false));           // inside the margin
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 116, 60.f, false));             // before / during the hits
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 116, 130.f, true));             // a collider still open
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, SC_FAST_NO_END, 130.f, false)); // untimed / spawn rows: not certain
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 0, 130.f, false));
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_NOHIT, true, 116, 130.f, false));          // no-hit actions use sc_fast_chr_phase
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_UNKNOWN, true, 116, 130.f, false));
+    CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, false, 116, 130.f, false));
+    { const float nan = std::numeric_limits<float>::quiet_NaN(); CHECK(!sc_fast_hit_tail(SC_FAST_ACT_HIT, true, 116, nan, false)); }
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, false, true) == SC_FAST_CHR_DONE);
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 1, false, true) == SC_FAST_CHR_BLOCK);   // second hit not seen yet
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, true, true) == SC_FAST_CHR_BLOCK);    // a hit still open
