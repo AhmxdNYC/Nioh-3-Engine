@@ -206,6 +206,8 @@ void UiChange(int dir);  // Left/Right: edit only a selected startup preference
 void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max);  // TASK #137000: soul core overlay, 0 = hide
+void ScOverlayLook(int* v);  // TASK #137007: 8 ints: size %, x / y per-mille, opacity %, box, colors, font, panel COLORREF
+void SoulCallKeyTick(bool f3, bool f4);  // TASK #137007: F3 / F4 flip Yang 1 / 2 summon <-> Transform
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
 #if BR_SOULCORE

@@ -93,7 +93,8 @@ static inline void N3StrokeWrapped(HDC dc,const char* text,RECT r,int px,int adv
 }
 // Paint a color-key GDI scene into a per-pixel-alpha window. AA coverage must not
 // be blended against magenta (otherwise color-key presentation leaves fringes).
-static inline void N3StrokeWindow(HWND wnd,void (*paint)(HDC,int,int)) {
+// alpha = the whole window's constant opacity (N3StrokeWindow: 235). TASK #137007: the soul core overlay's opacity row.
+static inline void N3StrokeWindowAlpha(HWND wnd,void (*paint)(HDC,int,int),BYTE alpha) {
     RECT r;GetClientRect(wnd,&r);const int w=r.right,h=r.bottom;if(w<=0||h<=0)return;
     HDC scr=GetDC(NULL),dc=CreateCompatibleDC(scr);BITMAPINFO bi={0};unsigned* bits=NULL;
     bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=w;bi.bmiHeader.biHeight=-h;
@@ -102,9 +103,10 @@ static inline void N3StrokeWindow(HWND wnd,void (*paint)(HDC,int,int)) {
     if(bm) {
         HGDIOBJ old=SelectObject(dc,bm);n3_stroke_layered=1;paint(dc,w,h);n3_stroke_layered=0;GdiFlush();
         for(size_t i=0;i<(size_t)w*h;++i)if(!(bits[i]>>24))bits[i]=(bits[i]&0xffffff)==0xff00ff?0:bits[i]|0xff000000;
-        POINT origin={0,0};SIZE size={w,h};BLENDFUNCTION blend={AC_SRC_OVER,0,235,AC_SRC_ALPHA};
+        POINT origin={0,0};SIZE size={w,h};BLENDFUNCTION blend={AC_SRC_OVER,0,alpha,AC_SRC_ALPHA};
         UpdateLayeredWindow(wnd,scr,NULL,&size,dc,&origin,0,&blend,ULW_ALPHA);
         SelectObject(dc,old);DeleteObject(bm);
     }
     DeleteDC(dc);ReleaseDC(NULL,scr);
 }
+static inline void N3StrokeWindow(HWND wnd,void (*paint)(HDC,int,int)) { N3StrokeWindowAlpha(wnd,paint,235); }

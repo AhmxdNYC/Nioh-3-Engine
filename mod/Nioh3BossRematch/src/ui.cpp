@@ -239,13 +239,21 @@ void GateReqTick() {  // UI worker only. user #6789: Return gate used in the are
     rematch::UiGatePage();
     Log("Menu: Return gate page opened");
 }
+#if BR_SOULCORE
+void ScOverlayKick();  // TASK #137007
+#endif
 // human #135018: soul core pair keys (F2 next, Shift+F2 previous, F6 flag; F9 is Nioh3Training's debug freeze key) with the menu closed; both the standalone and the
 // Engine Fix hosted loops call this every ~33 ms. Only while the game window is in front.
 void SoulPairKeys() {
     const HWND fgw = GetForegroundWindow(); DWORD fpid = 0; if (fgw) GetWindowThreadProcessId(fgw, &fpid);
     const bool mine = fpid == GetCurrentProcessId();
     const bool f9 = KeyEdge(VK_F2), f6 = KeyEdge(VK_F6), sh = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+    const bool f3 = KeyEdge(VK_F3), f4 = KeyEdge(VK_F4);  // TASK #137007 (human #137004): Yang 1 / Yang 2 summon <-> Transform
     rematch::SoulPairTick(mine && f9 && !sh, mine && f9 && sh, mine && f6);
+#if BR_SOULCORE
+    rematch::SoulCallKeyTick(mine && f3, mine && f4);
+    if (mine && (f9 || f3 || f4)) ScOverlayKick();  // the overlay redraws now, not on its next 250 ms poll
+#endif
 }
 #include "menu_bridge_impl.h"
 
@@ -255,9 +263,11 @@ void SoulPairKeys() {
 // or there is nothing to show. Text is the menu's stroke font on the toast panel colour; redrawn only when a line changes.
 namespace scov {
 HWND g_wnd = nullptr, g_gameWnd = nullptr;
+HANDLE g_kick = CreateEventW(nullptr, FALSE, FALSE, nullptr);  // TASK #137007: F2 / F3 / F4 wake the thread at once
 char g_lines[2][64] = {};
 uint32_t g_colors[2] = {};
-int g_n = 0, g_px = 20;
+int g_n = 0, g_px = 20, g_adv = 10, g_box = 1, g_bold = 0;
+uint32_t g_panel = 0x181210;
 BOOL CALLBACK FindGameOv(HWND h, LPARAM) {
     DWORD pid = 0; GetWindowThreadProcessId(h, &pid);
     if (pid != GetCurrentProcessId() || h == g_wnd || h == addon::ui::g_wnd || !IsWindowVisible(h) || GetWindow(h, GW_OWNER)) return TRUE;
@@ -267,11 +277,18 @@ BOOL CALLBACK FindGameOv(HWND h, LPARAM) {
 }
 void PaintOv(HDC dc, int w, int h) {
     HBRUSH key = CreateSolidBrush(RGB(255, 0, 255)); RECT all = {0, 0, w, h}; FillRect(dc, &all, key); DeleteObject(key);
-    HBRUSH bg = CreateSolidBrush(RGB(16, 18, 24)); FillRect(dc, &all, bg); DeleteObject(bg);
-    const int lh = g_px + g_px / 5, pad = g_px / 3;
+    if (g_box) { HBRUSH bg = CreateSolidBrush(g_panel & 0xFFFFFF); FillRect(dc, &all, bg); DeleteObject(bg); }
+    const int lh = g_px + g_px / 5, pad = g_px / 3, o = g_px / 14 > 1 ? g_px / 14 : 1;
     for (int i = 0; i < g_n; ++i) {
+        const int x = pad, y = pad + i * lh, len = (int)strlen(g_lines[i]);
+        if (!g_box) {  // TASK #137007: no panel -> a dark outline keeps the text readable on any background (the style meter's look)
+            SetTextColor(dc, RGB(0, 0, 0));
+            static const int d[8][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, 1}, {-1, 1}, {1, -1}};
+            for (const auto& k : d) N3StrokeText(dc, x + k[0] * o + (g_bold ? o : 0) * (k[0] > 0), y + k[1] * o, g_lines[i], len, g_px, g_adv);
+        }
         SetTextColor(dc, g_colors[i] & 0xFFFFFF);
-        N3StrokeText(dc, pad, pad + i * lh, g_lines[i], (int)strlen(g_lines[i]), g_px, N3StrokeWidth(g_px));
+        N3StrokeText(dc, x, y, g_lines[i], len, g_px, g_adv);
+        if (g_bold) N3StrokeText(dc, x + o, y, g_lines[i], len, g_px, g_adv);  // Bold: the strokes once more, one step right
     }
 }
 LRESULT CALLBACK OvProc(HWND h, UINT m, WPARAM w, LPARAM l) {
@@ -288,8 +305,9 @@ DWORD WINAPI OvThread(void*) {
     Log("SoulCoreOverlay: ready ([Menu] SoulCoreOverlay, TASK #137000)");
     bool shown = false; RECT last = {};
     char was[2][64] = {}; uint32_t wasC[2] = {}; int wasN = -1, wasPx = 0;
+    int wasLook[8] = {};
     for (;;) {
-        Sleep(250);
+        WaitForSingleObject(g_kick, 250);  // TASK #137007: F2 / F3 / F4 set it
         MSG msg; while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_gameWnd || !IsWindow(g_gameWnd)) { g_gameWnd = nullptr; EnumWindows(FindGameOv, 0); }
         char lines[2][64] = {}; uint32_t colors[2] = {};
@@ -298,25 +316,35 @@ DWORD WINAPI OvThread(void*) {
         if (n <= 0) { if (shown) { ShowWindow(g_wnd, SW_HIDE); shown = false; } continue; }
         RECT cr; GetClientRect(g_gameWnd, &cr); POINT o = {0, 0}; ClientToScreen(g_gameWnd, &o);
         if (cr.right <= 0 || cr.bottom <= 0) continue;
-        const int px = cr.bottom / 54 < 14 ? 14 : cr.bottom / 54;  // 20 px at 1080p, the menu's size
+        int look[8] = {}; addon::rematch::ScOverlayLook(look);  // TASK #137007: size %, x / y per-mille, opacity %, box, colors, font, panel
+        const int base = cr.bottom / 54 < 14 ? 14 : cr.bottom / 54;  // 20 px at 1080p, the menu's size
+        const int px = base * look[0] / 100 < 8 ? 8 : base * look[0] / 100;
+        const int adv = look[6] == 1 ? N3StrokeWidth(px) * 6 / 5 : N3StrokeWidth(px), bold = look[6] == 2;
+        const int ol = look[4] ? 0 : 2 * (px / 14 > 1 ? px / 14 : 1);  // room for the outline
         int wmax = 0;
-        for (int i = 0; i < n; ++i) { const SIZE sz = N3StrokeMeasure((int)strlen(lines[i]), px, N3StrokeWidth(px)); if (sz.cx > wmax) wmax = sz.cx; }
-        const int lh = px + px / 5, pad = px / 3, w = wmax + 2 * pad, h = n * lh + 2 * pad;
-        const int x = o.x + cr.right * 15 / 1000, y = o.y + cr.bottom - cr.bottom * 30 / 1000 - h;  // bottom left, 1.5% / 3% in
+        for (int i = 0; i < n; ++i) { const SIZE sz = N3StrokeMeasure((int)strlen(lines[i]), px, adv); if (sz.cx > wmax) wmax = sz.cx; }
+        const int lh = px + px / 5, pad = px / 3, w = wmax + 2 * pad + ol + (bold ? px / 14 + 1 : 0), h = n * lh + 2 * pad;
+        int x = o.x + (int)((long long)cr.right * look[1] / 1000), y = o.y + (int)((long long)cr.bottom * look[2] / 1000) - h;  // x = left edge, y = bottom edge
+        if (x + w > o.x + cr.right) x = o.x + cr.right - w;
+        if (x < o.x) x = o.x;
+        if (y < o.y) y = o.y;
         const RECT want = {x, y, x + w, y + h};
-        const bool changed = n != wasN || px != wasPx || memcmp(lines, was, sizeof was) || memcmp(colors, wasC, sizeof wasC);
+        const bool changed = n != wasN || px != wasPx || memcmp(lines, was, sizeof was) || memcmp(colors, wasC, sizeof wasC) || memcmp(look, wasLook, sizeof look);
         if (!shown || memcmp(&want, &last, sizeof last)) {
             SetWindowPos(g_wnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want; shown = true;
         }
         if (changed || wasN < 0) {
             memcpy(g_lines, lines, sizeof g_lines); memcpy(g_colors, colors, sizeof g_colors); g_n = n; g_px = px;
-            N3StrokeWindow(g_wnd, PaintOv);
-            memcpy(was, lines, sizeof was); memcpy(wasC, colors, sizeof wasC); wasN = n; wasPx = px;
+            g_adv = adv; g_box = look[4]; g_bold = bold; g_panel = (uint32_t)look[7];
+            const int op = look[3] < 20 ? 20 : look[3] > 100 ? 100 : look[3];
+            N3StrokeWindowAlpha(g_wnd, PaintOv, (BYTE)(op * 255 / 100));
+            memcpy(was, lines, sizeof was); memcpy(wasC, colors, sizeof wasC); wasN = n; wasPx = px; memcpy(wasLook, look, sizeof look);
         }
     }
 }
 }  // namespace scov
+void ScOverlayKick() { if (scov::g_kick) SetEvent(scov::g_kick); }
 #endif
 
 UINT VkFromName(const wchar_t* s);

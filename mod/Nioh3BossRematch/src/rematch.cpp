@@ -4418,6 +4418,7 @@ int ItemsBase(int* out, int cap) {
     }
 #if BR_SOULCORE
     if (g_uiPages.page == uSoulTune) { SctAddPage(add); add(kItBack); return n; }  // human #58117
+    if (g_uiPages.page == uScOverlay) { add(kItScOverlay); for (int i = 0; i < kScOvN; ++i) add(kItScOvBase + i); add(kItBack); return n; }  // TASK #137007
 #endif  // BR_SOULCORE
     if (g_uiPages.page == uBossVitals) { BvAddPage(add); PstAddBossRows(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
@@ -5534,6 +5535,7 @@ const char* PageTitle(const char* movesTitle) {
          : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings" : p == uBossVitals ? BvTitle() :
 #if BR_SOULCORE
         p == uSoulTune ? "Soul core tuning - LEFT form (live, saved)" :
+        p == uScOverlay ? "Soul core overlay look (live, saved)" :
 #endif  // BR_SOULCORE
         p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
@@ -5548,7 +5550,7 @@ const char* ItemGroup(int item) {
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
     if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
 #if BR_SOULCORE
-        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) ? "Soul cores" :
+        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) || IsScOvItem(item) ? "Soul cores" :
 #endif  // BR_SOULCORE
         nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
@@ -6129,27 +6131,25 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
 // TASK #137000: the soul core overlay lines (UI overlay thread). 0 = nothing to show (off, or no save / equipment not readable).
 int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
     if (max < 2 || !ScOverlayOn()) return 0;
-    uint16_t items[2] = {0xFFFF, 0xFFFF};
-    ScCat cat;
-    if (ScCatRead(&cat)) { items[0] = cat.slotItem[0]; items[1] = cat.slotItem[1]; }
-    else {
-        ScEqState st;
-        if (!ScEqRead(&st)) return 0;
-        for (int y = 0; y < 2; ++y) { const int it = st.slots[y] != SCW_EMPTY ? ScEqItemOf(st, st.slots[y]) : -1; items[y] = it >= 0 ? (uint16_t)it : 0xFFFF; }
-    }
+    const uint16_t items[2] = {ScSlotItem(0), ScSlotItem(1)};
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
     const bool forms = bosslog::SoulCoreForms(nullptr);
+    const uint32_t* th = kScOvTheme[ScOvGet(kScOvColors)];  // TASK #137007
     int n = 0;
     for (int y = 0; y < 2; ++y) {
         if (items[y] == 0xFFFF || !items[y]) continue;
         const char* tag = ScOverlayTag(eq ? chr[y] : 0, forms);
         snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
-        colors[n] = tag[0] == 'S' ? cGray : tag[1] ? cGreen : cWhite;
+        colors[n] = tag[0] == 'S' || tag[0] == '?' ? th[0] : tag[1] ? th[2] : th[1];
         ++n;
     }
     return n;
 }
+// TASK #137007: the overlay look for the overlay thread: size %, x / y per-mille, opacity %, box, colors, font, then the panel COLORREF.
+void ScOverlayLook(int* v) { for (int w = 0; w < kScOvN; ++w) v[w] = ScOvGet(w); v[kScOvN] = (int)kScOvTheme[ScOvGet(kScOvColors)][3]; }
+// TASK #137007: F3 / F4 (UI worker, ~33 ms)
+void SoulCallKeyTick(bool f3, bool f4) { if (f3) ScCallKey(0); if (f4) ScCallKey(1); }
 #endif
 bool Toast(char* buf, size_t n, uint32_t& color) {
     bool on = false;

@@ -72,6 +72,63 @@ const char* ScOverlayTag(uint32_t chr, bool formsOn) {
     if (!formsOn || sc_call_game_path(c)) return "S";
     return bosslog::FormCoreMoved(chr) ? "TM" : "T";
 }
+// TASK #137007 (human #137004): the overlay's look, on its own page (Player > Soul core overlay look), styled like the style meter rows.
+// [Menu] SoulCoreOverlay* keys, live (the overlay thread reads them every repaint) and saved.
+constexpr int uScOverlay = 951;
+constexpr int kItScOvOpen = 0xE0303, kItScOvBase = 0xE0310, kScOvN = 7;
+enum { kScOvSize = 0, kScOvX, kScOvY, kScOvAlpha, kScOvBox, kScOvColors, kScOvFont };
+struct ScOvRow { const char* label; const wchar_t* key; int def, kind, lo, hi; int steps[12]; const char* foot; };  // kind 0 on/off, 1 %, 4 per-mille (1% steps), 5 choice
+const ScOvRow kScOv[kScOvN] = {
+    {"Overlay size:", L"SoulCoreOverlaySize", 100, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size. Applies at once. Saved."},
+    {"Overlay left/right:", L"SoulCoreOverlayX", 15, 4, 0, 1000, {}, "Where the overlay sits across the screen (its left edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},
+    {"Overlay up/down:", L"SoulCoreOverlayY", 970, 4, 0, 1000, {}, "Where the overlay sits down the screen (its bottom edge): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
+    {"Overlay opacity:", L"SoulCoreOverlayOpacity", 90, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole overlay is. 100% = solid. Applies at once. Saved."},
+    {"Overlay background:", L"SoulCoreOverlayBox", 1, 0, 0, 1, {}, "ON = text on a dark panel. OFF = outlined text only, nothing behind it (like the style meter). Applies at once. Saved."},
+    {"Overlay colors:", L"SoulCoreOverlayColors", 0, 5, 0, 2, {}, "Menu = the mod menu's white / green / gray. Style meter = the style meter's purple. Gold = warm gold. S lines are dimmer, TM lines brightest. Applies at once. Saved."},
+    {"Overlay font:", L"SoulCoreOverlayFont", 0, 5, 0, 2, {}, "Letter style: Normal (the menu's), Wide (more space between letters) or Bold (heavier strokes). Applies at once. Saved."},
+};
+const char* const kScOvChoice[2][3] = {{"Menu", "Style meter", "Gold"}, {"Normal", "Wide", "Bold"}};
+std::atomic<int> g_scOv[kScOvN];  // value + 1 (0 = not read from the ini yet)
+bool IsScOvItem(int item) { return item == kItScOvOpen || (item >= kItScOvBase && item < kItScOvBase + kScOvN); }
+int ScOvClamp(int w, int v) { return v < kScOv[w].lo ? kScOv[w].lo : v > kScOv[w].hi ? kScOv[w].hi : v; }
+int ScOvGet(int w) {
+    if (w < 0 || w >= kScOvN) return 0;
+    int v = g_scOv[w].load();
+    if (!v) { v = ScOvClamp(w, IniInt(L"Menu", kScOv[w].key, kScOv[w].def)) + 1; g_scOv[w].store(v); }
+    return v - 1;
+}
+int ScOvSet(int w, int v) {
+    v = ScOvClamp(w, v);
+    g_scOv[w].store(v + 1);
+    wchar_t t[16]; swprintf(t, 16, L"%d", v);
+    WritePrivateProfileStringW(L"Menu", kScOv[w].key, t, IniPath());
+    return v;
+}
+void ScOvReset() { for (int w = 0; w < kScOvN; ++w) ScOvSet(w, kScOv[w].def); }
+void ScOvPageReset() { ScOvReset(); g_scOverlay.store(1); WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", L"1", IniPath()); }
+int ScOvStep(int w, int v, int dir) {
+    const int k = kScOv[w].kind;
+    if (k == 0) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
+    if (k == 5) { const int span = kScOv[w].hi - kScOv[w].lo + 1, d = dir < 0 ? -1 : 1; return kScOv[w].lo + ((v - kScOv[w].lo + d) % span + span) % span; }
+    if (k == 4) { const int x = (v + 5) / 10 * 10 + (dir < 0 ? -10 : 10); return ScOvClamp(w, x); }
+    const int* st = kScOv[w].steps; int cnt = 0; while (cnt < 12 && st[cnt] >= 0) ++cnt;
+    if (dir >= 0) { for (int i = 0; i < cnt; ++i) if (st[i] > v) return st[i]; return dir ? st[cnt - 1] : st[0]; }  // A past the top wraps
+    for (int i = cnt - 1; i >= 0; --i) if (st[i] < v) return st[i];
+    return st[0];
+}
+void ScOvValueText(int w, int v, char* b, size_t n) {
+    const int k = kScOv[w].kind;
+    if (k == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
+    else if (k == 5) snprintf(b, n, "%s", kScOvChoice[w == kScOvFont][v < 0 ? 0 : v > 2 ? 2 : v]);
+    else if (k == 4) snprintf(b, n, "%d.%d %%", v / 10, v % 10);
+    else snprintf(b, n, "%d %%", v);
+}
+// Overlay colours (COLORREF): [theme][0 = S, 1 = T, 2 = TM, 3 = panel]
+const uint32_t kScOvTheme[3][4] = {
+    {0xB4B4B4, 0xFFFFFF, 0x6CFF6C, 0x181210},   // Menu: the mod menu's gray / white / green on its dark panel
+    {0xBE8CA0, 0xFFE1EB, 0xFF78D6, 0x260E1A},   // Style meter: muted / pale / bright purple on dark purple
+    {0x6E96AA, 0x96E1FF, 0x3CBEFF, 0x081218},   // Gold
+};
 int g_scEqSlot = 0;
 uint32_t g_scEqPick = SCW_EMPTY;
 int g_scEqSeq = -1;  // finished-request count when our request was sent (-1 = none outstanding)
@@ -84,6 +141,7 @@ bool ScEqRead(ScEqState* st) {
 }
 template <class Add> void ScEqAddRows(Add&& add) {
     add(kItScOverlay);  // TASK #137000
+    add(kItScOvOpen);  // TASK #137007: overlay look page
     if (!TrainingExport("Nioh3Training_SoulCoreEquip")) return;  // older Nioh3Training.asi: no rows
     add(kItScEqSlot); add(kItScEqCore);
 }
@@ -98,7 +156,79 @@ bool ScCatRead(ScCat* c) {
     c->n = n > SCW_MAX_IDS ? SCW_MAX_IDS : n;
     return true;
 }
+// Item id of the core in Yang slot y (0/1), 0xFFFF = empty or not readable.
+uint16_t ScSlotItem(int y) {
+    ScCat cat;
+    if (ScCatRead(&cat)) return cat.slotItem[y];
+    ScEqState st;
+    if (!ScEqRead(&st)) return 0xFFFF;
+    const int it = st.slots[y] != SCW_EMPTY ? ScEqItemOf(st, st.slots[y]) : -1;
+    return it >= 0 ? (uint16_t)it : 0xFFFF;
+}
+// TASK #137007: overlay look rows (A / Left / Right). The open row enters uScOverlay.
+bool ScOvChange(int item, int dir) {
+    if (!IsScOvItem(item)) return false;
+    if (item == kItScOvOpen) {
+        if (dir) return true;  // the open row has no value
+        g_uiPages.Enter(uScOverlay, g_sel);
+        g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        Log("Rematch: Soul core overlay look page opened (TASK #137007)");
+        return true;
+    }
+    const int w = item - kItScOvBase, cur = ScOvGet(w);
+    const int v = ScOvSet(w, ScOvStep(w, cur, dir));
+    char t[24]; ScOvValueText(w, v, t, sizeof t);
+    Log("Rematch: menu %s -> %d (TASK #137007)", kScOv[w].label, v);
+    snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved.", kScOv[w].label, t);
+    return true;
+}
+bool ScOvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (!IsScOvItem(item)) return false;
+    if (item == kItScOvOpen) { snprintf(buf, n, "%s Soul core overlay look   A: open", mk); *color = sel ? cWhite : cGray; return true; }
+    const int w = item - kItScOvBase, v = ScOvGet(w);
+    char t[24]; ScOvValueText(w, v, t, sizeof t);
+    snprintf(buf, n, "%s %-22s %-12s Left / Right", mk, kScOv[w].label, t);
+    *color = sel ? cWhite : v != kScOv[w].def ? cYellow : cGray;
+    return true;
+}
+const char* ScOvFooter(int item) {
+    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 flip Yang 1 / Yang 2 between summon and Transform.";
+    if (item >= kItScOvBase && item < kItScOvBase + kScOvN) return kScOv[item - kItScOvBase].foot;
+    return nullptr;
+}
+// TASK #137007 (human #137004): F3 / F4 flip the core in Yang slot 1 / 2 between summon and Transform. Transform never picks 'moves':
+// the detection decides (TASK #136987). Going back to summon restores the summon kind the core had (the game's own or Fast summon).
+uint32_t g_scKeyId[16]; int g_scKeySummon[16]; int g_scKeyN = 0;
+void ScCallKey(int y) {
+    uint32_t chr[2] = {};
+    const bool eq = bosslog::FormCoreEquippedIds(chr);
+    const uint16_t item = ScSlotItem(y);
+    if (!eq || !chr[y]) {
+        if (item == 0xFFFF || !item) ToastF(cYellow, 3000, "Yang %d: no soul core in this slot.", y + 1);
+        else ToastF(cYellow, 3000, "Yang %d (core %X): not detected yet. Load into the game first, then press F%d again.", y + 1, item, y + 3);
+        Log("Rematch: F%d soul core call: Yang %d not detected (eq=%d id=%X item=%X, TASK #137007)", y + 3, y + 1, eq ? 1 : 0, chr[y], item);
+        return;
+    }
+    const uint32_t id = chr[y];
+    const int cur = bosslog::FormCoreCallGet(id);
+    int k = 0; while (k < g_scKeyN && g_scKeyId[k] != id) ++k;
+    int want;
+    if (sc_call_forms(cur)) want = k < g_scKeyN ? g_scKeySummon[k] : SC_CALL_GAME;
+    else {
+        if (k == g_scKeyN && g_scKeyN < 16) ++g_scKeyN;
+        if (k < 16) { g_scKeyId[k] = id; g_scKeySummon[k] = cur; }
+        want = SC_CALL_TRANSFORM;
+    }
+    const int now = bosslog::FormCoreCallSet(id, want);
+    const bool forms = bosslog::SoulCoreForms(nullptr);
+    Log("Rematch: F%d Yang %d core %X (item %X): %s -> %s (TASK #137007)", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
+    const char* what = sc_call_forms(now) ? "Transform" : now == SC_CALL_FAST_SUMMON ? "Fast summon" : "Summon";
+    if (sc_call_forms(now) && !forms) ToastF(cYellow, 4000, "Yang %d core %X: Transform (saved), but Soul core transformations is OFF in the menu.", y + 1, item);
+    else if (now == want) ToastF(sc_call_forms(now) ? cGreen : cWhite, 3000, "Yang %d core %X: %s from the next use.", y + 1, item, what);
+    else ToastF(cYellow, 4000, "Yang %d core %X: stays %s (the saved core list is full).", y + 1, item, what);
+}
 bool ScEqChange(int item, int dir) {
+    if (ScOvChange(item, dir)) return true;  // TASK #137007
     if (!IsScEqItem(item)) return false;
     if (item == kItScOverlay) {  // TASK #137000: A flips, Left OFF, Right ON
         const bool v = dir > 0 ? true : dir < 0 ? false : !ScOverlayOn();
@@ -177,6 +307,7 @@ void ScEqPoll() {  // finished request -> message (called from the row text, men
              : "Core change failed: nothing more was done (see Nioh3Training.log).");
 }
 bool ScEqRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (ScOvRowText(item, sel, mk, buf, n, color)) return true;  // TASK #137007
     if (!IsScEqItem(item)) return false;
     if (item == kItScOverlay) {  // TASK #137000
         const bool v = ScOverlayOn();
@@ -493,6 +624,7 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
+    if (const char* f = ScOvFooter(item)) return f;  // TASK #137007
     if (item == kItScOverlay) return "Small text at the bottom left while you play: each Yang slot's core and how it plays. S = summon (the game's own or Fast summon), T = Transform, TM = Transform whose yokai has been seen moving (detected, nothing to set). Updates at once. [Menu] SoulCoreOverlay. Saved.";  // TASK #137000
     if (IsScEqItem(item)) return item == kItScEqSlot ? "Which soul core slot to change (Yang 1-2, then Yin). Shows the core in it now."
         : TrainingExport("Nioh3Training_SoulCoreCatalog")

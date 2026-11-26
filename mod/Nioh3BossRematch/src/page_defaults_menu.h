@@ -11,7 +11,7 @@ bool PageHasDefaults(int page) {
         (page == uTools && SpawnedCount() && TrainingExport("Nioh3Training_StanceTimer")) ||
         (page == uActions && RowStaged(g_uiBoss, nullptr, nullptr, nullptr))
 #if BR_SOULCORE
-        || page == uSoulTune
+        || page == uSoulTune || page == uScOverlay
 #endif
         ;
 }
@@ -47,6 +47,7 @@ bool ResetPageDefaults() {
     }
 #if BR_SOULCORE
     else if (page == uSoulTune) bosslog::SoulTuneReset();
+    else if (page == uScOverlay) ScOvPageReset();  // TASK #137007: overlay ON + look rows back to defaults
 #endif
     else if (page == uFightOpts || page == uRematch || page == uGate) {
         using Death = void (*)(int,int,int,int);

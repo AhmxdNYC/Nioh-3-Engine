@@ -13,7 +13,7 @@ code=r'''#include <cstdio>
 #include "../../Nioh3Training/src/practice_stats.h"
 #include "../../Nioh3Training/src/boss_vitals.h"
 #define BR_SOULCORE 1
-constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uRematch=902,uGate=900,uPracticeHub=906,uTools=905,uActions=2;
+constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uScOverlay=951,uRematch=902,uGate=900,uPracticeHub=906,uTools=905,uActions=2;
 // Dojo staged start (#89329): Actions page resets Full climb/Final wave only for a row with staged waves.
 int g_uiBoss=4,stagedAsk=-1;bool staged=false;volatile int g_stagedFinal=0;
 bool RowStaged(int row,uint16_t*,uint16_t*,uint32_t*){stagedAsk=row;return staged;}
@@ -53,7 +53,7 @@ void* TrainingExport(const char* s){
  EXP("SetMoveAllowed",allowSet);EXP("SetMoveRepeat",repeatSet);
  return nullptr;
 }
-namespace bosslog {int forms=0,cores=0,tune=0;bool SoulCoreFormsSet(int on,void*){forms=on;return true;}void FormCoreReset(){++cores;}void SoulTuneReset(){++tune;}}
+namespace bosslog {int forms=0,cores=0,tune=0;bool SoulCoreFormsSet(int on,void*){forms=on;return true;}void FormCoreReset(){++cores;}void SoulTuneReset(){++tune;}}int ovreset=0;void ScOvPageReset(){++ovreset;}
 struct N3Move {uint32_t chr,id;int cat,allowed;bool repeat,sequence;};
 N3Move kN3Moves[]={{123,10,1,0,true,false},{123,11,2,0,true,false},{999,12,1,0,true,false},{123,0,1,0,true,false},{123,13,1,1,false,true}};
 constexpr int N3_MOVE_COUNT=5,kMcSeq=99;
@@ -65,7 +65,7 @@ int checks=0;void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);exit(
 bool has(int a,int b,int c,int d){for(auto&v:calls)if(v==std::make_tuple(a,b,c,d))return true;return false;}
 void reset(int page){g_uiPages.page=page;calls.clear();available=true;failStat=false;activeChr=123;mode=2;waves=false;for(auto&v:stats)v=777;for(auto&v:vitals)v=777;}
 int main(){
- for(int page:{uPlayer,uFightOpts,uBossVitals,uBoss,uMoves,uMoveCat,uSoulTune})check(PageHasDefaults(page));
+ for(int page:{uPlayer,uFightOpts,uBossVitals,uBoss,uMoves,uMoveCat,uSoulTune,uScOverlay})check(PageHasDefaults(page));
  for(int page=0;page<6;++page)check(PageHasDefaults(uSettingFirst+page));
  for(int page:{0,1,2,3,900,903,904,907})check(!PageHasDefaults(page));
  reset(0);check(!ResetPageDefaults()&&calls.empty());
@@ -73,6 +73,7 @@ int main(){
  for(int id:{PS_PLAYER_INF_KI,PS_PLAYER_INF_NIN,PS_PLAYER_INF_SOUL,PS_DMG_DEALT,PS_KI_DEALT,PS_PLAYER_SPEED})check(stats[id]==PstDefault(id));
  check(stats[PS_DMG_TAKEN]==777&&stats[PS_FRAME_METER]==777);check(bosslog::forms==1&&bosslog::cores==1&&bosslog::tune==0);
  reset(uSoulTune);check(ResetPageDefaults()&&bosslog::tune==1&&calls.empty());
+ reset(uScOverlay);check(ResetPageDefaults()&&ovreset==1&&calls.empty());
  reset(uFightOpts);check(ResetPageDefaults());check(has(4,0,1,0)&&has(5,0,1,0));check(has(6,0,6000,1)&&has(6,1,1000,1));check(calls.size()==4);
  for(int page:{uRematch,uGate}) {reset(page);mode=1;check(PageHasDefaults(page)&&ResetPageDefaults());check(calls.size()==4&&has(4,0,1,0));}
  reset(uGate);waves=true;check(!PageHasDefaults(uGate)&&!ResetPageDefaults()&&calls.empty());
