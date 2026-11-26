@@ -267,8 +267,10 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
         PstLog("PRACTICE Ki damage: player hit on %s, Ki %.1f, Ki damage %.1f -> %.1f (x%d.%02d%s)", slot >= 0 ? "a Training boss" : "a non-Training target", cur, amt, r, pct / 100, pct % 100, r > PstScaleKi(amt, pct) ? ", ONE-HIT Ki BREAK" : "");
     return r;
 }
+static void SmKiEvent(uint64_t K, float amt, uint64_t hit);  // style_meter_game.h: blocked hits (BlockPct), read only
 static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
     const float amt0 = amt; float c0 = 0.0f, s0 = 0.0f;
+    __try { SmKiEvent(K, amt0, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { amt = BvKiDmgFloor(K, amt); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: delayed infinite boss Ki, no break from small hits
     const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss

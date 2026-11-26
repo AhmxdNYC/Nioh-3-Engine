@@ -6,6 +6,10 @@
 //                        on any actor (normal enemies too); victim = the player's HP = damage taken (also counted when Infinite health cuts it to 0).
 //                        The hook is the existing one (HpDmgHookInstall, shared with Infinite health / damage multipliers / KiBreakNoFinisher); with
 //                        StyleMeter 1 it is installed if nothing else did. Fallback when it cannot be installed: HP drops of the boss slots and of the player.
+//   blocked hits         (BlockPct) the same hit apply: the player's hit on a live enemy (not the player, not same team) that did Ki damage (KiDamage
+//                        844604 at 329E9D, PstKiDamage -> SmKiEvent; the existing PstKiHookInstall, installed for this if nothing else did)
+//                        and did NOT take HP = the enemy guarded it (SmBlkQ, style_meter.h; a 0 HP call alone is the player's deflect, not a
+//                        guard). Needs the HP hook. Shown as a "Blocked" pop-up. STYLE BLOCKDIAG lines (log only): see SmBd* below.
 //   enemy hit window     g_fp[slot].pulse / open g_fpw windows of the boss slots (BvActor: Training bosses AND native bosses with a HUD HP bar,
 //                        NativeSlotsTick) = the frame meter's 'active' signal.
 //   player i-frames      FmPlayerIfrBits (frame meter I-FR signal); Ki pulse landed FmPlayerKiLanded (frame meter Ki check); action id g_fp[FP_PL].run.act.
@@ -14,18 +18,24 @@
 #include "style_meter.h"
 #include "style_meter_fx.h"  // #127085 pop-ups + motion
 #include "style_result.h"    // boss fight result card (average rank first boss hit -> boss death)
+#include "style_tmtm.h"      // human 2026-11-26: crouch (TMTM) cancel count for the result card
+#include "style_displace.h"  // human: Displacement! (avoid an attack with a move that repositions, then counter)
 #include "style_atlas_gen.h"
 #define COBJMACROS
 #include <wincodec.h>
 __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.incbin \"style/rank_atlas.png\"\n\t.globl g_sm_png_end\ng_sm_png_end:\n\t.byte 0\n\t.text\n");
 extern const unsigned char g_sm_png[], g_sm_png_end[];
-static SmCfg g_smc; static SmState g_sm; static SRWLOCK g_sm_lock = SRWLOCK_INIT;
+static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
+static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (human 2026-11-26)
+static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
+ static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
 #define SM_DEF_Y 270
 static int g_cfg_sm_x = -1, g_cfg_sm_y = -1, g_cfg_sm_scale = 100, g_cfg_sm_alpha = 100;  // human #128855 StyleMeterOpacity %
 static int g_cfg_sm_actlog, g_cfg_sm_movelog;
 static int g_cfg_sm_ingame = 1;  // DrawInGame: 1 = meter + result card drawn into the game's frames by Nioh3EngineFix (OBS Game Capture records them)
 static int g_cfg_sm_always;  // human #129172 AlwaysOn 1 = meter stays on screen (rank D, empty bar) between hits
+static int g_cfg_sm_show = 1;  // human 2026-11-26 ShowMeter 0 = the meter (and its pop-ups / combo) is not drawn; scoring and the result card still run
 #define SM_BAR_HK_DEF 1.7f  // = style_meter_draw.h default (#127273)
 static float g_sm_bar_hk = SM_BAR_HK_DEF;  // human #129225 [StyleMeter] BarHeightPct (100 = 1.7x sprite gauge height), live
 #define SM_BAR_HK g_sm_bar_hk
@@ -41,6 +51,7 @@ static uint64_t g_sm_maRun;  // #127295 the player move (run key) that scored th
 static uint64_t g_sm_swapRun;  // #127057 the player move (run key) that scored the weapon swap attack bonus (move log tag)  // human #126980: [StyleMeter] ActLog=1 logs every player action id change (finds stance/weapon swap, guardian, martial art ids)
 static volatile LONG g_sm_hits, g_sm_taken, g_sm_thread, g_sm_vis, g_sm_rank, g_sm_gauge;  // g_sm_gauge in 1/1000
 static int g_sm_enemy; static double g_sm_clock;
+static int g_cfg_sm_lpfree = 1, g_cfg_sm_lpfreems = SM_LOOP_FREE_KI_MS;  // human 2026-11-25: [StyleMeter] LoopFreeHumanZeroKi / LoopFreeKiMs
 // #127085 pop-ups + motion, game thread -> draw thread. [StyleMeter] PopUps 1 / Motion 1 (default on), PopUpMs, ShakePts.
 static int g_cfg_sm_pops = 1, g_cfg_sm_motion = 1, g_cfg_sm_popms = SM_POP_LIFE_MS, g_cfg_sm_shakepts = SM_SHAKE_PTS;
 static SRWLOCK g_smfx_lock = SRWLOCK_INIT; static SmPopQ g_smfx_q; static double g_smfx_shakeT = -1e18;
@@ -51,11 +62,18 @@ static void SmFxPop2(const char* label, float pts, float bonus) {
     AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush2(&g_smfx_q, label, pts, bonus, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
 }
 static void SmFxPop(const char* label, float pts) { SmFxPop2(label, pts, 0.f); }
+static void SmFxPopLoss(const char* label, float pts) {  // a loss (loop penalty): pts > 0 = the amount lost, queued negative, drawn "-N"
+    if (!g_cfg_sm_pops || pts <= 0.f) return;
+    AcquireSRWLockExclusive(&g_smfx_lock); SmPopPush2(&g_smfx_q, label, -pts, 0.f, SmWallMs(), g_cfg_sm_popms); ReleaseSRWLockExclusive(&g_smfx_lock);
+}
 static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
-static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr_hitpen = SR_HIT_PENALTY; static int g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
-static SrFight g_sr; static int g_sr_hp0[SR_BOSSES];
+static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
+static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
+static SrFight g_sr;
+static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
+static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
 static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
 static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
 static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
@@ -67,6 +85,7 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_y = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterY", -1, ini); if (g_cfg_sm_y < -1 || g_cfg_sm_y > 1000) g_cfg_sm_y = -1;
     g_cfg_sm_actlog = (int)GetPrivateProfileIntA("StyleMeter", "ActLog", 0, ini);
     g_cfg_sm_always = (int)GetPrivateProfileIntA("StyleMeter", "AlwaysOn", 0, ini) ? 1 : 0;  // human #129172
+    g_cfg_sm_show = (int)GetPrivateProfileIntA("StyleMeter", "ShowMeter", 1, ini) ? 1 : 0;  // human 2026-11-26
     { int bp = (int)GetPrivateProfileIntA("StyleMeter", "BarHeightPct", 100, ini); if (bp < 50 || bp > 400) bp = 100; g_sm_bar_hk = SM_BAR_HK_DEF * (float)bp / 100.f; }  // human #129225 thicker bar
     { int lp = (int)GetPrivateProfileIntA("StyleMeter", "LetterPct", 60, ini); if (lp < 15 || lp > 150) lp = 60; g_sm_letter_pct = lp; }  // human #129306 smaller rank letter
     g_sm_bar_style = (int)GetPrivateProfileIntA("StyleMeter", "BarStyle", 0, ini) ? 1 : 0;
@@ -82,7 +101,8 @@ static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm_ingame = (int)GetPrivateProfileIntA("StyleMeter", "DrawInGame", 1, ini) != 0;
     g_cfg_sm_alpha = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeterOpacity", 100, ini); if (g_cfg_sm_alpha < 20 || g_cfg_sm_alpha > 100) g_cfg_sm_alpha = 100;
     g_cfg_sr = (int)GetPrivateProfileIntA("StyleMeter", "ResultCard", 1, ini) ? 1 : 0;
-    g_cfg_sr_hitpen = (int)GetPrivateProfileIntA("StyleMeter", "ResultHitPenalty", SR_HIT_PENALTY, ini); if (g_cfg_sr_hitpen < 0 || g_cfg_sr_hitpen > 700) g_cfg_sr_hitpen = SR_HIT_PENALTY;
+    { char hp[32]; GetPrivateProfileStringA("StyleMeter", "ResultHitPenalty", "", hp, sizeof hp, ini);  // hundredths, decimals allowed (12.5)
+      g_cfg_sr_hitpen = hp[0] ? (float)atof(hp) : SR_HIT_PENALTY; } if (!(g_cfg_sr_hitpen >= 0.f && g_cfg_sr_hitpen <= 700.f)) g_cfg_sr_hitpen = SR_HIT_PENALTY;
     g_cfg_sr_scale = (int)GetPrivateProfileIntA("StyleMeter", "ResultScalePct", SR_SCALE_PCT, ini); if (g_cfg_sr_scale < 50 || g_cfg_sr_scale > 300) g_cfg_sr_scale = SR_SCALE_PCT;
     g_cfg_sr_hold = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPct", SR_HOLD_PCT, ini); if (g_cfg_sr_hold < 0 || g_cfg_sr_hold > 100) g_cfg_sr_hold = SR_HOLD_PCT;
     g_cfg_sr_delay = (int)GetPrivateProfileIntA("StyleMeter", "ResultEndDelayMs", SR_END_DELAY_MS, ini); if (g_cfg_sr_delay < 0 || g_cfg_sr_delay > 20000) g_cfg_sr_delay = SR_END_DELAY_MS;
@@ -99,10 +119,22 @@ static void SmReadIni(const char* ini, int reset) {
         else { g_sm_defl[0] = SM_DEFLECT_SKILL; g_sm_ndefl = 1; if (buf[0]) Log("STYLE METER: DeflectSkill '%s' ignored (hex skill words, e.g. 0x67D2)", buf); }
     }
     c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
+    c.grapplePts = (float)(int)GetPrivateProfileIntA("StyleMeter", "GrapplePts", SM_GRAPPLE_PTS, ini);  // human 2026-11-26
+    c.fluxPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "FluxPts", SM_FLUX_PTS, ini);  // human 2026-11-26
+    c.flux2Pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "Flux2Pts", SM_FLUX2_PTS, ini);
     c.kiPerfect = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPerfectPts", SM_KI_PERFECT_PTS, ini);  // #127075
     c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
     c.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
     c.multiPct = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitPct", SM_MULTI_PCT, ini);
+    c.multiHitCap = (int)GetPrivateProfileIntA("StyleMeter", "MultiHitCap", SM_MULTI_CAP, ini);
+    c.loopReps = (int)GetPrivateProfileIntA("StyleMeter", "LoopReps", SM_LOOP_REPS, ini);
+    c.loopPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "LoopPenaltyPts", SM_LOOP_PTS, ini);
+    c.loopHalfRank = (int)GetPrivateProfileIntA("StyleMeter", "LoopHalfRank", SM_LOOP_HALF_RANK, ini);
+    c.loopFullRank = (int)GetPrivateProfileIntA("StyleMeter", "LoopFullRank", SM_LOOP_FULL_RANK, ini);
+    c.loopHalfPct = (int)GetPrivateProfileIntA("StyleMeter", "LoopHalfPct", SM_LOOP_HALF_PCT, ini);
+    g_cfg_sm_lpfree = GetPrivateProfileIntA("StyleMeter", "LoopFreeHumanZeroKi", 1, ini) ? 1 : 0;
+    g_cfg_sm_lpfreems = (int)GetPrivateProfileIntA("StyleMeter", "LoopFreeKiMs", SM_LOOP_FREE_KI_MS, ini);
+    if (g_cfg_sm_lpfreems < 0) g_cfg_sm_lpfreems = 0; if (g_cfg_sm_lpfreems > 10000) g_cfg_sm_lpfreems = 10000;
     c.kiHitMs = (int)GetPrivateProfileIntA("StyleMeter", "KiHitMs", SM_KI_HIT_MS, ini);
     c.decayDelayMs = (int)GetPrivateProfileIntA("StyleMeter", "DecayDelayMs", SM_DECAY_DELAY_MS, ini);
     c.decayPerS = (float)(int)GetPrivateProfileIntA("StyleMeter", "DecayPerSec", SM_DECAY_PER_S, ini);
@@ -114,6 +146,12 @@ static void SmReadIni(const char* ini, int reset) {
     c.decayRampPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayRampPct", SM_DECAY_RAMP_PCT, ini);  // #126972
     c.combatMs = (int)GetPrivateProfileIntA("StyleMeter", "CombatMs", SM_COMBAT_MS, ini);
     c.damageGraceMs = (int)GetPrivateProfileIntA("StyleMeter", "DamageGraceMs", SM_DAMAGE_GRACE_MS, ini);
+    c.damagePct = (int)GetPrivateProfileIntA("StyleMeter", "DamagePenaltyPct", SM_DAMAGE_PCT, ini);  // human 2026-11-26
+    c.decayLowRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowRank", SM_DECAY_LOW_RANK, ini);  // human 2026-11-26: D..B drain slower
+    c.decayLowPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowPct", SM_DECAY_LOW_PCT, ini);
+    c.versStep = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityStep", SM_VERS_STEP, ini);  // human 2026-11-26: versatility multiplier
+    c.versBasePct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityBasePct", SM_VERS_BASE_PCT, ini);
+    c.versIncPct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityIncPct", SM_VERS_INC_PCT, ini);
     c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
     c.startupMaxF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMaxFrames", SM_STARTUP_MAX_F, ini);
     c.startupPct = (int)GetPrivateProfileIntA("StyleMeter", "StartupBonusPct", SM_STARTUP_PCT, ini);
@@ -129,8 +167,35 @@ static void SmReadIni(const char* ini, int reset) {
     c.comboMs = (int)GetPrivateProfileIntA("StyleMeter", "ComboMs", SM_COMBO_MS, ini); c.comboStep = (int)GetPrivateProfileIntA("StyleMeter", "ComboStep", SM_COMBO_STEP, ini);
     c.comboBase = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonus", SM_COMBO_BASE, ini); c.comboInc = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusStep", SM_COMBO_INC, ini);
     c.comboMax = (int)GetPrivateProfileIntA("StyleMeter", "ComboBonusMax", SM_COMBO_MAX, ini);
+    c.varStep = (int)GetPrivateProfileIntA("StyleMeter", "VarietyStep", SM_VAR_STEP, ini); c.varBase = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonus", SM_VAR_BASE, ini);
+    c.varInc = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusStep", SM_VAR_INC, ini); c.varMax = (int)GetPrivateProfileIntA("StyleMeter", "VarietyMax", SM_VAR_MAX, ini);
+    c.varGrow = (int)GetPrivateProfileIntA("StyleMeter", "VarietyBonusGrow", SM_VAR_GROW, ini);
+    c.varPct = (int)GetPrivateProfileIntA("StyleMeter", "VarietyPct", SM_VAR_PCT, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
+    c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
+    c.slowMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveMs", SM_SLOW_MS, ini);                   // human 2026-11-26: slow moves
+    c.slowPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePct", SM_SLOW_PCT, ini);
+    c.slowStepPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveStepPct", SM_SLOW_STEP_PCT, ini);  // human 2026-11-26 curve
+    c.slowTopPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveTopPct", SM_SLOW_TOP_PCT, ini);
+    c.slowCm = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseCm", SM_SLOW_CM, ini);
+    c.farCm = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainCm", SM_FAR_CM, ini);  // human 2026-11-26
+    c.farPct = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainPct", SM_FAR_PCT, ini);
+    c.slowMaxMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseMaxMs", SM_SLOW_MAX_MS, ini);
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
+    c.burst = (float)(int)GetPrivateProfileIntA("StyleMeter", "BurstBreakPts", SM_BURST_PTS, ini);  // human: Burst Break
+    c.burstMs = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakMs", SM_BURST_MS, ini);
+    c.burstSkill = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakSkillOnly", 0, ini);
+    c.burstCtrAct = (uint32_t)GetPrivateProfileIntA("StyleMeter", "BurstCounterAct", (int)SM_BURST_CTR_ACT, ini);  // the burst counter (0 = off)
+    {
+        SmTmtmCfgDefaults(&g_tmc);  // human 2026-11-26: crouch (TMTM) cancels: ini id lists (empty = default)
+        char tb[160] = {0}; uint32_t ids[SM_TMTM_IDS]; int k;
+        GetPrivateProfileStringA("StyleMeter", "TmtmThrowIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nThr = k; for (int i = 0; i < k; ++i) g_tmc.thr[i] = ids[i]; }
+        GetPrivateProfileStringA("StyleMeter", "TmtmContinueIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nCont = k; for (int i = 0; i < k; ++i) g_tmc.cont[i] = ids[i]; }
+        GetPrivateProfileStringA("StyleMeter", "CrouchIds", "", tb, sizeof tb, ini); if ((k = SmTmtmParse(tb, ids)) > 0) { g_tmc.nCrouch = k; for (int i = 0; i < k; ++i) g_tmc.crouch[i] = ids[i]; }
+        g_tmc.maxMs = (int)GetPrivateProfileIntA("StyleMeter", "TmtmMaxMs", SM_TMTM_MAX_MS, ini); if (g_tmc.maxMs < 17) g_tmc.maxMs = 17; if (g_tmc.maxMs > 500) g_tmc.maxMs = 500;
+        g_tmc.needAttack = GetPrivateProfileIntA("StyleMeter", "TmtmNeedAttack", 0, ini) != 0;
+        GetPrivateProfileStringA("StyleMeter", "FluxSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_flux_skill = ids[0];
+    }
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
         float v[SM_RANKS]; int n = 0; const char* p = buf;
@@ -142,17 +207,43 @@ static void SmReadIni(const char* ini, int reset) {
         const int rp = (int)GetPrivateProfileIntA("StyleMeter", "RankPtsPct", 100, ini);
         if (rp > 0 && rp != 100) for (int i = 0; i < SM_RANKS; ++i) c.rankPts[i] = c.rankPts[i] * (float)rp / 100.f;
     }
+    SmDispCfg dc; SmDispCfgDefaults(&dc);  // human: Displacement! ([StyleMeter] Displace 1 = on)
+    dc.on = (int)GetPrivateProfileIntA("StyleMeter", "Displace", 1, ini) ? 1 : 0;
+    dc.pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "DisplacePts", SM_DP_PTS, ini);
+    dc.triN = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceStreakN", SM_DP_TRI_N, ini);  // human 2026-11-26
+    dc.triPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "DisplaceStreakPts", SM_DP_TRI_PTS, ini);
+    dc.followMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowMs", SM_DP_FOLLOW_MS, ini);
+    dc.followRuns = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowRuns", SM_DP_FOLLOW_RUNS, ini);
+    dc.minCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceMinCm", SM_DP_MIN_CM, ini);
+    dc.angDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceAngleDeg", SM_DP_ANG_DEG, ini);
+    dc.threatCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceThreatCm", SM_DP_THREAT_CM, ini);
+    dc.listMinCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListMinCm", SM_DP_LIST_MIN_CM, ini);
+    dc.listAngDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListAngleDeg", SM_DP_LIST_ANG_DEG, ini);
+    dc.tailMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceTailMs", SM_DP_TAIL_MS, ini);
+    {   // known displacement moves (relaxed motion test; ids that are not skill rows become eligible). Default: Swift Step Heavy.
+        char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", SM_DP_DEFAULT_ACTS, buf, sizeof buf, ini);
+        SmDispParseActs(&dc, buf); }
+    SmDispCfgClamp(&dc);
     SmCfgClamp(&c);
     AcquireSRWLockExclusive(&g_sm_lock);
-    g_smc = c;
+    g_smc = c; g_dpc = dc;
     if (reset) SmReset(&g_sm);
     else if (g_sm.pts > g_smc.rankPts[g_sm.rank]) g_sm.pts = g_smc.rankPts[g_sm.rank];  // live re-read (#126804): keep the rank, cap the gauge
     ReleaseSRWLockExclusive(&g_sm_lock);
-    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word) (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
-        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma);
+    Log("STYLE METER: bonuses startup x1..x%.2f over %d..%d f, counter %.0f, style switch %.0f, ninjutsu %.0f, soul core %.0f, weapon swap attack %.0f within %d ms, guardian spirit %.0f (gauge drop within %d ms), martial art %.0f (action row skill word), burst break %.0f within %d ms%s (burst counter act %u), blocked hit %d %% of a hit (#126821 #126843 #126854 #126913 #127057 #127213 #127295)",
+        1.f + g_smc.startupPct / 100.f, g_smc.startupMinF, g_smc.startupMaxF, g_smc.counter, g_smc.style, g_smc.nin, g_smc.soul, g_smc.swap, g_smc.swapMs, g_smc.gs, g_smc.gsMs, g_smc.ma,
+        g_smc.burst, g_smc.burstMs, g_smc.burstSkill ? " (skill / guardian spirit hits only)" : "", g_smc.burstCtrAct, g_smc.blockPct);
     Log("STYLE METER: [StyleMeter] StyleMeter %d X %d Y %d Scale %d%% | hit %.0f dodge %.0f ki %.0f repeat %d%% (floor %d%%) multi-hit %d%% decay %.0f/s +%d%%/rank +%d%%/idle s after %d ms, combat %d ms, damage grace %d ms, ki needs a hit within %d ms, ranks %.0f %.0f %.0f %.0f %.0f %.0f %.0f",
         g_cfg_sm, g_cfg_sm_x, g_cfg_sm_y, g_cfg_sm_scale, g_smc.hit, g_smc.dodge, g_smc.ki, g_smc.repeatPct, g_smc.repeatFloorPct, g_smc.multiPct,
         g_smc.decayPerS, g_smc.decayRankPct, g_smc.decayRampPct, g_smc.decayDelayMs, g_smc.combatMs, g_smc.damageGraceMs, g_smc.kiHitMs, g_smc.rankPts[0], g_smc.rankPts[1], g_smc.rankPts[2], g_smc.rankPts[3], g_smc.rankPts[4], g_smc.rankPts[5], g_smc.rankPts[6]);
+    Log("STYLE METER: multi-hit cap %d hits per use%s, loop penalty after %d cycles of a 1- or 2-move loop%s: none below rank %s, %d%% points from %s, 0 and -%.0f per use from %s; zero-Ki loop on a human boss free %s (+%d ms)",
+        g_smc.multiHitCap, g_smc.multiHitCap ? "" : " (off)", g_smc.loopReps, g_smc.loopReps ? "" : " (off)",
+        g_smc.loopHalfRank < 7 ? sm_rank_name[g_smc.loopHalfRank] : "-", g_smc.loopHalfPct, g_smc.loopHalfRank < 7 ? sm_rank_name[g_smc.loopHalfRank] : "never",
+        g_smc.loopPts, g_smc.loopFullRank < 7 ? sm_rank_name[g_smc.loopFullRank] : "never", g_cfg_sm_lpfree ? "on" : "off", g_cfg_sm_lpfreems);
+    Log("STYLE METER: move variety every %d distinct moves +%d (step +%d, growing +%d) up to %d moves%s, per run (boss fight start / death / load)",
+        g_smc.varStep, g_smc.varBase, g_smc.varInc, g_smc.varGrow, g_smc.varMax, g_smc.varBase > 0 && g_smc.varMax >= g_smc.varStep ? "" : " (off)");
+    Log("STYLE METER: slow move: first hit %d ms or more after the move started = hits x%.2f (never below the startup ramp)%s; drain paused during its wind-up with a boss within %d cm, at most %d ms per move",
+        g_smc.slowMs, g_smc.slowPct / 100.f, g_smc.slowMs > 0 ? "" : " (off)", g_smc.slowCm, g_smc.slowMaxMs);
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.
@@ -192,6 +283,7 @@ static const SmMenuKey sm_menu_keys[] = {
     {"StyleMeterX", SM_DEF_X, 0, 1100, 1}, {"StyleMeterY", SM_DEF_Y, 0, 1000, 1}, {"StyleMeterOpacity", 100, 20, 100},  // human #128855 (SM_DEF_X / Y = the -1 default place)
     {"AlwaysOn", 0, 0, 1},  // human #129172 index 23
     {"ResultCard", 1, 0, 1},  // index 24: boss fight result card (style_result.h)
+    {"ShowMeter", 1, 0, 1},   // index 25 (human 2026-11-26): 0 = no meter on screen, the result card still shows
 };
 #define SM_MENU_KEYS ((int)(sizeof sm_menu_keys / sizeof sm_menu_keys[0]))
 static const char* SmKey(int what) { return what >= 0 && what < SM_MENU_KEYS ? sm_menu_keys[what].key : 0; }
@@ -217,39 +309,197 @@ N3T_API int Nioh3Training_StyleSet(int what, int value) {
     Log("STYLE METER: menu %s = %d (#126804)", k, value);
     return value;
 }
+// Result card, written by SmHpEvent (hit apply) for SmFeed: the actor of each boss slot hit since the last tick (the slot can be cleared
+// before SmFeed runs when the hit killed it) and the slots whose hit was lethal (raw damage >= HP: a boss torn down before HP 0 is read).
+static volatile LONG64 g_sr_hitAct[32]; static volatile LONG g_sr_lethalMask;
+// HUD-only bosses (Picture Scroll waves: the boss HP bar, no boss slot; style_result.h SrHud). SmFeed publishes the tracked actors in
+// g_sr_hudAct; SmHpEvent notes a hit on one in the masks above at bit SR_HUD_BIT + k (above the boss slot bits, so Burst Break never sees them).
+#define SR_HUD_BIT N3T_SLOTS
+_Static_assert(SR_HUD_BIT + SR_HUD <= 32, "HUD boss bits must fit the 32 bit masks");
+static volatile LONG64 g_sr_hudAct[SR_HUD]; static SrHud g_sr_hud;
+// Blocked hits (BlockPct): the player's hits on an enemy, noted per (hit object, victim status block) from both damage calls of the hit apply.
+static SmBlkQ g_sm_blk; static SRWLOCK g_sm_blk_lock = SRWLOCK_INIT;
+static void SmBlkAdd(uint64_t hit, uint64_t vst, int fl, float ki) { AcquireSRWLockExclusive(&g_sm_blk_lock); SmBlkNote(&g_sm_blk, hit, vst, fl, ki); ReleaseSRWLockExclusive(&g_sm_blk_lock); }
+// The victim of the player's hit is a live enemy: [hit+0x1C8] (the hit apply's victim) is not the player, owns status block vst, is not on the
+// player's team (ally / summon), status+0x48 != 1 (dead) and HP (status+0x58) > 0. Read only.
+static __attribute__((noinline)) int SmBlkVictim(uint64_t hit, uint64_t me, uint64_t vst) {
+    uint64_t v = 0, st = 0;
+    if (!Rd64(hit + 0x1C8, &v) || !v || v == me || !Rd64(v + 0x3A0, &st) || !st || st != vst) return 0;
+    const int tm = ActorTeam(me); if (tm >= 0 && ActorTeam(v) == tm) return 0;
+    __try { if (*(volatile int32_t*)(vst + 0x48) == 1 || *(volatile int64_t*)(vst + 0x58) <= 0) return 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+// Blocked-hit diagnostics (log only, STYLE BLOCKDIAG; user 2026-11-25 'humans block, still no points'). Which path a guarded hit takes is
+// not known for normal (human) enemies: the 2026-11-25 log had only 4 Ki-damage-without-HP hits (a boss in its guard action). So:
+//  hit  = every hit apply call of the player's hit on a non-player (HP damage raw, Ki damage) when it has no HP damage, the victim's guard
+//         state is on, or one of the first SM_BD_BASE hits (baseline). Guard state (FMI_GUARDX, frame_meter_iframe.h: 2A36FC without its
+//         game-mode call): status+0x2DC8 bit 11 | bit 48 | ctrl+0xEA5, plus the hit object's result bytes +0x282.. (IFRAMEDM probe fields).
+//  watch = once per tick, each live enemy in the actor table: guard state on / off, and its Ki (status+0x98+0x14) going down while the guard
+//         state is on, with whether a hit apply of the player's hit touched it this tick (no = the guard took a path that misses both hooks).
+#define SM_BD_LINES 500
+#define SM_BD_BASE 40
+static volatile LONG g_sm_bd_lines, g_sm_bd_base;
+static volatile LONG64 g_sm_bd_mark[32]; static volatile LONG g_sm_bd_markN;  // status blocks the player's hits touched since the last tick
+typedef struct { uint64_t s2dc8; float ki; uint8_t ea5, b[6]; int ok; } SmBdGrd;
+static __attribute__((noinline)) void SmBdRead(uint64_t v, uint64_t hit, SmBdGrd* g) {
+    static const int off[6] = {0x282, 0x286, 0x28E, 0x29E, 0x2A0, 0x2AE};
+    memset(g, 0, sizeof *g);
+    __try {
+        const uint64_t st = *(volatile uint64_t*)(v + 0x3A0), ai = *(volatile uint64_t*)(v + 0x3B0), ctrl = ai ? *(volatile uint64_t*)(ai + 8) : 0;
+        if (st) { g->s2dc8 = *(volatile uint64_t*)(st + 0x2DC8); g->ki = *(volatile float*)(st + 0x98 + 0x14); }
+        if (ctrl) g->ea5 = *(volatile uint8_t*)(ctrl + 0xEA5);
+        if (hit) for (int i = 0; i < 6; ++i) g->b[i] = *(volatile uint8_t*)(hit + off[i]);
+        g->ok = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g->ok = 0; }
+}
+static int SmBdOn(const SmBdGrd* g) { return g->ok && ((g->s2dc8 >> 11 & 1) || (g->s2dc8 >> 48 & 1) || g->ea5); }
+static void SmBdMark(uint64_t st) { const LONG i = InterlockedIncrement(&g_sm_bd_markN) - 1; if (i >= 0 && i < 32) InterlockedExchange64(&g_sm_bd_mark[i], (LONG64)st); }
+// One hit apply call of the player's hit on victim actor v (kind 'hp': raw = HP damage, 'ki': amt = Ki damage).
+static __attribute__((noinline)) void SmBdHit(const char* kind, uint64_t hit, uint64_t v, int raw, float amt) {
+    if (g_sm_bd_lines >= SM_BD_LINES || !v) return;
+    SmBdGrd g; SmBdRead(v, hit, &g);
+    const int none = kind[0] == 'h' ? raw <= 0 : 0, on = SmBdOn(&g);
+    if (!none && !on && InterlockedIncrement(&g_sm_bd_base) > SM_BD_BASE) return;
+    if (InterlockedIncrement(&g_sm_bd_lines) > SM_BD_LINES) return;
+    char d[48]; if (kind[0] == 'h') snprintf(d, sizeof d, "HP damage raw %d", raw); else snprintf(d, sizeof d, "Ki damage %.1f", amt);
+    Log("STYLE BLOCKDIAG %s: hit %p victim %p team %d %s | %s (status+2DC8 bit11 %d bit48 %d, ctrl+EA5 %u) | hit +282 %u +286 %u +28E %u +29E %u +2A0 %u +2AE %u | Ki now %.1f",
+        kind, (void*)hit, (void*)v, ActorTeam(v), d,
+        on ? "GUARD ON" : "guard off", (int)(g.s2dc8 >> 11 & 1), (int)(g.s2dc8 >> 48 & 1), g.ea5, g.b[0], g.b[1], g.b[2], g.b[3], g.b[4], g.b[5], g.ki);
+}
+// Once per tick (SmFeed): the enemy watch above. act = the player's action id (log).
+static __attribute__((noinline)) void SmBdWatch(uint32_t act) {
+    static struct { uint64_t a; float ki; uint8_t on; } w[96]; static int nw;
+    uint64_t mk[32]; LONG nm = InterlockedExchange(&g_sm_bd_markN, 0); if (nm > 32) nm = 32;
+    for (LONG i = 0; i < nm; ++i) mk[i] = (uint64_t)InterlockedExchange64(&g_sm_bd_mark[i], 0);
+    if (g_sm_bd_lines >= SM_BD_LINES) return;
+    const uint64_t me = PlayerChar(); if (!me) { nw = 0; return; }
+    const int tm = ActorTeam(me);
+    uint64_t cur[1024]; const int n = Actors(cur, 1024);
+    for (int i = 0; i < n && g_sm_bd_lines < SM_BD_LINES; ++i) {
+        const uint64_t a = cur[i]; uint64_t st = 0;
+        if (!a || a == me || (tm >= 0 && ActorTeam(a) == tm) || !Rd64(a + 0x3A0, &st) || !st) continue;
+        int alive = 0; __try { alive = *(volatile int32_t*)(st + 0x48) != 1 && *(volatile int64_t*)(st + 0x58) > 0; } __except (EXCEPTION_EXECUTE_HANDLER) { alive = 0; }
+        if (!alive) continue;
+        SmBdGrd g; SmBdRead(a, 0, &g); if (!g.ok) continue;
+        const int on = SmBdOn(&g);
+        int k = 0; while (k < nw && w[k].a != a) k++;
+        if (k == nw) { if (nw >= 96) continue; nw++; w[k].a = a; w[k].ki = g.ki; w[k].on = (uint8_t)on; continue; }
+        int hitNow = 0; for (LONG j = 0; j < nm; ++j) if (mk[j] == st) hitNow = 1;
+        const float drop = w[k].ki - g.ki;
+        if (on != w[k].on) { InterlockedIncrement(&g_sm_bd_lines);
+            Log("STYLE BLOCKDIAG watch: enemy %p guard %s (status+2DC8 %016llX, ctrl+EA5 %u), Ki %.1f, player act %u", (void*)a, on ? "ON" : "off", (unsigned long long)g.s2dc8, g.ea5, g.ki, act); }
+        static int big;  // a hit-sized Ki drop (>= 20) no hook saw, guard state off too (in case the guard bits are not the enemy's guard): at most 150
+        if (drop > 0.5f && (on || w[k].on || (!hitNow && drop >= 20.f && big < 150))) { InterlockedIncrement(&g_sm_bd_lines); if (!on && !w[k].on) big++;
+            Log("STYLE BLOCKDIAG watch: enemy %p Ki %.1f -> %.1f (-%.1f) %s; player hit apply on it this tick %d%s, player act %u", (void*)a, w[k].ki, g.ki, drop,
+                on || w[k].on ? "while guarding" : "guard state off", hitNow, hitNow ? "" : " (NO hook saw it)", act); }
+        w[k].ki = g.ki; w[k].on = (uint8_t)on;
+    }
+    for (int k = 0; k < nw; ) {  // forget actors that left the table
+        int f = 0; for (int i = 0; i < n && !f; ++i) f = cur[i] == w[k].a;
+        if (f) k++; else w[k] = w[--nw];
+    }
+}
+// PstKiDamage (Ki damage 844604 at 329E9D, same hit apply, game thread): K = victim status + 0x98, amt = the hit's Ki damage before any mod scaling.
+static void SmKiEvent(uint64_t K, float amt, uint64_t hit) {
+    if (!g_cfg_sm || g_smc.blockPct <= 0 || g_hpdmg_hooked != 1 || !(amt > 0.f) || !K || !hit || !g_pst_atk_ok) return;  // no HP hook = no way to tell a guarded hit
+    __try {
+        const uint64_t me = PlayerChar(); uint64_t st = 0;
+        if (!me || (Rd64(me + 0x3A0, &st) && st && st + 0x98 == K)) return;  // Ki damage on the player
+        if (((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) != me) return;
+        { uint64_t v = 0; SmBdMark(K - 0x98); if (Rd64(hit + 0x1C8, &v)) SmBdHit("ki", hit, v, 0, amt); }
+        if (SmBlkVictim(hit, me, K - 0x98)) SmBlkAdd(hit, K - 0x98, SM_BLK_KI, amt);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+}
 // NfHpDamage (hit apply, game thread): raw = the hit's HP damage before any mod scaling / Infinite-health cut.
 static void SmHpEvent(uint64_t hp, int raw, uint64_t hit) {
-    if (!g_cfg_sm || raw <= 0 || !hp || !hit || !g_pst_atk_ok) return;
+    if (!g_cfg_sm || !hp || !hit || !g_pst_atk_ok || (raw <= 0 && g_smc.blockPct <= 0)) return;
     __try {
         const uint64_t me = PlayerChar(); uint64_t st = 0;
         if (!me) return;
         if (Rd64(me + 0x3A0, &st) && st && st + 0x38 == hp) {
+            if (raw <= 0) return;
             const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
             if (atk != me) InterlockedIncrement(&g_sm_taken);
             return;
         }
         const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
+        if (atk == me && g_smc.blockPct > 0) {  // blocked hits: a hit that took HP is never one; a 0 HP call on a live enemy may be
+            { uint64_t v = 0; SmBdMark(hp - 0x38); if (Rd64(hit + 0x1C8, &v)) SmBdHit("hp", hit, v, raw, 0.f); }
+            if (raw > 0) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP, 0.f);
+            else if (SmBlkVictim(hit, me, hp - 0x38)) SmBlkAdd(hit, hp - 0x38, SM_BLK_HP0, 0.f);
+        }
+        if (raw <= 0) return;
         int ally = 0;
         if (atk && atk != me) { const int tm = ActorTeam(me); ally = tm >= 0 && ActorTeam(atk) == tm; }  // human: summoned guardian spirit (filtered by SmFeed's summon window)
         if (atk == me || ally) {
             InterlockedIncrement(atk == me ? &g_sm_hits : &g_sm_allyHits);
-            if (g_cfg_sr) for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss
+            int boss = 0;
+            for (int s = 0; s < N3T_SLOTS && s < 32; ++s) {  // the victim is a boss slot: the fight starts / adds that boss; Burst Break (always on)
                 const uint64_t a = g_slot_act[s]; uint64_t bs = 0;
-                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) { InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); break; }
+                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) {
+                    InterlockedExchange64(&g_sr_hitAct[s], (LONG64)a);
+                    if (*(volatile uint64_t*)(hp + 0x20) <= (uint64_t)raw) InterlockedOr(&g_sr_lethalMask, (LONG)(1u << s));  // st+0x58 = HP now
+                    InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << s)); boss = 1; break;
+                }
+            }
+            for (int k = 0; k < SR_HUD && !boss; ++k) {  // a HUD-only boss (Picture Scroll): same notes at bit SR_HUD_BIT + k
+                const uint64_t a = (uint64_t)g_sr_hudAct[k]; uint64_t bs = 0; const int b = SR_HUD_BIT + k;
+                if (a && Rd64(a + 0x3A0, &bs) && bs && bs + 0x38 == hp) {
+                    InterlockedExchange64(&g_sr_hitAct[b], (LONG64)a);
+                    if (*(volatile uint64_t*)(hp + 0x20) <= (uint64_t)raw) InterlockedOr(&g_sr_lethalMask, (LONG)(1u << b));
+                    InterlockedOr(atk == me ? &g_sr_hitMask : &g_sr_allyMask, (LONG)(1u << b)); boss = 1;
+                }
+            }
+            const uint64_t vmx = *(volatile uint64_t*)(hp + 0x18), pmx = st ? *(volatile uint64_t*)(st + 0x50) : 0;
+            if (g_cfg_sr && !boss && atk == me && pmx && vmx >= 3 * pmx) {  // diagnosis: a big enemy (max HP >= 3x the player's) that is not a boss slot
+                static uint64_t seen[48]; static int nSeen;                  // (a Picture Scroll boss with no HUD bar would show up here)
+                int k = 0; while (k < nSeen && seen[k] != hp) ++k;
+                if (k == nSeen && nSeen < 48) { seen[nSeen++] = hp;
+                    Log("STYLE RESULT: hit a big enemy that is neither a boss slot nor on the boss HP bar (HP %llu / %llu, player max %llu, hp block %p): no card for it",
+                        *(volatile uint64_t*)(hp + 0x20), vmx, pmx, (void*)hp); }
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
 }
+// Once per tick (SmFeed, before the hits are read): the HUD-only boss tracker (style_result.h SrHud). Every actor on the HUD boss HP bar
+// (KbCollect: the gauge rows, as the KIBREAK watch reads them) that is not a boss slot, is alive and not the player is tracked with tag =
+// HP block ^ handle (a Picture Scroll wave reuses the actor address for the next boss, with a new handle and HP block). Read only.
+static __attribute__((noinline)) void SrHudTick(double wall) {
+    const uint8_t* gs = GameState(); const uint64_t me = PlayerChar();
+    if (!g_cfg_sr || !me || !gs || gs[2]) { for (int k = 0; k < SR_HUD; ++k) SrHudDrop(&g_sr_hud, k); }
+    else {
+        uint64_t act[KB_MAX]; uint32_t who[KB_MAX] = {0}; const int n = KbCollect(act, KB_MAX, who);
+        for (int i = 0; i < n; ++i) {
+            const uint64_t a = act[i]; if (!a || a == me) continue;
+            int k = SrHudFind(&g_sr_hud, a);
+            if (SlotOf(a) >= 0) { if (k >= 0) SrHudDrop(&g_sr_hud, k); continue; }  // a boss slot: the slot path has it
+            uint64_t st = 0, c = 1, mx = 0; int d = 0;
+            if (!Rd64(a + 0x3A0, &st) || !st) continue;
+            uint64_t tag = st ^ ((uint64_t)who[i] << 48); if (!tag) tag = 1;
+            ActorDeadNow(a, &d, &c, &mx);
+            if (d || !mx || !c) { if (k >= 0 && g_sr_hud.e[k].tag == tag) g_sr_hud.e[k].last = wall; continue; }  // down: kept while on the bar, never added
+            int fresh = 0; SrHudSee(&g_sr_hud, a, tag, wall, &fresh);
+            static int nLog;
+            if (fresh && nLog < 200) { ++nLog;
+                Log("STYLE RESULT: boss HP bar on actor %p (handle %08X, HP %llu / %llu, hp block %p) with no boss slot: tracked as a boss for the result card (Picture Scroll / wave boss)",
+                    (void*)a, who[i], (unsigned long long)c, (unsigned long long)mx, (void*)(st + 0x38)); }
+        }
+        SrHudExpire(&g_sr_hud, wall, SR_HUD_KEEP_MS);
+        for (int k = 0; k < SR_HUD; ++k) if (g_sr_hud.e[k].a && !ActorInTable(g_sr_hud.e[k].a)) SrHudDrop(&g_sr_hud, k);  // torn down: the address may be reused
+    }
+    for (int k = 0; k < SR_HUD; ++k) InterlockedExchange64(&g_sr_hudAct[k], (LONG64)g_sr_hud.e[k].a);
+}
 // FpTick, before FmFeed: an enemy (boss slot) hit window is open this tick (same rule as the frame meter's 'active' cell).
 static void SmCapture(void) {
-    int on = 0;
+    int on = 0; LONG mask = 0;
     if (!g_cfg_sm) return;
-    for (int s = 0; s < N3T_SLOTS && !on; ++s) {
+    for (int s = 0; s < N3T_SLOTS; ++s) {
         if (!g_fp[s].valid) continue;
-        if (g_fp[s].pulse || g_fp[s].pulseUb || g_fp[s].pulseGrab) on = 1;
-        for (int w = 0; w < FP_WIN && !on; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) on = 1;
+        int o = g_fp[s].pulse || g_fp[s].pulseUb || g_fp[s].pulseGrab;
+        for (int w = 0; w < FP_WIN && !o; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) o = 1;
+        if (o) { on = 1; if (s < 32) mask |= (LONG)(1u << s); }
     }
-    g_sm_enemy = on;
+    g_sm_enemy = on; InterlockedExchange(&g_sm_enemyMask, mask);
 }
 static __attribute__((noinline)) int SmHpRead(uint64_t a, uint64_t* cur) {
     uint64_t st = 0; *cur = 0;
@@ -300,6 +550,19 @@ static __attribute__((noinline)) int SmSkillWord(uint64_t ctrl, uint32_t act, ui
     } __except (EXCEPTION_EXECUTE_HANDLER) { *w = 0xFFFFFFFFu; return -1; }
     return SmSkillRow(*w);
 }
+// human: Burst Break. A boss's current action row R = [[ctrl+0xE8]+0x20] (same object as SmSkillWord; only when [P] == act): u16 R+0x04
+// bit 0x2000 = GreatAttack (the red unblockable attack, auto_moves.h), u16 R+0xE0 = its next action id. Returns 1 burst row, 0 not,
+// -1 unreadable; *fl = the flag word, *next = the next id (SM_ACT_NONE unread). Read only.
+static __attribute__((noinline)) int SmBurstRow(uint64_t ctrl, uint32_t act, uint16_t* fl, uint32_t* next) {
+    *fl = 0; *next = SM_ACT_NONE; uint64_t p = 0, r = 0;
+    if (!ctrl || act == SM_ACT_NONE || !Rd64(ctrl + 0xE8, &p) || p < 0x10000) return -1;
+    __try {
+        if (*(volatile uint32_t*)p != act) return -1;
+        r = *(volatile uint64_t*)(p + 0x20); if (r < 0x10000) return -1;
+        *fl = *(volatile uint16_t*)(r + 0x04); *next = *(volatile uint16_t*)(r + 0xE0);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { *fl = 0; *next = SM_ACT_NONE; return -1; }
+    return (*fl & 0x2000) != 0;
+}
 // #127003 move logger pad snapshot: raw XInput (xinput1_4 directly, not the game's IAT slot), the first connected pad with input, else pad 0.
 static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
     typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
@@ -308,6 +571,22 @@ static void SmPadNow(uint16_t* b, uint8_t* lt, uint8_t* rt) {
     if (!xgs) return;
     for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;  // XINPUT_STATE: packet, wButtons +4, LT +6, RT +7
         const uint16_t bb = *(uint16_t*)(st + 4); if (bb || st[6] > 64 || st[7] > 64 || !*b) { *b = bb; *lt = st[6]; *rt = st[7]; } if (bb || st[6] > 64 || st[7] > 64) return; }
+}
+// human 2026-11-25 APM on the result card: every button held this tick. Pads: raw XInput (xinput1_4 directly), all 4 pads OR'd (buttons
+// and the larger trigger value). Keys / mouse buttons: GetAsyncKeyState, only while the game window is in front (alt-tab typing is not
+// counted); the generic Shift / Ctrl / Alt codes are skipped (their left / right codes are counted).
+static void SmInputNow(uint16_t* b, uint8_t* lt, uint8_t* rt, uint32_t keys[8]) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    *b = 0; *lt = *rt = 0; for (int i = 0; i < 8; ++i) keys[i] = 0;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (xgs) for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) != 0) continue;
+        *b |= *(uint16_t*)(st + 4); if (st[6] > *lt) *lt = st[6]; if (st[7] > *rt) *rt = st[7]; }
+    DWORD pid = 0; const HWND fg = GetForegroundWindow(); if (fg) GetWindowThreadProcessId(fg, &pid);
+    if (pid != GetCurrentProcessId()) return;
+    for (int vk = 0x01; vk <= 0xFE; ++vk) {
+        if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU) continue;
+        if (GetAsyncKeyState(vk) & 0x8000) keys[vk >> 5] |= 1u << (vk & 31);
+    }
 }
 // #127057 active weapon slot = the game's own getter behind the script native "Player::GetActiveWeaponSlot" (found by name in the native
 // table, like BR's sites kNative). That native pushes its result on the script VM stack, so it is not callable from here; its body is
@@ -403,6 +682,12 @@ static void SmFeed(double gdt) {
     g_sm_clock += dt;
     const int pl = g_fp[FP_PL].valid;
     LONG hits = InterlockedExchange(&g_sm_hits, 0), taken = InterlockedExchange(&g_sm_taken, 0);
+    // blocked hits (BlockPct): need the HP hook (a hit that took HP must be seen) and the Ki hook (the guarded hit's Ki damage)
+    if (g_smc.blockPct > 0 && g_hpdmg_hooked == 1 && g_pst_atk_ok && !g_pst_ki_hooked) PstKiHookInstall();
+    SmBlkEv blkEv[4]; int blocked;
+    AcquireSRWLockExclusive(&g_sm_blk_lock); blocked = SmBlkTake(&g_sm_blk, blkEv, 4); ReleaseSRWLockExclusive(&g_sm_blk_lock);
+    if (g_smc.blockPct <= 0 || g_hpdmg_hooked != 1) blocked = 0;
+    if (g_smc.blockPct > 0 && g_hpdmg_hooked == 1 && pl) SmBdWatch(g_fp[FP_PL].run.act);  // STYLE BLOCKDIAG (log only)
     if (g_hpdmg_hooked != 1 || !g_pst_atk_ok) {  // fallback: HP drops (boss slots = hits, player = damage; an ally's hit on the boss counts too)
         static uint64_t prevB[N3T_SLOTS], prevBa[N3T_SLOTS], prevP, prevPa;
         for (int s = 0; s < N3T_SLOTS; ++s) {
@@ -475,9 +760,46 @@ static void SmFeed(double gdt) {
     if (run != ninRun) { ninRun = run; ninMove = 0; }
     if (nin) ninMove = 1;
     uint32_t skw = 0xFFFFFFFFu; const int skill = pl ? SmSkillWord(g_fp[FP_PL].ctrl, act, &skw) : -1;
+    // human 2026-11-26: Flux 1 / Flux 2 (Ki pulse + switch to another stance): the game's flux row (skill word FluxSkill)
+    static SmFluxDet fluxd; static int fluxInit; if (!fluxInit) { fluxInit = 1; SmFluxReset(&fluxd); }
+    const int fluxDone = SmFluxStep(&fluxd, pl ? run : 0, skill < 0 ? -1 : skill > 0 && skw == g_cfg_flux_skill);
+    
     const int maMark = pl ? SmMaStep(&mam, run, skill, gsm.gs || ninMove) : 0;
+    // multi-segment martial arts (Infinite Retribution 25351 -> 25352 -> 25353): back-to-back runs of one skill word are one use for the
+    // multi-hit cap / loop penalty (style_meter.h SmChainStep); variety, startup and the counter bonus stay per run
+    static SmChain useCh; static int useChInit;
+    if (!useChInit) { useChInit = 1; SmChainReset(&useCh); }
+    const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
+    // human 2026-11-26: crouch (TMTM) cancel: a Summoning Seal throw cut off by a crouch within a few frames (style_tmtm.h)
+    static SmTmtm tmtm; static int tmtmInit; if (!tmtmInit) { tmtmInit = 1; SmTmtmReset(&tmtm); }
+    const int crouchCancel = SmTmtmStep(&tmtm, &g_tmc, g_sm_clock, pl ? act : 0, pl && g_fp[FP_PL].run.hits > 0);
+    if (crouchCancel) { static int ccl; if (ccl++ < 2000) Log("STYLE CROUCH CANCEL: seal throw cut off by crouch act %u (%u so far)", (unsigned)act, tmtm.n); }
+    // human 2026-11-26: slow move = the use's first landed hit came SlowMoveMs or more after the use started (its first run's start, so a
+    // charge / wind-up segment of a chained martial art counts). General rule, no move ids. Acts that opened a hit window are learned as
+    // attacks (SmAtkSet), so a later use is known as an attack during its wind-up (before its window opens).
+    static SmSlow slw; static SmAtkSet atkSet; static int slwInit;
+    if (!slwInit) { slwInit = 1; SmSlowReset(&slw); }
+    if (pl) { SmSlowUse(&slw, useKey, g_fp[FP_PL].run.t0); if (g_fp[FP_PL].run.hits > 0) SmAtkLearn(&atkSet, act); } else SmSlowReset(&slw);
     if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
+    // human: Displacement! inputs (style_displace.h): player and boss positions (actor+0x110 x / z floats, cm), the boss whose hit window is
+    // open (nearest one if several; else the nearest boss slot, for the bearing at the use start), eligible = a skill row that is not the
+    // deflect / a guardian spirit spend, or a DisplaceActs id.
+    // slowCm: the nearest boss slot's distance (slow-move drain pause), -1 = unknown
+    float dpPl[2] = {0.f, 0.f}, dpBoss[2] = {0.f, 0.f}; int dpPlOk = 0, dpBossOk = 0, dpSlot = -1; float dpBest = 1e30f, slowCm = -1.f;
+    if (pl && (g_dpc.on || g_smc.slowMs > 0 || g_smc.farPct < 100)) {
+        __try { dpPl[0] = *(volatile float*)(g_fp[FP_PL].a + 0x110); dpPl[1] = *(volatile float*)(g_fp[FP_PL].a + 0x118); dpPlOk = dpPl[0] == dpPl[0] && dpPl[1] == dpPl[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { dpPlOk = 0; }
+        const LONG em = g_sm_enemyMask;
+        for (int s = 0; s < N3T_SLOTS && dpPlOk; ++s) {
+            if (!g_fp[s].valid || !g_fp[s].a) continue;
+            float b[2]; int ok = 0;
+            __try { b[0] = *(volatile float*)(g_fp[s].a + 0x110); b[1] = *(volatile float*)(g_fp[s].a + 0x118); ok = b[0] == b[0] && b[1] == b[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+            if (!ok) continue;
+            { const float d = SmDispDist(dpPl, b); if (slowCm < 0.f || d < slowCm) slowCm = d; }
+            const float k = SmDispDist(dpPl, b) + (s < 32 && ((em >> s) & 1) ? 0.f : 1e6f);  // a slot that is attacking first
+            if (k < dpBest) { dpBest = k; dpSlot = s; dpBoss[0] = b[0]; dpBoss[1] = b[1]; dpBossOk = 1; }
+        }
+    }
     if (g_cfg_sm_movelog && pl) {  // #127003 one STYLE MOVE line per player move (hit or miss) when it ends; ids are logged, not interpreted
         static uint64_t mrun; static SmMoveRec mr; static double mt0, soulT = -1e18; static int mon, mlines;
         static unsigned (*fu)(void); static int futried;
@@ -485,11 +807,12 @@ static void SmFeed(double gdt) {
         if (soul > 0) soulT = g_sm_clock;
         if (mon) { mr.landed += (int)hits; if (nin) mr.nin = 1; }
         if (run != mrun) {
-            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; if (g_sm_maRun == mrun) mr.ma = 1; mr.ms = g_sm_clock - mt0; char b[400]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
+            if (mon && mlines < 20000) { ++mlines; if (g_sm_swapRun == mrun) mr.swapped = 1; if (g_sm_maRun == mrun) mr.ma = 1; mr.ms = g_sm_clock - mt0; char b[512]; SmMoveFmt(b, sizeof b, &mr); Log("STYLE MOVE: t %.0f %s", mt0, b); }
             mrun = run; mt0 = g_sm_clock; mon = act != SM_ACT_NONE && act != 0;
             memset(&mr, 0, sizeof mr); mr.act = act; mr.startupF = -1.f; mr.enemy = g_sm_enemy;
             uint8_t v = 0xFF; __try { v = *(volatile uint8_t*)(g_fp[FP_PL].a + 0xA95C); } __except (EXCEPTION_EXECUTE_HANDLER) { v = 0xFF; }
             mr.style = v <= 1 ? v : -1; mr.slot = wslot;
+            mr.posOk = dpPlOk && dpBossOk; if (mr.posOk) { mr.p0[0] = dpPl[0]; mr.p0[1] = dpPl[1]; mr.b0[0] = dpBoss[0]; mr.b0[1] = dpBoss[1]; mr.dist0 = SmDispDist(dpPl, dpBoss); }
             mr.sf0 = sfPrev; mr.sfMin = sfCur; mr.sfMax = sfMax;  // #127213 gauge just before the move / at its start
             SmPadNow(&mr.btn, &mr.lt, &mr.rt);
             const unsigned ft = fu ? fu() : 0;
@@ -499,6 +822,7 @@ static void SmFeed(double gdt) {
                    if (startupF >= 0.f && mr.startupF < 0.f) mr.startupF = startupF;
                    if (sfCur >= 0.f) { if (mr.sfMin < 0.f || sfCur < mr.sfMin) mr.sfMin = sfCur; if (sfMax > mr.sfMax) mr.sfMax = sfMax; }
                    if (gsMark) mr.gs = 1;
+                   if (mr.posOk && dpPlOk && dpBossOk) { const float m = SmDispDist(mr.p0, dpPl); if (m > mr.moved) mr.moved = m; mr.turn = SmDispTurn(mr.p0, mr.b0, dpPl, dpBoss); mr.dist1 = SmDispDist(dpPl, dpBoss); }
                    if (skill >= 0 && !mr.skillRd) { mr.skillRd = 1; mr.skill = skw; } }
     }
     const int sty = pl ? SmStyleSwitched(g_fp[FP_PL].a, g_sm_clock) : 0;
@@ -522,35 +846,163 @@ static void SmFeed(double gdt) {
         if (avIn || g_sm.dodge.inWin) { avFl |= avNow;
             if (hp && avHave) { const float dx = p3[0] - avP0[0], dy = p3[1] - avP0[1], dz = p3[2] - avP0[2]; const float d = sqrtf(dx * dx + dy * dy + dz * dz); if (d > avMove) avMove = d; } }
     }
-    uint64_t srHit[SR_BOSSES]; int nSrHit = 0;
-    {   const LONG m = InterlockedExchange(&g_sr_hitMask, 0) | (summonLive ? allyMask : 0);
-        if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) { const uint64_t a = BvActor(s); if (a) srHit[nSrHit++] = a; }
+    const int dpElig = pl && ((skill > 0 && !deflectNow && !gsm.gs) || SmDispListed(&g_dpc, act));
+    // human 2026-11-25: zero-Ki loop exception. A human boss (automatic binding: a composed CP_HUMAN_* boss, FmHumanBoss, the same test
+    // as the frame meter's negative-Ki row) at Ki <= 0 (or a negative pool) makes looping free at any rank, and LoopFreeKiMs after (the
+    // hit that lands as its Ki comes back is still part of the loop).
+    { static double lpFreeT = -1e18; static int lpFreeWas;
+      if (g_cfg_sm_lpfree) for (int s = 0; s < N3T_SLOTS; ++s) {
+          if (!g_fp[s].valid || !g_fp[s].a || !FmHumanBoss(g_fp[s].a, g_fp[s].chr)) continue;
+          float kc = 0.f, km = 0.f, k2 = 0.f; int kd = 0;
+          if (NkmRead(g_fp[s].a, &kc, &km, &k2, &kd) && !kd && ((NkmSane(kc) && kc <= 0.5f) || NkmNeg(kc, k2, 0) < 0.f)) lpFreeT = g_sm_clock;
+      }
+      g_sm.lpFree = g_cfg_sm_lpfree && g_sm_clock - lpFreeT <= (double)g_cfg_sm_lpfreems;
+      if (g_sm.lpFree != lpFreeWas) { lpFreeWas = g_sm.lpFree; Log("STYLE LOOP: zero-Ki loop on a human boss %s (looping is %s)", g_sm.lpFree ? "started" : "ended", g_sm.lpFree ? "free at any rank" : "back to the rank rule"); } }
+    // Result card. srSlotA / srSlotT: the actor of each boss slot and the wall ms it was first seen there (kept after the slot clears), so
+    // a boss hit in the end wait can be told apart: next form (seen as the fight went down) or the next boss of a gauntlet (SrBossHitEx).
+    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES], srTag[SR_BOSSES] = {0}; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
+    static uint64_t srSlotA[N3T_SLOTS]; static double srSlotT[N3T_SLOTS];
+    const double srWall = SmWallMs();
+    SrHudTick(srWall);  // Picture Scroll bosses (HUD bar, no boss slot)
+    for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_act[s] && g_slot_act[s] != srSlotA[s]) { srSlotA[s] = g_slot_act[s]; srSlotT[s] = srWall; }
+    const LONG bbPl = InterlockedExchange(&g_sr_hitMask, 0), bbAl = summonLive ? allyMask : 0;  // human: Burst Break, per boss slot
+    {   const LONG m = bbPl | bbAl, lm = InterlockedExchange(&g_sr_lethalMask, 0);
+        if (g_cfg_sr && m) for (int s = 0; s < N3T_SLOTS && s < 32 && nSrHit < SR_BOSSES; ++s) if (m & (LONG)(1u << s)) {
+            uint64_t a = BvActor(s);
+            if (!a) a = (uint64_t)g_sr_hitAct[s];  // the slot cleared since the hit (the hit killed it): still that boss's hit
+            if (!a) continue;
+            srHit[nSrHit] = a; srSeen[nSrHit] = srSlotA[s] == a ? srSlotT[s] : srWall; nSrHit++;
+            if ((lm & (LONG)(1u << s)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
+        }
+        if (g_cfg_sr && m) for (int k = 0; k < SR_HUD && nSrHit < SR_BOSSES; ++k) {  // HUD-only bosses: tagged, first seen = when that identity got the bar
+            const int b = SR_HUD_BIT + k; if (!(m & (LONG)(1u << b))) continue;
+            const uint64_t a = (uint64_t)g_sr_hitAct[b]; if (!a) continue;
+            const int e = SrHudFind(&g_sr_hud, a);
+            srHit[nSrHit] = a; srTag[nSrHit] = e >= 0 ? g_sr_hud.e[e].tag : 0; srSeen[nSrHit] = e >= 0 ? g_sr_hud.e[e].seen : srWall; nSrHit++;
+            if ((lm & (LONG)(1u << b)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
+        }
         if (!g_cfg_sr && g_sr.on) SrReset(&g_sr);
     }
+    // human: Burst Break inputs per boss slot (row reads outside the lock); stepped under it once this tick's hit points are known
+    static SmBurst bbs[N3T_SLOTS]; static int bbInit;
+    if (!bbInit) { bbInit = 1; for (int s = 0; s < N3T_SLOTS; ++s) SmBurstReset(&bbs[s]); }
+    int bbRow[N3T_SLOTS]; uint16_t bbFl[N3T_SLOTS]; uint32_t bbNext[N3T_SLOTS];
+    const int bbSkill = pl && (skill > 0 || gsm.gs || ninMove);  // the player's move is a skill / guardian spirit / ninjutsu move
+    for (int s = 0; s < N3T_SLOTS; ++s) { bbFl[s] = 0; bbNext[s] = SM_ACT_NONE; bbRow[s] = g_fp[s].valid ? SmBurstRow(g_fp[s].ctrl, g_fp[s].run.act, &bbFl[s], &bbNext[s]) : -1; }
     const int srWas = g_sr.on;
+    // human: move variety is per run: a death (edge) or a load / no player character starts a new one (a boss fight start too, below)
+    int varReset = 0;
+    int plDeadNow = 0;  // human 2026-11-26: also gates dodges (no "Dodge!" in a death animation)
+    {   static int varDead;
+        const uint64_t me = PlayerChar(); const uint8_t* lg = GameState(); int d = 0;
+        if (me && !(lg && lg[2])) { uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); }
+        plDeadNow = d;
+        if (g_sm.varN > 0) {
+            if (!me || (lg && lg[2])) varReset = 1;
+            if (d && !varDead) varReset = 1;
+        }
+        varDead = d;
+    }
+    SrResult srRes[2]; int srDone = 0;  // [0] a gauntlet split this tick, then the fight's own end (a newer card replaces the older one)
     AcquireSRWLockExclusive(&g_sm_lock);
-    for (int i = 0; i < nSrHit; ++i) { const int k = SrBossIdx(&g_sr, srHit[i]); SrBossHit(&g_sr, &g_sm, srHit[i]); if (k < 0) { const int j = SrBossIdx(&g_sr, srHit[i]); if (j >= 0) g_sr_hp0[j] = 0; } }
+    for (int i = 0; i < nSrHit; ++i) {
+        if (SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
+            Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
+                (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
+            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            SrReset(&g_sr); SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS); varReset = 2;
+            Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
+        }
+    }
+    if (!srWas && g_sr.on) varReset = 2;  // a boss fight started with this tick's hit: the run starts here (before the hit is scored)
+    if (varReset && g_sm.varN > 0) { Log("STYLE VARIETY: new run (%s), %d distinct moves, %u milestones so far", varReset == 2 ? "boss fight start" : "death / load", g_sm.varN, g_sm.varBonuses); SmVarietyReset(&g_sm); }
+    const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts; const int vers0 = SmVersPct(&g_sm, &g_smc);
     const int r0 = g_sm.rank, a0 = g_sm.active;
-    const int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);
-    const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
+    int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
+    static double avHurtT = -1e18; if (taken > 0) avHurtT = g_sm_clock;
+    {   static SmHurtChain hch; static int hchInit; if (!hchInit) { hchInit = 1; SmHurtReset(&hch); }
+        if (SmHurtStep(&hch, g_sm_clock, pl ? run : 0, taken > 0)) avHurtT = g_sm_clock;  // human 2026-11-26: the whole knockdown + get-up
+    }
+    { const int av0 = avoid; avoid = SmDodgeHurtGate(avoid, g_sm_clock, avHurtT);  // knockdown / get-up i-frames are not a dodge
+      if (av0 && !avoid) Log("STYLE DODGE: not paid, %.0f ms after the player's hurt / knockdown / get-up (i-frames), act %u", g_sm_clock - avHurtT, (unsigned)act); }
+    if (avoid && plDeadNow) { Log("STYLE DODGE: not paid, the player is dead (act %u)", (unsigned)act); avoid = 0; }  // human 2026-11-26
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
-    const uint32_t c0 = g_sm.counters;
+    const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
+    if (crouchCancel) g_sm.crouchCancels++;
+    if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
+    const LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    for (LONG i = 0; i < grapN && i < 8; ++i) pgrap += SmOnGrapple(&g_sm, &g_smc, g_sm_clock);
+    if (grapN) Log("STYLE GRAPPLE: Ki-break grapple finisher x%ld +%.0f", (long)grapN, pgrap);
+    const float pflux = SmOnFlux(&g_sm, &g_smc, g_sm_clock, fluxDone);  // human 2026-11-26: +15 / +25 within 3 s of a hit
+    if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain) +%.0f%s", fluxDone, (unsigned)act, pflux, pflux > 0.f ? "" : " (no hit in the last 3 s: no points)"); }
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, run, startupF, ctr && run != ctrPaidRun);
+    const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
+    static int slowNear;  // human 2026-11-26: x2 only when a boss was within SlowMovePauseCm as the slow move landed (no far-away farming)
+    if (slowLand) {
+        slowNear = SmSlowNear(&g_smc, slowCm);
+        if (!slowNear && SmSlowMult(&g_smc, slw.landMs) > 1.f) { static int slf; if (slf++ < 2000) Log("STYLE SLOW: act %u landed %.0f ms after the move started, but no boss within %d cm (nearest %.0f cm): no x2", (unsigned)act, slw.landMs, g_smc.slowCm, slowCm); }
+    }
+    const double landMs = slw.landed && slowNear ? slw.landMs : -1.0;
+    const float slowX = SmSlowMult(&g_smc, landMs);
+    if (slowLand && slowX > 1.f) { static int sll; if (sll++ < 4000) Log("STYLE SLOW: act %u landed %.0f ms after the move started -> x%.2f (startup ramp x%.2f, run startup %.0f f), drain was paused %.0f ms",
+        (unsigned)act, landMs, SmHitMult(&g_smc, startupF, landMs), SmStartupMult(&g_smc, startupF), startupF, slw.heldMs); }
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitExL(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, landMs, ctr && run != ctrPaidRun);
+    float pb = 0.f;  // blocked hits: BlockPct % of a hit of this move (no counter bonus: that is paid by a hit that lands)
+    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHitL(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, landMs, 0);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
-    const float psw = hits > 0 ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
+    float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen == SM_LP_FULL) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
+    if (psw > 0.f && g_sm.lpOn && g_sm.lpPen == SM_LP_HALF) {  // rank A looped use: its weapon switch bonus at LoopHalfPct % too
+        const float keep = psw * (float)g_smc.loopHalfPct / 100.f; SmSub(&g_sm, &g_smc, psw - keep, SM_PL_NONE); g_sm.earned[SM_PC_SWAP] -= psw - keep; g_sm.loopHalfLost += psw - keep; psw = keep; }
     if (psw > 0.f) g_sm_swapRun = run;
     const int ctrHit = g_sm.counters != c0;
     if (gsMark) g_sm.gsUses++;
-    gsPts += ph;
+    gsPts += ph + pb;
     const float pgs0 = SmGsPay(&g_sm, &g_smc, &gsm, g_sm_clock, gsPts);  // #127213 value = the move's own points so far
     if (pgs0 > 0.f && gsm.run == gsum.run) gsum.paid = 1;  // the player's own hits paid this move's bonus
     float sumB = 0.f; const float psum = SmSummonHits(&g_sm, &g_smc, &gsum, g_sm_clock, (int)allyHits, &sumB);  // human: summoned spirit hits
     const float pgs = pgs0 + sumB;
+    const int plLoop = (hits > 0 || blocked > 0) && g_sm.lpOn && g_sm.lpPen == SM_LP_FULL;  // this tick's player hits are a looped use (scored 0)
+    float pbb = 0.f, bbHitPts = 0.f; int bbN = 0; SmBurstEnd bbE[N3T_SLOTS]; int bbR[N3T_SLOTS], bbNew[N3T_SLOTS], bbCand[N3T_SLOTS], bbOut[N3T_SLOTS];
+    static double bbCtrT = -1e18;  // the last burst-counter Burst Break (its avoid may close a tick later)
+    for (int s = 0; s < N3T_SLOTS; ++s) {  // human: Burst Break (style_meter.h SmBurstStep)
+        const int valid = g_fp[s].valid && g_fp[s].a, pbit = s < 32 && (bbPl >> s) & 1, ab = s < 32 && (bbAl >> s) & 1;
+        const int hk = pbit && !plLoop ? SmBurstHitKind(&g_smc, act, bbSkill) : ab ? SM_BB_HIT_SKILL : 0;
+        const int was = bbs[s].on && bbs[s].burst, hitsWas = bbs[s].hits; const uint64_t keyWas = bbs[s].key;
+        bbOut[s] = pbit && was && bbs[s].great;  // diagnosis: a player hit on a burst run whose red attack is already out
+        bbR[s] = SmBurstStep(&bbs[s], &g_smc, g_sm_clock, valid, (uint64_t)g_fp[s].run.f0 << 32 | g_fp[s].run.act, g_fp[s].run.act, bbRow[s], bbNext[s], g_fp[s].run.great, hk, pbit ? ph : psum, &bbE[s]);
+        bbNew[s] = valid && bbs[s].burst && !(was && bbs[s].key == keyWas);          // this run was just marked a burst run (log)
+        bbCand[s] = valid && bbs[s].key == keyWas && bbs[s].hits > hitsWas ? hk : 0;  // a counted hit on the live burst run (log)
+        if (bbR[s] == SM_BB_AWARD) { pbb += SmOnBurst(&g_sm, &g_smc, g_sm_clock); bbN++; bbHitPts += bbE[s].hitPts; if (bbE[s].ctr) bbCtrT = g_sm_clock; }
+    }
+    // human: a burst counter is also a clean avoid (i-frames in the boss's hit window): that avoid is the Burst Break's, not a "Dodge!" too.
+    // Held while the countered run is live, dropped on its Burst Break, paid after all when the run ends without one.
+    int avHeld = 0, avAte = 0, avBack = 0;
+    for (int s = 0; s < N3T_SLOTS && avoid && !avAte; ++s) if (g_fp[s].valid) { const int h0 = bbs[s].held; if (SmBurstAvoid(&bbs[s], bbCtrT, g_sm_clock, avoid)) { avAte = avoid; avHeld = !h0 && bbs[s].held; } }
+    if (avAte) avoid = SM_AV_NONE;
+    for (int s = 0; s < N3T_SLOTS && !avoid; ++s) if (bbR[s] == SM_BB_MISS && bbE[s].held) avoid = avBack = bbE[s].held;
+    // human: Displacement!: the window's avoid is held while a displacement candidate is open, replaced on an award, always paid on a miss
+    // (a Counter! of a displacement move is paid as a Dodge!: Counter! is for parry skills)
+    static SmDisp dps; static int dpInit; if (!dpInit) { dpInit = 1; SmDispReset(&dps); }
+    SmDispOut dpo; memset(&dpo, 0, sizeof dpo); float pdp = -1.f; int dpAv = avoid, dpBack = 0;
+    SmDispIn dpi; memset(&dpi, 0, sizeof dpi);
+    dpi.run = run; dpi.use = useKey; dpi.act = act; dpi.elig = dpElig; dpi.ifr = ifr; dpi.move = pl && (g_fp[FP_PL].run.hits > 0 || skill > 0 || gsm.gs || ninMove); dpi.plOk = dpPlOk; dpi.pl[0] = dpPl[0]; dpi.pl[1] = dpPl[1];
+    dpi.win = g_sm_enemy; dpi.bossOk = dpBossOk; dpi.boss[0] = dpBoss[0]; dpi.boss[1] = dpBoss[1]; dpi.took = taken > 0; dpi.hits = bbPl ? 1 : 0; dpi.avoid = avoid;
+    const int dpr = pl ? SmDispStep(&dps, &g_dpc, g_sm_clock, &dpi, &dpo) : SM_DP_NONE;
+    if (dpo.ate) { if (avoid == SM_AV_COUNTER) ctrPaidRun = run; avoid = SM_AV_NONE; }  // held (no hit-counter bonus on top for this move)
+    int dpConv = 0; if (dpo.conv && avoid == SM_AV_COUNTER) { avoid = SM_AV_DODGE; dpConv = 1; }  // a displacement move's avoid is a Dodge!
+    // a released held avoid is always paid: this tick, or the next one when this tick has an avoid of its own (never dropped)
+    static int dpQueued; int dpQueuedNow = 0;
+    if (dpr == SM_DP_MISS && dpo.release) { if (!avoid) avoid = dpBack = dpo.release; else { dpQueued = dpo.release; dpQueuedNow = 1; } }
+    else if (!avoid && dpQueued) { avoid = dpBack = dpQueued; dpQueued = 0; }
+    const uint32_t dst0 = g_sm.dispStreaks;
+    if (dpr == SM_DP_AWARD) { pdp = SmOnDisplace(&g_sm, &g_smc, &g_dpc, g_sm_clock, dpo.act, dps.pUse); }
+    const float pdtri = g_sm.dispStreaks != dst0 ? g_sm.dispStreakLast : 0.f;  // human 2026-11-26: every 3rd displacement
+    const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
     // human: combo of landed hits (the player's and, inside a summon window, the spirit's); milestone bonus every ComboStep hits
-    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)hits + (summonLive ? (int)allyHits : 0), &comboMile);
+    // multi-hit cap / loop penalty: only the hits that scored (SmOnHitEx / SmSummonHits counted them) feed the combo
+    uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)(g_sm.countedHits - hc0), &comboMile);
     if (maMark) g_sm.maUses++;
     const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
     if (pma > 0.f) g_sm_maRun = run;
@@ -564,59 +1016,118 @@ static void SmFeed(double gdt) {
     if (ctrHit) ctrPaidRun = run;
     if (deflect) pp = SmOnDeflect(&g_sm, &g_smc, g_sm_clock);
     float pac = -1.f;
-    if (avCtr) { pac = SmOnAvoidCounter(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun); ctrPaidRun = run; }
+    // the avoid counter is a loop step of the same use as the move's hits: the use key, not the raw run (live 2026-11-25: Lightning Blade
+    // 25376 -> 25377 is one use keyed by 25376's run; keyed by 25377's run its avoid and hits alternated two keys, every switch a new
+    // use = a new step of act 25377, so one cast (hit, avoid, hit, avoid) read as A A A A: 'Repetitive!' x2 on a single cast)
+    if (avCtr) { pac = SmOnAvoidCounterUse(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, act, useKey); ctrPaidRun = run; }
+    if (pd > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DODGE);  // human: scored non-hit moves count as distinct moves too
+    if (pp > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DEFLECT);
+    if (pac > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);
+    if (pk > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_KI);
+    const uint32_t varN = g_sm.varBonuses - vb0; const float pvar = g_sm.varPts - vp0; const int varMile = g_sm.varMile;
+    // loop penalty this tick: looped attack uses and looped dodges / deflects / avoid counters (each scored 0 and cost LoopPenaltyPts)
+    const uint32_t loopN = g_sm.loopPens - lp0, capN = g_sm.cappedHits - cap0; const float loopLost = g_sm.loopLost - lpl0;
+    const uint32_t loopHalfN = g_sm.loopHalfs - lh0, loopFreeN = g_sm.loopFrees - lf0; const float loopHalfLost = g_sm.loopHalfLost - lhl0;
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmComboTick(&g_sm, &g_smc, g_sm_clock);
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
+    // human 2026-11-26: slow-move pause. An attack move (hit window seen in this run, a learned attack act, a skill row that is not the
+    // deflect, a guardian spirit spend or a ninjutsu move) running SlowMoveMs+ without a hit, a boss within SlowMovePauseCm: no drain.
+    {   const int atkNow = pl && g_sm.active && !deflectNow && (skill > 0 || gsm.gs || ninMove || g_fp[FP_PL].run.hits > 0 || SmAtkKnown(&atkSet, act));
+        g_sm.drainHold = pl && SmSlowHold(&slw, &g_smc, g_fp_gms, dt, atkNow, slowCm);
+        if (slw.capNew) { static int slc; if (slc++ < 2000) Log("STYLE SLOW: act %u drain pause cap %d ms reached, %.0f ms into the move with no hit (drain resumes)",
+            (unsigned)act, g_smc.slowMaxMs, g_fp_gms - slw.t0); }
+    }
+    g_sm.drainFar = pl && g_smc.farPct < 100 && slowCm > (float)g_smc.farCm;  // human 2026-11-26: nearest boss over FarDrainCm away: drain x FarDrainPct
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
+    g_sm.drainHold = 0; g_sm.drainFar = 0;
+    {   // human 2026-11-25: button presses for the card's APM (sampled every tick so a fight start mid-hold is not a press)
+        static SrInput srIn; uint16_t ib; uint8_t il, ir; uint32_t ik[8];
+        SmInputNow(&ib, &il, &ir, ik);
+        SrInputs(&g_sr, SrInputStep(&srIn, ib, il, ir, ik), dt);
+    }
     if (g_sr.on) {  // fight result: moves that landed, martial arts that scored, then this tick's time at the meter's value
-        if (hits > 0) SrMove(&g_sr, act);
+        if (hits > 0 || blocked > 0) SrMove(&g_sr, act);
         if (pma > 0.f) SrMartialArt(&g_sr, act);
         SrTick(&g_sr, &g_sm, &g_smc, dt);
     }
-    SrResult srRes; int srDone = 0;
     const int vis = pl && (g_cfg_sm_always || SmVisible(&g_sm, &g_smc, g_sm_clock, fight));  // human #129172
     const int r1 = g_sm.rank, a1 = g_sm.active; const float gg = SmGauge(&g_sm, &g_smc);
     const uint32_t nh = g_sm.hits, nd = g_sm.dodges, nk = g_sm.kis, nt = g_sm.damaged;
     const float gp = g_sm.pts;
-    if (g_sr.on) {  // boss deaths / player death / a boss leaving alive (actor table reads, still under the lock for SrFinish's counters)
+    if (g_sr.on) {  // boss deaths / player death / a boss leaving alive / a load (actor table reads, still under the lock for SrFinish's counters)
         SrBossNow now[SR_BOSSES]; memset(now, 0, sizeof now);
+        char bl[320]; int bn = 0; bl[0] = 0;  // per boss state, for the log lines below
         for (int i = 0; i < g_sr.nBoss; ++i) {
-            const uint64_t a = g_sr.boss[i];
-            if (!ActorInTable(a)) { now[i].gone = 1; now[i].dead = g_sr_hp0[i]; continue; }
-            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx);
-            now[i].dead = d; g_sr_hp0[i] = mx && c == 0;
+            const uint64_t a = g_sr.boss[i]; int lethal = 0;
+            for (int k = 0; k < nSrLethal; ++k) if (srLethal[k] == a) lethal = 1;
+            uint64_t c = 1, mx = 0; int d = 0;
+            if (!ActorInTable(a)) { now[i].gone = 1; now[i].hp0 = lethal; }  // torn down: killed if HP 0 was seen (SrStep) or this tick's hit was lethal
+            else { ActorDeadNow(a, &d, &c, &mx); now[i].dead = d; now[i].hp0 = mx && c == 0; }
+            if (bn < (int)sizeof bl - 64) bn += snprintf(bl + bn, sizeof bl - bn, " %p %s", (void*)a, now[i].gone ? (g_sr.hp0[i] || lethal ? "gone after HP 0" : g_sr.dead[i] ? "gone dead" : "gone with HP left")
+                : d ? "dead" : now[i].hp0 ? "HP 0" : "up");
         }
-        int other = 0;
-        for (int s = 0; s < N3T_SLOTS && !other; ++s) {
-            if (!g_slot_act[s]) continue;
-            const uint64_t a = BvActor(s); if (!a || SrBossIdx(&g_sr, a) >= 0) continue;
-            int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(a, &d, &c, &mx); if (!d && !(mx && c == 0)) other = 1;
-        }
+        const uint64_t me = PlayerChar(); const uint8_t* lgs = GameState();
+        const int loading = !me || (lgs && lgs[2]);  // a load, or the mission ended / was left (no player character)
         int pdead = 0;
-        if (!g_sr.ending) {  // once every boss is down the result stands (dying after the kill still gets the card)
-            const uint64_t me = PlayerChar(); const uint8_t* lgs = GameState();
-            if (!me || (lgs && lgs[2])) pdead = 1;
-            else { int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); pdead = d; }
+        if (!loading) { int d = 0; uint64_t c = 1, mx = 0; ActorDeadNow(me, &d, &c, &mx); pdead = d; }
+        const int wasEnding = g_sr.ending;
+        const int st = SrStep(&g_sr, now, pdead, loading, srWall, g_cfg_sr_delay);
+        if (st == 1) Log("STYLE RESULT: every boss of the fight is down (bosses:%s), card in %d ms unless its next form is hit", bl, g_cfg_sr_delay);
+        else if (st == 2) {
+            if (!wasEnding) Log("STYLE RESULT: %s with every boss of the fight down (bosses:%s): card now", !me ? "the player character went away" : "a load started", bl);
+            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            SrReset(&g_sr);
         }
-        const int st = SrStep(&g_sr, now, pdead, other, SmWallMs(), g_cfg_sr_delay);
-        if (st == 1) Log("STYLE RESULT: every boss of the fight is down, card in %d ms unless a next boss / form is hit", g_cfg_sr_delay);
-        else if (st == 2) { srRes = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen); srDone = 1; SrReset(&g_sr); }
-        else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s, %.1f s in)", pdead ? "player died or left" : "a boss left without dying", g_sr.ms / 1000.0); SrReset(&g_sr); }
+        else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s; %.1f s in; bosses:%s)", sr_drop_name[g_sr.drop], g_sr.ms / 1000.0, bl); SrReset(&g_sr); }
     }
     ReleaseSRWLockExclusive(&g_sm_lock);
     if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
-    if (srDone) {
-        char b[700]; SrFmt(b, sizeof b, &srRes); Log("STYLE RESULT: %s", b);
-        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+    for (int i = 0; i < srDone; ++i) {
+        char b[900]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
+        SrFmtPts(b, sizeof b, &srRes[i]); Log("STYLE RESULT POINTS: %s", b);  // human 2026-11-26: card page 2
+        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes[i]; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+    }
+    {   static int bbl;  // human: Burst Break log (the live test reads these: burst run seen / hit in its wind-up / its end)
+        for (int s = 0; s < N3T_SLOTS && bbl < 3000; ++s) {
+            if (bbNew[s]) { ++bbl; Log("STYLE BURST: boss %c act 0x%X (%u) is a burst run (row flags 0x%04X, next 0x%X) at t %.0f", 'A' + s, g_fp[s].run.act, g_fp[s].run.act, bbFl[s], bbNext[s], g_sm_clock); }
+            if (bbCand[s]) { ++bbl; Log("STYLE BURST: candidate boss %c act 0x%X hit by %s%s in its burst run (%.0f ms into the run, player act %u skill word 0x%X gs %d ninjutsu %d i-frame counter %d)", 'A' + s, g_fp[s].run.act,
+                (bbPl >> s) & 1 ? "the player" : "the summoned spirit", bbCand[s] == SM_BB_HIT_CTR ? " (burst counter)" : bbCand[s] == SM_BB_HIT_SKILL ? " (skill move)" : "", g_fp_gms - g_fp[s].run.t0, act, skw, gsm.gs, ninMove, ctr); }
+            if (bbOut[s]) { ++bbl; Log("STYLE BURST2: boss %c act 0x%X hit by the player after its red attack came out (%.0f ms into the run, player act %u (0x%X)%s skill word 0x%X)",
+                'A' + s, bbR[s] ? bbE[s].act : g_fp[s].run.act, g_fp_gms - g_fp[s].run.t0, act, act, g_smc.burstCtrAct && act == g_smc.burstCtrAct ? " = burst counter" : " (not BurstCounterAct)", skw); }
+            if (bbR[s]) { ++bbl; const SmBurstEnd* e = &bbE[s];
+                Log("STYLE BURST: %s boss %c act 0x%X -> 0x%X, %d hit%s, last %.0f ms before the end (window %d ms)%s%s%s%s%s", bbR[s] == SM_BB_AWARD ? "BURST BREAK" : "no break,", 'A' + s, e->act, e->newAct, e->hits, e->hits == 1 ? "" : "s", e->ago, g_smc.burstMs,
+                    e->ctr ? " | burst counter" : "", e->great ? " | unblockable collider already out" : "", e->cont ? " | the next action continues the burst (row next / burst row)" : "", e->late ? " | too late" : "", e->noSkill ? " | not a skill hit (BurstBreakSkillOnly)" : ""); }
+        }
+        if (avAte && bbl < 3000) { ++bbl; Log("STYLE BURST2: %s (avoid %d) taken by the burst counter: %s", avAte == SM_AV_DEFLECT ? "deflect" : avAte == SM_AV_COUNTER ? "counter (avoid)" : "dodge", avAte,
+            avHeld ? "held until the countered red attack ends (paid if it is no Burst Break)" : "same event as the Burst Break, not paid"); }
+        if (avBack && bbl < 3000) { ++bbl; Log("STYLE BURST2: held avoid %d paid after all (the countered red attack ended without a Burst Break)", avBack); }
+    }
+    if (dpr || dpo.ate || dpConv || dpQueuedNow) {  // human: Displacement! diagnosis (live test: thresholds, which moves qualify)
+        static int dpl;
+        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss", "Displace turned off", "a plain dodge before the hit (the skill did not carry you out)"};
+        if (dpl < 3000) { ++dpl;
+            if (dpr == SM_DP_AWARD) Log("STYLE DISPLACE: AWARD act %u%s +%.0f: moved %.2f m, around the boss %.0f deg, boss %.2f m away when its window opened, hit %.0f ms after the window, %d move(s) later (hit by act %u)%s",
+                dpo.act, dpo.listed ? " (DisplaceActs)" : "", pdp, dpo.moved / 100.f, dpo.ang, dpo.dist0 / 100.f, dpo.ago, dpo.runs, act, dpo.replaced ? " (the window's avoid replaced)" : " (no i-frame avoid: out of reach)");
+            else if (dpr == SM_DP_MISS) Log("STYLE DISPLACE: miss act %u%s: %s (moved %.2f m, around %.0f deg, %.0f ms, %d move(s) later, now act %u)%s%s", dpo.act, dpo.listed ? " (DisplaceActs)" : "",
+                dpo.why > 0 && dpo.why <= 7 ? why[dpo.why] : "?", dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, act,
+                dpBack ? dpBack == SM_AV_DEFLECT ? " -> held deflect paid" : dpBack == SM_AV_COUNTER ? " -> held counter paid" : " -> held dodge paid" : dpQueuedNow ? " -> held avoid paid next tick" : "",
+                dpo.asDodge ? " (its Counter! paid as a Dodge!: a displacement move)" : "");
+            else if (dpConv && !dpo.ate) Log("STYLE DISPLACE: act %u (DisplaceActs move) avoid paid as a Dodge!, not a Counter! (no candidate: %s)", act, dps.pend ? "one is already open" : "its window was not seen in range");
+            else Log("STYLE DISPLACE: candidate act %u (skill word 0x%X, boss %c %.2f m away when its window opened): avoid %d held until the counter hit", act, skw, dpSlot >= 0 ? 'A' + dpSlot : '?', dps.pDist0 / 100.f, dpAv);
+        }
     }
     {   // #127085 one pop-up per scored bonus (plain hits are not bonuses); a big bonus tick shakes the meter
         float big = 0.f;
+        if (bbN) { if (bbHitPts > 0.f) SmFxPop2("Burst Break!", bbHitPts, pbb); else SmFxPop("Burst Break!", pbb); big += pbb; }  // human: the breaking hit's value, then the bonus (BurstBreakPts 0: the hit value only)
         if (ctrHit && g_smc.counter > 0.f) { SmFxPop2("Counter!", ph - g_smc.counter > 0.f ? ph - g_smc.counter : 0.f, g_smc.counter); big += g_smc.counter; }  // #127171 hit value, then the counter bonus
         if (pk > 0.f) { const int pf = kiPerf && g_smc.kiPerfect > 0.f && pk > g_smc.kiPerfect; SmFxPop2(pf ? "Perfect Ki" : "Ki Pulse", pf ? pk - g_smc.kiPerfect : pk, pf ? g_smc.kiPerfect : 0.f); big += pk; }
         if (pd > 0.f) { SmFxPop("Dodge!", pd); big += pd; }
         if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
+        if (pb > 0.f) SmFxPop("Blocked", pb);  // human: a guarded hit (BlockPct % of the hit); plain hits have no pop-up, this one is shown so it is seen
         if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
+        if (pdp > 0.f) { if (pdtri > 0.f) { SmFxPop("Displacement!", pdp - pdtri); SmFxPop("Displacement x3!", pdtri); } else SmFxPop("Displacement!", pdp); big += pdp; }
+        if (pgrap > 0.f) { SmFxPop("Grapple!", pgrap); big += pgrap; }  // human 2026-11-26
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }
@@ -624,17 +1135,40 @@ static void SmFeed(double gdt) {
         if (pgs0 > 0.f) { SmFxPop2("Guardian Spirit", gsPts, pgs0); big += pgs0; }  // #127213 the skill's own points, then the bonus
         if (sumB > 0.f) { SmFxPop2("Guardian Spirit", psum, sumB); big += sumB; }  // human: summoned spirit's first hit (its points, then the bonus)
         if (pcombo > 0.f) {  // human: announced under the combo counter (not a pop-up line, which got lost among the others)
-            InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
+            InterlockedExchange(&g_sm_mileKind, 0); InterlockedExchange(&g_sm_comboMile, (LONG)comboMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pcombo + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen);
             big += pcombo; }
+        if (varN && pvar > 0.f) {  // human: move variety milestone, same banner ("Variety x10! +30"); a combo milestone the same tick keeps it, this one pops up
+            const int vpc = SmVersPct(&g_sm, &g_smc);
+            if (pcombo > 0.f) { char l[40]; if (vpc > 0) snprintf(l, sizeof l, "Variety x%d! x%.2f", varMile, 1.0 + vpc / 100.0); else snprintf(l, sizeof l, "Variety x%d!", varMile); SmFxPop(l, pvar); }
+            else { InterlockedExchange(&g_sm_versPct, (LONG)vpc); InterlockedExchange(&g_sm_mileKind, 1); InterlockedExchange(&g_sm_comboMile, (LONG)varMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pvar + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen); }
+            big += pvar; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
+        if (pflux > 0.f) { SmFxPop(fluxDone >= 2 ? "Flux 2!" : "Flux!", pflux); big += pflux; }  // human 2026-11-26
+        if ((loopN || loopHalfN) && loopLost + loopHalfLost > 0.f) SmFxPopLoss("Repetitive!", loopLost + loopHalfLost);  // loop penalty (S+: lost, A: not paid): "-N"
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }
-    if (hits > 0 || allyHits > 0 || pcombo > 0.f || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f) {
+    if (blocked > 0) {  // live check of the guarded-hit signal: one line per blocked hit (first 40, then at most one a second)
+        static int bl; static DWORD blT; static uint32_t blN; const DWORD now = GetTickCount();
+        blN += (uint32_t)blocked;
+        if (bl < 40 || now - blT >= 1000) {
+            bl++; blT = now;
+            for (int i = 0; i < blocked && i < 4; ++i) Log("STYLE BLOCK: guarded hit %p on enemy status %p (signals: Ki damage %d (%.1f), HP damage call with 0 %d; no HP taken) -> +%.1f (%d %% of a hit; %u blocked so far, Ki hook %d)",
+                (void*)blkEv[i].hit, (void*)blkEv[i].vic, !!(blkEv[i].fl & SM_BLK_KI), blkEv[i].ki, !!(blkEv[i].fl & SM_BLK_HP0), pb / (float)blocked, g_smc.blockPct, blN, (int)g_pst_ki_hooked);
+        }
+    }
+    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || varN || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN) {
         static int evl;
         if (evl++ < 4000) {
-            char e[400]; int n = 0; e[0] = 0;
-            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            char e[640]; int n = 0; e[0] = 0;
+            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s%s)", (long)hits, ph, startupF, slowX > 1.f ? ", slow move" : "", ctrHit ? ", counter" : "");
+            if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
+            if (varN) n += snprintf(e + n, sizeof e - n, " variety %d moves +%.0f", varMile, pvar);
+            if (SmVersPct(&g_sm, &g_smc) != vers0) n += snprintf(e + n, sizeof e - n, " versatility %d moves x%.2f (+%.0f so far)", g_sm.varN, 1.0 + SmVersPct(&g_sm, &g_smc) / 100.0, g_sm.versPts);
+            if (loopN) n += snprintf(e + n, sizeof e - n, " repetitive x%u -%.0f (loop %u/%u uses)", loopN, loopLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
+            if (loopHalfN) n += snprintf(e + n, sizeof e - n, " repetitive-half x%u (%.0f not paid, loop %u/%u uses)", loopHalfN, loopHalfLost, (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
+            if (loopFreeN) n += snprintf(e + n, sizeof e - n, " repetitive-free x%u (%s, loop %u/%u uses)", loopFreeN, g_sm.lpFree ? "zero-Ki human boss" : "rank below A", (unsigned)g_sm.lpN1, (unsigned)g_sm.lpN2);
+            if (capN) n += snprintf(e + n, sizeof e - n, " over multi-hit cap x%u", capN);
             if (allyHits > 0) n += snprintf(e + n, sizeof e - n, summonLive ? " summoned spirit hit x%ld +%.1f" : " ally hit x%ld (no summon window, not scored)", (long)allyHits, psum);
             if (nin) n += snprintf(e + n, sizeof e - n, " ninjutsu +%.0f", pn);
             if (swapEv) n += snprintf(e + n, sizeof e - n, " weapon slot -> %d", wslot);
@@ -643,6 +1177,7 @@ static void SmFeed(double gdt) {
             if (pgs > 0.f) n += snprintf(e + n, sizeof e - n, " guardian spirit +%.0f", pgs);
             if (maMark) n += snprintf(e + n, sizeof e - n, " skill row 0x%X%s", skw, mam.other ? " (guardian spirit / ninjutsu move)" : "");
             if (pma > 0.f) n += snprintf(e + n, sizeof e - n, " martial art +%.0f", pma);
+            if (bbN) n += snprintf(e + n, sizeof e - n, " burst break x%d +%.0f", bbN, pbb);
             if (soul > 0) n += snprintf(e + n, sizeof e - n, " soul core x%ld +%.0f", (long)soul, pc);
             if (sty) n += snprintf(e + n, sizeof e - n, " style switch +%.0f", ps);
             if (ki && pk > 0) n += snprintf(e + n, sizeof e - n, " ki%s +%.0f", kiPerf ? " perfect" : "", pk);
@@ -729,14 +1264,22 @@ static int SrConfirmDown(void) {
     if (xgs) for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x1000)) return 1; }  // XINPUT_GAMEPAD_A
     return 0;
 }
+// human 2026-11-26: card page switch: D-pad left / right on any pad or the arrow keys. Returns 1 on a fresh press (edge), else 0.
+static int SrPageEdge(void) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried, was = 1;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    int down = (GetAsyncKeyState(VK_LEFT) & 0x8000) || (GetAsyncKeyState(VK_RIGHT) & 0x8000);
+    if (xgs) for (DWORD i = 0; i < 4 && !down; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x000C)) down = 1; }  // DPAD_LEFT | DPAD_RIGHT
+    const int edge = down && !was; was = down; return edge;
+}
 // Result card window (draw thread): shows the newest g_sr_card until the player presses confirm (A / Enter; ResultShowMs > 0 also times it
 // out), centred near the top of the game window. While the game is unfocused, loading or in a menu the card hides and comes back after.
 // The panel is composed once per card / size; only the grade letter's motion is redrawn, then just the fade.
 static void SrCardTick(int ok, int lay) {
-    static LONG gen; static SrResult r; static double t0 = -1e18, closeT = -1e18; static int shown, w, h, settled, closed = 1, wasDown = 1, sawUp, wasLay = -1, dirty;
+    static LONG gen; static SrResult r; static double t0 = -1e18, closeT = -1e18; static int shown, w, h, settled, closed = 1, wasDown = 1, sawUp, wasLay = -1, dirty, page;
     static HDC mem; static HBITMAP bmp; static uint32_t* px; static uint32_t* base; static RECT last;
     AcquireSRWLockShared(&g_smfx_lock);
-    if (g_sr_cardGen != gen) { gen = g_sr_cardGen; r = g_sr_card; t0 = g_sr_cardT; w = 0; closed = 0; wasDown = 1; sawUp = 0; }
+    if (g_sr_cardGen != gen) { gen = g_sr_cardGen; r = g_sr_card; t0 = g_sr_cardT; w = 0; closed = 0; wasDown = 1; sawUp = 0; page = 0; }
     ReleaseSRWLockShared(&g_smfx_lock);
     const double now = SmWallMs(), age = now - t0;
     if (!closed && ok && shown && age >= SR_ARM_MS) {
@@ -770,6 +1313,13 @@ static void SrCardTick(int ok, int lay) {
         __try { SrComposeBase(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(px, 0, (size_t)g.w * g.h * 4); }
         memcpy(base, px, (size_t)g.w * g.h * 4);
         w = g.w; h = g.h; settled = 0; dirty = 1;
+        if (page) { __try { SrComposeBreakdown(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } settled = 1; }
+    }
+    // human 2026-11-26: D-pad left / right flips between the rank page and the points breakdown (while the card is up and armed)
+    if (SrPageEdge() && !closed && ok && shown && age >= SR_ARM_MS) {
+        page ^= 1; dirty = 1; settled = 1;
+        if (page) { __try { SrComposeBreakdown(mem, px, &g, &r); GdiFlush(); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } }
+        else { __try { SrComposeFrame(mem, px, base, &g, &r, 1e9); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); } }
     }
     if (!settled) {
         __try { SrComposeFrame(mem, px, base, &g, &r, age); } __except (EXCEPTION_EXECUTE_HANDLER) { memcpy(px, base, (size_t)g.w * g.h * 4); }
@@ -813,7 +1363,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
         const int lay = SmLayerOk();
         SrCardTick(g_cfg_sm && gameOk && fg && !loading && !menu, lay);
         if (lay != wasLay) { if (shown) { if (wasLay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); } shown = 0; wasLay = lay; }
-        const int want = g_cfg_sm && g_sm_vis && gameOk && fg && !loading && !menu;
+        const int want = g_cfg_sm && g_cfg_sm_show && g_sm_vis && gameOk && fg && !loading && !menu;  // ShowMeter 0: card only
         if (!want) { if (shown) { if (lay) SmLayerHide(SM_LAYER_METER); else ShowWindow(g_sm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_sm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_sm_game, &o);
         if (cr.right <= 0 || cr.bottom <= 0) continue;
@@ -853,7 +1403,7 @@ static DWORD WINAPI SmThread(LPVOID p) {
             static LONG mileGen; static double mileT = -1e18;  // milestone banner: 1.6 s, then fades over 0.6 s
             if (g_sm_comboMileGen != mileGen) { mileGen = g_sm_comboMileGen; mileT = now; }
             const double ma = now - mileT;
-            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts;
+            st.mileMs = ma; st.mile = (int)g_sm_comboMile; st.milePts = (int)g_sm_comboMilePts; st.mileKind = (int)g_sm_mileKind; st.versPct = (int)g_sm_versPct;
             st.mileA = ma < 0 ? 0.f : ma < 1600 ? 1.f : ma < 2200 ? 1.f - (float)((ma - 1600) / 600.0) : 0.f;
         }
         const int anim = st.npops > 0 || st.scale != 1.f || st.dx != 0.f || st.dy != 0.f || st.glow > 0.f || eased != (float)gauge || showRank != rank || (st.upMs >= 0.0 && st.upMs < SM_UP_MS) || (st.comboA > 0.f && st.comboA < 1.f) || (st.mileMs >= 0 && st.mileMs < 2300);
