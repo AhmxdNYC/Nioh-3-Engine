@@ -26,7 +26,7 @@ static SrResult Fight(const float* secAt, const float* gaugeAt, int hold, SrCoun
     SrBossHit(&f, &s, 1);
     for (int r = 0; r < SM_RANKS; ++r) { s.rank = r; s.active = 1; s.pts = gaugeAt[r] * c.rankPts[r]; for (double t = 0; t < secAt[r] * 1000.0; t += 16) SrTick(&f, &s, &c, 16); }
     f.dead[0] = 1;
-    SrResult res = SrFinishEx(&f, &s, hold, 0); res.n = n; res.penalty = n.damaged * SR_HIT_PENALTY / 100.f; res.rawAvg = res.avg; res.grade = SrGrade(f.atRank, f.ms, f.area, hold, res.penalty, &res.avg, &res.byAvg); res.n.deflects = n.dodges / 3; res.moves = moves; res.maMoves = ma; res.inputs = (uint32_t)(f.ms / 1000.0 * 4.2); res.apm = f.ms > 0 ? (float)(res.inputs * 60000.0 / f.ms) : 0.f;
+    SrResult res = SrFinishEx(&f, &s, hold, 0); res.n = n; res.penalty = n.damaged * SR_HIT_PENALTY / 100.f; res.rawAvg = res.avg; res.score = res.rawScore - res.penalty; if (res.score < 0.f) res.score = 0.f; res.grade = (int)res.score; if (res.grade > SM_RANKS - 1) res.grade = SM_RANKS - 1; res.n.displaces = n.dodges / 4; res.n.deflects = n.dodges / 3; res.moves = moves; res.maMoves = ma; res.inputs = (uint32_t)(f.ms / 1000.0 * 4.2); res.apm = f.ms > 0 ? (float)(res.inputs * 60000.0 / f.ms) : 0.f;
     return res;
 }
 int main(int argc, char** argv) {

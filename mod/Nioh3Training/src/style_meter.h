@@ -205,8 +205,9 @@ typedef struct {
     uint32_t countedHits, cappedHits, loopPens; float loopLost;  // hits that scored (combo feed) / over the cap / looped uses / points they cost
     uint32_t bursts;        // human: Burst Breaks (a boss's red attack interrupted in its wind-up)
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
+    uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
-    uint32_t varBonuses; int varMile; float varLastPts, varPts; float versPts;  // versPts = all points the versatility multiplier added  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points
+    uint32_t varBonuses; int varMile; float varLastPts, varPts; float versPts;  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points
 } SmState;
 
 static inline void SmCfgDefaults(SmCfg* c) {

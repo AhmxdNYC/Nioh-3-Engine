@@ -227,7 +227,7 @@ static inline float SmOnDisplace(SmState* s, const SmCfg* c, const SmDispCfg* dc
     if (dc->pts <= 0.f) return 0.f;
     const float p = SmLoopScale(s, c, tier, dc->pts);
     if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p); s->lastScore = t;
+    const float gain_ = SmAdd(s, c, p); s->lastScore = t; s->displaces++;
     SmVarietyMove(s, c, t, SM_VAR_DISPLACE);
     return gain_;
 }

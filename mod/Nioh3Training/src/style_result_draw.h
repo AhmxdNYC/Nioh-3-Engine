@@ -5,7 +5,8 @@
 #define STYLE_RESULT_DRAW_H
 
 #define SR_CARD_W 640           // 1080p design size (scaled by the client height and StyleMeterScale)
-#define SR_CARD_H 692  // human 2026-11-25: +28 for the APM / Inputs row
+#define SR_STAT_ROWS 9  // stats rows (2 columns): human 2026-11-26 +1 row for Displacements
+#define SR_CARD_H (692 + (SR_STAT_ROWS - 8) * 28)  // human 2026-11-25: +28 for the APM / Inputs row
 #define SR_FADE_IN_MS 250
 #define SR_FADE_OUT_MS 350
 #define SR_ARM_MS 800           // a confirm press counts only after the card has been up this long (button mashing at the kill)
@@ -68,17 +69,20 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     SrFill(px, W, H, SRX(40), SRX(58), W - SRX(80), 1, 0xA89A6Cu, 140);
     // score line under the letter
     char b[160], t[24]; SrClock(t, sizeof t, r->ms);
-    snprintf(b, sizeof b, "Average %.2f / 7     Peak %s     Fight %s", r->avg, sm_rank_name[r->peak], t);
+    snprintf(b, sizeof b, "Score %.2f / 7     Peak %s     Fight %s", r->score, sm_rank_name[r->peak], t);  // human 2026-11-26: the grade score, not the average
     SrText(ref, px, W, H, b, W / 2, SRX(266), SRX(21), FW_NORMAL, 0, 1, SR_VALUE);
     if (r->n.damaged == 0) snprintf(b, sizeof b, "No hits taken: no penalty");
-    else snprintf(b, sizeof b, "Style %.2f  \x96 %.2f for %u hit%s taken", r->rawAvg, r->penalty, r->n.damaged, r->n.damaged == 1 ? "" : "s");
+    else snprintf(b, sizeof b, "Style %.2f  \x96 %.2f for %u hit%s taken", r->rawScore, r->penalty, r->n.damaged, r->n.damaged == 1 ? "" : "s");
     SrText(ref, px, W, H, b, W / 2, SRX(296), SRX(17), FW_BOLD, 0, 1, r->n.damaged == 0 ? 0x9FD49Au : 0xE08A7Au);
-    if (r->grade < r->byAvg)
-        snprintf(b, sizeof b, "Average reached %s, but under %d%% of the fight was spent at %s or higher", sm_rank_name[r->byAvg], r->hold, sm_rank_name[r->byAvg]);
-    else if (r->grade < SM_RANKS - 1)
-        snprintf(b, sizeof b, "Next: %d%% of the fight at %s or higher", r->hold, sm_rank_name[r->grade + 1]);
-    else snprintf(b, sizeof b, "Heavenly");
-    SrText(ref, px, W, H, b, W / 2, SRX(320), SRX(16), FW_NORMAL, 1, 1, r->grade < r->byAvg ? 0xE6A050u : SR_LABEL);
+    const int hitCost = r->hold > 0 && r->grade < r->byHold;  // the hits took the grade below the rank that was held
+    if (hitCost)
+        snprintf(b, sizeof b, "Held %s for %d%%+ of the fight, but hits taken cost %d grade%s", sm_rank_name[r->byHold], r->hold, r->byHold - r->grade, r->byHold - r->grade == 1 ? "" : "s");
+    else if (r->grade < SM_RANKS - 1 && r->hold > 0)
+        snprintf(b, sizeof b, "Next: %d%% of the fight at %s or higher (now %.0f%%)", r->hold, sm_rank_name[r->grade + 1], r->nextPct);
+    else if (r->grade < SM_RANKS - 1) snprintf(b, sizeof b, "Next: average %d.00", r->grade + 1);
+    else if (r->score >= 6.995f) snprintf(b, sizeof b, "Heavenly");
+    else snprintf(b, sizeof b, "SSS for %.0f%% of the fight", r->nextPct);
+    SrText(ref, px, W, H, b, W / 2, SRX(320), SRX(16), FW_NORMAL, 1, 1, hitCost ? 0xE6A050u : SR_LABEL);
     // time at each rank: one bar split by share, then a legend row
     const int bx = SRX(40), bw = W - 2 * bx, by = SRX(352), bh = SRX(16) > 4 ? SRX(16) : 4;
     SrFill(px, W, H, bx - 1, by - 1, bw + 2, bh + 2, 0x000000u, 200);
@@ -93,26 +97,30 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     }
     SrFill(px, W, H, SRX(40), SRX(408), W - SRX(80), 1, 0xA89A6Cu, 140);
     // stats: two columns, label left / value right
-    char v[16][40]; const char* lab[16] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Hits landed",
-                                           "Counters", "Dodges", "Deflects", "Ki pulses", "Hits taken", "Best combo", "APM", "Inputs"};
+    enum { SR_NSTAT = 2 * SR_STAT_ROWS };
+    char v[SR_NSTAT][40]; const char* lab[SR_NSTAT] = {"Different moves", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Hits landed", "Counters",
+                                           "Dodges", "Deflects", "Displacements", "Ki pulses", "Hits taken", "Best combo", "APM", "Inputs", ""};
+    for (int i = 0; i < SR_NSTAT; ++i) v[i][0] = 0;
     snprintf(v[0], 40, "%d", r->moves);
     if (r->n.maHits) snprintf(v[1], 40, "%u (%d different)", r->n.maHits, r->maMoves); else snprintf(v[1], 40, "0");
     snprintf(v[2], 40, "%u", r->n.nins); snprintf(v[3], 40, "%u", r->n.souls); snprintf(v[4], 40, "%u", r->n.gsHits); snprintf(v[5], 40, "%u", r->n.swapHits);
     snprintf(v[6], 40, "%u", r->n.styles);
     snprintf(v[7], 40, "%u", r->n.hits); if (r->n.bursts) snprintf(v[8], 40, "%u (%u burst)", r->n.counters + r->n.counterAvoids, r->n.bursts); else snprintf(v[8], 40, "%u", r->n.counters + r->n.counterAvoids); snprintf(v[9], 40, "%u", r->n.dodges); snprintf(v[10], 40, "%u", r->n.deflects);
-    if (r->n.kiPerfects) snprintf(v[11], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[11], 40, "%u", r->n.kis);
-    snprintf(v[12], 40, "%u", r->n.damaged); snprintf(v[13], 40, "%u hits", r->comboBest);
-    snprintf(v[14], 40, "%.0f", r->apm); snprintf(v[15], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
-    for (int i = 0; i < 16; ++i) {
+    snprintf(v[11], 40, "%u", r->n.displaces);  // human 2026-11-26
+    if (r->n.kiPerfects) snprintf(v[12], 40, "%u (%u perfect)", r->n.kis, r->n.kiPerfects); else snprintf(v[12], 40, "%u", r->n.kis);
+    snprintf(v[13], 40, "%u", r->n.damaged); snprintf(v[14], 40, "%u hits", r->comboBest);
+    snprintf(v[15], 40, "%.0f", r->apm); snprintf(v[16], 40, "%u", r->inputs);  // human 2026-11-25: button presses per minute of fight
+    const int SR_HITS_TAKEN = 13;
+    for (int i = 0; i < SR_NSTAT; ++i) {
         if (!lab[i][0]) continue;
-        const int col = i / 8, row = i % 8, y = SRX(422 + row * 28);
+        const int col = i / SR_STAT_ROWS, row = i % SR_STAT_ROWS, y = SRX(422 + row * 28);
         const int lx = SRX(col ? 334 : 40), rx = SRX(col ? 600 : 306);
         SrText(ref, px, W, H, lab[i], lx, y, SRX(18), FW_NORMAL, 0, 0, SR_LABEL);
-        SrText(ref, px, W, H, v[i], rx, y, SRX(18), FW_BOLD, 0, 2, i == 12 && r->n.damaged == 0 ? 0x9FD49Au : i == 12 ? 0xE08A7Au : SR_VALUE);
+        SrText(ref, px, W, H, v[i], rx, y, SRX(18), FW_BOLD, 0, 2, i == SR_HITS_TAKEN && r->n.damaged == 0 ? 0x9FD49Au : i == SR_HITS_TAKEN ? 0xE08A7Au : SR_VALUE);
     }
-    SrFill(px, W, H, W / 2, SRX(424), 1, SRX(8 * 28 - 8), 0xA89A6Cu, 70);
-    SrFill(px, W, H, SRX(40), SRX(650), W - SRX(80), 1, 0xA89A6Cu, 90);
-    SrText(ref, px, W, H, "Press A or Enter to close", W / 2, SRX(658), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
+    SrFill(px, W, H, W / 2, SRX(424), 1, SRX(SR_STAT_ROWS * 28 - 8), 0xA89A6Cu, 70);
+    SrFill(px, W, H, SRX(40), SRX(650 + (SR_STAT_ROWS - 8) * 28), W - SRX(80), 1, 0xA89A6Cu, 90);
+    SrText(ref, px, W, H, "Press A or Enter to close", W / 2, SRX(658 + (SR_STAT_ROWS - 8) * 28), SRX(15), FW_NORMAL, 1, 1, 0x8A8F96u);
 #undef SRX
 }
 // One card frame: the grade letter on its own transparent layer (the meter's rank-up motions tint / clear rects around the letter and

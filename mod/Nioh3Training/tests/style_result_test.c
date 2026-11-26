@@ -58,12 +58,12 @@ static void SssIsHard(void) {
     Run(&f, &s, &c, 6, 0.3f, 60000);                                    // SSS with a low gauge: average under 6
     rr = Done(&f, &s, SR_HOLD_PCT);
     CHECK(rr.avg < 6.f && rr.byHold == 6 && rr.grade == 6);              // 2026-11-26 rule 3: 67 % of the fight at SSS earns SSS
-    // human's fight 2026-11-26 04:02: SSS 61 %, average 5.62 -> SS before; now SSS. 8 hits (1.00 penalty) take one grade off rule 3.
+    // human's fight 2026-11-26 04:02: SSS 61 %, average 5.62 -> SS before; now SSS. 8 hits (1.00 penalty) take one grade off the score.
     SrReset(&f); SrBossHit(&f, &s, 0x1000);
     Run(&f, &s, &c, 1, 0.5f, 3900); Run(&f, &s, &c, 3, 0.5f, 3000); Run(&f, &s, &c, 4, 0.5f, 5800); Run(&f, &s, &c, 5, 0.5f, 7400); Run(&f, &s, &c, 6, 0.3f, 32700);
     rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byAvg == 5 && rr.grade == 6);
     rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 6 && rr.grade == 6);  // 1 hit: 0.125, still SSS
-    s.damaged += 8; rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 5); s.damaged -= 8;
+    s.damaged += 8; rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 6 && rr.grade == 5); s.damaged -= 8;  // 8 hits: one grade off the score
     // 40 % at SSS (under 45 %), 60 % at SS: SS
     SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 60000); Run(&f, &s, &c, 6, 0.5f, 40000);
     rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
@@ -244,22 +244,42 @@ static void DodgeDeflectCounter(void) {
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT);
     CHECK(r.n.deflects == 1 && r.n.dodges == 1 && r.n.counterAvoids == 1);
 }
-// Hit penalty: each hit taken lowers the average by 0.125 (was 0.25) before grading; 0 = off.
+// Hit penalty: each hit taken lowers the grade score by 0.125 (8 hits = one grade); 0 = off. (human 2026-11-26: grade score)
 static void HitPenalty(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f);
     SrBossHit(&f, &s, 0x1000);
-    Run(&f, &s, &c, 3, 0.6f, 60000);                                   // A for the whole fight: 3.6
+    Run(&f, &s, &c, 3, 0.6f, 30000); Run(&f, &s, &c, 4, 0.5f, 30000);     // 100 % at A or higher, 50 % at S: S, score 4.00
     SrResult r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.grade == 3 && near(r.penalty, 0, 0.001));                  // no hits: A
+    CHECK(r.grade == 4 && r.byHold == 4 && near(r.score, 4.0, 0.01) && near(r.penalty, 0, 0.001));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 3, 0.6f, 60000);  // A for the whole fight: 3.00 (0 % at S)
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY); CHECK(r.grade == 3 && near(r.score, 3.0, 0.01));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 3, 0.6f, 40000); Run(&f, &s, &c, 4, 0.6f, 20000);  // 33 % at S: 3.67
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY); CHECK(r.grade == 3 && near(r.score, 3.667, 0.01) && near(r.nextPct, 33.3, 0.2));
     for (int i = 0; i < 4; ++i) SmOnDamaged(&s, &c, 100000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.n.damaged == 4 && near(r.penalty, 0.5, 0.001) && near(r.rawAvg, 3.6, 0.01) && near(r.avg, 3.1, 0.01) && r.grade == 3);  // 4 hits: still A (0.125 each)
-    r = SrFinishEx(&f, &s, SR_HOLD_PCT, 25);
-    CHECK(near(r.penalty, 1.0, 0.001) && near(r.avg, 2.6, 0.01) && r.grade == 2);  // the old 0.25: B
+    CHECK(r.n.damaged == 4 && near(r.penalty, 0.5, 0.001) && near(r.rawScore, 3.667, 0.01) && near(r.score, 3.167, 0.01) && r.grade == 3);  // 4 hits: still A
+    for (int i = 0; i < 4; ++i) SmOnDamaged(&s, &c, 130000 + i * 5000);
+    r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
+    CHECK(near(r.score, 2.667, 0.01) && r.grade == 2 && r.byHold == 3);  // 8 hits: one grade (B)
     for (int i = 0; i < 40; ++i) SmOnDamaged(&s, &c, 200000 + i * 5000);
     r = SrFinishEx(&f, &s, SR_HOLD_PCT, SR_HIT_PENALTY);
-    CHECK(r.avg == 0.f && r.grade == 0);                               // never below 0
+    CHECK(r.score == 0.f && r.grade == 0);                             // never below 0
     CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 3);              // penalty off
+}
+// human 2026-11-26 grade score examples: 04:53 fight (SSS 61 %) = 6.22, 04:45 fight (SS+ 51 %, SSS 19 %) = 5.38; SSS all fight = 7.00.
+static void GradeScore(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f;
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 1, 0.5f, 8000); Run(&f, &s, &c, 2, 0.5f, 2000); Run(&f, &s, &c, 3, 0.5f, 4000); Run(&f, &s, &c, 4, 0.5f, 5000); Run(&f, &s, &c, 5, 0.5f, 20000); Run(&f, &s, &c, 6, 0.5f, 61000);
+    SrResult r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 6 && near(r.score, 6.22, 0.01));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 1, 0.5f, 10000); Run(&f, &s, &c, 2, 0.5f, 5000); Run(&f, &s, &c, 3, 0.5f, 11000); Run(&f, &s, &c, 4, 0.5f, 23000); Run(&f, &s, &c, 5, 0.5f, 32000); Run(&f, &s, &c, 6, 0.5f, 19000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 5 && near(r.score, 5.38, 0.01) && near(r.nextPct, 19, 0.1));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 6, 0.5f, 10000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 6 && near(r.score, 7.0, 0.001));
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 0, 0.5f, 10000);
+    r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.grade == 0 && near(r.score, 0.0, 0.001));
+    // displacements are counted on the card
+    SmState d; SmReset(&d); SrReset(&f); SrBossHit(&f, &d, 0x1000); d.displaces += 3; Run(&f, &d, &c, 2, 0.5f, 1000);
+    r = SrFinish(&f, &d, SR_HOLD_PCT); CHECK(r.n.displaces == 3);
 }
 // Picture Scroll (2026-11-25 log 02:55-03:00): three wave bosses on the HUD bar, no boss slot. Boss 1 (own actor) dies, boss 2 gets the bar
 // 10 s later at another address, boss 3 reuses boss 2's actor address with a new handle / HP block (tag) 8 s after boss 2 died. One card each.
@@ -332,7 +352,7 @@ static void Apm(void) {
     f.ending = 1; SrInputs(&f, 4, 10); CHECK(f.inputs == 150);  // end wait: not counted
 }
 int main(void) {
-    HitPenalty();
+    HitPenalty(); GradeScore();
     DodgeDeflectCounter(); HalfAndHalf(); ShortBurst(); HoldRule(); SssIsHard(); NoClearTime(); Lifecycle(); Counts();
     Gauntlet(); Duo(); SecondForm(); Teardown(); PictureScroll(); Apm();
     printf("style_result_test: all %d checks passed\n", g_checks);
