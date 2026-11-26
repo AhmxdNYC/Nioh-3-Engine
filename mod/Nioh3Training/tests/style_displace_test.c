@@ -330,16 +330,20 @@ static void FistsDrop(void) {
     Step(&d, &c, 500, Wind(2, 25398, 115, -55, 0), &o);
     CHECK(Step(&d, &c, 650, In(2, 2, 25398, 1, 115, -55, 0, 1, 0), &o) == SM_DP_AWARD && o.moved > 175.f && o.moved < 195.f && o.ang > 90.f);
 }
-// human 2026-11-26: every 3rd displacement landed (a looped one, paying 0, still counts) adds a flat 80.
+// human 2026-11-26: every 3rd displacement landed adds a flat 80; one the repetition penalty applies to neither counts nor pays.
 static void Streak(void) {
     SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; sc.versStep = 0; SmDispCfg c; SmDispCfgDefaults(&c); SmState s; SmReset(&s);
     CHECK(c.triN == 3 && c.triPts == 80.f);
     SmOnHitUse(&s, &sc, 100, 25601, 1, -1.f, 0, 0); CHECK(SmOnDisplace(&s, &sc, &c, 100, 25601, 1) == c.pts);           // 1st
     SmOnHitUse(&s, &sc, 200, 25601, 2, -1.f, 0, 0); SmOnHitUse(&s, &sc, 300, 25601, 3, -1.f, 0, 0); CHECK(s.lpPen);
-    CHECK(SmOnDisplace(&s, &sc, &c, 300, 25601, 3) == 0.f && s.dispLanded == 2);                                          // 2nd: looped, 0
-    SmOnHitUse(&s, &sc, 400, 25700, 4, -1.f, 0, 0);
-    CHECK(SmOnDisplace(&s, &sc, &c, 400, 25700, 4) == c.pts + 80.f && s.dispStreaks == 1 && s.dispStreakLast == 80.f);  // 3rd: + 80
-    SmOnHitUse(&s, &sc, 500, 25800, 5, -1.f, 0, 0); CHECK(SmOnDisplace(&s, &sc, &c, 500, 25800, 5) == c.pts);           // 4th: plain
+    CHECK(SmOnDisplace(&s, &sc, &c, 300, 25601, 3) == 0.f && s.dispLanded == 1);                                          // looped: not counted
+    SmOnHitUse(&s, &sc, 400, 25700, 4, -1.f, 0, 0); CHECK(SmOnDisplace(&s, &sc, &c, 400, 25700, 4) == c.pts && s.dispLanded == 2);  // 2nd
+    SmOnHitUse(&s, &sc, 500, 25800, 5, -1.f, 0, 0);
+    CHECK(SmOnDisplace(&s, &sc, &c, 500, 25800, 5) == c.pts + 80.f && s.dispStreaks == 1 && s.dispStreakLast == 80.f);  // 3rd: + 80
+    // the same move repeated with no penalty (rank D..B: the default tiers) counts
+    SmCfg dc = sc; SmCfgDefaults(&dc); dc.versStep = 0; dc.rankPts[0] = 100000.f; SmState r; SmReset(&r);  // stays at D
+    for (int i = 0; i < 6; ++i) { SmOnHitUse(&r, &dc, 100.0 * i, 25601, 20 + i, -1.f, 0, 0); SmOnDisplace(&r, &dc, &c, 100.0 * i, 25601, 20 + i); }
+    CHECK(r.rank < dc.loopHalfRank && r.dispLanded == 6 && r.dispStreaks == 2);
     SmDispCfg o = c; o.triN = 0; SmState q; SmReset(&q);
     for (int i = 0; i < 3; ++i) { SmOnHitUse(&q, &sc, 100.0 * i, 26000 + i, 10 + i, -1.f, 0, 0); SmOnDisplace(&q, &sc, &o, 100.0 * i, 26000 + i, 10 + i); }
     CHECK(q.dispStreaks == 0);
