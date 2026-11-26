@@ -1133,6 +1133,11 @@ static void Flux(void) {
     CHECK(SmFluxStep(&f, 5, 1) == 0 && SmFluxStep(&f, 6, 1) == 0 && SmFluxStep(&f, 7, 0) == 2);  // Flux 2
     CHECK(SmFluxStep(&f, 8, 0) == 0 && SmFluxStep(&f, 9, 0) == 0);     // same-stance press: no flux row
     CHECK(SmFluxStep(&f, 10, 1) == 0 && SmFluxStep(&f, 0, -1) == 1);   // the player gone mid-chain: it still counts
+    SmCfg c; RealDefaults(&c); CHECK(near(c.fluxPts, 15.f) && near(c.flux2Pts, 10.f));
+    SmState s; SmReset(&s); CHECK(SmOnFlux(&s, &c, 1000, 1) == 0.f);  // no hit yet: nothing
+    SmOnHit(&s, &c, 1000, 7, 1);
+    CHECK(near(SmOnFlux(&s, &c, 1500, 1), 15.f) && near(SmOnFlux(&s, &c, 2000, 2), 25.f) && near(s.earned[SM_PC_FLUX], 40.f));
+    CHECK(SmOnFlux(&s, &c, 1000 + c.kiHitMs + 1, 1) == 0.f && SmOnFlux(&s, &c, 2000, 0) == 0.f);
 }
 int main(void) {
     SlowMove();

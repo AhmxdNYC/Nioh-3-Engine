@@ -119,6 +119,8 @@ static void SmReadIni(const char* ini, int reset) {
         else { g_sm_defl[0] = SM_DEFLECT_SKILL; g_sm_ndefl = 1; if (buf[0]) Log("STYLE METER: DeflectSkill '%s' ignored (hex skill words, e.g. 0x67D2)", buf); }
     }
     c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
+    c.fluxPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "FluxPts", SM_FLUX_PTS, ini);  // human 2026-11-26
+    c.flux2Pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "Flux2Pts", SM_FLUX2_PTS, ini);
     c.kiPerfect = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPerfectPts", SM_KI_PERFECT_PTS, ini);  // #127075
     c.repeatPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatPct", SM_REPEAT_PCT, ini);
     c.repeatFloorPct = (int)GetPrivateProfileIntA("StyleMeter", "RepeatFloorPct", SM_REPEAT_FLOOR_PCT, ini);
@@ -758,7 +760,7 @@ static void SmFeed(double gdt) {
     // human 2026-11-26: Flux 1 / Flux 2 (Ki pulse + switch to another stance): the game's flux row (skill word FluxSkill)
     static SmFluxDet fluxd; static int fluxInit; if (!fluxInit) { fluxInit = 1; SmFluxReset(&fluxd); }
     const int fluxDone = SmFluxStep(&fluxd, pl ? run : 0, skill < 0 ? -1 : skill > 0 && skw == g_cfg_flux_skill);
-    if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain)", fluxDone, (unsigned)act); }
+    
     const int maMark = pl ? SmMaStep(&mam, run, skill, gsm.gs || ninMove) : 0;
     // multi-segment martial arts (Infinite Retribution 25351 -> 25352 -> 25353): back-to-back runs of one skill word are one use for the
     // multi-hit cap / loop penalty (style_meter.h SmChainStep); variety, startup and the counter bonus stay per run
@@ -925,6 +927,8 @@ static void SmFeed(double gdt) {
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (crouchCancel) g_sm.crouchCancels++;
     if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
+    const float pflux = SmOnFlux(&g_sm, &g_smc, g_sm_clock, fluxDone);  // human 2026-11-26: +15 / +25 within 3 s of a hit
+    if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain) +%.0f%s", fluxDone, (unsigned)act, pflux, pflux > 0.f ? "" : " (no hit in the last 3 s: no points)"); }
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
     static int slowNear;  // human 2026-11-26: x2 only when a boss was within SlowMovePauseCm as the slow move landed (no far-away farming)
@@ -1130,6 +1134,7 @@ static void SmFeed(double gdt) {
             else { InterlockedExchange(&g_sm_versPct, (LONG)vpc); InterlockedExchange(&g_sm_mileKind, 1); InterlockedExchange(&g_sm_comboMile, (LONG)varMile); InterlockedExchange(&g_sm_comboMilePts, (LONG)(pvar + 0.5f)); InterlockedIncrement(&g_sm_comboMileGen); }
             big += pvar; }
         if (pma > 0.f) { SmFxPop2("Martial Art", gsPts, pma); big += pma; }  // #127295 the martial art's own points, then the bonus
+        if (pflux > 0.f) { SmFxPop(fluxDone >= 2 ? "Flux 2!" : "Flux!", pflux); big += pflux; }  // human 2026-11-26
         if ((loopN || loopHalfN) && loopLost + loopHalfLost > 0.f) SmFxPopLoss("Repetitive!", loopLost + loopHalfLost);  // loop penalty (S+: lost, A: not paid): "-N"
         if (big >= (float)g_cfg_sm_shakepts) { AcquireSRWLockExclusive(&g_smfx_lock); g_smfx_shakeT = SmWallMs(); ReleaseSRWLockExclusive(&g_smfx_lock); }
     }

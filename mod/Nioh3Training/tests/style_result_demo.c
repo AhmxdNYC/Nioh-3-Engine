@@ -41,9 +41,9 @@ int main(int argc, char** argv) {
         {"good", Fight(tA, gA, SR_HOLD_PCT, nA, 34, 4)}, {"bursty", Fight(tB, gB, SR_HOLD_PCT, nB, 12, 0)}, {"sss", Fight(tC, gC, SR_HOLD_PCT, nC, 41, 7)},
     };
     {   // human 2026-11-26: page 2 sample breakdowns
-        static const float e[3][SM_PC_N] = {{2400, 610, 180, 40, 420, 230, 160, 330, 260, 0, 40, 75, 100, 60, 25, 300, 280, 390},
-                                            {1500, 90, 30, 0, 120, 20, 0, 120, 0, 0, 40, 0, 0, 40, 0, 200, 24, 60},
-                                            {3900, 1250, 470, 0, 900, 230, 560, 1500, 500, 160, 160, 75, 450, 440, 0, 900, 1200, 1350}};
+        static const float e[3][SM_PC_N] = {{2400, 610, 180, 40, 420, 230, 160, 330, 260, 0, 40, 75, 100, 60, 25, 300, 280, 135, 390},
+                                            {1500, 90, 30, 0, 120, 20, 0, 120, 0, 0, 40, 0, 0, 40, 0, 200, 24, 0, 60},
+                                            {3900, 1250, 470, 0, 900, 230, 560, 1500, 500, 160, 160, 75, 450, 440, 0, 900, 1200, 310, 1350}};
         static const float l[3][SM_PL_N] = {{900, 380, 40}, {2400, 1100, 120}, {350, 0, 0}};
         for (int fi = 0; fi < 3; ++fi) { SrResult* r = &fights[fi].r; r->earnedTotal = r->lostTotal = 0.f;
             for (int i = 0; i < SM_PC_N; ++i) { r->n.earned[i] = e[fi][i]; r->earnedTotal += e[fi][i]; }
