@@ -11,8 +11,8 @@
 //           skill marks) cfg.dodge, shown as Counter; one counter per move between this and the hit counter below (game glue)
 //           (game glue decides both signals; the rule here is only the priority: other skill -> counter, deflect -> deflect, else dodge)
 //   ki      a Ki pulse landed within cfg.kiHitMs of a landed hit     cfg.ki   (human #126744: a pulse after a whiff scores 0; kiHitMs 0 = no gate)
-//   startup (#126821) a NEW use's points x (1 + startupPct % x how far its first hit window opened between startupMinF and startupMaxF, 60 fps
-//           frames, from the frame meter's own run: run.hit[0]). Slow, risky startups earn more; unknown startup = x1.
+//   startup (human 2026-11-26) a NEW use's points (and its martial art bonus) x SmStartupMult of the time from the move's start (all its
+//           chained segments) to its first landed hit: 1 s x1.5, 2 s x2, 3 s x3 .. (cap 5). Slow, risky moves earn more; unknown = x1.
 //   counter (#126843) + cfg.counter once per use when the player had i-frames while an enemy hit window was open in the same action run
 //           (an invincible counter / attack through an attack), then landed the hit.
 //   skill   (#126850 soul core, #126854 ninjutsu) cfg.soul / cfg.nin, only in combat (a landed hit within cfg.combatMs): no out-of-fight farming.
@@ -73,7 +73,8 @@
 #define SM_DAMAGE_GRACE_MS 1500  // live #126502: one multi-hit enemy combo = one rank drop
 #define SM_STARTUP_MIN_F 15   // #126821: startups at or below this many 60 fps frames get no bonus
 #define SM_STARTUP_MAX_F 60   // ... at or above this the full bonus
-#define SM_STARTUP_PCT 100    // full bonus: points x2
+#define SM_STARTUP_PCT 100    // StartupBonusPct: % of the startup bonus (100 = the curve in SmStartupMult)
+#define SM_STARTUP_MAX_MULT 5 // StartupMaxMult: cap (human 2026-11-26: 1 s x1.5, 2 s x2, 3 s x3, ..)
 #define SM_COUNTER_PTS 30
 #define SM_NIN_PTS 20
 #define SM_SOUL_PTS 40
@@ -147,7 +148,8 @@ typedef struct {
     float kiPerfect;                      // #127075 extra points for a perfect Ki pulse (on top of ki)
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
-    int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling
+    int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling (startupMaxF: unused since 2026-11-26)
+    float startupMaxMult;  // human 2026-11-26: highest startup multiplier (5 = x5 at 5 s)
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
     float swap; int swapMs;               // #127057 weapon swap attack bonus / window
     int switchMs;                         // weapon switch: the last hit with the other weapon must be this recent
@@ -211,7 +213,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->hit = (float)SM_HIT_PTS; c->dodge = (float)SM_DODGE_PTS; c->deflect = (float)SM_DEFLECT_PTS; c->ki = (float)SM_KI_PTS; c->kiPerfect = (float)SM_KI_PERFECT_PTS;
     c->repeatPct = SM_REPEAT_PCT; c->repeatFloorPct = SM_REPEAT_FLOOR_PCT; c->multiPct = SM_MULTI_PCT;
     c->decayDelayMs = SM_DECAY_DELAY_MS; c->decayPerS = (float)SM_DECAY_PER_S; c->decayRankPct = SM_DECAY_RANK_PCT; c->decayRampPct = SM_DECAY_RAMP_PCT;
-    c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT;
+    c->startupMinF = SM_STARTUP_MIN_F; c->startupMaxF = SM_STARTUP_MAX_F; c->startupPct = SM_STARTUP_PCT; c->startupMaxMult = (float)SM_STARTUP_MAX_MULT;
     c->counter = (float)SM_COUNTER_PTS; c->nin = (float)SM_NIN_PTS; c->soul = (float)SM_SOUL_PTS; c->style = (float)SM_STYLE_PTS; c->swap = (float)SM_SWAP_PTS; c->swapMs = SM_SWAP_MS; c->switchMs = SM_SWITCH_MS;
     c->gs = (float)SM_GS_PTS; c->gsMs = SM_GS_MS; c->gsSummonMs = SM_GS_SUMMON_MS;
     c->comboMs = SM_COMBO_MS; c->comboStep = SM_COMBO_STEP; c->comboBase = SM_COMBO_BASE; c->comboInc = SM_COMBO_INC; c->comboMax = SM_COMBO_MAX;
@@ -238,6 +240,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->kiHitMs < 0) c->kiHitMs = 0;
     if (c->startupMinF < 0) c->startupMinF = 0; if (c->startupMaxF <= c->startupMinF) c->startupMaxF = c->startupMinF + 1;
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
+    if (!(c->startupMaxMult >= 1.f)) c->startupMaxMult = 1.f; if (c->startupMaxMult > 20.f) c->startupMaxMult = 20.f;
     if (c->counter < 0) c->counter = 0; if (c->nin < 0) c->nin = 0; if (c->soul < 0) c->soul = 0; if (c->style < 0) c->style = 0;
     if (c->swap < 0) c->swap = 0; if (c->swapMs < 0) c->swapMs = 0; if (c->swapMs > 5000) c->swapMs = 5000; if (c->switchMs < 0) c->switchMs = 0; if (c->switchMs > 30000) c->switchMs = 30000;
     if (c->gs < 0) c->gs = 0; if (c->gsMs < 0) c->gsMs = 0; if (c->gsMs > 5000) c->gsMs = 5000;
@@ -361,12 +364,21 @@ static inline float SmVariety(const SmState* s, const SmCfg* c, uint32_t act) {
     const float fl = (float)c->repeatFloorPct / 100.f;
     return f < fl ? fl : f;
 }
-// #126821 startup multiplier: startupF = 60 fps frames from the action start to its first hit window (< 0 = unknown -> 1).
+// Startup multiplier (human 2026-11-26, replaces #126821's x1..x2 ramp over 15..60 f): startupF = 60 fps frames from the start of the
+// player's move (the use: every chained segment, wind-up / charge included) to its first landed hit (< 0 = unknown -> 1). No move ids.
+//   <= startupMinF (15 f, 0.25 s) x1;  1 s x1.5;  2 s x2;  then x(seconds): 3 s x3, 4 s x4, .. capped at startupMaxMult (5).
+// Linear between the points. startupPct scales the bonus part (100 = as above, 0 = off).
 static inline float SmStartupMult(const SmCfg* c, float startupF) {
     if (!(startupF >= 0.f) || c->startupPct <= 0) return 1.f;
-    float k = (startupF - (float)c->startupMinF) / (float)(c->startupMaxF - c->startupMinF);
-    k = k < 0.f ? 0.f : k > 1.f ? 1.f : k;
-    return 1.f + k * (float)c->startupPct / 100.f;
+    const float mn = (float)c->startupMinF, sec = startupF / 60.f;
+    float m;
+    if (startupF <= mn) m = 1.f;
+    else if (startupF < 60.f) m = 1.f + 0.5f * (startupF - mn) / (60.f - mn);
+    else if (sec < 2.f) m = 1.5f + 0.5f * (sec - 1.f);
+    else m = sec;
+    if (m > c->startupMaxMult) m = c->startupMaxMult;
+    if (m < 1.f) m = 1.f;
+    return 1.f + (m - 1.f) * (float)c->startupPct / 100.f;
 }
 // One hit landed. act = the player's action id at the hit, run = a key of that action run (a new run of the same id = a new use).
 // startupF: that run's startup (frames, < 0 unknown); counter: 1 = the run had i-frames inside an enemy hit window (bonus once per use).
@@ -613,11 +625,13 @@ static inline int SmMaStep(SmMaMove* m, uint64_t run, int skill, int other) {
     return 0;
 }
 // ... paid once per move on its first scored points (movePts = the move's own points so far), never on a guardian spirit / ninjutsu move.
-static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, float movePts) {
+// mult: the move's startup multiplier (SmStartupMult of its time to land; 1 = none), human 2026-11-26: slow martial arts pay more.
+static inline float SmMaPayX(SmState* s, const SmCfg* c, SmMaMove* m, double t, float movePts, float mult) {
     if (!m->ma || m->other || m->paid || !(movePts > 0.f) || c->ma <= 0.f) return 0.f;
     m->paid = 1; s->maHits++;
-    const float gain_ = SmAdd(s, c, c->ma); s->lastEvent = s->lastScore = t; return gain_;
+    const float gain_ = SmAdd(s, c, c->ma * (mult > 1.f ? mult : 1.f)); s->lastEvent = s->lastScore = t; return gain_;
 }
+static inline float SmMaPay(SmState* s, const SmCfg* c, SmMaMove* m, double t, float movePts) { return SmMaPayX(s, c, m, t, movePts, 1.f); }
 // human: Burst Break. A boss's red attack (the game's GreatAttack / unblockable flag, u16 row +0x04 bit 0x2000 of its current action row) is
 // interrupted by the player's hit (or the summoned guardian spirit's) during its wind-up. One SmBurst per boss slot, stepped once per tick
 // with that slot's current action run:

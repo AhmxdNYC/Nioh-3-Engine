@@ -149,6 +149,7 @@ static void SmReadIni(const char* ini, int reset) {
     c.startupMinF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMinFrames", SM_STARTUP_MIN_F, ini);   // #126821
     c.startupMaxF = (int)GetPrivateProfileIntA("StyleMeter", "StartupMaxFrames", SM_STARTUP_MAX_F, ini);
     c.startupPct = (int)GetPrivateProfileIntA("StyleMeter", "StartupBonusPct", SM_STARTUP_PCT, ini);
+    c.startupMaxMult = (float)GetPrivateProfileIntA("StyleMeter", "StartupMaxMult", SM_STARTUP_MAX_MULT, ini);  // human 2026-11-26
     c.counter = (float)(int)GetPrivateProfileIntA("StyleMeter", "CounterPts", SM_COUNTER_PTS, ini);       // #126843
     c.style = (float)(int)GetPrivateProfileIntA("StyleMeter", "StyleSwitchPts", SM_STYLE_PTS, ini);
     c.nin = (float)(int)GetPrivateProfileIntA("StyleMeter", "NinjutsuPts", SM_NIN_PTS, ini);              // #126854
@@ -738,6 +739,10 @@ static void SmFeed(double gdt) {
     static SmChain useCh; static int useChInit;
     if (!useChInit) { useChInit = 1; SmChainReset(&useCh); }
     const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
+    // human 2026-11-26: startup = time from the start of the use (its first chained segment: a charge / wind-up run counts) to the use's
+    // first landed hit, game ms. Every later hit / segment of the use keeps that value. General rule, no move ids.
+    static uint64_t suKey; static double suT0, suLand = -1.0;
+    if (useKey != suKey) { suKey = useKey; suT0 = pl ? g_fp[FP_PL].run.t0 : g_fp_gms; suLand = -1.0; }
     if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     // human: Displacement! inputs (style_displace.h): player and boss positions (actor+0x110 x / z floats, cm), the boss whose hit window is
@@ -879,9 +884,15 @@ static void SmFeed(double gdt) {
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, ctr && run != ctrPaidRun);
+    if (pl && (hits > 0 || blocked > 0) && suLand < 0.0) {
+        suLand = g_fp_gms - suT0; if (suLand < 0.0) suLand = 0.0;
+        if (suLand >= 1000.0) Log("STYLE STARTUP: act %u landed %.0f ms after the move started (run %.0f f startup) -> x%.2f", (unsigned)act, suLand, startupF, SmStartupMult(&g_smc, (float)FpFrames60(suLand)));
+    }
+    const float landF = suLand >= 0.0 ? (float)FpFrames60(suLand) : startupF;  // time to land (60 fps frames)
+    const float useMult = SmStartupMult(&g_smc, landF);
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, useKey, landF, ctr && run != ctrPaidRun);
     float pb = 0.f;  // blocked hits: BlockPct % of a hit of this move (no counter bonus: that is paid by a hit that lands)
-    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, 0);
+    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, useKey, landF, 0);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
     float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen == SM_LP_FULL) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f && g_sm.lpOn && g_sm.lpPen == SM_LP_HALF) {  // rank A looped use: its weapon switch bonus at LoopHalfPct % too
@@ -935,7 +946,7 @@ static void SmFeed(double gdt) {
     // multi-hit cap / loop penalty: only the hits that scored (SmOnHitEx / SmSummonHits counted them) feed the combo
     uint32_t comboMile = 0; const float pcombo = SmComboHits(&g_sm, &g_smc, g_sm_clock, (int)(g_sm.countedHits - hc0), &comboMile);
     if (maMark) g_sm.maUses++;
-    const float pma = SmMaPay(&g_sm, &g_smc, &mam, g_sm_clock, gsPts);  // #127295 same value, once per move
+    const float pma = SmMaPayX(&g_sm, &g_smc, &mam, g_sm_clock, gsPts, useMult);  // #127295 same value, once per move
     if (pma > 0.f) g_sm_maRun = run;
     for (int i = 0; i < nin; ++i) pn = (pn < 0 ? 0 : pn) + SmOnSkill(&g_sm, &g_smc, g_sm_clock, 0);
     float pc = -1.f;
@@ -1079,7 +1090,7 @@ static void SmFeed(double gdt) {
         static int evl;
         if (evl++ < 4000) {
             char e[640]; int n = 0; e[0] = 0;
-            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f, lands %.0f f x%.2f%s)", (long)hits, ph, startupF, landF, useMult, ctrHit ? ", counter" : "");
             if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
             if (varN) n += snprintf(e + n, sizeof e - n, " variety %d moves +%.0f", varMile, pvar);
