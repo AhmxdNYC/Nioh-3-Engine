@@ -1,3 +1,4 @@
+#include <limits>
 #include <cmath>
 // Offline test for mod/shared/soul_core_api.h (TASK #136197). No asserts (NDEBUG-safe): counts failures, exit 1 on any.
 #include "../../shared/soul_core_api.h"
@@ -90,6 +91,17 @@ int main() {
     CHECK(sc_fast_chr_phase(false, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // data unreadable
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 1.f, 6.f) == SC_FAST_PH_ATTACK);   // start off
     CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, false, 9000, 200, 4000, 6.f, 1.f) == SC_FAST_PH_ATTACK);  // end off
+    // TASK #137872: 3B1AB live freeze: counter f1.4 at spawn, still f1.4 at 215 ms (attach hold) -> not moving -> attack rate, no x6
+    CHECK(!sc_fast_spawn_moving(1.4f, 1.4f, 1.4f, 2.f));                       // attach hold (the frozen case)
+    CHECK(!sc_fast_spawn_moving(0.f, 1.4f, 1.4f, 2.f));                        // spawned at f0, held at f1.4
+    CHECK(sc_fast_spawn_moving(1.4f, 3.0f, 4.5f, 2.f));                        // attached, pose running
+    CHECK(!sc_fast_spawn_moving(1.4f, 1.4f, 2.0f, 2.f));                       // moved, but under the 2-frame lead
+    CHECK(!sc_fast_spawn_moving(1.4f, 46.1f, 46.1f, 2.f));                     // last frame, waiting for the game's next action
+    CHECK(!sc_fast_spawn_moving(1.4f, 20.f, 0.5f, 2.f));                       // counter reset (new action)
+    { const float nan = std::numeric_limits<float>::quiet_NaN(); CHECK(!sc_fast_spawn_moving(1.4f, 3.f, nan, 2.f) && !sc_fast_spawn_moving(nan, 3.f, 5.f, 2.f)); }
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(1.4f, 1.4f, 1.4f, 2.f), false, true, 215, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(1.4f, 9.f, 13.f, 2.f), false, true, 900, 200, 4000, 6.f, 6.f) == SC_FAST_PH_START);
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, sc_fast_spawn_moving(1.4f, 46.1f, 46.1f, 2.f), false, true, 1200, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, false, true) == SC_FAST_CHR_DONE);
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 1, false, true) == SC_FAST_CHR_BLOCK);   // second hit not seen yet
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, true, true) == SC_FAST_CHR_BLOCK);    // a hit still open

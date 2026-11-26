@@ -139,6 +139,14 @@ inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int
 #define SC_FAST_ACT_UNKNOWN 0
 #define SC_FAST_ACT_NOHIT 1
 #define SC_FAST_ACT_HIT 2
+// TASK #137872 (human #137208): why x6 on spawn action C53 froze 3B1AB (pc/3 live 2/2, 11-26): the action frame counter [ctrl+78] sits at
+// f1.4 for its first ~0.2+ s while the game places / attaches the new yokai, then runs to f46.1. START armed at 215 ms with the counter still
+// at f1.4; it stayed f1.4 for 4 s (and 19.8 s / 31 s in all) at x6, x1.44 runs the same wait in ~2.1 s. So the startup speed may only run
+// while the spawn action's own counter is moving: it has left the value it spawned at by minLead frames AND it advanced since the last tick.
+// A stalled counter (still being attached, or its last frame reached and waiting for the game's next action) = not moving = attack rate.
+inline bool sc_fast_spawn_moving(float fFirst, float fPrev, float fNow, float minLead) {
+    return fNow == fNow && fPrev == fPrev && fFirst == fFirst && fNow > fPrev + 0.05f && fNow >= fFirst + minLead;
+}
 inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
                              float startMul, float endMul) {
     if (!dataOk || actKind != SC_FAST_ACT_NOHIT) return SC_FAST_PH_ATTACK;
