@@ -76,6 +76,9 @@ int main() {
         assert(!SdhHitsSettled(true, r, 1, 1, false, 2042, 3000, -1));    // off
         assert(!SdhHitsSettled(true, r, 1, 0, false, 2042, 3000, 200));   // nothing learned
         SdhResult u; u.untimed = 2; assert(SdhMinBursts(u) == 1);
+        // TASK #138494: live 3B1AB (13:57): chain with no window / untimed / spawn, learned 1, hit 1 closed 755 ms -> never settled
+        SdhResult z; z.chain = 7; assert(!SdhHitsSettled(true, z, 1, 1, false, 755, 961, 200) && !SdhHitsSettled(true, z, 3, 3, false, 755, 5000, 200));
+        assert(SdhHitsSettled(true, u, 1, 1, false, 755, 955, 200));  // untimed rows still settle
         // live E0E94 (16:54): own 2 + 1 spawn that never hit, learned 2 -> released at close 2640 + 200
         SdhResult o; o.bursts = 2; o.spawns = 1; assert(SdhMinBursts(o) == 2 && SdhHitsSettled(true, o, 2, 2, false, 2640, 2840, 200));
         assert(!SdhHitsSettled(true, o, 1, 1, false, 2640, 3000, 200));   // own data has 2 timed bursts, 1 seen
