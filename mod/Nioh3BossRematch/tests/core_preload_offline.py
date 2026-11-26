@@ -32,6 +32,7 @@ uint64_t FkGameKey(uint32_t id) { return 0x300000000ull + id; }
 uint64_t FkPack(uint64_t key) { auto it = res.find((uint32_t)(key - 0x300000000ull)); return it == res.end() ? 0 : (uint64_t)&it->second; }
 void StubLoad(uint32_t id, uint32_t kind, uint32_t z) { if (kind != 2 || z) exit(3); ++loads; ++refs[id]; res[id].ready = 0; }
 void StubRelease(uint32_t id, uint32_t z) { if (z) exit(4); ++releases; --refs[id]; }
+bool formOn = false, ghostOn = false; bool PickFormActive() { return formOn; } bool PickGhostAlive() { return ghostOn; }
 uint64_t g_base = 0; uint32_t TestGrva(uint32_t rva) {
   return (uint32_t)((rva == 0x3F9E58 ? (uint64_t)&StubLoad : rva == 0x1C1DF80 ? (uint64_t)&StubRelease : (exit(5), 0)) - g_base); }
 #define Grva TestGrva
@@ -52,7 +53,13 @@ int main() {
   g_equippedReady = true; tick(11); check(loads == 1 && releases == 0, "same cores after the load: nothing new");
   g_equippedCore[0] = y3; tick(12); check(releases == 1 && refs[y1] == 0, "unequipped core: our one ref released");
   check(loads == 2 && refs[y3] == 1, "new core requested");
-  g_formPreload = 0; g_equippedCore[0] = y1; tick(13); check(loads == 2 && releases == 1, "FormPreloadCores=0: no new request or release");
+  // #136427: Equip core swap while that core's form is out: the release waits for the form and the ghost seal to end
+  res[y3].ready = 1; formOn = true; g_equippedCore[0] = y1; tick(13);
+  check(releases == 1 && refs[y3] == 1, "swap mid-form: old core's ref kept while the form is alive");
+  formOn = false; ghostOn = true; tick(14); check(releases == 1 && refs[y3] == 1, "ghost seal still out: ref kept");
+  ghostOn = false; tick(15); check(releases == 2 && refs[y3] == 0, "form + ghost over: deferred ref released once");
+  tick(16); check(releases == 2, "no second release");
+  g_formPreload = 0; g_equippedCore[0] = y2; tick(17); check(releases == 2, "FormPreloadCores=0: no new request or release");
   printf("core preload ok: %d checks, %d log lines\n", n, logs);
   return 0;
 }

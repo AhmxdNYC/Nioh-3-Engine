@@ -7115,11 +7115,22 @@ bool CoreResReady(uint32_t id) {
 }
 struct CorePre { uint32_t id = 0; double reqT = -1; bool held = false, done = false; };
 CorePre g_corePre[2];
+// #136427 (regression): the live yokai holds no type-3 ref of its own (notes/rva-1C1DF80-2026-10-15.md s3), so an Equip core swap
+// mid-form must not drop our ref while that core's yokai is out: a release waits here until no form and no ghost seal are alive.
+uint32_t g_preRelease[8]; int g_preReleaseN = 0;
 void CorePreloadTick() {  // game thread (PickPoll), 4 Hz
     static double last = -100;
     const double now = Now();
     if (now - last < 0.25) return;
     last = now;
+    const bool busy = PickFormActive() || PickGhostAlive();
+    if (g_preReleaseN && !busy) {
+        for (int i = 0; i < g_preReleaseN; ++i) {
+            __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(g_preRelease[i], 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+            Log("FormPreload core %X: deferred ref released (1C1DF80), form over", g_preRelease[i]);
+        }
+        g_preReleaseN = 0;
+    }
     const bool on = g_formPreload.load() != 0 && g_equippedReady.load() && gamerva::g_known;
     for (int y = 0; y < 2; ++y) {
         CorePre& p = g_corePre[y];
@@ -7133,8 +7144,13 @@ void CorePreloadTick() {  // game thread (PickPoll), 4 Hz
         }
         if (p.held && p.id) {
             const uint32_t old = p.id;
-            __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(old, 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
-            Log("FormPreload Y%d core %X unequipped: ref released (1C1DF80)", y + 1, old);
+            if (busy && g_preReleaseN < (int)(sizeof g_preRelease / sizeof g_preRelease[0])) {
+                g_preRelease[g_preReleaseN++] = old;
+                Log("FormPreload Y%d core %X unequipped during a form: ref release deferred until the form ends", y + 1, old);
+            } else {
+                __try { ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1C1DF80)))(old, 0); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+                Log("FormPreload Y%d core %X unequipped: ref released (1C1DF80)", y + 1, old);
+            }
         }
         p = CorePre{};
         p.id = id;
