@@ -101,6 +101,36 @@ int main() {
         for (int i = 0; i < 200; ++i, t += 8) q |= Step(g, kDDown, e.Update(ControlOff(true, 0), t), t, 1);
         CHECK(q == 0);
     }
+    {   // #138311 left stick = D-pad: no pulse before 400 ms, then ~1 D-pad press per period; never outside a menu
+        StickState s; uint64_t t = 1000; int edges = 0; bool prev = false; uint32_t any = 0;
+        for (int i = 0; i < 50; ++i, t += 8) any |= StickStep(s, kSD, 0, true, t, 1);   // 400 ms
+        CHECK(any == 0);
+        for (int i = 0; i < 113; ++i, t += 8) { const uint32_t o = StickStep(s, kSD, 0, true, t, 1); any |= o; const bool d = (o & kDDown) != 0; if (d && !prev) ++edges; prev = d; }
+        CHECK(any == kDDown && edges >= 9 && edges <= 11 && s.pulses >= 9);
+        StickState g; uint64_t u = 1000; uint32_t q = 0;
+        for (int i = 0; i < 300; ++i, u += 8) q |= StickStep(g, kSU | kSL, 0, false, u, 1);
+        CHECK(q == 0 && g.pulses == 0);
+    }
+    {   // a slow poller (100 ms) alternates pulse / release, never stuck pressed
+        StickState s; uint64_t t = 1000; int edges = 0; bool prev = false, sawUp = false;
+        for (int i = 0; i < 30; ++i, t += 100) { const bool d = (StickStep(s, kSR, 0, true, t, 1) & kDRight) != 0; if (d && !prev) ++edges; if (!d && prev) sawUp = true; prev = d; }
+        CHECK(edges >= 8 && sawUp);
+    }
+    {   // a real D-pad of the same direction wins (no extra pulse); stick released = no pulse; menu reopen = full delay
+        StickState s; uint64_t t = 1000; uint32_t any = 0;
+        for (int i = 0; i < 200; ++i, t += 8) any |= StickStep(s, kSU, kDUp, true, t, 1);
+        CHECK(any == 0);
+        for (int i = 0; i < 100; ++i, t += 8) StickStep(s, kSU, 0, true, t, 1);
+        CHECK(StickStep(s, 0, 0, true, t, 1) == 0);
+        StickStep(s, kSU, 0, false, t += 8, 1);
+        any = 0; for (int i = 0; i < 49; ++i, t += 8) any |= StickStep(s, kSU, 0, true, t, 1);
+        CHECK(any == 0);
+    }
+    {   // dominant axis: a mostly-down diagonal pulses only D-down
+        CHECK(StickDominant(kSD | kSR, 22000, -30000) == kSD);
+        CHECK(StickDominant(kSD | kSR, 30000, -22000) == kSR);
+        CHECK(StickDominant(0, 30000, 0) == 0);
+    }
     printf("%s: %d/%d checks\n", g_fail ? "FAIL" : "PASS", g_n - g_fail, g_n);
     return g_fail ? 1 : 0;
 }

@@ -103,7 +103,7 @@ void ResetAll() {
     g_virtLogged = 0; g_modalityLogged = 0; g_mlog[0] = 0; g_mlogLen = 0; g_mlogLines = 0;
     g_keyMsgEdge = 0; for (int i = 0; i < 16; ++i) { g_keyMsgAt[i] = 0; g_keySeenDownAt[i] = 0; }
     g_cfg = Cfg{};
-    for (auto& r : g_mrep) r = menurepeat::State{}; g_gameMenuOpen = 0; g_mrepLogged = 0;
+    for (auto& r : g_mrep) r = menurepeat::State{}; for (auto& r : g_mstk) r = menurepeat::StickState{}; g_gameMenuOpen = 0; g_mrepLogged = 0;
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
 }
