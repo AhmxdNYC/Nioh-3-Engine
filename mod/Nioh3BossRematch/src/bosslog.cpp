@@ -5621,7 +5621,7 @@ void SealIdleEndTick() {
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
 SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  
-bool g_sdhDumpAll = false;  int g_sdhKindN = 0; uint16_t g_sdhKindId[64]; uint8_t g_sdhKind[64];  // TASK #137616: last file read, per action can-hit  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
+bool g_sdhDumpAll = false;  int g_sdhKindN = 0; uint16_t g_sdhKindId[64]; uint8_t g_sdhKind[64]; uint16_t g_sdhKindEnd[64];  // TASK #138533: last damaging row end frame, SC_FAST_NO_END = not certain  // TASK #137616: last file read, per action can-hit  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
 SdhDurTable g_sealLastHit;  // TASK #136328: per-core last hit close (bind -> close) of full forms this session, game thread only
 void SealLastHitNote(uint32_t sid, double lastCloseSess, double boundSess, const char* why) {
@@ -5677,6 +5677,7 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
         int ut = 0, w = 0; uint16_t le = 0; bool sp = false;
         const int b = SdhActionBursts(acts[k], &ut, &w, &le);
         for (int e = 0; e < SDH_EVENTS; ++e) sp |= acts[k].ev[e] >= 20000 && acts[k].ev[e] != 0xFFFF;
+        g_sdhKindEnd[g_sdhKindN] = (uint16_t)(b > 0 && !ut && !sp && le > 0 ? le : SC_FAST_NO_END);  // TASK #138533
         g_sdhKindId[g_sdhKindN] = acts[k].id; g_sdhKind[g_sdhKindN++] = (uint8_t)(b || ut || sp ? SC_FAST_ACT_HIT : SC_FAST_ACT_NOHIT);
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
@@ -7182,7 +7183,7 @@ constexpr float kFastStartLeadF = 2.f; constexpr int kFastStartHoldMs = 100;  //
 // TASK #137872: the spawn counter must be 2+ frames past its spawn value
 void FastSummonPhaseTick() {
     struct St { uint64_t chr = 0; double t0 = 0; bool read = false, ok = false, everHit = false; uint32_t spawnAct = 0xFFFFFFFF; int ph = SC_FAST_PH_ATTACK;
-                int nk = 0; uint16_t id[64]; uint8_t kind[64]; float f0 = 0, fp = 0; double advT = -1, runT = -1; bool stallLogged = false, movedLogged = false; };  // TASK #137872 spawn counter
+                int nk = 0; uint16_t id[64]; uint8_t kind[64]; uint16_t endF[64]; int tailLogged = 0; float f0 = 0, fp = 0; double advT = -1, runT = -1; bool stallLogged = false, movedLogged = false; };  // TASK #137872 spawn counter
     static St c[kFastMax];
     const int n = g_fastN.load();
     const double now = Now(), press = g_pickT.load();
@@ -7224,16 +7225,16 @@ void FastSummonPhaseTick() {
             x.read = true;
             char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
             x.ok = (h >= 0 || g_sdhLastReadOk) && g_sdhKindN > 0;
-            if (x.ok) { x.nk = g_sdhKindN; memcpy(x.id, g_sdhKindId, sizeof x.id); memcpy(x.kind, g_sdhKind, sizeof x.kind); }
+            if (x.ok) { x.nk = g_sdhKindN; memcpy(x.id, g_sdhKindId, sizeof x.id); memcpy(x.kind, g_sdhKind, sizeof x.kind); memcpy(x.endF, g_sdhKindEnd, sizeof x.endF); }  // TASK #138533 endF
             x.spawnAct = s.act; x.f0 = x.fp = s.f;  // TASK #137872: the counter value it spawned at
             char ks[200]; int o = 0; ks[0] = 0;
             for (int k = 0; k < x.nk && o < 190; ++k) o += snprintf(ks + o, sizeof ks - o, " %X:%s", x.id[k], x.kind[k] == SC_FAST_ACT_HIT ? "hit" : "-");
             Log("FastSummon phase chr %llX core %X: file %s (%d actions:%s), spawn action %X +%d ms", (unsigned long long)x.chr, core, x.ok ? "read" : "unreadable",
                 x.nk, ks, s.act, (int)((now - press) * 1000.0));
         }
-        int kind = SC_FAST_ACT_UNKNOWN;
+        int kind = SC_FAST_ACT_UNKNOWN, actEnd = SC_FAST_NO_END;  // TASK #138533
         if (x.ok && s.act <= 0xFFFF && s.act != 0xFFFF)
-            for (int k = 0; k < x.nk; ++k) if (x.id[k] == (uint16_t)s.act) { kind = x.kind[k]; break; }
+            for (int k = 0; k < x.nk; ++k) if (x.id[k] == (uint16_t)s.act) { kind = x.kind[k]; actEnd = x.endF[k]; break; }
         if (kind == SC_FAST_ACT_HIT) x.everHit = true;
         const int age = (int)((now - x.t0) * 1000.0);
         // TASK #137872: startup speed only while the spawn action's own frame counter runs (attached and playing), never during its attach hold.
@@ -7249,8 +7250,15 @@ void FastSummonPhaseTick() {
         if (inSpawn) x.fp = s.f;
         // TASK #137872 run 4: the game's own hold at f1.4 ran 8.9-35 s with no rate change, so the startup cap counts from the pose start, not the spawn.
         const int runAge = x.runT < 0 ? 0 : (int)((now - x.runT) * 1000.0);
-        const int np = sc_fast_chr_phase(x.ok, kind, moving, x.everHit, cnt[i] > 0, age >= kFastStartMinMs ? runAge + kFastStartMinMs : 0,
+        int np = sc_fast_chr_phase(x.ok, kind, moving, x.everHit, cnt[i] > 0, age >= kFastStartMinMs ? runAge + kFastStartMinMs : 0,
                                          kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul);
+        // TASK #138533: the recovery tail of a hit action (past its own last damaging row in the data, no collider open) is end pose too.
+        if (np == SC_FAST_PH_ATTACK && endMul > 1.f && x.ok && sc_fast_hit_tail(kind, x.everHit, actEnd, s.f, cnt[i] > 0)) {
+            np = SC_FAST_PH_END;
+            if (x.ph != SC_FAST_PH_END && x.tailLogged < 8) { ++x.tailLogged;
+                Log("FastSummon phase chr %llX core %X: hit act %X past its last hit (data ends f%d, now f%.1f): recovery tail = end pose (TASK #138533) t=%.3f",
+                    (unsigned long long)x.chr, core, s.act, actEnd, s.f, now); }
+        }
         if (np != x.ph) {
             Log("FastSummon phase chr %llX core %X %s->%s in act %X (%s) f=%.1f, %d colliders, %d ms old, +%d ms after the press, rate x%.2f t=%.3f",
                 (unsigned long long)x.chr, core, sc_fast_phase_name(x.ph), sc_fast_phase_name(np), s.act,

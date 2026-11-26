@@ -149,6 +149,17 @@ inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int
 inline bool sc_fast_spawn_moving(float fFirst, float fNow, int msSinceAdvance, float minLead, int holdMs) {
     return fNow == fNow && fFirst == fFirst && msSinceAdvance >= 0 && msSinceAdvance < holdMs && fNow >= fFirst + minLead;
 }
+// TASK #138533 (human #138529: "end pose setting does nothing"): live trace 3B1AB (#137616 run_tr1): C54's last collider closes at f68.1 but
+// the action plays on to f143.1 (884 ms recovery at the attack speed) before end action 1 (566 ms) starts, so END only covered the shorter
+// half and min vs max End looked the same. The recovery tail of a hit action is end pose too: the chr has hit, its data for this action is
+// fully timed (no untimed damaging row, no spawn event; lastEnd = the action's last damaging row end frame, SC_FAST_NO_END = not certain),
+// the frame counter is past lastEnd + margin and no attack collider is open. Hit windows themselves never change speed.
+#define SC_FAST_NO_END 0xFFFF
+#define SC_FAST_TAIL_MARGIN_F 2.f
+inline bool sc_fast_hit_tail(int actKind, bool everHitAct, int lastEnd, float frame, bool colliderOpen) {
+    return actKind == SC_FAST_ACT_HIT && everHitAct && lastEnd > 0 && lastEnd != SC_FAST_NO_END && frame == frame &&
+           frame > (float)lastEnd + SC_FAST_TAIL_MARGIN_F && !colliderOpen;
+}
 inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
                              float startMul, float endMul) {
     if (!dataOk || actKind != SC_FAST_ACT_NOHIT) return SC_FAST_PH_ATTACK;
