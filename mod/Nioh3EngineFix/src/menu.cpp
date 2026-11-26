@@ -128,7 +128,7 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
-    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat (stick + triggers untouched, #137566) in the game's own menus (#137069)
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat, a held left stick pulses the D-pad (#138311; stick + triggers values untouched, #137566) in the game's own menus (#137069)
     int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
@@ -220,6 +220,8 @@ struct PadSlot {
 };
 PadSlot g_pad[4];
 menurepeat::State g_mrep[4];       // #137071 hold-to-repeat in game menus (pad input thread only)
+menurepeat::StickState g_mstk[4];  // #138311 left stick = D-pad in game menus (pad input thread only)
+volatile LONG g_mstkLogged = 0;
 volatile LONG g_gameMenuOpen = 0;  // PauseDetect (Present thread): a game menu is open (menu signal or pause stop flags)
 volatile LONG g_mrepLogged = 0;
 // UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
@@ -449,6 +451,15 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             if (g_mrep[idx].repeats == 1 && !InterlockedExchange(&g_mrepLogged, 1))
                 MLOG("game menu hold-repeat: first repeat (pad %lu, bits %06X, speed %s)", idx, rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
         }
+        // #138311: a held left stick direction pulses the matching D-pad button (stick values untouched, map pans as before)
+        const uint32_t dp = menurepeat::StickStep(g_mstk[idx], menurepeat::StickDominant(raw, g.sThumbLX, g.sThumbLY),
+                                                  raw & (menurepeat::kDUp | menurepeat::kDDown | menurepeat::kDLeft | menurepeat::kDRight), act, t, g_cfg.gmRepeatSpeed);
+        if (dp) {
+            g.wButtons |= (WORD)dp;
+            st->dwPacketNumber += 0x40000000u;
+            if (g_mstk[idx].pulses == 1 && !InterlockedExchange(&g_mstkLogged, 1))
+                MLOG("game menu left stick as D-pad: first pulse (pad %lu, bits %04X, speed %s)", idx, dp, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
     }
     bool blank = g_open != 0;
     if (blank) dbgBlock |= paddebug::kMenuOpen;
@@ -631,6 +642,26 @@ void GameInputLogSafe(const uint8_t* keys) {
     }
 }
 
+// TASK #138323 (human #138321): held keyboard directions repeat in the game's own menus, like the pad (#137071). The game reads
+// the keyboard with GetDeviceState and moves its cursor once per key press (live 11-26: arrows and S held 2 s = 1 row). Same
+// gate, delay and rate as the pad (menurepeat::Step on the D-pad bits): arrows and W/A/S/D map to up/down/left/right, and a
+// repeat clears those keys for one short window so the game sees a fresh press. Off outside game menus and while the mod menu
+// is open; other keys (confirm, back, tabs) never repeat.
+menurepeat::State g_krep;  // keyboard read thread only
+volatile LONG g_krepLogged = 0;
+void KeyMenuRepeat(uint8_t* keys) {
+    struct K { uint8_t dik; uint32_t bit; };
+    static const K map[] = {{0xC8, menurepeat::kDUp}, {0x11, menurepeat::kDUp}, {0xD0, menurepeat::kDDown}, {0x1F, menurepeat::kDDown},
+                            {0xCB, menurepeat::kDLeft}, {0x1E, menurepeat::kDLeft}, {0xCD, menurepeat::kDRight}, {0x20, menurepeat::kDRight}};
+    uint32_t raw = 0;
+    for (const K& k : map) if (keys[k.dik] & 0x80) raw |= k.bit;
+    const bool act = g_cfg.gmRepeat && g_gameMenuOpen && !g_open;
+    const uint32_t rel = menurepeat::Step(g_krep, raw, act, Now(), g_cfg.gmRepeatSpeed);
+    if (!rel) return;
+    for (const K& k : map) if (rel & k.bit) keys[k.dik] = 0;
+    if (g_krep.repeats == 1 && !InterlockedExchange(&g_krepLogged, 1))
+        MLOG("game menu hold-repeat: first keyboard repeat (bits %06X, speed %s)", rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+}
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
     HRESULT hr = orig(self, cb, data);
@@ -641,6 +672,7 @@ HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
+        KeyMenuRepeat(static_cast<uint8_t*>(data));
         GameInputLogSafe(static_cast<uint8_t*>(data));
     }
     return hr;
