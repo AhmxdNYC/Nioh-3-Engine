@@ -3841,7 +3841,7 @@ std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, s
 // TASK #136502: yokai of the current Fast summon press. Every chr the seal spawn note sees next to the player (< 15 m, not foreign) within 5 s
 // of a Fast summon press: the core's own yokai and its helpers. Each plays at x FastSummonSpeed until the next press, or until the address
 // holds another chr (key changed), or 30 s. Nothing else is touched: the game spawns, plays and ends it.
-std::atomic<int> g_fastSmoke{0}, g_fastFxLog{0};  // TASK #137013 [Spirit] FastSummonSmoke (0 = no smoke), fx log cap per press
+std::atomic<int> g_fastSmoke{0}, g_fastFxLog{0};  std::atomic<int> g_fastTrace{0}, g_fastTraceQuietMs{0};  // TASK #137616 [Spirit] FastSummonTrace (FastSummonTraceTick)  // TASK #137013 [Spirit] FastSummonSmoke (0 = no smoke), fx log cap per press
 std::atomic<int> g_fastSpeed{SC_FAST_SPEED_DEFAULT};  // [Spirit] FastSummonSpeed x10, 0 = same as Transform speed
 std::atomic<float> g_sealIniMul{1.4f};                // [Spirit] SealSpeed from the ini (g_sealMul is 0 when FormHide != 4)
 constexpr int kFastMax = 4;
@@ -4144,7 +4144,8 @@ void FastThrowInstall() {
     const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
-    g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));  // TASK #137013: 0 = Fast summon has no smoke
+    g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));
+    g_fastTrace.store(IniInt(L"Spirit", L"FastSummonTrace", 0)); g_fastTraceQuietMs.store(IniInt(L"Spirit", L"FastSummonTraceQuietMs", 0));  // TASK #137616  // TASK #137013: 0 = Fast summon has no smoke
     { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"6", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
       GetPrivateProfileStringW(L"Spirit", L"FastSummonEndSpeed", L"6", tb, 32, IniPath()); g_fastEndMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr))); }  // TASK #137323
     const bool fastEdge = g_fastStartMul.load() > 1.f || g_fastEndMul.load() > 1.f;
@@ -5617,7 +5618,8 @@ void SealIdleEndTick() {
 // X = [P+0x30], X +0x88 action objects / +0x90 row pointers / u16 +0x98 count, object +0x40 hitbox row pointer array, u16 +0x48 first,
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
-SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  // TASK #135803: shape of the last SealDataHits read (bind copies it)
+SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  
+bool g_sdhDumpAll = false;  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
 SdhDurTable g_sealLastHit;  // TASK #136328: per-core last hit close (bind -> close) of full forms this session, game thread only
 void SealLastHitNote(uint32_t sid, double lastCloseSess, double boundSess, const char* why) {
@@ -5657,6 +5659,16 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
             ++a.nhb;
         }
         a.hb = rows[k].empty() ? nullptr : rows[k].data();
+    }
+    if (g_sdhDumpAll) {  // TASK #137616: one line per action: id, finish link, damaging timed bursts, first start / last end, untimed, events
+        for (int k = 0; k < n; ++k) {
+            const SdhAction& a = acts[k]; int ut = 0, w = 0; uint16_t le = 0;
+            const int b = SdhActionBursts(a, &ut, &w, &le);
+            char ev[160]; int o = 0; ev[0] = 0;
+            for (int e = 0; e < SDH_EVENTS && o < 150; ++e) if (a.ev[e] && a.ev[e] != 0xFFFF) o += snprintf(ev + o, sizeof ev - o, " %u@f%u", a.ev[e], a.evFrame[e]);
+            Log("FastSummon file chr %llX action[%d] %X -> %X: rows %d, bursts %d (first f%u, last ends f%u), untimed %d, events%s%s", (unsigned long long)seal, k,
+                a.id, a.next, a.nhb, b, b ? SdhActionFirstStart(a) : 0, le, ut, ev, a.id == (uint16_t)curId ? " <- current" : "");
+        }
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
     g_sdhLastRead = r; g_sdhLastReadOk = r.chain > 0;  // TASK #135803
@@ -7095,6 +7107,77 @@ constexpr int kFastLeadFrames = 4, kFastStartCapMs = 2000, kFastEndGraceMs = 150
 // SEH-guarded read (no game call, no write); to rule them out, nothing of a chr is read until it is kFastQuietMs old (its spawn and
 // appear frames run untouched), and the pool walk runs only while some chr is that old.
 constexpr int kFastQuietMs = 400;
+// TASK #137616 (human #137208): [Spirit] FastSummonTrace=1 logs, per Fast summon yokai chr, every live action / motion change (act id, motion,
+// frame [ctrl+78], rate), its attack colliders opening / closing, and once its whole action file (FastSummon file lines). Read only (SEH-guarded
+// reads, no game call, no write); no rate change. FastSummonTraceQuietMs: nothing of a chr is read until it is that old. This is the data for
+// phasing by the yokai's own action ids (spawn action -> attack -> end pose) without a per-core list.
+// g_fastTrace / g_fastTraceQuietMs: declared with g_fastSmoke
+void FastSummonTraceTick() {
+    if (g_fastTrace.load(std::memory_order_relaxed) <= 0) return;
+    struct Tr { uint64_t chr = 0; double t0 = 0, segT = 0, last = 0; SieSample s; bool have = false, dumped = false; int open = 0, segs = 0, lines = 0; };
+    static Tr c[kFastMax];
+    const int n = g_fastN.load();
+    const double now = Now(), press = g_pickT.load();
+    const uint32_t core = g_pickCore.load();
+    uint64_t chrs[kFastMax] = {};
+    for (int i = 0; i < kFastMax; ++i) {
+        const uint64_t a = i < n ? g_fastChr[i].load() : 0;
+        chrs[i] = a;
+        Tr& x = c[i];
+        if (x.chr && x.chr != a) {
+            Log("FastSummon trace core %X chr %llX gone from the list after %d ms (%d segments, last act %X f%.1f, %d ms in it) t=%.3f", core,
+                (unsigned long long)x.chr, (int)((now - x.t0) * 1000.0), x.segs, x.s.act, x.s.f, (int)((x.last - x.segT) * 1000.0), now);
+            x = Tr();
+        }
+        if (a && !x.chr) { x.chr = a; x.t0 = now; }
+    }
+    const int quiet = g_fastTraceQuietMs.load();
+    bool old[kFastMax] = {}, anyOld = false;
+    for (int i = 0; i < kFastMax; ++i) { old[i] = chrs[i] && (now - c[i].t0) * 1000.0 >= quiet; anyOld |= old[i]; }
+    if (!anyOld) return;
+    int cnt[kFastMax] = {};
+    {
+        static std::vector<uint64_t> pool;
+        uint64_t pb = 0;
+        bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
+        if (ok) { pool.resize(0xFA0); ok = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+        for (int k = 0; ok && k < 0xFA0; ++k) {
+            const uint64_t o = pool[k]; uint64_t own = 0;
+            if (!o || !Rd(o + 8, own) || !own) continue;
+            int j = -1;
+            for (int i = 0; i < kFastMax; ++i) if (old[i] && chrs[i] == own) { j = i; break; }
+            if (j < 0) continue;
+            uint64_t ad = 0; uint32_t aid = 0;
+            if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
+            ++cnt[j];
+        }
+    }
+    for (int i = 0; i < kFastMax; ++i) {
+        if (!old[i]) continue;
+        Tr& x = c[i];
+        const int ms = (int)((now - press) * 1000.0), age = (int)((now - x.t0) * 1000.0);
+        if (!x.dumped) {
+            x.dumped = true;
+            char d[320]; g_sdhDumpAll = true; const int h = SealDataHits(x.chr, core, d, sizeof d); g_sdhDumpAll = false;
+            Log("FastSummon trace core %X chr %llX data (%d ms old, +%d ms): %s -> %d", core, (unsigned long long)x.chr, age, ms, d, h);
+        }
+        SieSample s; SieRead(x.chr, s);
+        const bool change = !x.have || s.act != x.s.act || s.mot != x.s.mot || s.fact != x.s.fact || s.f < x.s.f - 0.5f;
+        if (change) {
+            ++x.segs;
+            if (++x.lines <= 80)
+                Log("FastSummon trace core %X chr %llX +%d ms (%d ms old) act %X->%X mot %X->%X fact %X->%X f=%.1f rate=%.3f (prev ran %d ms, left at f%.1f) t=%.3f",
+                    core, (unsigned long long)x.chr, ms, age, x.s.act, s.act, x.s.mot, s.mot, x.s.fact, s.fact, s.f, s.rate,
+                    x.have ? (int)((now - x.segT) * 1000.0) : 0, x.s.f, now);
+            x.segT = now;
+        }
+        if ((cnt[i] > 0) != (x.open > 0) && ++x.lines <= 80)
+            Log("FastSummon trace core %X chr %llX +%d ms collider %s (%d) in act %X mot %X f=%.1f t=%.3f", core, (unsigned long long)x.chr, ms,
+                cnt[i] > 0 ? "opens" : "closes", cnt[i], s.act, s.mot, s.f, now);
+        x.open = cnt[i]; x.s = s; x.have = true; x.last = now;
+    }
+}
+
 void FastSummonPhaseTick() {
     struct St { uint64_t chr = 0; double t0 = 0, nextRead = 0; bool preDone = false, preOk = false, everHit = false, open = false, counted = false;
                 SdhResult d; int live = 0; };
@@ -7223,6 +7306,7 @@ void FastSummonPhaseTick() {
     }
 }
 void SealLifeTick() {
+    FastSummonTraceTick();  // TASK #137616
     FastSummonPhaseTick();  // TASK #137323
     DebugHoldSealTick();
     FormCapTick();
