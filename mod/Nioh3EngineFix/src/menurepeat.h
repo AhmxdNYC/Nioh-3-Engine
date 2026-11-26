@@ -105,4 +105,57 @@ inline uint32_t Step(State& s, uint32_t raw, bool active, uint64_t t, int speed)
     return release;
 }
 
+// #138311 (human #138299): the left stick works like the D-pad in game menus. The stick itself is never changed (the map
+// pans with it, #137566); instead, while a stick direction is held past the same first delay, the matching D-pad button is
+// pressed for a short pulse once per period, so the menu cursor keeps moving like a held D-pad. A real D-pad press of the
+// same direction wins (no extra pulse). Only the dominant axis counts (no diagonal pulses). Off outside game menus.
+struct StickBit {
+    uint64_t downSince = 0, nextPulse = 0, pressUntil = 0;
+    bool pressSeen = false;  // the current pulse was reported pressed on at least one poll
+    bool relSeen = true;     // a released poll followed the last pulse
+};
+struct StickState {
+    StickBit b[4];           // up, down, left, right
+    bool wasActive = false;
+    uint32_t pulses = 0;
+};
+// stick = kSU|kSD|kSL|kSR bits already reduced to the dominant axis; dpad = the real D-pad bits held now.
+// Returns the D-pad bits to OR into the pad for THIS poll.
+inline uint32_t StickStep(StickState& s, uint32_t stick, uint32_t dpad, bool active, uint64_t t, int speed) {
+    static const uint32_t kIn[4] = {kSU, kSD, kSL, kSR}, kOut[4] = {kDUp, kDDown, kDLeft, kDRight};
+    if (!active || !s.wasActive) {
+        for (StickBit& x : s.b) x = StickBit{};
+        s.wasActive = active;
+        if (!active) return 0;
+    }
+    const uint64_t period = (uint64_t)PeriodMs(speed), pulse = period / 3 < 34 ? period / 3 : 34;
+    uint32_t out = 0;
+    for (int i = 0; i < 4; ++i) {
+        StickBit& x = s.b[i];
+        if (!(stick & kIn[i]) || (dpad & kOut[i])) { x = StickBit{}; continue; }
+        if (!x.downSince) { x.downSince = t ? t : 1; x.nextPulse = t + kDelayMs; continue; }
+        if (x.pressUntil) {
+            if (t < x.pressUntil || !x.pressSeen) { x.pressSeen = true; out |= kOut[i]; continue; }
+            x.pressUntil = 0; x.relSeen = false;  // this poll is released
+            continue;
+        }
+        if (!x.relSeen) { x.relSeen = true; }
+        if (t >= x.nextPulse && x.relSeen) {
+            x.pressUntil = t + (pulse ? pulse : 1);
+            x.pressSeen = true;
+            x.nextPulse = t + period;
+            ++s.pulses;
+            out |= kOut[i];
+        }
+    }
+    return out;
+}
+// dominant-axis reduction of the stick bits (|x| vs |y|)
+inline uint32_t StickDominant(uint32_t raw, int lx, int ly) {
+    uint32_t st = raw & (kSU | kSD | kSL | kSR);
+    const int ax = lx < 0 ? -lx : lx, ay = ly < 0 ? -ly : ly;
+    if (ay >= ax) st &= (kSU | kSD); else st &= (kSL | kSR);
+    return st;
+}
+
 }  // namespace menurepeat

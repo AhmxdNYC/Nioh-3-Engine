@@ -128,7 +128,7 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
-    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat (stick + triggers untouched, #137566) in the game's own menus (#137069)
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat, a held left stick pulses the D-pad (#138311; stick + triggers values untouched, #137566) in the game's own menus (#137069)
     int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
@@ -220,6 +220,8 @@ struct PadSlot {
 };
 PadSlot g_pad[4];
 menurepeat::State g_mrep[4];       // #137071 hold-to-repeat in game menus (pad input thread only)
+menurepeat::StickState g_mstk[4];  // #138311 left stick = D-pad in game menus (pad input thread only)
+volatile LONG g_mstkLogged = 0;
 volatile LONG g_gameMenuOpen = 0;  // PauseDetect (Present thread): a game menu is open (menu signal or pause stop flags)
 volatile LONG g_mrepLogged = 0;
 // UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
@@ -448,6 +450,15 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             st->dwPacketNumber += 0x40000000u;
             if (g_mrep[idx].repeats == 1 && !InterlockedExchange(&g_mrepLogged, 1))
                 MLOG("game menu hold-repeat: first repeat (pad %lu, bits %06X, speed %s)", idx, rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
+        // #138311: a held left stick direction pulses the matching D-pad button (stick values untouched, map pans as before)
+        const uint32_t dp = menurepeat::StickStep(g_mstk[idx], menurepeat::StickDominant(raw, g.sThumbLX, g.sThumbLY),
+                                                  raw & (menurepeat::kDUp | menurepeat::kDDown | menurepeat::kDLeft | menurepeat::kDRight), act, t, g_cfg.gmRepeatSpeed);
+        if (dp) {
+            g.wButtons |= (WORD)dp;
+            st->dwPacketNumber += 0x40000000u;
+            if (g_mstk[idx].pulses == 1 && !InterlockedExchange(&g_mstkLogged, 1))
+                MLOG("game menu left stick as D-pad: first pulse (pad %lu, bits %04X, speed %s)", idx, dp, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
         }
     }
     bool blank = g_open != 0;
