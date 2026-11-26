@@ -1000,9 +1000,9 @@ static void Versatility(void) {
     // off
     SmCfg o; RealDefaults(&o); o.versStep = 0; SmState z; SmReset(&z); for (uint32_t a = 1; a <= 30; ++a) SmVarietyMove(&z, &o, 0, a); CHECK(SmVersPct(&z, &o) == 0);
 }
-// human 2026-11-26: D..B drain 30 % slower (DecayLowPct 70), A+ unchanged.
+// human 2026-11-26: D..B drain 40 % slower (DecayLowPct 60), A+ unchanged.
 static void DecayLow(void) {
-    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 70);
+    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 60);
     SmCfg f = c; f.decayLowPct = 100;
     for (int r = 0; r < SM_RANKS; ++r) {
         SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
@@ -1010,7 +1010,7 @@ static void DecayLow(void) {
         SmTick(&a, &c, t, 100); SmTick(&b, &f, t, 100);
         const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
         CHECK(lb > 0.f && a.rank == r && b.rank == r);
-        if (r <= 2) CHECK(near(la, lb * 0.7f)); else CHECK(near(la, lb));
+        if (r <= 2) CHECK(near(la, lb * 0.6f)); else CHECK(near(la, lb));
     }
 }
 int main(void) {

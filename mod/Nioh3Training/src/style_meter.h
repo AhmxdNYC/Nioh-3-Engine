@@ -43,7 +43,7 @@
 // (defaults 5 moves +20, 10 +30, 15 +43, 20 +59, .., 60 +295). The same count drives the versatility multiplier on every gain (SmVersPct). The set does not reset with rank decay / an idle meter; the game glue resets it (SmVarietyReset) at a boss fight start, player
 // death and a load.
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D
-// (x decayLowPct % at ranks D..decayLowRank: 70 % = 30 % slower at D..B);
+// (x decayLowPct % at ranks D..decayLowRank: 60 % = 40 % slower at D..B);
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
 // Promotion: rankPts[r] points fill rank r; the overflow carries into the next rank. SSS caps at a full gauge.
 #ifndef STYLE_METER_H
@@ -116,7 +116,7 @@
 #define SM_VERS_BASE_PCT 10   // ... VersatilityBasePct: the first tier's multiplier (+10 % at 5 moves)
 #define SM_VERS_INC_PCT 5     // ... VersatilityIncPct: each later tier adds this much (10 moves +15 %, 15 +20 %, ..)
 #define SM_DECAY_LOW_RANK 2   // [StyleMeter] DecayLowRank: ranks D..this (B) drain at DecayLowPct % (human 2026-11-26: casual friendly)
-#define SM_DECAY_LOW_PCT 70   // ... DecayLowPct: 70 = 30 % slower; 100 = same as A+
+#define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
 #define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
 #define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
 #define SM_VAR_INC 10         // ... VarietyBonusStep: the 2nd milestone pays this much more than the 1st
@@ -742,7 +742,7 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     if (idle > dt) idle = dt;
     float d = c->decayPerS * (1.f + (float)s->rank * (float)c->decayRankPct / 100.f) * (float)(idle / 1000.0);
     if (c->decayRampPct > 0) d *= 1.f + (float)c->decayRampPct / 100.f * (float)(idleAll / 1000.0);
-    if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;  // human 2026-11-26: D..B drain 30 % slower
+    if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;  // human 2026-11-26: D..B drain 40 % slower
     s->pts -= d;
     while (s->pts < 0.f) {
         if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
