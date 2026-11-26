@@ -21,12 +21,13 @@ int main() {
     for (auto& x : a) { x.ev[0] = 20001; x.evFrame[0] = 0; }          // ambient body object in every action
     SdhResult r = SdhCount(a, 4, 0xC52);
     assert(r.chain == 3 && r.bursts == 3 && r.perAct[1] == 2 && r.perAct[2] == 1 && r.spawns == 0 && r.certain());
+    assert(r.firstIdx == 1 && r.firstStart == 10 && r.lastIdx == 2 && r.lastEnd == 12);  // TASK #137323 Fast summon phase anchors
     a[1].ev[1] = 20007; a[1].evFrame[1] = 15;                         // projectile spawn in the attack: not certain
     r = SdhCount(a, 4, 0xC52); assert(r.spawns == 1 && !r.certain());
     a[1].ev[1] = 0xFFFF;
     Row(h3, 0xFFFF, 0xFFFF, 30); a[3].hb = h3.data(); a[3].nhb = 1; a[2].next = 0x100;  // untimed damaging row: not certain
     r = SdhCount(a, 4, 0xC52); assert(r.untimed == 1 && !r.certain() && r.chain == 4);
-    r = SdhCount(a, 4, 0x999); assert(r.chain == 0 && !r.certain());  // unknown start
+    r = SdhCount(a, 4, 0x999); assert(r.chain == 0 && !r.certain() && r.firstIdx == -1 && r.lastIdx == -1);  // unknown start
     // #135408: helpers noted before the seal binds and from the press-source list are read once each; never below learned.
     SdhWant w; w.Bind(0, 1, 1); assert(w.fromData && w.want == 1);          // 5129B-like: seal data 1, nothing learned
     assert(w.Take(0xA1)); w.Join(1); assert(w.want == 2);                    // pre-bind helper (read at bind): its hit counts

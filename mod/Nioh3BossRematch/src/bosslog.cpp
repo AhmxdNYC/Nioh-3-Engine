@@ -3849,6 +3849,10 @@ std::atomic<uint64_t> g_fastChr[kFastMax];
 std::atomic<uint32_t> g_fastKey[kFastMax];
 std::atomic<double> g_fastAt[kFastMax];
 std::atomic<int> g_fastN{0};
+// TASK #137323 (human #137208): [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off). FastSummonPhaseTick (game thread) sets the
+// press phase; FastActorMul applies start / attack / end rate (soul_core_api.h sc_fast_phase_mul).
+std::atomic<float> g_fastStartMul{SC_FAST_EDGE_DEFAULT}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};
+std::atomic<int> g_fastPhase{SC_FAST_PH_START};
 float FastSummonMul() {
     const float sm = g_sealMul.load(std::memory_order_relaxed);
     return sc_fast_speed_mul(g_fastSpeed.load(std::memory_order_relaxed), sm > 0.f ? sm : g_sealIniMul.load(std::memory_order_relaxed));
@@ -3856,6 +3860,7 @@ float FastSummonMul() {
 void FastActorsClear() {
     const int n = g_fastN.exchange(0);
     for (int i = 0; i < kFastMax; ++i) g_fastChr[i].store(0);
+    g_fastPhase.store(SC_FAST_PH_START);  // TASK #137323: the next press starts in its startup phase (FastSummonPhaseTick decides)
     if (n) Log("FastSummon: speed-up of %d yokai chr(s) ended by the next press t=%.3f", n, Now());
 }
 void FastActorNote(uint64_t chr) {
@@ -3877,7 +3882,8 @@ float FastActorMul(uint64_t a) {  // 1 = not a Fast summon yokai
         if (Now() - g_fastAt[i].load(std::memory_order_relaxed) > 30.0 || !Rd(a, key) || key != g_fastKey[i].load(std::memory_order_relaxed)) {
             g_fastChr[i].store(0); return 1.f;  // the yokai is gone (address reused / too old): never speed another chr
         }
-        return FastSummonMul();
+        return sc_fast_phase_mul(g_fastPhase.load(std::memory_order_relaxed), FastSummonMul(), g_fastStartMul.load(std::memory_order_relaxed),
+                                 g_fastEndMul.load(std::memory_order_relaxed));  // TASK #137323
     }
     return 1.f;
 }
@@ -4139,9 +4145,14 @@ void FastThrowInstall() {
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
     g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));  // TASK #137013: 0 = Fast summon has no smoke
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"6", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
+      GetPrivateProfileStringW(L"Spirit", L"FastSummonEndSpeed", L"6", tb, 32, IniPath()); g_fastEndMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr))); }  // TASK #137323
+    const bool fastEdge = g_fastStartMul.load() > 1.f || g_fastEndMul.load() > 1.f;
     Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
         g_fastSpeed.load() > 0 ? "own value" : "= 90% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
-    if (pct <= 1 && !tail && !sspeed && !fastOwn) return;
+    Log("FastSummon: startup x%.1f [Spirit] FastSummonStartSpeed, end pose x%.1f FastSummonEndSpeed (1 = off, attack keeps x%.2f) (TASK #137323)",
+        g_fastStartMul.load(), g_fastEndMul.load(), FastSummonMul());
+    if (pct <= 1 && !tail && !sspeed && !fastOwn && !fastEdge) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
     int n = 0;
@@ -7069,7 +7080,134 @@ void FormCapTick() {
     Log("FormCap: form %.1f s old (FormMaxSec %d, SealEndOnHit %d) - seal %llX despawn queued ok=%d, form ends now t=%.3f", now - sess, capSec,
         g_sehMode.load(), (unsigned long long)seal, ok, now);
 }
+// TASK #137323 (human #137208): Fast summon startup / end pose skip. One phase per press for its yokai chrs (FastActorNote list), game thread.
+// Signals, all from the game: each chr's own action data (seal_data_hits.h SealDataHits: chain from its current action, first / last burst
+// action + frame) against its live action id + frame [ctrl+78] (SieRead), and its live attack colliders (pool 45C6F38, owner obj+8, the
+// SealHitAtkOnly rule). Startup ends when a chr's data says its first hit starts (first burst frame - kFastLeadFrames) or, for a chr with no
+// usable data, when its first attack collider opens; readable data with no timed hit = no startup skip; kFastStartCapMs caps it. The end pose
+// starts only when every chr that can hit has a CERTAIN data count, all of it seen live, nothing open, past its last burst's end frame, and
+// kFastEndGraceMs since the last close; anything uncertain leaves the end alone. No per-core ids. Logs: 'FastSummon phase', 'FastSummon data',
+// 'FastSummon hit'.
+constexpr int kFastLeadFrames = 4, kFastStartCapMs = 2000, kFastEndGraceMs = 150, kFastReadMs = 1000;
+void FastSummonPhaseTick() {
+    struct St { uint64_t chr = 0; double t0 = 0, nextRead = 0; bool preDone = false, preOk = false, hitRead = false, everHit = false, open = false;
+                SdhResult d; int live = 0; };
+    static St c[kFastMax];
+    static double sess = -1, firstNote = -1, lastClose = -1;
+    static bool started = false;
+    static int phase = SC_FAST_PH_START;
+    const int n = g_fastN.load();
+    const double now = Now(), press = g_pickT.load();
+    bool any = false;
+    for (int i = 0; i < n && i < kFastMax; ++i) any |= g_fastChr[i].load() != 0;
+    if (n <= 0 || !any || now - press > 30.0) { if (sess >= 0 && n <= 0) { sess = -1; for (auto& x : c) x = St(); } return; }  // FastActorMul's 30 s
+    const uint32_t core = g_pickCore.load();
+    if (sess != press) {
+        sess = press; firstNote = now; lastClose = -1; started = false; phase = SC_FAST_PH_START;
+        for (auto& x : c) x = St();
+        g_fastPhase.store(SC_FAST_PH_START);
+    }
+    auto readData = [&](St& x, const char* when) {
+        char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
+        if (h < 0 || !g_sdhLastReadOk) return false;
+        x.d = g_sdhLastRead;
+        Log("FastSummon data core %X chr %llX (%s): %s; first hit chain %d f%u, last hit chain %d ends f%u, count %s +%d ms", core,
+            (unsigned long long)x.chr, when, d, x.d.firstIdx, x.d.firstStart, x.d.lastIdx, x.d.lastEnd,
+            x.d.certain() && x.d.chain < SDH_MAXCHAIN ? "certain" : "not certain", (int)((now - press) * 1000.0));
+        return true;
+    };
+    auto actPos = [](const St& x, float* frame) {
+        SieSample s; SieRead(x.chr, s); *frame = s.f;
+        if (s.act == 0xFFFFFFFFu) return -2;
+        for (int k = 0; k < x.d.chain; ++k) if (s.act <= 0xFFFF && x.d.ids[k] == (uint16_t)s.act) return k;
+        return -1;
+    };
+    uint64_t chrs[kFastMax] = {};
+    for (int i = 0; i < n && i < kFastMax; ++i) {
+        const uint64_t a = g_fastChr[i].load();
+        chrs[i] = a;
+        if (!a) continue;
+        St& x = c[i];
+        if (x.chr != a) { x = St(); x.chr = a; x.t0 = now; }
+        if (!x.preDone && now >= x.nextRead) {
+            x.nextRead = now + 0.05;
+            if (readData(x, "first action")) { x.preDone = x.preOk = true; }
+            else if ((now - x.t0) * 1000.0 >= kFastReadMs) {
+                x.preDone = true;
+                Log("FastSummon data core %X chr %llX: action data unreadable for %d ms - live hits only, end pose left alone", core, (unsigned long long)a, kFastReadMs);
+            }
+        }
+    }
+    // live attack colliders per chr
+    int cnt[kFastMax] = {};
+    {
+        static std::vector<uint64_t> pool;
+        uint64_t pb = 0;
+        bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
+        if (ok) { pool.resize(0xFA0); ok = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+        for (int k = 0; ok && k < 0xFA0; ++k) {
+            const uint64_t o = pool[k]; uint64_t own = 0;
+            if (!o || !Rd(o + 8, own) || !own) continue;
+            int j = -1;
+            for (int i = 0; i < kFastMax; ++i) if (chrs[i] == own) { j = i; break; }
+            if (j < 0) continue;
+            uint64_t ad = 0; uint32_t aid = 0;
+            if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
+            ++cnt[j];
+        }
+    }
+    const char* why = nullptr; uint64_t whyChr = 0;
+    bool openAny = false, anyUsable = false, anyUnread = false;
+    int nDone = 0, nBlock = 0;
+    for (int i = 0; i < n && i < kFastMax; ++i) {
+        St& x = c[i];
+        if (!chrs[i] || x.chr != chrs[i]) continue;
+        const bool open = cnt[i] > 0;
+        if (open && !x.open) {
+            ++x.live; x.everHit = true;
+            if (!x.hitRead) { x.hitRead = true; if (readData(x, "its first hit")) x.preDone = x.preOk = true; }
+            Log("FastSummon hit core %X chr %llX burst %d opens (%d colliders) +%d ms, phase %s", core, (unsigned long long)x.chr, x.live, cnt[i],
+                (int)((now - press) * 1000.0), sc_fast_phase_name(phase));
+        } else if (!open && x.open) {
+            lastClose = now;
+            Log("FastSummon hit core %X chr %llX burst %d closes +%d ms", core, (unsigned long long)x.chr, x.live, (int)((now - press) * 1000.0));
+        }
+        x.open = open; openAny |= open;
+        float f = 0; const int pos = x.preOk ? actPos(x, &f) : -2;
+        const bool usable = x.preOk && x.d.firstIdx >= 0 && pos != -2;
+        anyUsable |= x.preOk && x.d.firstIdx >= 0;
+        anyUnread |= !x.preOk;  // pending or unreadable data = live fallback
+        if (!started && !why) {
+            if (usable && sc_fast_at_first(pos, x.d.firstIdx, f, x.d.firstStart, kFastLeadFrames)) { why = "data: first hit frame reached"; whyChr = x.chr; }
+            else if (!usable && x.everHit) { why = "live: first hit opened"; whyChr = x.chr; }
+        }
+        if (started) {
+            const int e = sc_fast_chr_end(x.preOk, x.d.bursts, x.d.untimed, x.d.spawns, x.d.chain >= SDH_MAXCHAIN, x.everHit, x.live, open,
+                                          sc_fast_past_last(pos, x.d.lastIdx, f, x.d.lastEnd));
+            if (e == SC_FAST_CHR_DONE) { ++nDone; whyChr = x.chr; } else if (e == SC_FAST_CHR_BLOCK) ++nBlock;
+        }
+    }
+    if (!started) {
+        if (why) started = true;
+        else if (!anyUsable && !anyUnread) { started = true; why = "no timed hit in the yokai data: no startup skip"; }
+        else if (g_fastStartMul.load() <= 1.f) { started = true; why = "FastSummonStartSpeed off"; }
+    }
+    const int sinceNote = (int)((now - firstNote) * 1000.0), sinceClose = lastClose > 0 ? (int)((now - lastClose) * 1000.0) : 1 << 30;
+    const int np = sc_fast_group_phase(started, sinceNote, kFastStartCapMs, nDone, nBlock, openAny, sinceClose, kFastEndGraceMs);
+    if (np == SC_FAST_PH_ATTACK && phase == SC_FAST_PH_START && !why) why = "startup cap";
+    if (np == SC_FAST_PH_END && phase != SC_FAST_PH_END) why = "every hitting chr past its last certain hit";
+    if (np == SC_FAST_PH_ATTACK && phase == SC_FAST_PH_END) why = "a chr may hit again";
+    if (np != phase) {
+        const float r = sc_fast_phase_mul(np, FastSummonMul(), g_fastStartMul.load(), g_fastEndMul.load());
+        Log("FastSummon phase core %X chr %llX %s->%s +%d ms after the press, rate x%.2f (%s; done %d, waiting %d) t=%.3f", core,
+            (unsigned long long)whyChr, sc_fast_phase_name(phase), sc_fast_phase_name(np), (int)((now - press) * 1000.0), r, why ? why : "-",
+            nDone, nBlock, now);
+        phase = np;
+        g_fastPhase.store(np);
+    }
+}
 void SealLifeTick() {
+    FastSummonPhaseTick();  // TASK #137323
     DebugHoldSealTick();
     FormCapTick();
     SealIdleEndTick();  // human #61026: before SealEndOnHitTick, which runs the ghost exit it asks for
@@ -7810,16 +7948,18 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
                           {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
                           {L"FormSteerMove", 1, 1, 8, false},
-                          {L"FastSummonSpeed", .1, 0, 3, true}};  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"FastSummonSpeed", .1, 0, 3, true},
+                          {L"FastSummonStartSpeed", .5, 1, 12, true}, {L"FastSummonEndSpeed", .5, 1, 12, true}};  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
-    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which != 21) || g_ftHooked.load();  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
              : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load()
-             : which == 21 ? g_fastSpeed.load() / 10.0 : g_frz[which - 7].load();
+             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load()
+             : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7828,7 +7968,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0, 6, 6};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
@@ -7856,6 +7996,8 @@ double SoulTune(int which, int dir, bool* live) {
     case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
     case 20: g_formSteerMove.store((int)v); break;  // TASK #136492: FormSteerBoost reads it per step; FormSteerPoll reads the same ini key
     case 21: g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(v * 10))); break;  // TASK #136502: FastActorMul reads it per frame
+    case 22: g_fastStartMul.store(sc_fast_edge_clamp((float)v)); break;  // TASK #137323: FastActorMul reads it per frame
+    case 23: g_fastEndMul.store(sc_fast_edge_clamp((float)v)); break;
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
