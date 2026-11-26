@@ -106,7 +106,7 @@ R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id,double h
  censusMode=false;census.clear();g_sehKid[1]=0;g_sehKidT[1]=0;g_exitOnHelperMs=-1;return r;
 }
 int main(){
- ini.clear();LoadExitSetting();check(g_exitOnHelperMs==150);
+ ini.clear();LoadExitSetting();check(g_exitOnHelperMs==0);  // #137035: shipped 0 (human settings)
  ini[L"SealExitOnHelperMs"]=L"-1";LoadExitSetting();check(g_exitOnHelperMs==-1);
  ini[L"SealExitOnHelperMs"]=L"9000";LoadExitSetting();check(g_exitOnHelperMs==5000);ini.clear();
 '''

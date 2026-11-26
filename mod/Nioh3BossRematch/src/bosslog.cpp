@@ -4129,8 +4129,8 @@ void FastThrowInstall() {
     g_rtDrag.store(IniInt(L"Spirit", L"RunThrowDrag", 1));
     g_runFadeMs.store(IniInt(L"Spirit", L"RunFadeMs", 100)); g_runFadeSpeed.store(IniInt(L"Spirit", L"RunFadeSpeed", 200));
     g_airCm.store(IniInt(L"Spirit", L"AirBlockCm", 40)); g_airMs.store(IniInt(L"Spirit", L"AirBlockMs", 600)); g_airSlope.store(IniInt(L"Spirit", L"AirBlockSlopePct", 70) / 100.f); g_airBend.store(IniInt(L"Spirit", L"AirBendCmS", 150)); g_airBendMs.store(IniInt(L"Spirit", L"AirBendMs", 150));  // human #61234: running soul-core throw sped up too
-    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"4", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
-    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealSpeed", L"1.4", tb, 32, IniPath()); g_sealMul.store((float)wcstod(tb, nullptr)); }
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"2", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealSpeed", L"1.6", tb, 32, IniPath()); g_sealMul.store((float)wcstod(tb, nullptr)); }
     g_sealIniMul.store(g_sealMul.load());
     { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonSpeed", L"0", tb, 32, IniPath());  // TASK #136502
       g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(wcstod(tb, nullptr) * 10.0))); }
@@ -5948,8 +5948,8 @@ void SealExitReplayLoad() {
     g_lastHitGraceMs = IniInt(L"Spirit", L"SealLastHitGraceMs", 50);  // human #60327, #60522 150->50
     const int lastHitMs = IniInt(L"Spirit", L"SealExitAtLastHitMs", 0);
     g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
-    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 150); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
-    g_exitEndPct = (std::clamp)(IniInt(L"Spirit", L"SealExitEndPct", 90), 0, 100);  // TASK #135613
+    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 0); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
+    g_exitEndPct = (std::clamp)(IniInt(L"Spirit", L"SealExitEndPct", 80), 0, 100);  // TASK #135613
     { const int st = IniInt(L"Spirit", L"SealExitSettleMs", 200); g_exitSettleMs = st < 0 ? -1 : (std::min)(st, 3000); }  // TASK #135803
     { const int a = IniInt(L"Spirit", L"SealExitAfterShotMs", 700); g_exitAfterShotMs = a < 0 ? -1 : (std::min)(a, 3000); }  // TASK #136113
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
@@ -7822,13 +7822,13 @@ double SoulTune(int which, int dir, bool* live) {
              : which == 21 ? g_fastSpeed.load() / 10.0 : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
-        wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
+        wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.6" : L"2", tb, 32, IniPath()); v = wcstod(tb, nullptr);
     }
     if (!dir) return v;
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
@@ -8335,7 +8335,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_sehAtk.store(IniInt(L"Spirit", L"SealHitAtkOnly", 1)); Log("SealHitAtkOnly=%d", g_sehAtk.load());  // human #61056
         g_sealHitsData.store(IniInt(L"Spirit", L"SealHitsData", 1)); Log("SealHitsData=%d", g_sealHitsData.load());  // TASK #135148
         g_sieMode.store(IniInt(L"Spirit", L"SealIdleEnd", 0)); g_sieLog.store(IniInt(L"Spirit", L"SealIdleLog", 1));  // human #61026
-        g_sieMinMs.store(IniInt(L"Spirit", L"SealIdleMinMs", 300)); g_sieLoop.store(IniInt(L"Spirit", L"SealIdleLoop", 1));
+        g_sieMinMs.store(IniInt(L"Spirit", L"SealIdleMinMs", 0)); g_sieLoop.store(IniInt(L"Spirit", L"SealIdleLoop", 1));
         g_sieHold.store(IniInt(L"Spirit", L"SealIdleHold", 1)); g_sieHoldMs.store(IniInt(L"Spirit", L"SealIdleHoldMs", 100));
         Log("SealIdleEnd=%d (log %d, min %d ms, loop %d, hold %d/%d ms)", g_sieMode.load(), g_sieLog.load(), g_sieMinMs.load(), g_sieLoop.load(), g_sieHold.load(), g_sieHoldMs.load());
         SealExitFxLoad();
