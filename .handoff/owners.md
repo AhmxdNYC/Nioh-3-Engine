@@ -239,3 +239,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - CURRENT 2026-11-18 10:45 pm EST: performance-pc/0 #118609 done (RESULT #118856). EF restored 1c8e1245, ini byte-identical, config/saves restored. No Nioh. Lock 381 free. ShadowMode parked, not in 1.8.23.
 - CURRENT 2026-11-25 11:13 am EST: pc/3. HUMAN HANDS-ON soul-core session #134961: Nioh pid 64560, BR e5b755af installed (05b5cce2 backed up), lock pc, marker pc/3. On 'good' switch core live per D:/nioh3-wt/hand-134961/SESSION.md (46 unique cores, idx list). Do not close or launch over it. Slot 2 copies work stopped by human.
 - CURRENT 2026-11-25 10:17 pm EST: pc/1. #136502 Fast summon staged (BR ED3FC89A), not installed. Do not publish.
+- CURRENT 2026-11-25 10:27 pm EST: pc/0. Fast summon installed on Main PC, BR ED3FC89A (main 7ff48e68), TR 202776EC. No Nioh. Lock free. Do not publish.
