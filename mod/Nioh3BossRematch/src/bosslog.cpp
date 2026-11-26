@@ -1296,6 +1296,16 @@ constexpr int kSeenMax = 8;
 struct SeenCore { std::atomic<uint32_t> id{0}; std::atomic<int> dir{0}; };
 SeenCore g_seen[kSeenMax];
 inline bool ScOn() { return g_scForms.load(std::memory_order_relaxed) && !g_pickOff.load(std::memory_order_relaxed); }
+// TASK #136502 (human #136500): this press's core is Fast summon = the game's own summon (g_pickOff, so every form gate stays vanilla), with
+// the Transform startup cuts (FastThrow toss speed, OrbSkip) and its yokai's motion rate x FastSummonSpeed. The game ends it; no seal/exit code.
+std::atomic<bool> g_pickFast{false};
+inline bool FastPress() {
+    return g_pickFast.load(std::memory_order_relaxed) && g_pickOff.load(std::memory_order_relaxed) && Now() - g_pickT.load(std::memory_order_relaxed) < 10.0;
+}
+// TASK #136197 per-core calls (defined here so the OFF list edits can drop a stale Fast summon entry). Guarded by g_coreEditLock.
+ScCallTable g_callTab{};
+void CoreCallSave();
+void FastActorsClear();
 bool CoreIsOff(uint32_t id) {
     if (!id) return false;
     const int n = g_offN.load();
@@ -1313,6 +1323,8 @@ void CoreOffSave() {
 bool CoreSetTransformsLocked(uint32_t id, bool transforms) {
     if (!id) return true;
     const bool wasOff = CoreIsOff(id);
+    // TASK #136502: any ON/OFF flip ends a Fast summon call (FormCoreCallSet puts it back when Fast summon is what was asked).
+    if (sc_table_get(&g_callTab, id) == SC_CALL_FAST_SUMMON) { sc_table_set(&g_callTab, id, -1); CoreCallSave(); }
     if (transforms && wasOff) {
         const int n = g_offN.load();
         int j = 0;
@@ -1353,8 +1365,8 @@ void CoreOffLoad() {
     Log("FormCoresOff: %d core(s) use the game's own summon; last core LEFT=%X DOWN=%X", n, g_slotCore[1].load(), g_slotCore[2].load());
 }
 // TASK #136197 (human #136126 / #136194): per-core API call, mod/shared/soul_core_api.h. [Spirit] FormCoreCalls = "id:call,...".
-// Game's own still lives in FormCoresOff (old builds read it); the table adds Transform vs Transform moveable. Guarded by g_coreEditLock.
-ScCallTable g_callTab{};
+// Game's own still lives in FormCoresOff (old builds read it); the table adds Transform vs Transform moveable (and Fast summon, an OFF core
+// with table call 3, TASK #136502). g_callTab is defined next to ScOn(). Guarded by g_coreEditLock.
 void CoreCallSave() {
     wchar_t b[SC_TABLE_MAX * 16] = L"";
     sc_table_format(&g_callTab, b, sizeof b / sizeof b[0]);
@@ -1404,19 +1416,25 @@ void PickPoll() {
         AcquireSRWLockShared(&g_coreEditLock);
         const bool equipped = g_equippedReady.load();
         const uint32_t core = equipped ? g_equippedCore[held - 1].load() : g_slotCore[held].load();
+        const int callNow = core ? sc_table_get(&g_callTab, core) : -1;  // TASK #136502
         ReleaseSRWLockShared(&g_coreEditLock);
         g_pickCore.store(core);
         const int pending = g_pendingPick[held].load();
         const bool off = pending >= 0 ? pending == 0 : CoreIsOff(core);
+        const bool fast = off && pending < 0 && callNow == SC_CALL_FAST_SUMMON;
+        FastActorsClear();  // TASK #136502: a new press ends the last Fast summon's speed-up
+        g_pickFast.store(fast);
         g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
         FccPress(now, held);  // human #122288: crouch-cancel window + core count snapshot for this press
         if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
         else pressq::Clear(g_pressQ);
         Log("FormCore %X res=%d dir=%c transform=%d reason=%s t=%.3f", core, CoreResReady(core) ? 1 : 0, held == 1 ? 'L' : 'D', off ? 0 : 1,
             pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
-            !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
+            !core ? "core unknown on this direction yet (form; spawn hit learns it)" : fast ? "core is Fast summon: the game's own summon, sped up (TASK #136502)"
+            : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
     } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
         g_pickOff.store(false);  // the vanilla window is over: gates back for the next press
+        g_pickFast.store(false);
     }
     heldPrev = held;
 }
@@ -1474,14 +1492,15 @@ void PickLearn(uint32_t id) {
     }
     CoreSeen(id, dir);
     g_slotSeen[dir].store(true);
-    const bool off = CoreIsOff(id);
+    const bool off = CoreIsOff(id), fast = off && sc_table_get(&g_callTab, id) == SC_CALL_FAST_SUMMON;  // TASK #136502
     ReleaseSRWLockExclusive(&g_coreEditLock);
     if (off && !g_pickOff.load()) {
+        g_pickFast.store(fast);
         g_pickOff.store(true); g_pickT.store(Now());
         Log("FormCore %X dir=%c transform=0 reason=core in FormCoresOff, first seen at the spawn hit: form suppressed from here (press-time steps already ran) t=%.3f",
             id, dir == 1 ? 'L' : dir == 2 ? 'D' : '?', Now());
     }
-    else if (!off) g_pickOff.store(false);  // a newly learned ON core must not inherit the old direction's OFF window
+    else if (!off) { g_pickOff.store(false); g_pickFast.store(false); }  // a newly learned ON core must not inherit the old direction's OFF window
 }
 std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
 // #81516: build a copied item->summon map on one worker after player/save readiness. Menu reads only published IDs.
@@ -3781,7 +3800,50 @@ std::atomic<float> g_tailRampMs{250.f};
 std::atomic<double> g_tailT0{0};
 std::atomic<uint64_t> g_tailSeal{0};
 std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, so a menu SealSpeed / SealTailSpeed change applies live
+// TASK #136502: yokai of the current Fast summon press. Every chr the seal spawn note sees next to the player (< 15 m, not foreign) within 5 s
+// of a Fast summon press: the core's own yokai and its helpers. Each plays at x FastSummonSpeed until the next press, or until the address
+// holds another chr (key changed), or 30 s. Nothing else is touched: the game spawns, plays and ends it.
+std::atomic<int> g_fastSpeed{SC_FAST_SPEED_DEFAULT};  // [Spirit] FastSummonSpeed x10, 0 = same as Transform speed
+std::atomic<float> g_sealIniMul{1.4f};                // [Spirit] SealSpeed from the ini (g_sealMul is 0 when FormHide != 4)
+constexpr int kFastMax = 4;
+std::atomic<uint64_t> g_fastChr[kFastMax];
+std::atomic<uint32_t> g_fastKey[kFastMax];
+std::atomic<double> g_fastAt[kFastMax];
+std::atomic<int> g_fastN{0};
+float FastSummonMul() {
+    const float sm = g_sealMul.load(std::memory_order_relaxed);
+    return sc_fast_speed_mul(g_fastSpeed.load(std::memory_order_relaxed), sm > 0.f ? sm : g_sealIniMul.load(std::memory_order_relaxed));
+}
+void FastActorsClear() {
+    const int n = g_fastN.exchange(0);
+    for (int i = 0; i < kFastMax; ++i) g_fastChr[i].store(0);
+    if (n) Log("FastSummon: speed-up of %d yokai chr(s) ended by the next press t=%.3f", n, Now());
+}
+void FastActorNote(uint64_t chr) {
+    if (!chr || !FastPress() || Now() - g_pickT.load() > 5.0) return;
+    uint32_t key = 0;
+    if (!Rd(chr, key)) return;
+    for (int i = 0; i < kFastMax; ++i) if (g_fastChr[i].load() == chr) { g_fastKey[i].store(key); g_fastAt[i].store(Now()); return; }
+    const int k = g_fastN.load();
+    if (k >= kFastMax) return;
+    g_fastKey[k].store(key); g_fastAt[k].store(Now()); g_fastChr[k].store(chr); g_fastN.store(k + 1);
+    Log("FastSummon: core %X yokai chr=%llX id=%X +%d ms after the press, rate x%.2f (game's own summon, game's own end) t=%.3f", g_pickCore.load(),
+        (unsigned long long)chr, key >> 4, (int)((Now() - g_pickT.load()) * 1000.0), FastSummonMul(), Now());
+}
+float FastActorMul(uint64_t a) {  // 1 = not a Fast summon yokai
+    const int n = g_fastN.load(std::memory_order_relaxed);
+    for (int i = 0; i < n && i < kFastMax; ++i) {
+        if (g_fastChr[i].load(std::memory_order_relaxed) != a) continue;
+        uint32_t key = 0;
+        if (Now() - g_fastAt[i].load(std::memory_order_relaxed) > 30.0 || !Rd(a, key) || key != g_fastKey[i].load(std::memory_order_relaxed)) {
+            g_fastChr[i].store(0); return 1.f;  // the yokai is gone (address reused / too old): never speed another chr
+        }
+        return FastSummonMul();
+    }
+    return 1.f;
+}
 float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
+    if (const float fm = FastActorMul(a); fm != 1.f) return fm;  // TASK #136502, before the forms-OFF rule below (Fast summon is vanilla)
     const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
     PressGhost ghost;
     if (PressGhostGet(a, ghost)) {
@@ -3944,7 +4006,7 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
         }
         return r * sm;
     }
-    const float m = ScOn() ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
+    const float m = (ScOn() || FastPress()) ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow; TASK #136502 Fast summon keeps the toss speed
     if (a == FkPlayer()) {
         const double now = Now(), pending = g_rtPendingT.load();
         const uint32_t cur = PlayerActId(a);
@@ -4030,10 +4092,15 @@ void FastThrowInstall() {
     g_airCm.store(IniInt(L"Spirit", L"AirBlockCm", 40)); g_airMs.store(IniInt(L"Spirit", L"AirBlockMs", 600)); g_airSlope.store(IniInt(L"Spirit", L"AirBlockSlopePct", 70) / 100.f); g_airBend.store(IniInt(L"Spirit", L"AirBendCmS", 150)); g_airBendMs.store(IniInt(L"Spirit", L"AirBendMs", 150));  // human #61234: running soul-core throw sped up too
     { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"4", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
     { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealSpeed", L"1.4", tb, 32, IniPath()); g_sealMul.store((float)wcstod(tb, nullptr)); }
+    g_sealIniMul.store(g_sealMul.load());
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonSpeed", L"0", tb, 32, IniPath());  // TASK #136502
+      g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(wcstod(tb, nullptr) * 10.0))); }
     g_tailRampMs.store((float)IniInt(L"Spirit", L"SealTailRampMs", 250));
     const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
-    if (pct <= 1 && !tail && !sspeed) return;
+    const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
+    Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502)", g_fastSpeed.load() > 0 ? "own value" : "= Transform speed", FastSummonMul());
+    if (pct <= 1 && !tail && !sspeed && !fastOwn) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
     int n = 0;
@@ -4083,7 +4150,7 @@ void* g_orbFxOrig = nullptr;
 std::atomic<uint32_t> g_orbHits{0};
 uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
     uint32_t fx = 0;
-    if (ScOn() && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869
+    if ((ScOn() || FastPress()) && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869; TASK #136502 Fast summon
         g_orbT.store(Now());
         if (g_orbHits.fetch_add(1) < 4) Log("OrbSkip: seal orb %llX lands on its first tick t=%.3f", (unsigned long long)o, Now());
         return 1;
@@ -4091,7 +4158,7 @@ uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
     return ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))g_orbLandOrig)(o, edx, r8, r9);
 }
 uint64_t HkOrbFx(uint64_t ctrl, uint64_t out, uint64_t fx, uint64_t r9, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8) {
-    if ((uint32_t)fx == 0x6254D && out > 0x10000 && ScOn()) {  // human #61869
+    if ((uint32_t)fx == 0x6254D && out > 0x10000 && (ScOn() || FastPress())) {  // human #61869; TASK #136502 Fast summon
         *(volatile uint32_t*)out = 0;
         g_orbT.store(Now());
         Log("OrbSkip: orb effect 0x6254D skipped (ctrl %llX) t=%.3f", (unsigned long long)ctrl, Now());
@@ -7626,15 +7693,17 @@ double SoulTune(int which, int dir, bool* live) {
                           {nullptr, 0, 0, 0, false},  // 14 = the menu's Start + end speed row (no value of its own, #129070)
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
                           {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
-                          {L"FormSteerMove", 1, 1, 8, false}};  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"FormSteerMove", 1, 1, 8, false},
+                          {L"FastSummonSpeed", .1, 0, 3, true}};  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
-    if (live) *live = which < 5 || (which >= 7 && which < 11) || which >= 15 || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which != 21) || g_ftHooked.load();  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
-             : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load() : g_frz[which - 7].load();
+             : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load()
+             : which == 21 ? g_fastSpeed.load() / 10.0 : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7643,9 +7712,11 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
+    else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
+    else if (which == 21 && dir < 0 && v - t.step < SC_FAST_SPEED_MIN / 10.0 - 1e-6) v = 0;
     else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
     if (t.flt) v = std::round(v * 10) / 10;
@@ -7668,17 +7739,18 @@ double SoulTune(int which, int dir, bool* live) {
     case 18: g_exitEndPct.store((int)v); break;
     case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
     case 20: g_formSteerMove.store((int)v); break;  // TASK #136492: FormSteerBoost reads it per step; FormSteerPoll reads the same ini key
+    case 21: g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(v * 10))); break;  // TASK #136502: FastActorMul reads it per frame
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
     if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
     WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
-    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6 || (which >= 11 && which <= 13)) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
+    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6 || (which >= 11 && which <= 13) || which == 21) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
     return v;
 }
 
 void SoulTuneReset() {
-    for (int which = 0; which < 21; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
+    for (int which = 0; which < 22; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // TASK #136502: 21 Fast summon speed  // 14 = Start + end speed (no value)
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
@@ -7757,7 +7829,7 @@ int FormCoreCallGet(uint32_t id) {
     const bool off = CoreIsOff(id);
     const int c = sc_table_get(&g_callTab, id);
     ReleaseSRWLockShared(&g_coreEditLock);
-    if (off) return SC_CALL_GAME;
+    if (off) return c == SC_CALL_FAST_SUMMON ? SC_CALL_FAST_SUMMON : SC_CALL_GAME;  // TASK #136502
     if (sc_call_forms(c)) return c;
     return g_formSteer.load() > 0 ? SC_CALL_TRANSFORM_MOVE : SC_CALL_TRANSFORM;
 }
@@ -7767,7 +7839,7 @@ int FormCoreCallSet(uint32_t id, int call) {
     AcquireSRWLockExclusive(&g_coreEditLock);
     const bool forms = CoreSetTransformsLocked(id, sc_call_forms(call));
     if (forms && sc_call_forms(call)) sc_table_set(&g_callTab, id, call);
-    else if (!forms) sc_table_set(&g_callTab, id, -1);
+    else if (!forms) sc_table_set(&g_callTab, id, call == SC_CALL_FAST_SUMMON ? call : -1);  // TASK #136502: Fast summon = OFF + call 3
     CoreCallSave();
     ReleaseSRWLockExclusive(&g_coreEditLock);
     const int now = FormCoreCallGet(id);
@@ -7868,6 +7940,7 @@ int ScActorIs(uint64_t chr) {
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     { uint32_t key = 0; if (chr && Rd(chr, key) && PressSpawnForeign(key >> 4, chr)) return; }  // #95567: a wave enemy is never a seal
     if (chr && dist >= 0 && dist < 15.f) ScActorNote(chr);  // TASK #136492, before the FormKey gates: the game's own summon counts too
+    if (chr && dist >= 0 && dist < 15.f) FastActorNote(chr);  // TASK #136502: Fast summon yokai (+ helpers) of this press
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
@@ -8281,6 +8354,14 @@ extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensSet(int x)
     const int want = sc_move_sens_clamp(x);
     int v = (int)bosslog::SoulTune(20, 0, nullptr);
     for (int i = 0; i < SC_MOVE_SENS_MAX && v != want; ++i) v = (int)bosslog::SoulTune(20, want > v ? 1 : -1, nullptr);  // same path as the menu row (live + ini)
+    return v;
+}
+// TASK #136502 (API 3): Fast summon yokai speed x10, 0 = same as Transform speed.
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreFastSpeedGet(void) { return (int)std::lround(bosslog::SoulTune(21, 0, nullptr) * 10); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreFastSpeedSet(int x10) {
+    const int want = sc_fast_speed_clamp(x10);
+    int v = Nioh3BossRematch_SoulCoreFastSpeedGet();
+    for (int i = 0; i < 32 && v != want; ++i) v = (int)std::lround(bosslog::SoulTune(21, want > v ? 1 : -1, nullptr) * 10);  // menu path (live + ini)
     return v;
 }
 #endif

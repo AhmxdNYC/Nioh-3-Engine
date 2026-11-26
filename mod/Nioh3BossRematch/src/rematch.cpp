@@ -6536,6 +6536,15 @@ void Command(const char* line, char* reply, size_t n) {
             snprintf(reply, n, "ok");
             return;
         }
+        if (!strcmp(arg, "corecall")) {  // spirit corecall <hex core> [call 0-3] : TASK #136502 test hook, the menu row's FormCoreCallSet (saved)
+            unsigned id = 0; int call = -1;
+            const char* q = strstr(line, "corecall");
+            const int k = q ? sscanf_s(q + 8, "%x %d", &id, &call) : 0;
+            if (k < 1 || !id) { snprintf(reply, n, "error usage: spirit corecall <hex core> [0-3]"); return; }
+            const int now = k >= 2 ? bosslog::FormCoreCallSet(id, call) : bosslog::FormCoreCallGet(id);
+            snprintf(reply, n, "ok core %X call %d %s", id, now, sc_call_name(now) ? sc_call_name(now) : "?");
+            return;
+        }
         if (!strcmp(arg, "formkey")) {  // spirit formkey on [hex X]|off|status : log the summon body key, then one SetForm with that key (pc/soulcore-formkey)
             bosslog::FormKeyCmd(line, reply, n);
             return;
