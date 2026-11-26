@@ -1,4 +1,5 @@
 
+- CURRENT 2026-11-25 8:03 pm EST: pc/0. Main PC live main 0d83711e: BR E296BCF4, TR 5C5EA937, pid 64668 since 8:03 pm EST (human away #136380). pc/1 owns the live check #136412 + delay #136363. Do not publish.
 - CURRENT 2026-11-25 8:00 pm EST: regression-pc/0. #136385 PASS offline on BR b5c54a7f (E296BCF4, pc1/coresw-136367). foreign_spawn 16, form_core_pick 143, audit 0 new. 7 BR tests fail on base too (msvc path). Not installed. Live check with pc. Do not publish.
 - CURRENT 2026-11-25 7:29 pm EST: pc/0. Main PC live main 4d20adf0: BR 9A3E8E86, TR 5C5EA937, human pid 51048 since 7:29 pm EST. Do not close pid 51048 without a notice. Do not publish.
 - CURRENT 2026-11-25 7:28 pm EST: regression-pc/0. #136328 escape fix c65d45af PASS #136337, BR 9A3E8E86 not installed. Live pid 39356 BR 28FAC399. Do not publish.
