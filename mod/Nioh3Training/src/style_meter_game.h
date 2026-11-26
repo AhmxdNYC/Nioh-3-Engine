@@ -172,6 +172,8 @@ static void SmReadIni(const char* ini, int reset) {
     c.slowMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveMs", SM_SLOW_MS, ini);                   // human 2026-11-26: slow moves
     c.slowPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePct", SM_SLOW_PCT, ini);
     c.slowCm = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseCm", SM_SLOW_CM, ini);
+    c.farCm = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainCm", SM_FAR_CM, ini);  // human 2026-11-26
+    c.farPct = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainPct", SM_FAR_PCT, ini);
     c.slowMaxMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseMaxMs", SM_SLOW_MAX_MS, ini);
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     c.burst = (float)(int)GetPrivateProfileIntA("StyleMeter", "BurstBreakPts", SM_BURST_PTS, ini);  // human: Burst Break
@@ -772,7 +774,7 @@ static void SmFeed(double gdt) {
     // deflect / a guardian spirit spend, or a DisplaceActs id.
     // slowCm: the nearest boss slot's distance (slow-move drain pause), -1 = unknown
     float dpPl[2] = {0.f, 0.f}, dpBoss[2] = {0.f, 0.f}; int dpPlOk = 0, dpBossOk = 0, dpSlot = -1; float dpBest = 1e30f, slowCm = -1.f;
-    if (pl && (g_dpc.on || g_smc.slowMs > 0)) {
+    if (pl && (g_dpc.on || g_smc.slowMs > 0 || g_smc.farPct < 100)) {
         __try { dpPl[0] = *(volatile float*)(g_fp[FP_PL].a + 0x110); dpPl[1] = *(volatile float*)(g_fp[FP_PL].a + 0x118); dpPlOk = dpPl[0] == dpPl[0] && dpPl[1] == dpPl[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { dpPlOk = 0; }
         const LONG em = g_sm_enemyMask;
         for (int s = 0; s < N3T_SLOTS && dpPlOk; ++s) {
@@ -1009,8 +1011,9 @@ static void SmFeed(double gdt) {
         if (slw.capNew) { static int slc; if (slc++ < 2000) Log("STYLE SLOW: act %u drain pause cap %d ms reached, %.0f ms into the move with no hit (drain resumes)",
             (unsigned)act, g_smc.slowMaxMs, g_fp_gms - slw.t0); }
     }
+    g_sm.drainFar = pl && g_smc.farPct < 100 && slowCm > (float)g_smc.farCm;  // human 2026-11-26: nearest boss over FarDrainCm away: drain x FarDrainPct
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
-    g_sm.drainHold = 0;
+    g_sm.drainHold = 0; g_sm.drainFar = 0;
     {   // human 2026-11-25: button presses for the card's APM (sampled every tick so a fight start mid-hold is not a press)
         static SrInput srIn; uint16_t ib; uint8_t il, ir; uint32_t ik[8];
         SmInputNow(&ib, &il, &ir, ik);

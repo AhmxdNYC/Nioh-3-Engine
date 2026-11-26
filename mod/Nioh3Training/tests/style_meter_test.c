@@ -17,7 +17,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
-    c->versStep = 0; c->decayLowPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
+    c->versStep = 0; c->decayLowPct = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
     c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
     c->slowMs = 0;  // slow-move multiplier / drain pause (human 2026-11-26) came later: covered by SlowMove()
 }
@@ -1073,9 +1073,21 @@ static void SlowMove(void) {
     // legacy cases: PinnedDefaults turns it off
     SmCfg pn; SmCfgDefaults(&pn); CHECK(pn.slowMs == 0 && near(SmHitMult(&pn, 10.f, 900.0), 1.f));
 }
+// human 2026-11-26: the nearest boss over 5 m away: drain at half speed at every rank (the glue sets drainFar).
+static void DrainFar(void) {
+    SmCfg c; RealDefaults(&c); CHECK(c.farCm == 500 && c.farPct == 50);
+    for (int r = 0; r < SM_RANKS; ++r) {
+        SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
+        const double t = (double)c.decayDelayMs + 100.0;
+        b.drainFar = 1; SmTick(&a, &c, t, 100); SmTick(&b, &c, t, 100);
+        const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
+        CHECK(la > 0.f && near(lb, la * 0.5f));
+    }
+    SmCfg k = c; k.farPct = 150; k.farCm = -5; SmCfgClamp(&k); CHECK(k.farPct == 100 && k.farCm == 0);
+}
 int main(void) {
     SlowMove();
-    MoveVariety(); Versatility(); DecayLow();
+    MoveVariety(); Versatility(); DecayLow(); DrainFar();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();
     BurstCounterAvoid();

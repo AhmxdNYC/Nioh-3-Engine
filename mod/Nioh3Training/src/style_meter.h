@@ -125,6 +125,8 @@
 #define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
 #define SM_SLOW_PCT 200       // ... SlowMovePct: a slow move's hits x this % (never below the startup ramp)
 #define SM_SLOW_CM 500        // ... SlowMovePauseCm: the drain pause AND the x2 need a boss this close (cm; 0 = any distance; human 2026-11-26)
+#define SM_FAR_CM 500         // [StyleMeter] FarDrainCm: the nearest boss farther than this (cm) -> drain x FarDrainPct (human 2026-11-26)
+#define SM_FAR_PCT 50         // ... FarDrainPct: 50 = half speed at every rank while the boss is far away (100 = off)
 #define SM_SLOW_MAX_MS 5000   // ... SlowMovePauseMaxMs: longest drain pause per use (a held charge cannot freeze the meter; 0 = no pause; human 2026-11-26: was 3000)
 #define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
 #define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
@@ -171,6 +173,7 @@ typedef struct {
     int versStep, versBasePct, versIncPct; int decayLowRank, decayLowPct;  // human 2026-11-26: versatility multiplier / slower D..B drain
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
+    int farCm, farPct;  // human 2026-11-26: drain x farPct % while the nearest boss is over farCm away
     int slowMs, slowPct, slowCm, slowMaxMs;  // human 2026-11-26: slow move (time to land) multiplier / drain pause distance / pause cap
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -216,6 +219,7 @@ typedef struct {
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t crouchCancels; // human 2026-11-26: crouch (TMTM) cancels (style_tmtm.h, result card)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
+    int drainFar;           // human 2026-11-26: set by the glue each tick: the nearest boss is over farCm away -> SmTick drains x farPct %
     int drainHold;          // human 2026-11-26: set by the game glue each tick (slow-move wind-up near a boss): SmTick does not drain
     uint32_t varBonuses; int varMile; float varLastPts, varPts; float versPts;  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points
 } SmState;
@@ -234,6 +238,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
     c->blockPct = SM_BLOCK_PCT;
+    c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT;
     c->slowMs = SM_SLOW_MS; c->slowPct = SM_SLOW_PCT; c->slowCm = SM_SLOW_CM; c->slowMaxMs = SM_SLOW_MAX_MS;
     c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
@@ -267,6 +272,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
     if (c->slowMs < 0) c->slowMs = 0; if (c->slowMs > 10000) c->slowMs = 10000; if (c->slowPct < 100) c->slowPct = 100; if (c->slowPct > 1000) c->slowPct = 1000;
+    if (c->farCm < 0) c->farCm = 0; if (c->farPct < 0) c->farPct = 0; if (c->farPct > 100) c->farPct = 100;
     if (c->slowCm < 0) c->slowCm = 0; if (c->slowCm > 100000) c->slowCm = 100000; if (c->slowMaxMs < 0) c->slowMaxMs = 0; if (c->slowMaxMs > 30000) c->slowMaxMs = 30000;
     if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0; if (c->varGrow < 0) c->varGrow = 0; if (c->varPct < 0) c->varPct = 0; if (c->varPct > 1000) c->varPct = 1000;
     if (c->varMax < 0) c->varMax = 0; if (c->varMax > SM_VAR_IDS) c->varMax = SM_VAR_IDS;
@@ -812,7 +818,8 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     if (idle > dt) idle = dt;
     float d = c->decayPerS * (1.f + (float)s->rank * (float)c->decayRankPct / 100.f) * (float)(idle / 1000.0);
     if (c->decayRampPct > 0) d *= 1.f + (float)c->decayRampPct / 100.f * (float)(idleAll / 1000.0);
-    if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;  // human 2026-11-26: D..B drain 40 % slower
+    if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;
+    if (s->drainFar) d *= (float)c->farPct / 100.f;  // human 2026-11-26: the boss is far away (e.g. ran across the arena): half drain  // human 2026-11-26: D..B drain 40 % slower
     s->pts -= d;
     while (s->pts < 0.f) {
         if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
