@@ -42,6 +42,7 @@ struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
 std::atomic<int> g_sealHitsData{0},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_fastSpeed{0};int dataHits=-1;
+std::atomic<float> g_fastStartMul{6.f},g_fastEndMul{6.f};  // TASK #137323
 SdhDurTable g_sealDurs;
 SdhDurTable g_sealLastHit;int lastHitNotes=0;  // TASK #136328
 float SealMulNow();
@@ -529,7 +530,7 @@ int main(){
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==22&&rows.back()==kItSctBase+21);  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==24&&rows.back()==kItSctBase+23);  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");

@@ -32,6 +32,9 @@ struct SdhResult {
     uint16_t ids[SDH_MAXCHAIN] = {};
     int perAct[SDH_MAXCHAIN] = {};
     uint16_t lastEnd = 0; // end frame of the last burst, in its own action's frames
+    // TASK #137323: chain positions of the first / last action with a burst (-1 none) and the first burst's start frame (Fast summon phases)
+    int firstIdx = -1, lastIdx = -1;
+    uint16_t firstStart = 0;
     bool certain() const { return bursts > 0 && !untimed && !spawns; }
 };
 
@@ -57,6 +60,17 @@ static inline int SdhActionBursts(const SdhAction& a, int* untimed, int* windows
     }
     if (b) *lastEnd = (uint16_t)curEnd;
     return b;
+}
+
+// TASK #137323: start frame of the first damaging timed row of one action (0xFFFF none).
+static inline uint16_t SdhActionFirstStart(const SdhAction& a) {
+    uint16_t best = 0xFFFF;
+    for (int i = 0; i < a.nhb && i < SDH_MAXROWS; ++i) {
+        const uint8_t* r = a.hb + (size_t)i * SDH_HB;
+        const uint16_t s = SdhU16(r, 8), pw = SdhU16(r, 0x10), el = SdhU16(r, 0x12);
+        if ((pw || el) && s != 0xFFFF && s < best) best = s;
+    }
+    return best;
 }
 
 // acts = every action of the seal's file (for the ambient rule and the chain lookup); start = the action id the seal is bound in.
@@ -91,7 +105,8 @@ static inline SdhResult SdhCount(const SdhAction* acts, int na, uint16_t start) 
         r.ids[r.chain] = cur;
         uint16_t le = 0;
         const int b = SdhActionBursts(*a, &r.untimed, &r.windows, &le);
-        r.perAct[r.chain] = b; r.bursts += b; if (b) r.lastEnd = le;
+        r.perAct[r.chain] = b; r.bursts += b; if (b) { r.lastEnd = le; r.lastIdx = r.chain; }
+        if (b && r.firstIdx < 0) { r.firstIdx = r.chain; r.firstStart = SdhActionFirstStart(*a); }
         for (int k = 0; k < SDH_EVENTS; ++k) {
             const uint16_t e = a->ev[k];
             if (e < 20000 || e == 0xFFFF) continue;

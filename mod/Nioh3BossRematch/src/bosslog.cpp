@@ -3841,7 +3841,7 @@ std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, s
 // TASK #136502: yokai of the current Fast summon press. Every chr the seal spawn note sees next to the player (< 15 m, not foreign) within 5 s
 // of a Fast summon press: the core's own yokai and its helpers. Each plays at x FastSummonSpeed until the next press, or until the address
 // holds another chr (key changed), or 30 s. Nothing else is touched: the game spawns, plays and ends it.
-std::atomic<int> g_fastSmoke{0}, g_fastFxLog{0};  // TASK #137013 [Spirit] FastSummonSmoke (0 = no smoke), fx log cap per press
+std::atomic<int> g_fastSmoke{0}, g_fastFxLog{0};  std::atomic<int> g_fastTrace{0}, g_fastTraceQuietMs{0};  // TASK #137616 [Spirit] FastSummonTrace (FastSummonTraceTick)  // TASK #137013 [Spirit] FastSummonSmoke (0 = no smoke), fx log cap per press
 std::atomic<int> g_fastSpeed{SC_FAST_SPEED_DEFAULT};  // [Spirit] FastSummonSpeed x10, 0 = same as Transform speed
 std::atomic<float> g_sealIniMul{1.4f};                // [Spirit] SealSpeed from the ini (g_sealMul is 0 when FormHide != 4)
 constexpr int kFastMax = 4;
@@ -3849,13 +3849,19 @@ std::atomic<uint64_t> g_fastChr[kFastMax];
 std::atomic<uint32_t> g_fastKey[kFastMax];
 std::atomic<double> g_fastAt[kFastMax];
 std::atomic<int> g_fastN{0};
+// TASK #137323 (human #137208): [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off). FastSummonPhaseTick (game thread) sets the
+// press phase; FastActorMul applies start / attack / end rate (soul_core_api.h sc_fast_phase_mul).
+std::atomic<float> g_fastStartMul{1.f}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};  // TASK #137616: startup off by default
+std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // #137323 press phase, unused since #137616
+std::atomic<int> g_fastChrPh[kFastMax];  // TASK #137616: per-chr phase (FastSummonPhaseTick); every write path sets ATTACK first, never START by default
 float FastSummonMul() {
     const float sm = g_sealMul.load(std::memory_order_relaxed);
     return sc_fast_speed_mul(g_fastSpeed.load(std::memory_order_relaxed), sm > 0.f ? sm : g_sealIniMul.load(std::memory_order_relaxed));
 }
 void FastActorsClear() {
     const int n = g_fastN.exchange(0);
-    for (int i = 0; i < kFastMax; ++i) g_fastChr[i].store(0);
+    for (int i = 0; i < kFastMax; ++i) { g_fastChr[i].store(0); g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
+    g_fastPhase.store(SC_FAST_PH_ATTACK);  // TASK #137323: the next press starts at attack speed; only certain data arms the startup skip
     if (n) Log("FastSummon: speed-up of %d yokai chr(s) ended by the next press t=%.3f", n, Now());
 }
 void FastActorNote(uint64_t chr) {
@@ -3865,6 +3871,7 @@ void FastActorNote(uint64_t chr) {
     for (int i = 0; i < kFastMax; ++i) if (g_fastChr[i].load() == chr) { g_fastKey[i].store(key); g_fastAt[i].store(Now()); return; }
     const int k = g_fastN.load();
     if (k >= kFastMax) return;
+    g_fastChrPh[k].store(SC_FAST_PH_ATTACK);  // TASK #137616: a new yokai starts at attack speed until its own data says otherwise
     g_fastKey[k].store(key); g_fastAt[k].store(Now()); g_fastChr[k].store(chr); g_fastN.store(k + 1);
     Log("FastSummon: core %X yokai chr=%llX id=%X +%d ms after the press, rate x%.2f (game's own summon, game's own end) t=%.3f", g_pickCore.load(),
         (unsigned long long)chr, key >> 4, (int)((Now() - g_pickT.load()) * 1000.0), FastSummonMul(), Now());
@@ -3877,7 +3884,8 @@ float FastActorMul(uint64_t a) {  // 1 = not a Fast summon yokai
         if (Now() - g_fastAt[i].load(std::memory_order_relaxed) > 30.0 || !Rd(a, key) || key != g_fastKey[i].load(std::memory_order_relaxed)) {
             g_fastChr[i].store(0); return 1.f;  // the yokai is gone (address reused / too old): never speed another chr
         }
-        return FastSummonMul();
+        return sc_fast_phase_mul(g_fastChrPh[i].load(std::memory_order_relaxed), FastSummonMul(), g_fastStartMul.load(std::memory_order_relaxed),
+                                 g_fastEndMul.load(std::memory_order_relaxed));  // TASK #137616: this chr's own phase (0 = START never set by default: see the tick)
     }
     return 1.f;
 }
@@ -4138,10 +4146,16 @@ void FastThrowInstall() {
     const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
-    g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));  // TASK #137013: 0 = Fast summon has no smoke
+    g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));
+    g_fastTrace.store(IniInt(L"Spirit", L"FastSummonTrace", 0)); g_fastTraceQuietMs.store(IniInt(L"Spirit", L"FastSummonTraceQuietMs", 0));  // TASK #137616  // TASK #137013: 0 = Fast summon has no smoke
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"1", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
+      GetPrivateProfileStringW(L"Spirit", L"FastSummonEndSpeed", L"6", tb, 32, IniPath()); g_fastEndMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr))); }  // TASK #137323
+    const bool fastEdge = g_fastStartMul.load() > 1.f || g_fastEndMul.load() > 1.f;
     Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
         g_fastSpeed.load() > 0 ? "own value" : "= 90% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
-    if (pct <= 1 && !tail && !sspeed && !fastOwn) return;
+    Log("FastSummon: startup x%.1f [Spirit] FastSummonStartSpeed, end pose x%.1f FastSummonEndSpeed (1 = off, attack keeps x%.2f) (TASK #137323)",
+        g_fastStartMul.load(), g_fastEndMul.load(), FastSummonMul());
+    if (pct <= 1 && !tail && !sspeed && !fastOwn && !fastEdge) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
     int n = 0;
@@ -5606,7 +5620,8 @@ void SealIdleEndTick() {
 // X = [P+0x30], X +0x88 action objects / +0x90 row pointers / u16 +0x98 count, object +0x40 hitbox row pointer array, u16 +0x48 first,
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
-SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  // TASK #135803: shape of the last SealDataHits read (bind copies it)
+SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  
+bool g_sdhDumpAll = false;  int g_sdhKindN = 0; uint16_t g_sdhKindId[64]; uint8_t g_sdhKind[64];  // TASK #137616: last file read, per action can-hit  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
 SdhDurTable g_sealLastHit;  // TASK #136328: per-core last hit close (bind -> close) of full forms this session, game thread only
 void SealLastHitNote(uint32_t sid, double lastCloseSess, double boundSess, const char* why) {
@@ -5646,6 +5661,23 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
             ++a.nhb;
         }
         a.hb = rows[k].empty() ? nullptr : rows[k].data();
+    }
+    if (g_sdhDumpAll) {  // TASK #137616: one line per action: id, finish link, damaging timed bursts, first start / last end, untimed, events
+        for (int k = 0; k < n; ++k) {
+            const SdhAction& a = acts[k]; int ut = 0, w = 0; uint16_t le = 0;
+            const int b = SdhActionBursts(a, &ut, &w, &le);
+            char ev[160]; int o = 0; ev[0] = 0;
+            for (int e = 0; e < SDH_EVENTS && o < 150; ++e) if (a.ev[e] && a.ev[e] != 0xFFFF) o += snprintf(ev + o, sizeof ev - o, " %u@f%u", a.ev[e], a.evFrame[e]);
+            Log("FastSummon file chr %llX action[%d] %X -> %X: rows %d, bursts %d (first f%u, last ends f%u), untimed %d, events%s%s", (unsigned long long)seal, k,
+                a.id, a.next, a.nhb, b, b ? SdhActionFirstStart(a) : 0, le, ut, ev, a.id == (uint16_t)curId ? " <- current" : "");
+        }
+    }
+    g_sdhKindN = 0;  // TASK #137616: can this action hit (damaging row timed / untimed, or a spawn event 20000+)
+    for (int k = 0; k < n && g_sdhKindN < 64; ++k) {
+        int ut = 0, w = 0; uint16_t le = 0; bool sp = false;
+        const int b = SdhActionBursts(acts[k], &ut, &w, &le);
+        for (int e = 0; e < SDH_EVENTS; ++e) sp |= acts[k].ev[e] >= 20000 && acts[k].ev[e] != 0xFFFF;
+        g_sdhKindId[g_sdhKindN] = acts[k].id; g_sdhKind[g_sdhKindN++] = (uint8_t)(b || ut || sp ? SC_FAST_ACT_HIT : SC_FAST_ACT_NOHIT);
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
     g_sdhLastRead = r; g_sdhLastReadOk = r.chain > 0;  // TASK #135803
@@ -7069,7 +7101,152 @@ void FormCapTick() {
     Log("FormCap: form %.1f s old (FormMaxSec %d, SealEndOnHit %d) - seal %llX despawn queued ok=%d, form ends now t=%.3f", now - sess, capSec,
         g_sehMode.load(), (unsigned long long)seal, ok, now);
 }
+// TASK #137323 chain / hit-count phase removed by TASK #137616 (see FastSummonPhaseTick below).
+// TASK #137616 (human #137208): [Spirit] FastSummonTrace=1 logs, per Fast summon yokai chr, every live action / motion change (act id, motion,
+// frame [ctrl+78], rate), its attack colliders opening / closing, and once its whole action file (FastSummon file lines). Read only (SEH-guarded
+// reads, no game call, no write); no rate change. FastSummonTraceQuietMs: nothing of a chr is read until it is that old. This is the data for
+// phasing by the yokai's own action ids (spawn action -> attack -> end pose) without a per-core list.
+// g_fastTrace / g_fastTraceQuietMs: declared with g_fastSmoke
+void FastSummonTraceTick() {
+    if (g_fastTrace.load(std::memory_order_relaxed) <= 0) return;
+    struct Tr { uint64_t chr = 0; double t0 = 0, segT = 0, last = 0; SieSample s; bool have = false, dumped = false; int open = 0, segs = 0, lines = 0; };
+    static Tr c[kFastMax];
+    const int n = g_fastN.load();
+    const double now = Now(), press = g_pickT.load();
+    const uint32_t core = g_pickCore.load();
+    uint64_t chrs[kFastMax] = {};
+    for (int i = 0; i < kFastMax; ++i) {
+        const uint64_t a = i < n ? g_fastChr[i].load() : 0;
+        chrs[i] = a;
+        Tr& x = c[i];
+        if (x.chr && x.chr != a) {
+            Log("FastSummon trace core %X chr %llX gone from the list after %d ms (%d segments, last act %X f%.1f, %d ms in it) t=%.3f", core,
+                (unsigned long long)x.chr, (int)((now - x.t0) * 1000.0), x.segs, x.s.act, x.s.f, (int)((x.last - x.segT) * 1000.0), now);
+            x = Tr();
+        }
+        if (a && !x.chr) { x.chr = a; x.t0 = now; }
+    }
+    const int quiet = g_fastTraceQuietMs.load();
+    bool old[kFastMax] = {}, anyOld = false;
+    for (int i = 0; i < kFastMax; ++i) { old[i] = chrs[i] && (now - c[i].t0) * 1000.0 >= quiet; anyOld |= old[i]; }
+    if (!anyOld) return;
+    int cnt[kFastMax] = {};
+    {
+        static std::vector<uint64_t> pool;
+        uint64_t pb = 0;
+        bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
+        if (ok) { pool.resize(0xFA0); ok = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+        for (int k = 0; ok && k < 0xFA0; ++k) {
+            const uint64_t o = pool[k]; uint64_t own = 0;
+            if (!o || !Rd(o + 8, own) || !own) continue;
+            int j = -1;
+            for (int i = 0; i < kFastMax; ++i) if (old[i] && chrs[i] == own) { j = i; break; }
+            if (j < 0) continue;
+            uint64_t ad = 0; uint32_t aid = 0;
+            if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
+            ++cnt[j];
+        }
+    }
+    for (int i = 0; i < kFastMax; ++i) {
+        if (!old[i]) continue;
+        Tr& x = c[i];
+        const int ms = (int)((now - press) * 1000.0), age = (int)((now - x.t0) * 1000.0);
+        if (!x.dumped) {
+            x.dumped = true;
+            char d[320]; g_sdhDumpAll = true; const int h = SealDataHits(x.chr, core, d, sizeof d); g_sdhDumpAll = false;
+            Log("FastSummon trace core %X chr %llX data (%d ms old, +%d ms): %s -> %d", core, (unsigned long long)x.chr, age, ms, d, h);
+        }
+        SieSample s; SieRead(x.chr, s);
+        const bool change = !x.have || s.act != x.s.act || s.mot != x.s.mot || s.fact != x.s.fact || s.f < x.s.f - 0.5f;
+        if (change) {
+            ++x.segs;
+            if (++x.lines <= 80)
+                Log("FastSummon trace core %X chr %llX +%d ms (%d ms old) act %X->%X mot %X->%X fact %X->%X f=%.1f rate=%.3f (prev ran %d ms, left at f%.1f) t=%.3f",
+                    core, (unsigned long long)x.chr, ms, age, x.s.act, s.act, x.s.mot, s.mot, x.s.fact, s.fact, s.f, s.rate,
+                    x.have ? (int)((now - x.segT) * 1000.0) : 0, x.s.f, now);
+            x.segT = now;
+        }
+        if ((cnt[i] > 0) != (x.open > 0) && ++x.lines <= 80)
+            Log("FastSummon trace core %X chr %llX +%d ms collider %s (%d) in act %X mot %X f=%.1f t=%.3f", core, (unsigned long long)x.chr, ms,
+                cnt[i] > 0 ? "opens" : "closes", cnt[i], s.act, s.mot, s.f, now);
+        x.open = cnt[i]; x.s = s; x.have = true; x.last = now;
+    }
+}
+
+// TASK #137616 (human #137208): replaces the #137323 chain / hit-count phase (it never armed on 3B1AB: its spawn action C53 links straight to
+// idle 1, so the chain held no hit). Each yokai chr gets its own phase from its own action file: sc_fast_chr_phase (soul_core_api.h).
+// Reads: its action file once (SealDataHits, SEH-guarded, the trace run read it on the spawn tick 3/3 with no stall), its live action id per
+// tick (SieRead) and its attack colliders (pool 45C6F38, the SealHitAtkOnly rule). Logs 'FastSummon phase chr'.
+constexpr int kFastStartMinMs = 200, kFastStartCapMs2 = 4000;
+void FastSummonPhaseTick() {
+    struct St { uint64_t chr = 0; double t0 = 0; bool read = false, ok = false, everHit = false; uint32_t spawnAct = 0xFFFFFFFF; int ph = SC_FAST_PH_ATTACK;
+                int nk = 0; uint16_t id[64]; uint8_t kind[64]; };
+    static St c[kFastMax];
+    const int n = g_fastN.load();
+    const double now = Now(), press = g_pickT.load();
+    const float startMul = g_fastStartMul.load(), endMul = g_fastEndMul.load();
+    const uint32_t core = g_pickCore.load();
+    uint64_t chrs[kFastMax] = {};
+    bool anyOn = false;
+    for (int i = 0; i < kFastMax; ++i) {
+        chrs[i] = i < n ? g_fastChr[i].load() : 0;
+        if (c[i].chr != chrs[i]) { c[i] = St(); c[i].chr = chrs[i]; c[i].t0 = now; g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
+        anyOn |= chrs[i] != 0;
+    }
+    if (!anyOn || (!(startMul > 1.f) && !(endMul > 1.f))) {  // both off: nothing read, rate = FastSummonMul as in 645efbf5
+        for (int i = 0; i < kFastMax; ++i) if (c[i].ph != SC_FAST_PH_ATTACK) { c[i].ph = SC_FAST_PH_ATTACK; g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
+        return;
+    }
+    int cnt[kFastMax] = {};
+    {
+        static std::vector<uint64_t> pool;
+        uint64_t pb = 0;
+        bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
+        if (ok) { pool.resize(0xFA0); ok = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+        for (int k = 0; ok && k < 0xFA0; ++k) {
+            const uint64_t o = pool[k]; uint64_t own = 0;
+            if (!o || !Rd(o + 8, own) || !own) continue;
+            int j = -1;
+            for (int i = 0; i < kFastMax; ++i) if (chrs[i] == own) { j = i; break; }
+            if (j < 0) continue;
+            uint64_t ad = 0; uint32_t aid = 0;
+            if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
+            ++cnt[j];
+        }
+    }
+    for (int i = 0; i < kFastMax; ++i) {
+        St& x = c[i];
+        if (!x.chr) continue;
+        SieSample s; SieRead(x.chr, s);
+        if (!x.read) {
+            x.read = true;
+            char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
+            x.ok = (h >= 0 || g_sdhLastReadOk) && g_sdhKindN > 0;
+            if (x.ok) { x.nk = g_sdhKindN; memcpy(x.id, g_sdhKindId, sizeof x.id); memcpy(x.kind, g_sdhKind, sizeof x.kind); }
+            x.spawnAct = s.act;
+            char ks[200]; int o = 0; ks[0] = 0;
+            for (int k = 0; k < x.nk && o < 190; ++k) o += snprintf(ks + o, sizeof ks - o, " %X:%s", x.id[k], x.kind[k] == SC_FAST_ACT_HIT ? "hit" : "-");
+            Log("FastSummon phase chr %llX core %X: file %s (%d actions:%s), spawn action %X +%d ms", (unsigned long long)x.chr, core, x.ok ? "read" : "unreadable",
+                x.nk, ks, s.act, (int)((now - press) * 1000.0));
+        }
+        int kind = SC_FAST_ACT_UNKNOWN;
+        if (x.ok && s.act <= 0xFFFF && s.act != 0xFFFF)
+            for (int k = 0; k < x.nk; ++k) if (x.id[k] == (uint16_t)s.act) { kind = x.kind[k]; break; }
+        if (kind == SC_FAST_ACT_HIT) x.everHit = true;
+        const int age = (int)((now - x.t0) * 1000.0);
+        const int np = sc_fast_chr_phase(x.ok, kind, s.act == x.spawnAct, x.everHit, cnt[i] > 0, age, kFastStartMinMs, kFastStartCapMs2, startMul, endMul);
+        if (np != x.ph) {
+            Log("FastSummon phase chr %llX core %X %s->%s in act %X (%s) f=%.1f, %d colliders, %d ms old, +%d ms after the press, rate x%.2f t=%.3f",
+                (unsigned long long)x.chr, core, sc_fast_phase_name(x.ph), sc_fast_phase_name(np), s.act,
+                kind == SC_FAST_ACT_HIT ? "can hit" : kind == SC_FAST_ACT_NOHIT ? "no hit" : "unknown", s.f, cnt[i], age, (int)((now - press) * 1000.0),
+                sc_fast_phase_mul(np, FastSummonMul(), startMul, endMul), now);
+            x.ph = np; g_fastChrPh[i].store(np);
+        }
+    }
+}
 void SealLifeTick() {
+    FastSummonTraceTick();  // TASK #137616
+    FastSummonPhaseTick();  // TASK #137323
     DebugHoldSealTick();
     FormCapTick();
     SealIdleEndTick();  // human #61026: before SealEndOnHitTick, which runs the ghost exit it asks for
@@ -7810,16 +7987,18 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
                           {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
                           {L"FormSteerMove", 1, 1, 8, false},
-                          {L"FastSummonSpeed", .1, 0, 3, true}};  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"FastSummonSpeed", .1, 0, 3, true},
+                          {L"FastSummonStartSpeed", .5, 1, 12, true}, {L"FastSummonEndSpeed", .5, 1, 12, true}};  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
-    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which != 21) || g_ftHooked.load();  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
              : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load()
-             : which == 21 ? g_fastSpeed.load() / 10.0 : g_frz[which - 7].load();
+             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load()
+             : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.6" : L"2", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7828,7 +8007,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0, 1, 6};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
@@ -7856,6 +8035,8 @@ double SoulTune(int which, int dir, bool* live) {
     case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
     case 20: g_formSteerMove.store((int)v); break;  // TASK #136492: FormSteerBoost reads it per step; FormSteerPoll reads the same ini key
     case 21: g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(v * 10))); break;  // TASK #136502: FastActorMul reads it per frame
+    case 22: g_fastStartMul.store(sc_fast_edge_clamp((float)v)); break;  // TASK #137323: FastActorMul reads it per frame
+    case 23: g_fastEndMul.store(sc_fast_edge_clamp((float)v)); break;
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
