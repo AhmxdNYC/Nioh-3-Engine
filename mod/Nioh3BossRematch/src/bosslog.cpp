@@ -6477,6 +6477,33 @@ void SealEndOnHitTick() {
         Log("SealHitsData core %X: helper actor %llX joined (%s), its data %d -> want %d (was %d, learned %d) (%s)", sid, (unsigned long long)actor,
             why, h, want, before, sdh.learned, hd);
     };
+    // TASK #137052 (human #137047): log only. Pointer links between one spawned part and the bound seal (the part's first 0x4000 bytes
+    // holding the seal chr / its root, and the seal's holding the part's), once per part per form, so live logs show the game's own link.
+    static std::set<uint64_t> linkDone; static double linkSess = -1;
+    auto SealSetLinkProbe = [&](uint64_t actor) {
+        if (!seal || !actor || actor == seal) return;
+        if (linkSess != sess) { linkDone.clear(); linkSess = sess; }
+        if (linkDone.size() >= 8 || !linkDone.insert(actor).second) return;
+        uint64_t sealRoot = 0, partRoot = 0; uint32_t key = 0;
+        Rd(seal + 0x20, sealRoot); Rd(actor + 0x20, partRoot); Rd(actor, key);
+        char out[360]; size_t ol = 0; int hits = 0; out[0] = 0;
+        auto scan = [&](uint64_t from, uint64_t chr, uint64_t root, const char* tag) {
+            uint64_t buf[0x200];
+            for (uint64_t off = 0; off < 0x4000 && hits < 10; off += sizeof buf) {
+                if (!Copy(buf, from + off, sizeof buf)) break;
+                for (int i = 0; i < 0x200 && hits < 10; ++i) {
+                    if (!buf[i] || (buf[i] != chr && buf[i] != root)) continue;
+                    if (ol + 32 < sizeof out) ol += (size_t)snprintf(out + ol, sizeof out - ol, " %s+%llX=%s", tag,
+                                                                     (unsigned long long)(off + 8u * (uint64_t)i), buf[i] == chr ? "chr" : "root");
+                    ++hits;
+                }
+            }
+        };
+        scan(actor, seal, sealRoot, "part");
+        scan(seal, actor, partRoot, "seal");
+        Log("SealSetLink core %X: part %llX id %X%s", sid, (unsigned long long)actor, key >> 4,
+            hits ? out : " - no pointer to or from the seal in 0x4000 bytes");
+    };
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
     if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
@@ -6565,8 +6592,8 @@ void SealEndOnHitTick() {
             // same way and add it. Not certain / unreadable -> the data count is dropped (learned count or idle fallback).
             SealHelperDataJoin(actor, "spawn");
             srcAt.emplace(actor, g_sehKidT[k]);
-            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
-                (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX set=%s", sid,
+                (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal, !boundAt || g_sehKidT[k] <= boundAt ? "body" : "thrown");
         }
     }
     if (g_hitSourceSnapshot == sourceSince) for (const auto& entry : g_pressHitSources) {
@@ -6575,10 +6602,11 @@ void SealEndOnHitTick() {
             sources.push_back(entry.actor);
             SealHelperDataJoin(entry.actor, "press source");  // #135408: this list's helpers were never read
             srcAt.emplace(entry.actor, entry.at);
-            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
-                (unsigned long long)entry.actor, entry.at, sourceSince, (unsigned long long)seal);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX set=%s", sid,
+                (unsigned long long)entry.actor, entry.at, sourceSince, (unsigned long long)seal, !boundAt || entry.at <= boundAt ? "body" : "thrown");
         }
     }
+    if (seal) for (const uint64_t actor : sources) SealSetLinkProbe(actor);  // TASK #137052, log only
     const bool idleOnly = g_sieMode.load() == 1;  // human #61026: SealIdleEnd=1 - the idle edge is the only end rule (no hit timings)
     const int exitAtLastHitMs = g_exitAtLastHitMs.load();
     // Opening a hit must never route to despawn: only enable this early rule with ghost exit available.
@@ -6706,12 +6734,15 @@ void SealEndOnHitTick() {
     const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastCached(sid) == 1;
     if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
-            // TASK #136981 (human #136977, CF875): an actor spawned with the seal (within 100 ms) is part of the yokai's body, not a thrown
-            // helper (Kasha's cart comes 1.3 s later). Ending the form on its hit cut the yokai mid-attack: the player escaped the form.
-            { const auto hs = srcAt.find(a.first), ss = srcAt.find(seal);
-              if (hs != srcAt.end() && ss != srcAt.end() && std::fabs(hs->second - ss->second) < 0.100) {
+            // TASK #137052 (human #137047, replaces the 100 ms rule of #136981): the form is the WHOLE set the summon spawns. Every actor
+            // the game spawned for this press before the form began (bound seal) is part of the yokai's body (Sukuna CF875 = CF875 + 42FB
+            // + 730D7, spawned 10 ms apart, bound 0.4 s later); only an actor spawned after that, by the yokai's attack (Kasha's cart,
+            // 1.3 s in), is a thrown helper. A body part's hit never ends the form: its bursts count with the seal's toward the core's
+            // hit count, so the form lasts until the whole set's last hit (the player escaped the form when part 42FB hit first).
+            { const auto hs = srcAt.find(a.first);
+              if (hs == srcAt.end() || hs->second <= boundAt) {
                   static double bodyLogSess = -1;
-                  if (bodyLogSess != sess) { bodyLogSess = sess; Log("SealExitOnHelper core %X: burst %d source %llX spawned with the seal (%.3f s apart) = body part, no helper exit", sid, bursts, (unsigned long long)a.first, std::fabs(hs->second - ss->second)); }
+                  if (bodyLogSess != sess) { bodyLogSess = sess; Log("SealExitOnHelper core %X: burst %d source %llX is a body part (spawned %.3f s before the form began) - no helper exit, the form waits for the whole set", sid, bursts, (unsigned long long)a.first, hs == srcAt.end() ? 0.0 : boundAt - hs->second); }
                   continue; } }
             helpers.insert(a.first);
             if (helperSess != sess) {
