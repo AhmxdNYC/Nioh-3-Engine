@@ -38,6 +38,7 @@ void Log(const char*,...){}
 namespace addon { namespace bosslog {
 double PressSnapT(){return -100;}  // #136367 stub: no press snapshot
 void CorePreloadTick(){} bool CoreResReady(uint32_t){return false;}  // #136368 stubs: no game resources
+void FastActorsClear(){}  // TASK #136502 stub: no yokai registry here
 std::atomic<int> g_formSteer{0};  // TASK #136197: global FormSteer stub (FormCoreCallGet default)
 WORD PickPadButtons(){return buttons;}
 bool formActive=false;bool PickFormActive(){return formActive;}
@@ -110,7 +111,17 @@ int main(){
  SctChange(kItScCore+1,1);check(FormCoreTransforms(0x5129B));
  SctChange(kItScCore+1,0);check(FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);  // TASK #136197: A = next call
  check(row(1).find("Transform moveable")!=std::string::npos&&ini[L"FormCoreCalls"].find(L"5129B:2")!=std::wstring::npos);
+ // TASK #136502: A after Transform moveable = Fast summon: an OFF core (game's own summon) with call 3, saved in both keys
+ SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON&&ini[L"FormCoresOff"].find(L"5129B")!=std::wstring::npos&&ini[L"FormCoreCalls"].find(L"5129B:3")!=std::wstring::npos);
+ check(row(1).find("Fast summon")!=std::string::npos);
+ press(2);check(!ScOn()&&FastPress());clockNow+=11;press(1);press(2);check(FastPress());  // a Fast summon press: vanilla gates + the fast flag
+ CoreCallLoad();check(FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON);
+ check(FormCoreToggle(0x5129B)&&FormCoreCallGet(0x5129B)!=SC_CALL_FAST_SUMMON&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);  // a flip ends Fast summon
+ check(!FormCoreToggle(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);  // OFF again = plain Game's own, not a stale Fast summon
+ check(FormCoreCallSet(0x5129B,SC_CALL_FAST_SUMMON)==SC_CALL_FAST_SUMMON);
  SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);
+ press(2);check(!ScOn()&&!FastPress());  // Game's own: no fast flag
+ SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON);
  SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM);
  check(FormCoreCallSet(0x5129B,SC_CALL_GAME)==SC_CALL_GAME&&!FormCoreTransforms(0x5129B));
  // same path for any id; reload keeps the calls; an unknown call is refused
