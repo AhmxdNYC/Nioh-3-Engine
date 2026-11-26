@@ -83,14 +83,16 @@ enum { kScOvSize = 0, kScOvX, kScOvY, kScOvAlpha, kScOvBox, kScOvColors, kScOvFo
 struct ScOvRow { const char* label; const wchar_t* key; int def, kind, lo, hi; int steps[12]; const char* foot; };  // kind 0 on/off, 1 %, 4 per-mille (1% steps), 5 choice
 const ScOvRow kScOv[kScOvN] = {
     {"Overlay size:", L"SoulCoreOverlaySize", 130, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size; default 130%. Applies at once. Saved."},
-    {"Overlay left/right:", L"SoulCoreOverlayX", 15, 4, 0, 1000, {}, "Where the overlay sits across the screen (its left edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},
+    // TASK #138501 (human #138497): the overlay is centred under the game's left item HUD (its diamond centre is 9.2% across at 16:9, measured
+    // live at 2560x1440); the key changed from SoulCoreOverlayX (left edge) so an old left-edge value is not read as a centre.
+    {"Overlay left/right:", L"SoulCoreOverlayCenterX", 92, 4, 0, 1000, {}, "Where the overlay's centre sits across the screen: 0% = left edge, 100% = right edge; default 9.2% = under the item HUD on the left. 1% steps. Applies at once. Saved."},
     {"Overlay up/down:", L"SoulCoreOverlayY", 970, 4, 0, 1000, {}, "Where the overlay sits down the screen (its bottom edge): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
     {"Overlay opacity:", L"SoulCoreOverlayOpacity", 92, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 92, 100, -1}, "How see-through the whole overlay is. 100% = solid; default 92%. Applies at once. Saved."},
-    {"Overlay background:", L"SoulCoreOverlayBox", 1, 0, 0, 1, {}, "ON = text on a dark panel. OFF = outlined text only, nothing behind it (like the style meter). Applies at once. Saved."},
+    {"Overlay background:", L"SoulCoreOverlayBox", 0, 0, 0, 1, {}, "ON = text on a dark panel. OFF = outlined text only, nothing behind it (like the style meter). Applies at once. Saved."},
     {"Overlay colors:", L"SoulCoreOverlayColors", 0, 5, 0, 2, {}, "Menu = the mod menu's white / green / gray. Style meter = the style meter's purple. Gold = warm gold. S lines are dimmer, TM lines brightest. Applies at once. Saved."},
-    {"Overlay font:", L"SoulCoreOverlayFont", 0, 5, 0, 2, {}, "Letter style: Normal (the menu's), Wide (more space between letters) or Bold (heavier strokes). Applies at once. Saved."},
+    {"Overlay font:", L"SoulCoreOverlayFont", 3, 5, 0, 3, {}, "Letter style: Game (the style meter's letters: cream with a soft shadow, default), Normal (the menu's), Wide (more space between letters) or Bold (heavier strokes). Applies at once. Saved."},
 };
-const char* const kScOvChoice[2][3] = {{"Menu", "Style meter", "Gold"}, {"Normal", "Wide", "Bold"}};
+const char* const kScOvChoice[2][4] = {{"Menu", "Style meter", "Gold", "Gold"}, {"Normal", "Wide", "Bold", "Game"}};  // TASK #138501: font 3 = Game
 std::atomic<int> g_scOv[kScOvN];  // value + 1 (0 = not read from the ini yet)
 bool IsScOvItem(int item) { return item == kItScOvOpen || (item >= kItScOvBase && item < kItScOvBase + kScOvN); }
 int ScOvClamp(int w, int v) { return v < kScOv[w].lo ? kScOv[w].lo : v > kScOv[w].hi ? kScOv[w].hi : v; }
@@ -122,7 +124,7 @@ int ScOvStep(int w, int v, int dir) {
 void ScOvValueText(int w, int v, char* b, size_t n) {
     const int k = kScOv[w].kind;
     if (k == 0) snprintf(b, n, "%s", v ? "ON" : "OFF");
-    else if (k == 5) snprintf(b, n, "%s", kScOvChoice[w == kScOvFont][v < 0 ? 0 : v > 2 ? 2 : v]);
+    else if (k == 5) snprintf(b, n, "%s", kScOvChoice[w == kScOvFont][v < 0 ? 0 : v > kScOv[w].hi ? kScOv[w].hi : v]);
     else if (k == 4) snprintf(b, n, "%d.%d %%", v / 10, v % 10);
     else snprintf(b, n, "%d %%", v);
 }
