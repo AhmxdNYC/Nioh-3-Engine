@@ -130,6 +130,21 @@ inline int sc_fast_group_phase(bool startOn, int msSinceArm, int startCapMs, int
     if (nDone > 0 && nBlock == 0 && !openAny && msSinceLastClose >= graceMs) return SC_FAST_PH_END;
     return SC_FAST_PH_ATTACK;
 }
+// TASK #137616 (human #137208): per-chr phase by the yokai's OWN action ids (live trace 11-26, core 3B1AB: C53 spawn, no hit rows, 2.3-7.2 s
+// -> C56 hit -> C54 two hits -> 1 end pose, no hit rows, 566 ms -> gone). An action "can hit" when its own data has a damaging row (timed or
+// untimed) or a spawn event; read from the yokai's loaded action file, no per-core list. START = still in the action it spawned in, which
+// cannot hit, it has never been in an action that can hit, and it is at least minAgeMs old and under capMs. END = it has been in an action
+// that can hit, is now in a known action of its file that cannot hit, and none of its attack colliders is open. Anything else (unknown /
+// unreadable action, an action that can hit, data unreadable) = ATTACK. Only no-hit actions are ever sped up, so damage timing never changes.
+#define SC_FAST_ACT_UNKNOWN 0
+#define SC_FAST_ACT_NOHIT 1
+#define SC_FAST_ACT_HIT 2
+inline int sc_fast_chr_phase(bool dataOk, int actKind, bool inSpawnAct, bool everHitAct, bool colliderOpen, int ageMs, int minAgeMs, int capMs,
+                             float startMul, float endMul) {
+    if (!dataOk || actKind != SC_FAST_ACT_NOHIT) return SC_FAST_PH_ATTACK;
+    if (!everHitAct) return inSpawnAct && startMul > 1.f && ageMs >= minAgeMs && ageMs < capMs ? SC_FAST_PH_START : SC_FAST_PH_ATTACK;
+    return endMul > 1.f && !colliderOpen ? SC_FAST_PH_END : SC_FAST_PH_ATTACK;
+}
 // Step through the calls for a menu row (Left -1 / Right +1 / A 0 = next), wraps. TASK #136987: the menu offers
 // Game's own -> Transform -> Fast summon (Transform moveable is detected, not a choice).
 inline int sc_call_step(int c, int dir) {

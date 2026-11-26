@@ -78,6 +78,18 @@ int main() {
     CHECK(!sc_fast_past_last(1, 2, 99.f, 45) && !sc_fast_past_last(2, 2, 45.f, 45) && sc_fast_past_last(2, 2, 46.f, 45));
     CHECK(sc_fast_past_last(3, 2, 0.f, 45) && sc_fast_past_last(-1, 2, 0.f, 45) && !sc_fast_past_last(-2, 2, 99.f, 45) && !sc_fast_past_last(0, -1, 99.f, 45));
     // per chr end state
+    // TASK #137616: per-chr phase by its own action ids (3B1AB trace: C53 spawn no-hit -> C56/C54 hit -> 1 no-hit end pose)
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, true, 300, 200, 4000, 6.f, 6.f) == SC_FAST_PH_START);   // C53, its appearance collider ignored
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, false, 100, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // spawn frames untouched
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, false, 4000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK); // startup cap
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, false, false, 900, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK); // a no-hit action before any attack, not the spawn one
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_HIT, false, true, false, 900, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);    // C54: attack speed
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, false, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_END);    // action 1 after the hits
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, true, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // a collider still open
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_UNKNOWN, false, true, false, 9000, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);
+    CHECK(sc_fast_chr_phase(false, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 6.f, 6.f) == SC_FAST_PH_ATTACK);  // data unreadable
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, true, false, false, 300, 200, 4000, 1.f, 6.f) == SC_FAST_PH_ATTACK);   // start off
+    CHECK(sc_fast_chr_phase(true, SC_FAST_ACT_NOHIT, false, true, false, 9000, 200, 4000, 6.f, 1.f) == SC_FAST_PH_ATTACK);  // end off
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, false, true) == SC_FAST_CHR_DONE);
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 1, false, true) == SC_FAST_CHR_BLOCK);   // second hit not seen yet
     CHECK(sc_fast_chr_end(true, 2, 0, 0, false, true, 2, true, true) == SC_FAST_CHR_BLOCK);    // a hit still open

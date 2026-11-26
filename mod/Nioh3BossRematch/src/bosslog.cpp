@@ -3852,14 +3852,15 @@ std::atomic<int> g_fastN{0};
 // TASK #137323 (human #137208): [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off). FastSummonPhaseTick (game thread) sets the
 // press phase; FastActorMul applies start / attack / end rate (soul_core_api.h sc_fast_phase_mul).
 std::atomic<float> g_fastStartMul{SC_FAST_EDGE_DEFAULT}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};
-std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // never START by default (live fix, see FastSummonPhaseTick)
+std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // #137323 press phase, unused since #137616
+std::atomic<int> g_fastChrPh[kFastMax];  // TASK #137616: per-chr phase (FastSummonPhaseTick); every write path sets ATTACK first, never START by default
 float FastSummonMul() {
     const float sm = g_sealMul.load(std::memory_order_relaxed);
     return sc_fast_speed_mul(g_fastSpeed.load(std::memory_order_relaxed), sm > 0.f ? sm : g_sealIniMul.load(std::memory_order_relaxed));
 }
 void FastActorsClear() {
     const int n = g_fastN.exchange(0);
-    for (int i = 0; i < kFastMax; ++i) g_fastChr[i].store(0);
+    for (int i = 0; i < kFastMax; ++i) { g_fastChr[i].store(0); g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
     g_fastPhase.store(SC_FAST_PH_ATTACK);  // TASK #137323: the next press starts at attack speed; only certain data arms the startup skip
     if (n) Log("FastSummon: speed-up of %d yokai chr(s) ended by the next press t=%.3f", n, Now());
 }
@@ -3870,6 +3871,7 @@ void FastActorNote(uint64_t chr) {
     for (int i = 0; i < kFastMax; ++i) if (g_fastChr[i].load() == chr) { g_fastKey[i].store(key); g_fastAt[i].store(Now()); return; }
     const int k = g_fastN.load();
     if (k >= kFastMax) return;
+    g_fastChrPh[k].store(SC_FAST_PH_ATTACK);  // TASK #137616: a new yokai starts at attack speed until its own data says otherwise
     g_fastKey[k].store(key); g_fastAt[k].store(Now()); g_fastChr[k].store(chr); g_fastN.store(k + 1);
     Log("FastSummon: core %X yokai chr=%llX id=%X +%d ms after the press, rate x%.2f (game's own summon, game's own end) t=%.3f", g_pickCore.load(),
         (unsigned long long)chr, key >> 4, (int)((Now() - g_pickT.load()) * 1000.0), FastSummonMul(), Now());
@@ -3882,8 +3884,8 @@ float FastActorMul(uint64_t a) {  // 1 = not a Fast summon yokai
         if (Now() - g_fastAt[i].load(std::memory_order_relaxed) > 30.0 || !Rd(a, key) || key != g_fastKey[i].load(std::memory_order_relaxed)) {
             g_fastChr[i].store(0); return 1.f;  // the yokai is gone (address reused / too old): never speed another chr
         }
-        return sc_fast_phase_mul(g_fastPhase.load(std::memory_order_relaxed), FastSummonMul(), g_fastStartMul.load(std::memory_order_relaxed),
-                                 g_fastEndMul.load(std::memory_order_relaxed));  // TASK #137323
+        return sc_fast_phase_mul(g_fastChrPh[i].load(std::memory_order_relaxed), FastSummonMul(), g_fastStartMul.load(std::memory_order_relaxed),
+                                 g_fastEndMul.load(std::memory_order_relaxed));  // TASK #137616: this chr's own phase (0 = START never set by default: see the tick)
     }
     return 1.f;
 }
@@ -5619,7 +5621,7 @@ void SealIdleEndTick() {
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
 SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  
-bool g_sdhDumpAll = false;  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
+bool g_sdhDumpAll = false;  int g_sdhKindN = 0; uint16_t g_sdhKindId[64]; uint8_t g_sdhKind[64];  // TASK #137616: last file read, per action can-hit  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
 SdhDurTable g_sealLastHit;  // TASK #136328: per-core last hit close (bind -> close) of full forms this session, game thread only
 void SealLastHitNote(uint32_t sid, double lastCloseSess, double boundSess, const char* why) {
@@ -5669,6 +5671,13 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
             Log("FastSummon file chr %llX action[%d] %X -> %X: rows %d, bursts %d (first f%u, last ends f%u), untimed %d, events%s%s", (unsigned long long)seal, k,
                 a.id, a.next, a.nhb, b, b ? SdhActionFirstStart(a) : 0, le, ut, ev, a.id == (uint16_t)curId ? " <- current" : "");
         }
+    }
+    g_sdhKindN = 0;  // TASK #137616: can this action hit (damaging row timed / untimed, or a spawn event 20000+)
+    for (int k = 0; k < n && g_sdhKindN < 64; ++k) {
+        int ut = 0, w = 0; uint16_t le = 0; bool sp = false;
+        const int b = SdhActionBursts(acts[k], &ut, &w, &le);
+        for (int e = 0; e < SDH_EVENTS; ++e) sp |= acts[k].ev[e] >= 20000 && acts[k].ev[e] != 0xFFFF;
+        g_sdhKindId[g_sdhKindN] = acts[k].id; g_sdhKind[g_sdhKindN++] = (uint8_t)(b || ut || sp ? SC_FAST_ACT_HIT : SC_FAST_ACT_NOHIT);
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
     g_sdhLastRead = r; g_sdhLastReadOk = r.chain > 0;  // TASK #135803
@@ -7092,21 +7101,7 @@ void FormCapTick() {
     Log("FormCap: form %.1f s old (FormMaxSec %d, SealEndOnHit %d) - seal %llX despawn queued ok=%d, form ends now t=%.3f", now - sess, capSec,
         g_sehMode.load(), (unsigned long long)seal, ok, now);
 }
-// TASK #137323 (human #137208): Fast summon startup / end pose skip. One phase per press for its yokai chrs (FastActorNote list), game thread.
-// Signals, all read-only from the game: each chr's own action data (seal_data_hits.h SealDataHits: chain from its current action, first /
-// last burst action + frame) against its live action id + frame [ctrl+78] (SieRead), and its live attack colliders (pool 45C6F38, owner
-// obj+8, the SealHitAtkOnly rule). Default = ATTACK (the 645efbf5 rate). Live fix (BR 33E76024, core 3B1AB): the old default START gave the
-// yokai x6 on its spawn frame, after which it never moved again and the game never summoned again; and an appearance collider at spawn
-// counted as its first hit. Now the startup skip ARMS only from CERTAIN data, kFastStartAgeMs after the chr appeared, while it is still
-// before its first data hit (sc_fast_start_arm); it ends kFastLeadFrames before that hit (or kFastStartCapMs). A collider before the first
-// data hit is an appearance collider, never a hit. The end pose starts only when every chr that can hit has a CERTAIN data count, all of it
-// seen live, nothing open, past its last burst's end frame, + kFastEndGraceMs. Both speeds <= 1: no reads at all, the 645efbf5 behaviour.
-// No per-core ids. Logs: 'FastSummon phase', 'FastSummon data', 'FastSummon hit', 'FastSummon start'.
-constexpr int kFastLeadFrames = 4, kFastStartCapMs = 2000, kFastEndGraceMs = 150, kFastReadMs = 1000, kFastStartAgeMs = 200;
-// Live run_fs3 (C594B796, 3B1AB): the yokai stalled ~20 s after a data read + collider read on its spawn tick. Every read here is a
-// SEH-guarded read (no game call, no write); to rule them out, nothing of a chr is read until it is kFastQuietMs old (its spawn and
-// appear frames run untouched), and the pool walk runs only while some chr is that old.
-constexpr int kFastQuietMs = 400;
+// TASK #137323 chain / hit-count phase removed by TASK #137616 (see FastSummonPhaseTick below).
 // TASK #137616 (human #137208): [Spirit] FastSummonTrace=1 logs, per Fast summon yokai chr, every live action / motion change (act id, motion,
 // frame [ctrl+78], rate), its attack colliders opening / closing, and once its whole action file (FastSummon file lines). Read only (SEH-guarded
 // reads, no game call, no write); no rate change. FastSummonTraceQuietMs: nothing of a chr is read until it is that old. This is the data for
@@ -7178,65 +7173,32 @@ void FastSummonTraceTick() {
     }
 }
 
+// TASK #137616 (human #137208): replaces the #137323 chain / hit-count phase (it never armed on 3B1AB: its spawn action C53 links straight to
+// idle 1, so the chain held no hit). Each yokai chr gets its own phase from its own action file: sc_fast_chr_phase (soul_core_api.h).
+// Reads: its action file once (SealDataHits, SEH-guarded, the trace run read it on the spawn tick 3/3 with no stall), its live action id per
+// tick (SieRead) and its attack colliders (pool 45C6F38, the SealHitAtkOnly rule). Logs 'FastSummon phase chr'.
+constexpr int kFastStartMinMs = 200, kFastStartCapMs2 = 4000;
 void FastSummonPhaseTick() {
-    struct St { uint64_t chr = 0; double t0 = 0, nextRead = 0; bool preDone = false, preOk = false, everHit = false, open = false, counted = false;
-                SdhResult d; int live = 0; };
+    struct St { uint64_t chr = 0; double t0 = 0; bool read = false, ok = false, everHit = false; uint32_t spawnAct = 0xFFFFFFFF; int ph = SC_FAST_PH_ATTACK;
+                int nk = 0; uint16_t id[64]; uint8_t kind[64]; };
     static St c[kFastMax];
-    static double sess = -1, armT = -1, lastClose = -1;
-    static bool armed = false, startDone = false;
-    static int phase = SC_FAST_PH_ATTACK;
     const int n = g_fastN.load();
     const double now = Now(), press = g_pickT.load();
     const float startMul = g_fastStartMul.load(), endMul = g_fastEndMul.load();
-    if (!(startMul > 1.f) && !(endMul > 1.f)) {  // both off: nothing read, rate = FastSummonMul as in 645efbf5
-        if (phase != SC_FAST_PH_ATTACK) { phase = SC_FAST_PH_ATTACK; g_fastPhase.store(SC_FAST_PH_ATTACK); }
+    const uint32_t core = g_pickCore.load();
+    uint64_t chrs[kFastMax] = {};
+    bool anyOn = false;
+    for (int i = 0; i < kFastMax; ++i) {
+        chrs[i] = i < n ? g_fastChr[i].load() : 0;
+        if (c[i].chr != chrs[i]) { c[i] = St(); c[i].chr = chrs[i]; c[i].t0 = now; g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
+        anyOn |= chrs[i] != 0;
+    }
+    if (!anyOn || (!(startMul > 1.f) && !(endMul > 1.f))) {  // both off: nothing read, rate = FastSummonMul as in 645efbf5
+        for (int i = 0; i < kFastMax; ++i) if (c[i].ph != SC_FAST_PH_ATTACK) { c[i].ph = SC_FAST_PH_ATTACK; g_fastChrPh[i].store(SC_FAST_PH_ATTACK); }
         return;
     }
-    bool any = false;
-    for (int i = 0; i < n && i < kFastMax; ++i) any |= g_fastChr[i].load() != 0;
-    if (n <= 0 || !any || now - press > 30.0) { if (sess >= 0 && n <= 0) { sess = -1; for (auto& x : c) x = St(); } return; }  // FastActorMul's 30 s
-    const uint32_t core = g_pickCore.load();
-    if (sess != press) {
-        sess = press; armT = -1; lastClose = -1; armed = false; startDone = false; phase = SC_FAST_PH_ATTACK;
-        for (auto& x : c) x = St();
-        g_fastPhase.store(SC_FAST_PH_ATTACK);
-    }
-    auto readData = [&](St& x, const char* when) {
-        char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
-        if (h < 0 || !g_sdhLastReadOk) return false;
-        x.d = g_sdhLastRead;
-        Log("FastSummon data core %X chr %llX (%s): %s; first hit chain %d f%u, last hit chain %d ends f%u, count %s +%d ms", core,
-            (unsigned long long)x.chr, when, d, x.d.firstIdx, x.d.firstStart, x.d.lastIdx, x.d.lastEnd,
-            x.d.certain() && x.d.chain < SDH_MAXCHAIN ? "certain" : "not certain", (int)((now - press) * 1000.0));
-        return true;
-    };
-    auto actPos = [](const St& x, float* frame) {
-        SieSample s; SieRead(x.chr, s); *frame = s.f;
-        if (s.act == 0xFFFFFFFFu) return -2;
-        for (int k = 0; k < x.d.chain; ++k) if (s.act <= 0xFFFF && x.d.ids[k] == (uint16_t)s.act) return k;
-        return -1;
-    };
-    uint64_t chrs[kFastMax] = {};
-    for (int i = 0; i < n && i < kFastMax; ++i) {
-        const uint64_t a = g_fastChr[i].load();
-        chrs[i] = a;
-        if (!a) continue;
-        St& x = c[i];
-        if (x.chr != a) { x = St(); x.chr = a; x.t0 = now; }
-        if (!x.preDone && now >= x.nextRead && (now - x.t0) * 1000.0 >= kFastQuietMs) {
-            x.nextRead = now + 0.05;
-            if (readData(x, "first action")) { x.preDone = x.preOk = true; }
-            else if ((now - x.t0) * 1000.0 >= kFastReadMs) {
-                x.preDone = true;
-                Log("FastSummon data core %X chr %llX: action data unreadable for %d ms - no startup skip, end pose left alone", core, (unsigned long long)a, kFastReadMs);
-            }
-        }
-    }
-    // live attack colliders per chr
     int cnt[kFastMax] = {};
-    bool old[kFastMax] = {}, anyOld = false;
-    for (int i = 0; i < kFastMax; ++i) { old[i] = chrs[i] && c[i].chr == chrs[i] && (now - c[i].t0) * 1000.0 >= kFastQuietMs; anyOld |= old[i]; }
-    if (anyOld) {
+    {
         static std::vector<uint64_t> pool;
         uint64_t pb = 0;
         bool ok = Rd(g_base + Grva(0x45C6F38), pb) && pb;
@@ -7245,64 +7207,41 @@ void FastSummonPhaseTick() {
             const uint64_t o = pool[k]; uint64_t own = 0;
             if (!o || !Rd(o + 8, own) || !own) continue;
             int j = -1;
-            for (int i = 0; i < kFastMax; ++i) if (old[i] && chrs[i] == own) { j = i; break; }
+            for (int i = 0; i < kFastMax; ++i) if (chrs[i] == own) { j = i; break; }
             if (j < 0) continue;
             uint64_t ad = 0; uint32_t aid = 0;
             if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;  // body collider, not a hit
             ++cnt[j];
         }
     }
-    const char* why = nullptr; uint64_t whyChr = 0;
-    bool openAny = false;
-    int nDone = 0, nBlock = 0;
-    for (int i = 0; i < n && i < kFastMax; ++i) {
+    for (int i = 0; i < kFastMax; ++i) {
         St& x = c[i];
-        if (!chrs[i] || x.chr != chrs[i]) continue;
-        if (!old[i]) { ++nBlock; continue; }  // quiet window: not read, may still hit
-        float f = 0; const int pos = x.preOk ? actPos(x, &f) : -2;
-        const bool usable = x.preOk && x.d.firstIdx >= 0 && pos != -2;
-        const bool certain = x.preOk && x.d.certain() && x.d.chain < SDH_MAXCHAIN;
-        const bool open = cnt[i] > 0;
-        if (open && !x.open) {
-            x.counted = sc_fast_hit_counts(usable, pos, x.d.firstIdx, f, x.d.firstStart, kFastLeadFrames);
-            if (x.counted) { ++x.live; x.everHit = true; }
-            Log("FastSummon hit core %X chr %llX %s %d opens (%d colliders, chain %d f%.0f) +%d ms, phase %s", core, (unsigned long long)x.chr,
-                x.counted ? "burst" : "appearance collider (before its first data hit, not a hit)", x.counted ? x.live : 0, cnt[i], pos, f,
-                (int)((now - press) * 1000.0), sc_fast_phase_name(phase));
-        } else if (!open && x.open) {
-            if (x.counted) lastClose = now;
-            Log("FastSummon hit core %X chr %llX %s %d closes +%d ms", core, (unsigned long long)x.chr, x.counted ? "burst" : "appearance collider",
-                x.counted ? x.live : 0, (int)((now - press) * 1000.0));
+        if (!x.chr) continue;
+        SieSample s; SieRead(x.chr, s);
+        if (!x.read) {
+            x.read = true;
+            char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
+            x.ok = (h >= 0 || g_sdhLastReadOk) && g_sdhKindN > 0;
+            if (x.ok) { x.nk = g_sdhKindN; memcpy(x.id, g_sdhKindId, sizeof x.id); memcpy(x.kind, g_sdhKind, sizeof x.kind); }
+            x.spawnAct = s.act;
+            char ks[200]; int o = 0; ks[0] = 0;
+            for (int k = 0; k < x.nk && o < 190; ++k) o += snprintf(ks + o, sizeof ks - o, " %X:%s", x.id[k], x.kind[k] == SC_FAST_ACT_HIT ? "hit" : "-");
+            Log("FastSummon phase chr %llX core %X: file %s (%d actions:%s), spawn action %X +%d ms", (unsigned long long)x.chr, core, x.ok ? "read" : "unreadable",
+                x.nk, ks, s.act, (int)((now - press) * 1000.0));
         }
-        x.open = open; openAny |= open && x.counted;
+        int kind = SC_FAST_ACT_UNKNOWN;
+        if (x.ok && s.act <= 0xFFFF && s.act != 0xFFFF)
+            for (int k = 0; k < x.nk; ++k) if (x.id[k] == (uint16_t)s.act) { kind = x.kind[k]; break; }
+        if (kind == SC_FAST_ACT_HIT) x.everHit = true;
         const int age = (int)((now - x.t0) * 1000.0);
-        if (!startDone && !armed && sc_fast_start_arm(certain, pos, x.d.firstIdx, f, x.d.firstStart, kFastLeadFrames, age, kFastStartAgeMs, startMul)) {
-            armed = true; armT = now; whyChr = x.chr; why = "certain data, before its first hit";
-            Log("FastSummon start core %X chr %llX armed: chain %d f%.0f, first hit chain %d f%u, %d ms old", core, (unsigned long long)x.chr, pos, f,
-                x.d.firstIdx, x.d.firstStart, age);
+        const int np = sc_fast_chr_phase(x.ok, kind, s.act == x.spawnAct, x.everHit, cnt[i] > 0, age, kFastStartMinMs, kFastStartCapMs2, startMul, endMul);
+        if (np != x.ph) {
+            Log("FastSummon phase chr %llX core %X %s->%s in act %X (%s) f=%.1f, %d colliders, %d ms old, +%d ms after the press, rate x%.2f t=%.3f",
+                (unsigned long long)x.chr, core, sc_fast_phase_name(x.ph), sc_fast_phase_name(np), s.act,
+                kind == SC_FAST_ACT_HIT ? "can hit" : kind == SC_FAST_ACT_NOHIT ? "no hit" : "unknown", s.f, cnt[i], age, (int)((now - press) * 1000.0),
+                sc_fast_phase_mul(np, FastSummonMul(), startMul, endMul), now);
+            x.ph = np; g_fastChrPh[i].store(np);
         }
-        if (armed && !startDone && usable && sc_fast_at_first(pos, x.d.firstIdx, f, x.d.firstStart, kFastLeadFrames)) {
-            startDone = true; whyChr = x.chr; why = "data: first hit frame reached";
-        }
-        if (armed && !startDone && x.counted && x.everHit) { startDone = true; whyChr = x.chr; why = "live: first data hit opened"; }
-        const int e = sc_fast_chr_end(x.preOk, x.d.bursts, x.d.untimed, x.d.spawns, x.d.chain >= SDH_MAXCHAIN, x.everHit, x.live, open && x.counted,
-                                      sc_fast_past_last(pos, x.d.lastIdx, f, x.d.lastEnd));
-        if (e == SC_FAST_CHR_DONE) ++nDone; else if (e == SC_FAST_CHR_BLOCK) ++nBlock;
-    }
-    if (armed && !startDone && !(startMul > 1.f)) { startDone = true; why = "FastSummonStartSpeed off"; }
-    const int sinceArm = armed ? (int)((now - armT) * 1000.0) : 0, sinceClose = lastClose > 0 ? (int)((now - lastClose) * 1000.0) : 1 << 30;
-    const int np = sc_fast_group_phase(armed && !startDone, sinceArm, kFastStartCapMs, nDone, nBlock, openAny, sinceClose,
-                                       endMul > 1.f ? kFastEndGraceMs : 1 << 30);
-    if (np == SC_FAST_PH_ATTACK && phase == SC_FAST_PH_START && !startDone) { startDone = true; why = "startup cap"; }
-    if (np == SC_FAST_PH_END && phase != SC_FAST_PH_END) why = "every hitting chr past its last certain hit";
-    if (np == SC_FAST_PH_ATTACK && phase == SC_FAST_PH_END) why = "a chr may hit again";
-    if (np != phase) {
-        const float r = sc_fast_phase_mul(np, FastSummonMul(), startMul, endMul);
-        Log("FastSummon phase core %X chr %llX %s->%s +%d ms after the press, rate x%.2f (%s; done %d, waiting %d) t=%.3f", core,
-            (unsigned long long)whyChr, sc_fast_phase_name(phase), sc_fast_phase_name(np), (int)((now - press) * 1000.0), r, why ? why : "-",
-            nDone, nBlock, now);
-        phase = np;
-        g_fastPhase.store(np);
     }
 }
 void SealLifeTick() {
