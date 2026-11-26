@@ -180,6 +180,19 @@ struct SdhDurTable {
 // despawn): a spawn event does not always hit, so it is not counted. The wanted count is the learned count of FULL forms (every burst,
 // the seal's and its spawns'), so the data adds only the floor of the seal's own timed bursts (untimed-only rows: at least 1).
 static inline int SdhMinBursts(const SdhResult& r) { return r.bursts > 0 ? r.bursts : r.untimed ? 1 : 0; }
+
+// TASK #136328 (human #136111 item 2, early escape; regression #136265). SealExitAfterShotMs turned back SealExitAfterShotMs after the
+// close of hit 'want' even when that count was not certain. A learned count is the lowest of full forms and the gaps between bursts
+// (0.7 s Ibaraki, 1.2 s A2ACB) are as long as 700 ms, so the form ended between two bursts with the yokai attack still going.
+// Certain data count: unchanged. Not certain: the live count must also reach the data minimum, and this form's last close must be at or
+// past the latest last-hit close (bind -> close) of a full form of this core this session (lastHitMs, SdhDurTable at x1). No full form yet
+// = no early turn back (the EndPct / settle / idle hold decides, the rule before #136113). Same rule for every core id.
+static inline bool SdhAfterShotOk(bool certain, int bursts, int want, int minBursts, int closeFromBindMs, int lastHitMs, int tolMs) {
+    if (want <= 0 || bursts < want) return false;
+    if (certain) return true;
+    if (bursts < minBursts || lastHitMs <= 0) return false;
+    return closeFromBindMs >= lastHitMs - (tolMs > 0 ? tolMs : 0);
+}
 static inline bool SdhHitsSettled(bool shapeOk, const SdhResult& r, int bursts, int want, bool open, int lastCloseMs, int nowMs, int settleMs) {
     if (!shapeOk || settleMs < 0 || open || lastCloseMs <= 0 || bursts <= 0 || want <= 0) return false;
     if (bursts < want || bursts < SdhMinBursts(r)) return false;
