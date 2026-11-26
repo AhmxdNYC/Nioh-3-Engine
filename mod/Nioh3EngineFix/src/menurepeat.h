@@ -34,6 +34,26 @@ struct State {
     uint32_t repeats = 0;    // releases injected (log / tests)
 };
 
+// #137478: a menu that keeps game time running (shrine, blacksmith) raises neither the menu getters nor the stop flags, but it
+// takes control from the player: the game's control-off manager (menu.cpp ReadControlOff, manager+0x34 = OR of the active
+// reasons' masks) is nonzero. Debounced like the menu signal: on after 120 ms continuous, off after 150 ms clear (one-frame
+// script blips never arm the repeat; gameplay has no active reason).
+struct Debounce {
+    uint64_t since = 0, lastOn = 0;
+    bool shown = false;
+    bool Update(bool now, uint64_t t) {
+        if (now) {
+            if (!since) since = t ? t : 1;
+            lastOn = t;
+        } else {
+            since = 0;
+        }
+        shown = (since && t - since >= 120) || (shown && t - lastOn < 150);
+        return shown;
+    }
+};
+inline bool ControlOff(bool readOk, uint32_t aggregate) { return readOk && aggregate != 0; }
+
 // One pad poll. raw = what the player holds now; active = a game menu is open and the mod menu is closed.
 // Returns the bits to report as released for THIS poll (0 = pass the pad through unchanged).
 inline uint32_t Step(State& s, uint32_t raw, bool active, uint64_t t, int speed) {

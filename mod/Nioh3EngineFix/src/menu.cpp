@@ -82,6 +82,12 @@ constexpr uint32_t kOffFrameCounter = 0x610;
 // "a game menu is open" (1.7.13): the two getters ApplyGraphicsSettings (0x39A39C) ORs into the FG pause flag S+0x2055.
 // 0x5A37D4: [g_45C84A8+0x170] screen object, vfunc 0x100 && vfunc 0x48; 0xD63C0: tail-jumps to vfunc 8 of [0x4758BA0].
 constexpr uint32_t kRvaMenuA = 0x5A37D4, kRvaMenuB = 0xD63C0;
+// #137478: the game's player control-off manager (notes/fight-transition-control-read.md). Player::SetControlOff loads it at
+// 0x23AB184 (`48 8B 0D rel32`, then `B2 48` = reason 0x48); manager+0x34 = OR of the masks of every active control-off reason
+// (menus that take the pad from the player: shrine, blacksmith, ... set one even where game time keeps running).
+constexpr uint32_t kRvaCtlMgrPtr = 0x45BBD58, kRvaCtlOffWrap = 0x23AB184;
+constexpr uint32_t kOffCtlAggregate = 0x34, kOffCtlReason = 0x30, kOffCtlPrimary = 0x18, kOffCtlCount = 0x20;
+const uint8_t kCtlOffWrap[] = {0x48, 0x8B, 0x0D, 0xCD, 0x0B, 0x21, 0x02, 0xB2, 0x48, 0x84, 0xC0};  // known build only (rel32 = 45BBD58)
 const uint8_t kMenuABytes[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x05, 0xC7, 0x4C, 0x02, 0x04, 0x48, 0x8B, 0x98, 0x70, 0x01,
                                0x00, 0x00, 0x48, 0x85, 0xDB, 0x74, 0x1D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x90, 0x00, 0x01, 0x00,
                                0x00, 0x84, 0xC0, 0x74, 0x0D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x48, 0x84, 0xC0, 0x75, 0x08,
@@ -2972,6 +2978,31 @@ bool CallGameBool(uint32_t rva) {
     }
 }
 
+bool g_ctlSigOk = false;      // the control-off manager anchor verified at Configure (#137478)
+menurepeat::Debounce g_ctlDeb;
+uint32_t g_ctlLogged = 0xFFFFFFFFu;
+int g_ctlLogs = 0;
+volatile LONG g_ctlOff = 0;    // vpad state / tests: 1 = the game holds a control-off reason (debounced)
+
+// manager+0x34 (aggregate) and the active primary reasons (for the log); false = unreadable (signal treated as off)
+bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n) {
+    uint64_t m = 0, prim = 0, cnt = 0;
+    agg = 0; r30 = 0;
+    if (list && n) list[0] = 0;
+    if (!Rd(g_host.base + Grva(kRvaCtlMgrPtr), m) || m < 0x10000) return false;
+    const uint8_t* M = reinterpret_cast<const uint8_t*>((uintptr_t)m);
+    if (!Rd(M + kOffCtlAggregate, agg) || !Rd(M + kOffCtlReason, r30)) return false;
+    if (list && n && agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
+        const uint8_t* P = reinterpret_cast<const uint8_t*>((uintptr_t)prim);
+        for (uint64_t i = 0; i < cnt; ++i) {
+            uint8_t k = 0, a = 0;
+            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) break;
+            if (a) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
+        }
+    }
+    return true;
+}
+
 void PauseDetect(ULONGLONG t) {
     if (!g_host.knownBuild || !g_host.base) return;
     uint64_t gp = 0;
@@ -3038,7 +3069,27 @@ void PauseDetect(ULONGLONG t) {
     }
     g_menuShown = (g_menuSince && t - g_menuSince >= 120) || (g_menuShown && t - g_menuLastOpen < 150);
     g_pauseReason = g_menuShown ? 1 : g_stopPaused ? 2 : (haveFlags && (flags & 0x04)) ? 3 : 0;
-    g_gameMenuOpen = (g_menuShown || g_stopPaused) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
+    // #137478: menus that keep game time running (shrine, blacksmith) raise neither signal above, but they take control from the
+    // player: any active control-off reason counts. Gameplay has none (Boss Rematch's fight readiness requires aggregate 0).
+    bool ctlNow = false;
+    if (g_ctlSigOk) {
+        uint32_t agg = 0;
+        uint8_t r30 = 0;
+        char list[96];
+        const bool ok = ReadControlOff(agg, r30, list, sizeof(list));
+        ctlNow = menurepeat::ControlOff(ok, agg);
+        if (ok) {
+            if (agg != g_ctlLogged) {
+                if (g_ctlLogs < 200)
+                    MLOG("game control-off now %s (mask %X, reason30 %02X, active:%s)%s", agg ? "ON" : "off", agg, r30, list[0] ? list : " none",
+                         ++g_ctlLogs == 200 ? " (no further lines)" : "");
+                g_ctlLogged = agg;
+            }
+        }
+    }
+    const bool ctlShown = g_ctlDeb.Update(ctlNow, t);
+    g_ctlOff = ctlShown ? 1 : 0;
+    g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
     const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
@@ -4508,6 +4559,8 @@ void Configure(const Host& h) {
     }
     g_menuSigOk = g_host.knownBuild && g_host.base && BytesAt(kRvaMenuA, kMenuABytes, sizeof(kMenuABytes)) &&
                   BytesAt(kRvaMenuB, kMenuBBytes, sizeof(kMenuBBytes));
+    g_ctlSigOk = g_host.knownBuild && g_host.base && BytesAt(kRvaCtlOffWrap, kCtlOffWrap, sizeof(kCtlOffWrap));
+    MLOG("game control-off signal (45BBD58 via 23AB184): %s", g_ctlSigOk ? "bytes verified" : "not available");
     MLOG("game menu signal (5A37D4 / D63C0): %s; pause hint source %s", g_menuSigOk ? "bytes verified" : "not available (stop flags only)",
          g_cfg.pauseSrc == 0 ? "Menu" : g_cfg.pauseSrc == 1 ? "StopFlags" : "Both");
     GetPrivateProfileStringW(L"Menu", L"PauseHintFlags", L"58B 58C", b, 96, f);
@@ -4630,6 +4683,7 @@ bool CoverTipAllowed() {
 }
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
+int GameMenuRepeatGate() { return (g_gameMenuOpen ? 1 : 0) | (g_ctlOff ? 2 : 0); }  // #137478 vpad state
 void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state the menu is in
     InterlockedExchange(&g_open, 0);
     for (int i = 0; i < 100 && InterlockedCompareExchange(&g_freezeBusy, 1, 0) != 0; ++i) Sleep(1);

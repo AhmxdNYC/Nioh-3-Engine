@@ -76,6 +76,31 @@ int main() {
         for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, false, t, 1);
         CHECK(r == 0);
     }
+    {   // #137478 control-off gate: unreadable or zero = off; nonzero aggregate = on
+        CHECK(!ControlOff(false, 0x40));
+        CHECK(!ControlOff(true, 0));
+        CHECK(ControlOff(true, 0x40));
+    }
+    {   // debounce: a short blip (< 120 ms) never arms; 120 ms continuous does; off ~150 ms after it clears
+        Debounce d; uint64_t t = 1000; bool any = false;
+        for (int i = 0; i < 12; ++i, t += 8) any |= d.Update(true, t);   // 96 ms
+        CHECK(!any);
+        for (int i = 0; i < 10; ++i, t += 8) any |= d.Update(false, t);
+        CHECK(!any);
+        for (int i = 0; i < 20; ++i, t += 8) any = d.Update(true, t);    // 160 ms
+        CHECK(any);
+        bool on = true; int n = 0;
+        for (; on && n < 100; ++n, t += 8) on = d.Update(false, t);
+        CHECK(n >= 18 && n <= 20);
+    }
+    {   // shrine case end to end: control-off on, menu getters off -> a held D-down repeats; field (aggregate 0) never
+        Debounce d; State s; uint64_t t = 1000; uint32_t r = 0;
+        for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, d.Update(ControlOff(true, 0x40), t), t, 1);
+        CHECK(r == kDDown && s.repeats >= 8);
+        State g; Debounce e; uint32_t q = 0;
+        for (int i = 0; i < 200; ++i, t += 8) q |= Step(g, kDDown, e.Update(ControlOff(true, 0), t), t, 1);
+        CHECK(q == 0);
+    }
     printf("%s: %d/%d checks\n", g_fail ? "FAIL" : "PASS", g_n - g_fail, g_n);
     return g_fail ? 1 : 0;
 }

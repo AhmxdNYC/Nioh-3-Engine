@@ -214,6 +214,7 @@ constexpr Def kDefs[] = {
     {0x2239600, kCode, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1 41 8B D8 44", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x226A490, kCode, "81 7D 70 DE 10 00 00 74 14 48 8B C6", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x226A497, kCode, "74 14 48 8B C6 39 78 08 75 03 40 88", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
+    {0x23AB184, kCode, "48 8B 0D ?? ?? ?? ?? B2 48 84 C0 74", 0, 0x0, 0, 0, 0, ""},  // menu.cpp
     {0x2978718, kCode, "E8 ?? ?? ?? ?? 48 8B F0 8A 48 02 F3", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x2978891, kCode, "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D7 48 8B 89", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x2978924, kCode, "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 45 40 48 8B 3F EB C3 48", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
@@ -260,6 +261,7 @@ constexpr Def kDefs[] = {
     {0x45BAF58, kGlobal, "44 39 1D ?? ?? ?? ?? 75 09 45 89 50", 0, 0x5AF50A, 3, 7, 0, ""},  // osd.cpp
     {0x45BAFF8, kGlobal, "8B 35 ?? ?? ?? ?? 88 83 55 20 00 00", 0, 0x39A93F, 2, 6, 0, ""},  // osd.cpp
     {0x45BB008, kGlobal, "8B 0D ?? ?? ?? ?? 2B CF 0F 84 ?? ??", 0, 0x39A7AD, 2, 6, 0, ""},  // osd.cpp, pmode.cpp
+    {0x45BBD58, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 06 8A 40 34 24 01 C3 C3 CC", 0, 0x27A8B8, 3, 7, 0, ""},  // menu.cpp
     {0x45BBF80, kGlobal, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 05 E8 ?? ?? ?? ?? 48 83 C4 28 C3 CC CC CC 48 89 5C 24 08 57 48 83 EC 20 48", 0, 0x5647E3, 3, 7, 0, ""},  // savefiles.cpp
     {0x45BC420, kGlobal, "48 8D 0D ?? ?? ?? ?? 41 B8 60 01 00", 0, 0xAE1182, 3, 7, 0, ""},  // tour.cpp
     {0x45C0460, kGlobal, "48 8D 0D ?? ?? ?? ?? 44 8D 42 01 E9", 0, 0x292BC, 3, 7, 0, ""},  // asyncslots.cpp, dllmain.cpp
