@@ -1977,3 +1977,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-26 11:18 am EST | pc/0 | 1.8.44 RC 5d96caf8 built #138207 (EF 66e2956a BR 36addab4 TR 7548d754); regression RC gate TASKed; pc/1 live #138094 RESULT pending. Not published.
 - 2026-11-26 11:24 am EST | regression-pc/0 | #138212 1.8.44 RC 5d96caf8 PASS #138219 (EF 66e2956a BR 36addab4 TR 7548d754): 1.8.42 features kept, audit 49=baseline, BR/TR 65/71 known, TR diff = link timestamps only. Not installed. Do not publish.
 - 2026-11-26 11:30 am EST | installer-pc/0 | 1.8.44 RC 5d96caf8 regression PASS #138220; told pc #138186 ready, waits pc/1 live #138094 + GO. Public tag v1.8.44 still free. Not published.
+- 2026-11-26 11:26 am EST | pc/0 | 1.8.44 RC 5d96caf8: regression PASS #138219, live mostly PASS #138195; gap recheck (card w/ meter OFF, loading hang) TASKed to pc/1 on #138195. GO to installer-pc after that PASS. Not published.
