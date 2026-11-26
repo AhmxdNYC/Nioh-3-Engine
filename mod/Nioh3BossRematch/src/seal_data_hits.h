@@ -211,5 +211,9 @@ static inline bool SdhAfterShotOk(bool certain, int bursts, int want, int minBur
 static inline bool SdhHitsSettled(bool shapeOk, const SdhResult& r, int bursts, int want, bool open, int lastCloseMs, int nowMs, int settleMs) {
     if (!shapeOk || settleMs < 0 || open || lastCloseMs <= 0 || bursts <= 0 || want <= 0) return false;
     if (bursts < want || bursts < SdhMinBursts(r)) return false;
+    // TASK #138494 (human #138491, Ninja 3B1AB on 1.8.44): a chain with no damaging window, no untimed row and no spawn says nothing
+    // about the hits (they come from actors outside it), so it can never say 'every hit is in'. 3B1AB: data 0/0/0, learned 1, the form
+    // ended after hit 1 of 3. Same rule for every core: the EndPct hold / the yokai's own end decides.
+    if (r.bursts <= 0 && !r.untimed && !r.spawns) return false;
     return nowMs - lastCloseMs >= settleMs;
 }
