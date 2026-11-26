@@ -1019,21 +1019,26 @@ static void DecayLow(void) {
 static void SlowMove(void) {
     SmCfg c; RealDefaults(&c);
     CHECK(c.slowMs == 500 && c.slowPct == 200 && c.slowCm == 500 && c.slowMaxMs == 5000);
+    // human 2026-11-26 curve: 0.5 s x2, 1 s x2.5, 1.5 s+ x3 (cap); under 0.5 s x1
+    CHECK(c.slowStepPct == 100 && c.slowTopPct == 300);
+    CHECK(near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 1000.0), 2.5f) && near(SmSlowMult(&c, 1500.0), 3.f));
+    CHECK(near(SmSlowMult(&c, 2000.0), 3.f) && near(SmSlowMult(&c, 2500.0), 3.f) && near(SmSlowMult(&c, 9000.0), 3.f));
+    { SmCfg f = c; f.slowStepPct = 0; CHECK(near(SmSlowMult(&f, 2500.0), 2.f)); f.slowTopPct = 50; SmCfgClamp(&f); CHECK(f.slowTopPct == f.slowPct); }
     CHECK(SmSlowNear(&c, 499.f) && SmSlowNear(&c, 500.f) && !SmSlowNear(&c, 501.f) && !SmSlowNear(&c, -1.f));
     { SmCfg a = c; a.slowCm = 0; CHECK(SmSlowNear(&a, 99999.f) && !SmSlowNear(&a, -1.f)); }
     // multiplier: never below the old ramp, x2 from 500 ms
-    CHECK(near(SmSlowMult(&c, -1.0), 1.f) && near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 4000.0), 2.f));
+    CHECK(near(SmSlowMult(&c, -1.0), 1.f) && near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 4000.0), 3.f));
     for (float f = 0.f; f <= 120.f; f += 5.f) for (double l = -1.0; l <= 2000.0; l += 100.0) {
         const float m = SmHitMult(&c, f, l); CHECK(m >= SmStartupMult(&c, f) - 0.0001f && m >= SmSlowMult(&c, l) - 0.0001f); }
-    CHECK(near(SmHitMult(&c, 10.f, 600.0), 2.f) && near(SmHitMult(&c, 37.5f, 100.0), 1.5f) && near(SmHitMult(&c, 37.5f, 700.0), 2.f));
-    SmCfg up = c; up.startupPct = 200; CHECK(near(SmHitMult(&up, 60.f, 700.0), 3.f));  // a higher ramp wins
+    CHECK(near(SmHitMult(&c, 10.f, 600.0), 2.1f) && near(SmHitMult(&c, 37.5f, 100.0), 1.5f) && near(SmHitMult(&c, 37.5f, 700.0), 2.2f));
+    SmCfg up = c; up.startupPct = 200; CHECK(near(SmHitMult(&up, 60.f, 700.0), 3.f));  // ramp x3 > curve x2.2  // a higher ramp wins
     SmCfg off = c; off.slowMs = 0; CHECK(near(SmHitMult(&off, 10.f, 900.0), 1.f));
-    // scoring: a fast-window hit of a use that took 800 ms to land pays x2; its later hits keep that factor; legacy calls unchanged
+    // scoring: a fast-window hit of a use that took 800 ms to land pays x2.3 (curve); its later hits keep that factor; legacy calls unchanged
     SmState s; SmReset(&s);
-    CHECK(near(SmOnHitExL(&s, &c, 0, 5, 1, 10.f, 800.0, 0), 2.f * c.hit));
-    CHECK(near(SmOnHitExL(&s, &c, 10, 5, 1, 10.f, 800.0, 0), 2.f * c.hit * c.multiPct / 100.f));
+    CHECK(near(SmOnHitExL(&s, &c, 0, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit));
+    CHECK(near(SmOnHitExL(&s, &c, 10, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit * c.multiPct / 100.f));
     SmState q; SmReset(&q); CHECK(near(SmOnHitEx(&q, &c, 0, 5, 1, 10.f, 0), c.hit) && near(SmOnHitExL(&q, &c, 9, 6, 2, 10.f, 300.0, 0), c.hit));
-    SmState bq; SmReset(&bq); CHECK(near(SmOnBlockedHitL(&bq, &c, 0, 5, 1, 10.f, 800.0, 0), 2.f * c.hit * c.blockPct / 100.f));
+    SmState bq; SmReset(&bq); CHECK(near(SmOnBlockedHitL(&bq, &c, 0, 5, 1, 10.f, 800.0, 0), 2.3f * c.hit * c.blockPct / 100.f));
     // pause bookkeeping: use start t0 = 1000 (game ms)
     SmSlow w; SmSlowReset(&w);
     CHECK(SmSlowUse(&w, 77, 1000.0) == 1 && SmSlowUse(&w, 77, 1234.0) == 0 && w.t0 == 1000.0);

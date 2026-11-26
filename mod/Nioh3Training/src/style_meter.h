@@ -123,6 +123,8 @@
 #define SM_DECAY_LOW_RANK 2   // [StyleMeter] DecayLowRank: ranks D..this (B) drain at DecayLowPct % (human 2026-11-26: casual friendly)
 #define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
 #define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
+#define SM_SLOW_STEP_PCT 100  // ... SlowMoveStepPct: + this % per second past SlowMoveMs (100 = +1x a second; 0 = flat x2), human 2026-11-26
+#define SM_SLOW_TOP_PCT 300   // ... SlowMoveTopPct: the curve stops here (human 2026-11-26: 300 = x3, at 1.5 s)
 #define SM_SLOW_PCT 200       // ... SlowMovePct: a slow move's hits x this % (never below the startup ramp)
 #define SM_SLOW_CM 500        // ... SlowMovePauseCm: the drain pause AND the x2 need a boss this close (cm; 0 = any distance; human 2026-11-26)
 #define SM_FAR_CM 500         // [StyleMeter] FarDrainCm: the nearest boss farther than this (cm) -> drain x FarDrainPct (human 2026-11-26)
@@ -174,6 +176,7 @@ typedef struct {
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     int farCm, farPct;  // human 2026-11-26: drain x farPct % while the nearest boss is over farCm away
+    int slowStepPct, slowTopPct;  // human 2026-11-26: slow-move curve (+% per second past slowMs, cap)
     int slowMs, slowPct, slowCm, slowMaxMs;  // human 2026-11-26: slow move (time to land) multiplier / drain pause distance / pause cap
     float rankPts[SM_RANKS];
 } SmCfg;
@@ -239,6 +242,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
     c->blockPct = SM_BLOCK_PCT;
     c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT;
+    c->slowStepPct = SM_SLOW_STEP_PCT; c->slowTopPct = SM_SLOW_TOP_PCT;
     c->slowMs = SM_SLOW_MS; c->slowPct = SM_SLOW_PCT; c->slowCm = SM_SLOW_CM; c->slowMaxMs = SM_SLOW_MAX_MS;
     c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
@@ -271,7 +275,8 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
-    if (c->slowMs < 0) c->slowMs = 0; if (c->slowMs > 10000) c->slowMs = 10000; if (c->slowPct < 100) c->slowPct = 100; if (c->slowPct > 1000) c->slowPct = 1000;
+    if (c->slowStepPct < 0) c->slowStepPct = 0; if (c->slowStepPct > 1000) c->slowStepPct = 1000; if (c->slowTopPct > 2000) c->slowTopPct = 2000;
+    if (c->slowMs < 0) c->slowMs = 0; if (c->slowMs > 10000) c->slowMs = 10000; if (c->slowPct < 100) c->slowPct = 100; if (c->slowTopPct < c->slowPct) c->slowTopPct = c->slowPct; if (c->slowPct > 1000) c->slowPct = 1000;
     if (c->farCm < 0) c->farCm = 0; if (c->farPct < 0) c->farPct = 0; if (c->farPct > 100) c->farPct = 100;
     if (c->slowCm < 0) c->slowCm = 0; if (c->slowCm > 100000) c->slowCm = 100000; if (c->slowMaxMs < 0) c->slowMaxMs = 0; if (c->slowMaxMs > 30000) c->slowMaxMs = 30000;
     if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0; if (c->varGrow < 0) c->varGrow = 0; if (c->varPct < 0) c->varPct = 0; if (c->varPct > 1000) c->varPct = 1000;
@@ -394,9 +399,15 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
 // >= slowMs: slowPct / 100 (x2); else 1. slowMs 0 = off.
 // human 2026-11-26: the slow-move rule (pause and x2) only applies with a boss within slowCm (distCm < 0 = unknown: no).
 static inline int SmSlowNear(const SmCfg* c, float distCm) { return distCm >= 0.f && (c->slowCm <= 0 || distCm <= (float)c->slowCm); }
+// human 2026-11-26 curve: + slowStepPct % (100 = +1x) per second past slowMs, up to slowTopPct % (400 = x4):
+// 0.5 s x2, 1 s x2.5, 1.5 s+ x3 (cap SlowMoveTopPct 300).
 static inline float SmSlowMult(const SmCfg* c, double landMs) {
     if (c->slowMs <= 0 || !(landMs >= (double)c->slowMs)) return 1.f;
-    return (float)c->slowPct / 100.f;
+    float m = (float)c->slowPct / 100.f + (float)c->slowStepPct / 100.f * (float)((landMs - (double)c->slowMs) / 1000.0);
+    const float top = (float)c->slowTopPct / 100.f;
+    if (m > top) m = top;
+    if (m < (float)c->slowPct / 100.f) m = (float)c->slowPct / 100.f;
+    return m;
 }
 // A new use's hit multiplier: the higher of the startup ramp and the slow-move factor (a move never earns less than with the ramp alone).
 static inline float SmHitMult(const SmCfg* c, float startupF, double landMs) {

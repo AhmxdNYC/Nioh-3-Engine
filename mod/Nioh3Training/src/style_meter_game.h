@@ -171,6 +171,8 @@ static void SmReadIni(const char* ini, int reset) {
     c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
     c.slowMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveMs", SM_SLOW_MS, ini);                   // human 2026-11-26: slow moves
     c.slowPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePct", SM_SLOW_PCT, ini);
+    c.slowStepPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveStepPct", SM_SLOW_STEP_PCT, ini);  // human 2026-11-26 curve
+    c.slowTopPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveTopPct", SM_SLOW_TOP_PCT, ini);
     c.slowCm = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseCm", SM_SLOW_CM, ini);
     c.farCm = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainCm", SM_FAR_CM, ini);  // human 2026-11-26
     c.farPct = (int)GetPrivateProfileIntA("StyleMeter", "FarDrainPct", SM_FAR_PCT, ini);
