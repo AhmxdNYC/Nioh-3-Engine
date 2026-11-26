@@ -64,6 +64,7 @@
                                   // on 15 directional deflect actions 25503..25621, 276 uses, never an attack frame; weapon counters have their own)
 #define SM_DEFLECT_SKILLS 8
 #define SM_KI_PTS 30  // #127568 (was 20)
+#define SM_GRAPPLE_PTS 100    // [StyleMeter] GrapplePts: a grapple finisher on a Ki-broken boss (human 2026-11-26)
 #define SM_FLUX_PTS 15        // [StyleMeter] FluxPts: a Flux (Ki pulse + switch to another stance), on top of the Ki pulse (human 2026-11-26)
 #define SM_FLUX2_PTS 10       // ... Flux2Pts: + this for Flux 2 (two switches): 15 + 10 = 25
 #define SM_KI_PERFECT_PTS 15  // #127075 extra on a perfect Ki pulse (the frame meter's teal check)
@@ -143,10 +144,10 @@
 // extra to SM_PC_VERS; losses to SM_PL_* (drain, hits taken, repetition). The hit path splits a hit into its base, the startup / slow-move
 // extra and the counter bonus.
 enum { SM_PC_HIT, SM_PC_STARTUP, SM_PC_COUNTER, SM_PC_BLOCK, SM_PC_DODGE, SM_PC_DEFLECT, SM_PC_DISPLACE, SM_PC_KI, SM_PC_MA, SM_PC_NIN,
-       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_VERS, SM_PC_N };
+       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_GRAPPLE, SM_PC_VERS, SM_PC_N };
 static const char* const sm_pc_name[SM_PC_N] = {"Hits", "Slow / startup bonus", "Counters", "Blocked hits", "Dodges", "Deflects", "Displacements",
        "Ki pulses", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Burst breaks",
-       "Combo milestones", "Variety milestones", "Flux", "Versatility bonus"};
+       "Combo milestones", "Variety milestones", "Flux", "Grapples", "Versatility bonus"};
 enum { SM_PL_NONE = -1, SM_PL_DRAIN, SM_PL_DAMAGE, SM_PL_LOOP, SM_PL_N };
 static const char* const sm_pl_name[SM_PL_N] = {"Meter drain", "Hits taken", "Repetition"};
 // pseudo move ids for non-hit moves (variety set only; real act ids are small)
@@ -188,6 +189,7 @@ typedef struct {
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float fluxPts, flux2Pts;  // human 2026-11-26: Flux bonus (SmOnFlux)
+    float grapplePts;         // human 2026-11-26: SmOnGrapple
     int farCm, farPct;  // human 2026-11-26: drain x farPct % while the nearest boss is over farCm away
     int slowStepPct, slowTopPct;  // human 2026-11-26: slow-move curve (+% per second past slowMs, cap)
     int slowMs, slowPct, slowCm, slowMaxMs;  // human 2026-11-26: slow move (time to land) multiplier / drain pause distance / pause cap
@@ -235,6 +237,8 @@ typedef struct {
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t crouchCancels; // human 2026-11-26: crouch (TMTM) cancels (style_tmtm.h, result card)
     uint32_t flux1, flux2;  // human 2026-11-26: Flux 1 / Flux 2 (SmFluxStep, result card)
+    uint32_t dispLanded, dispStreaks; float dispStreakLast;  // human 2026-11-26: displacements landed (looped too) / x3 bonuses paid / the last one
+    uint32_t grapples;      // human 2026-11-26: Ki-break grapple finishers on a boss (SmOnGrapple)
     float earned[SM_PC_N], lost[SM_PL_N];  // human 2026-11-26: points by source / losses (result card page 2)
     float useMult;          // the current use's startup / slow-move multiplier (to split its hits' points)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
@@ -257,7 +261,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
     c->blockPct = SM_BLOCK_PCT;
-    c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT; c->fluxPts = (float)SM_FLUX_PTS; c->flux2Pts = (float)SM_FLUX2_PTS;
+    c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT; c->fluxPts = (float)SM_FLUX_PTS; c->flux2Pts = (float)SM_FLUX2_PTS; c->grapplePts = (float)SM_GRAPPLE_PTS;
     c->slowStepPct = SM_SLOW_STEP_PCT; c->slowTopPct = SM_SLOW_TOP_PCT;
     c->slowMs = SM_SLOW_MS; c->slowPct = SM_SLOW_PCT; c->slowCm = SM_SLOW_CM; c->slowMaxMs = SM_SLOW_MAX_MS;
     c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT;
@@ -293,6 +297,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
     if (c->slowStepPct < 0) c->slowStepPct = 0; if (c->slowStepPct > 1000) c->slowStepPct = 1000; if (c->slowTopPct > 2000) c->slowTopPct = 2000;
     if (c->slowMs < 0) c->slowMs = 0; if (c->slowMs > 10000) c->slowMs = 10000; if (c->slowPct < 100) c->slowPct = 100; if (c->slowTopPct < c->slowPct) c->slowTopPct = c->slowPct; if (c->slowPct > 1000) c->slowPct = 1000;
+    if (c->grapplePts < 0.f) c->grapplePts = 0.f;
     if (c->fluxPts < 0.f) c->fluxPts = 0.f; if (c->flux2Pts < 0.f) c->flux2Pts = 0.f;
     if (c->farCm < 0) c->farCm = 0; if (c->farPct < 0) c->farPct = 0; if (c->farPct > 100) c->farPct = 100;
     if (c->slowCm < 0) c->slowCm = 0; if (c->slowCm > 100000) c->slowCm = 100000; if (c->slowMaxMs < 0) c->slowMaxMs = 0; if (c->slowMaxMs > 30000) c->slowMaxMs = 30000;
@@ -806,6 +811,13 @@ static inline float SmOnKiEx(SmState* s, const SmCfg* c, double t, int perfect) 
     float p = c->ki;
     if (perfect && c->kiPerfect > 0.f) { p += c->kiPerfect; s->kiPerfects++; }
     const float gain_ = SmAdd(s, c, p, SM_PC_KI); s->lastEvent = s->lastScore = t; return gain_;
+}
+// human 2026-11-26: the player grappled a Ki-broken boss (the boss's finisher state starts inside its Ki break: training.c KiBreakTick). Flat
+// grapplePts, no loop scaling. Returns the points added.
+static inline float SmOnGrapple(SmState* s, const SmCfg* c, double t) {
+    s->grapples++;
+    if (!(c->grapplePts > 0.f)) return 0.f;
+    const float gain_ = SmAdd(s, c, c->grapplePts, SM_PC_GRAPPLE); s->lastEvent = s->lastScore = t; return gain_;
 }
 // human 2026-11-26: a finished Flux chain (len 1 = Flux 1, 2+ = Flux 2): fluxPts (+ flux2Pts), only within kiHitMs of a landed hit (like the
 // Ki pulse: no points on air). Returns the points added.

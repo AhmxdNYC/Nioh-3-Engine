@@ -1138,6 +1138,8 @@ static void Flux(void) {
     SmOnHit(&s, &c, 1000, 7, 1);
     CHECK(near(SmOnFlux(&s, &c, 1500, 1), 15.f) && near(SmOnFlux(&s, &c, 2000, 2), 25.f) && near(s.earned[SM_PC_FLUX], 40.f));
     CHECK(SmOnFlux(&s, &c, 1000 + c.kiHitMs + 1, 1) == 0.f && SmOnFlux(&s, &c, 2000, 0) == 0.f);
+    // human 2026-11-26: grapple on a Ki-broken boss: flat 100
+    CHECK(near(c.grapplePts, 100.f) && near(SmOnGrapple(&s, &c, 2100), 100.f) && s.grapples == 1 && near(s.earned[SM_PC_GRAPPLE], 100.f));
 }
 int main(void) {
     SlowMove();

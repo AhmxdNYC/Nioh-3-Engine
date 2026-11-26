@@ -119,6 +119,7 @@ static void SmReadIni(const char* ini, int reset) {
         else { g_sm_defl[0] = SM_DEFLECT_SKILL; g_sm_ndefl = 1; if (buf[0]) Log("STYLE METER: DeflectSkill '%s' ignored (hex skill words, e.g. 0x67D2)", buf); }
     }
     c.ki = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPts", SM_KI_PTS, ini);
+    c.grapplePts = (float)(int)GetPrivateProfileIntA("StyleMeter", "GrapplePts", SM_GRAPPLE_PTS, ini);  // human 2026-11-26
     c.fluxPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "FluxPts", SM_FLUX_PTS, ini);  // human 2026-11-26
     c.flux2Pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "Flux2Pts", SM_FLUX2_PTS, ini);
     c.kiPerfect = (float)(int)GetPrivateProfileIntA("StyleMeter", "KiPerfectPts", SM_KI_PERFECT_PTS, ini);  // #127075
@@ -209,6 +210,8 @@ static void SmReadIni(const char* ini, int reset) {
     SmDispCfg dc; SmDispCfgDefaults(&dc);  // human: Displacement! ([StyleMeter] Displace 1 = on)
     dc.on = (int)GetPrivateProfileIntA("StyleMeter", "Displace", 1, ini) ? 1 : 0;
     dc.pts = (float)(int)GetPrivateProfileIntA("StyleMeter", "DisplacePts", SM_DP_PTS, ini);
+    dc.triN = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceStreakN", SM_DP_TRI_N, ini);  // human 2026-11-26
+    dc.triPts = (float)(int)GetPrivateProfileIntA("StyleMeter", "DisplaceStreakPts", SM_DP_TRI_PTS, ini);
     dc.followMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowMs", SM_DP_FOLLOW_MS, ini);
     dc.followRuns = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceFollowRuns", SM_DP_FOLLOW_RUNS, ini);
     dc.minCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceMinCm", SM_DP_MIN_CM, ini);
@@ -927,6 +930,9 @@ static void SmFeed(double gdt) {
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (crouchCancel) g_sm.crouchCancels++;
     if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
+    const LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    for (LONG i = 0; i < grapN && i < 8; ++i) pgrap += SmOnGrapple(&g_sm, &g_smc, g_sm_clock);
+    if (grapN) Log("STYLE GRAPPLE: Ki-break grapple finisher x%ld +%.0f", (long)grapN, pgrap);
     const float pflux = SmOnFlux(&g_sm, &g_smc, g_sm_clock, fluxDone);  // human 2026-11-26: +15 / +25 within 3 s of a hit
     if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain) +%.0f%s", fluxDone, (unsigned)act, pflux, pflux > 0.f ? "" : " (no hit in the last 3 s: no points)"); }
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
@@ -988,7 +994,9 @@ static void SmFeed(double gdt) {
     static int dpQueued; int dpQueuedNow = 0;
     if (dpr == SM_DP_MISS && dpo.release) { if (!avoid) avoid = dpBack = dpo.release; else { dpQueued = dpo.release; dpQueuedNow = 1; } }
     else if (!avoid && dpQueued) { avoid = dpBack = dpQueued; dpQueued = 0; }
+    const uint32_t dst0 = g_sm.dispStreaks;
     if (dpr == SM_DP_AWARD) { pdp = SmOnDisplace(&g_sm, &g_smc, &g_dpc, g_sm_clock, dpo.act, dps.pUse); }
+    const float pdtri = g_sm.dispStreaks != dst0 ? g_sm.dispStreakLast : 0.f;  // human 2026-11-26: every 3rd displacement
     const int dodge = avoid == SM_AV_DODGE, deflect = avoid == SM_AV_DEFLECT, avCtr = avoid == SM_AV_COUNTER;
     // human: a guardian spirit spend in combat holds the drain while the spirit winds up (its first hit lands ~1.5 s later)
     if (gsMark && SmInCombat(&g_sm, &g_smc, g_sm_clock) && g_sm.lastScore < g_sm_clock + SM_GS_HOLD_MS) g_sm.lastScore = g_sm_clock + SM_GS_HOLD_MS;
@@ -1118,7 +1126,8 @@ static void SmFeed(double gdt) {
         if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
         if (pb > 0.f) SmFxPop("Blocked", pb);  // human: a guarded hit (BlockPct % of the hit); plain hits have no pop-up, this one is shown so it is seen
         if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
-        if (pdp > 0.f) { SmFxPop("Displacement!", pdp); big += pdp; }
+        if (pdp > 0.f) { if (pdtri > 0.f) { SmFxPop("Displacement!", pdp - pdtri); SmFxPop("Displacement x3!", pdtri); } else SmFxPop("Displacement!", pdp); big += pdp; }
+        if (pgrap > 0.f) { SmFxPop("Grapple!", pgrap); big += pgrap; }  // human 2026-11-26
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
         if (pc > 0.f) { SmFxPop("Soul Core", pc); big += pc; }
         if (ps > 0.f) { SmFxPop("Style Switch", ps); big += ps; }

@@ -31,6 +31,8 @@
 #define SM_LOOP_DISPLACE 0xFFFFFF05u // loop sequence pseudo id (next to SM_LOOP_COUNTER)
 
 #define SM_DP_PTS 80          // [StyleMeter] DisplacePts: replaces the window's Dodge! / Counter! (45) (human 2026-11-26: 80, was 65)
+#define SM_DP_TRI_N 3          // [StyleMeter] DisplaceStreakN: every this many displacements landed (looped ones too) ... (human 2026-11-26)
+#define SM_DP_TRI_PTS 80       // ... DisplaceStreakPts: ... this flat bonus
 #define SM_DP_FOLLOW_MS 1500  // DisplaceFollowMs: the counter hit must land this soon after the boss's hit window closed (live 2026-11-25:
                               // Swift Step Heavy's slash lands ~850 ms into it, 0.93 / 0.98 s after a window that closed early in the step;
                               // a cancel's Y attack 0.9 .. 1.25 s after; 900 ms missed 2 of 7 clean uses)
@@ -58,7 +60,7 @@
 enum { SM_DP_NONE = 0, SM_DP_AWARD = 1, SM_DP_MISS = 2 };
 enum { SM_DPM_DAMAGE = 1, SM_DPM_LATE = 2, SM_DPM_RUNS = 3, SM_DPM_MOTION = 4, SM_DPM_ANGLE = 5, SM_DPM_OFF = 6, SM_DPM_EVADE = 7 };
 
-typedef struct { int on; float pts; int followMs, followRuns, minCm, angDeg, listMinCm, listAngDeg, threatCm, graceMs, tailMs; uint32_t acts[SM_DP_ACTS]; int nActs; } SmDispCfg;
+typedef struct { int on; float pts; int triN; float triPts; int followMs, followRuns, minCm, angDeg, listMinCm, listAngDeg, threatCm, graceMs, tailMs; uint32_t acts[SM_DP_ACTS]; int nActs; } SmDispCfg;
 // move: this tick's run is a move (an attack window opened / a skill row / a guardian spirit / ninjutsu), not a transition run
 // ifr: the player has i-frames this tick (a dodge run that is not part of the displacement use ends it)
 typedef struct { uint64_t run, use; uint32_t act; int elig, move, ifr; int plOk; float pl[2]; int win; int bossOk; float boss[2]; int took, hits, avoid; } SmDispIn;
@@ -90,12 +92,12 @@ static inline int SmDispParseActs(SmDispCfg* c, const char* q) {
     return c->nActs;
 }
 static inline void SmDispCfgDefaults(SmDispCfg* c) {
-    c->on = 1; c->pts = (float)SM_DP_PTS; c->followMs = SM_DP_FOLLOW_MS; c->followRuns = SM_DP_FOLLOW_RUNS; c->minCm = SM_DP_MIN_CM;
+    c->on = 1; c->pts = (float)SM_DP_PTS; c->triN = SM_DP_TRI_N; c->triPts = (float)SM_DP_TRI_PTS; c->followMs = SM_DP_FOLLOW_MS; c->followRuns = SM_DP_FOLLOW_RUNS; c->minCm = SM_DP_MIN_CM;
     c->angDeg = SM_DP_ANG_DEG; c->listMinCm = SM_DP_LIST_MIN_CM; c->listAngDeg = SM_DP_LIST_ANG_DEG; c->threatCm = SM_DP_THREAT_CM;
     c->graceMs = SM_DP_GRACE_MS; c->tailMs = SM_DP_TAIL_MS; SmDispParseActs(c, SM_DP_DEFAULT_ACTS);
 }
 static inline void SmDispCfgClamp(SmDispCfg* c) {
-    if (c->pts < 0) c->pts = 0; if (c->followMs < 100) c->followMs = 100; if (c->followMs > 3000) c->followMs = 3000;
+    if (c->pts < 0) c->pts = 0; if (c->triN < 0) c->triN = 0; if (c->triPts < 0) c->triPts = 0; if (c->followMs < 100) c->followMs = 100; if (c->followMs > 3000) c->followMs = 3000;
     if (c->followRuns < 0) c->followRuns = 0; if (c->followRuns > 4) c->followRuns = 4; if (c->minCm < 0) c->minCm = 0;
     if (c->angDeg < 0) c->angDeg = 0; if (c->angDeg > 180) c->angDeg = 180; if (c->listMinCm < 0) c->listMinCm = 0;
     if (c->listAngDeg < 0) c->listAngDeg = 0; if (c->listAngDeg > 180) c->listAngDeg = 180; if (c->threatCm < 100) c->threatCm = 100;
@@ -225,9 +227,13 @@ static inline float SmOnDisplace(SmState* s, const SmCfg* c, const SmDispCfg* dc
     const int tier = s->lpOn && s->lpRun == use ? s->lpPen : SmLoopEvent(s, c, SM_LOOP_DISPLACE);
     (void)act;
     if (dc->pts <= 0.f) return 0.f;
+    // human 2026-11-26: every DisplaceStreakN (3) displacements landed, looped ones too, a flat DisplaceStreakPts (80) on top (no loop scaling)
+    float tri = 0.f;
+    if (dc->triN > 0 && ++s->dispLanded % (uint32_t)dc->triN == 0 && dc->triPts > 0.f) {
+        tri = SmAdd(s, c, dc->triPts, SM_PC_DISPLACE); s->dispStreaks++; s->dispStreakLast = tri; s->lastScore = t; }
     const float p = SmLoopScale(s, c, tier, dc->pts);
-    if (!(p > 0.f)) return 0.f;
-    const float gain_ = SmAdd(s, c, p, SM_PC_DISPLACE); s->lastScore = t; s->displaces++;
+    if (!(p > 0.f)) return tri;
+    const float gain_ = SmAdd(s, c, p, SM_PC_DISPLACE) + tri; s->lastScore = t; s->displaces++;
     SmVarietyMove(s, c, t, SM_VAR_DISPLACE);
     return gain_;
 }
