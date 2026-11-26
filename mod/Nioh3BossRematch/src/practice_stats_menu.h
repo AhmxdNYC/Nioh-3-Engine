@@ -102,11 +102,16 @@ bool StyChange(int item, int dir) {
     else snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved. Tell us what feels right with Report a problem.", StyLabel(what), t);
     return true;
 }
-template <class Add> void PstAddPlayerRows(Add&& add) {
+// TASK #137249: Player > Style meter page rows (were flat on Player).
+int StyKeysKnown() { using K = int (*)(); const auto f = (K)TrainingExport("Nioh3Training_StyleKeys"); const int n = f ? f() : 5; return n < kStyN ? n : kStyN; }
+template <class Add> void PstAddStyleRows(Add&& add) {
     if (TrainingExport("Nioh3Training_StyleSet")) {  // human #126804; #127379 rows 5+ only when Training knows those keys
-        using K = int (*)(); const auto f = (K)TrainingExport("Nioh3Training_StyleKeys"); const int n = f ? f() : 5;
-        for (int i = 0; i < kStyN && i < n; ++i) add(kItStyBase + i);
+        const int n = StyKeysKnown();
+        for (int i = 0; i < n; ++i) add(kItStyBase + i);
     }
+}
+// TASK #137249: Player > Player stats page rows (were flat on Player).
+template <class Add> void PstAddPlayerStatRows(Add&& add) {
     if (!PstAvailable()) return;
     add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); if (PstGet(PS_SOUL_DMG) >= 0) add(kItPstBase + PS_SOUL_DMG); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }

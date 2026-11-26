@@ -5,13 +5,14 @@ bool PageHasDefaults(int page) {
     return (page >= uSettingFirst && page < uSettingFirst + kConfigGroupN) ||
         page == uPlayer || page == uFightOpts || page == uBossVitals || page == uBoss ||
         page == uMoves || page == uMoveCat ||
+        page == uPlayerStats || page == uBossKi || page == uStyle ||  // TASK #137249 sub pages
         (page == uRematch && BossFightItemsAvailable()) ||
         (page == uGate && !WavesGateNow() && GateMode() == 1 && BossFightItemsAvailable()) ||
         (page == uPracticeHub && TrainingExport("Nioh3Training_PracticeFreeze")) ||
         (page == uTools && SpawnedCount() && TrainingExport("Nioh3Training_StanceTimer")) ||
         (page == uActions && RowStaged(g_uiBoss, nullptr, nullptr, nullptr))
 #if BR_SOULCORE
-        || page == uSoulTune || page == uScOverlay
+        || page == uSoulTune || page == uScOverlay || page == uSoulCores
 #endif
         ;
 }
@@ -35,17 +36,28 @@ bool ResetPageDefaults() {
         snprintf(g_msg, sizeof g_msg, "Page defaults restored. Startup preferences apply after restarting the game.");
         return true;
     }
-    if (page == uPlayer) {
+    if (page == uPlayer) {  // TASK #137249: Player keeps Health; the stats and soul core rows reset on their own pages
         using Set = int (*)(int,int);
         if (const auto set = (Set)TrainingExport("Nioh3Training_SetPlayerCantDie")) ok = set(1,1) >= 0;
+    }
+    else if (page == uPlayerStats) {  // TASK #137249: the rows that were on Player
         const int ids[] = {PS_PLAYER_INF_KI,PS_PLAYER_INF_NIN,PS_PLAYER_INF_SOUL,PS_DMG_DEALT,PS_SOUL_DMG,PS_KI_DEALT,PS_PLAYER_SPEED};
-        ok = ResetPracticeStats(ids) && ok;
-#if BR_SOULCORE
-        bosslog::SoulCoreFormsSet(1,nullptr);
-        bosslog::FormCoreReset();
-#endif
+        ok = ResetPracticeStats(ids);
+    }
+    else if (page == uStyle) {  // TASK #137249: every style meter row to its shipped default (kSty defs = Nioh3Training SM_* defaults)
+        const int n = StyKeysKnown();
+        for (int i = 0; i < n; ++i) if (StySet(i, StyDefault(i)) < 0) ok = false;
+    }
+    else if (page == uBossKi) {  // TASK #137249: the boss stat rows that were on Boss health and Ki
+        const int ids[] = {PS_DMG_TAKEN,PS_BOSS_KI_DRAIN,PS_ONE_HIT_KI,PS_HOLD_KI_BREAK,PS_HOLD_KI_V2,
+                           PS_KI_FLOOR,PS_KI_LOG,PS_NEG_KI_METER,PS_BOSS_SPEED};
+        ok = ResetPracticeStats(ids);
     }
 #if BR_SOULCORE
+    else if (page == uSoulCores) {  // TASK #137249: the soul core rows that were on Player
+        bosslog::SoulCoreFormsSet(1,nullptr);
+        bosslog::FormCoreReset();
+    }
     else if (page == uSoulTune) bosslog::SoulTuneReset();
     else if (page == uScOverlay) ScOvPageReset();  // TASK #137007: overlay ON + look rows back to defaults
 #endif
@@ -75,9 +87,6 @@ bool ResetPageDefaults() {
             if (BvSet(g_bvSlot,BV_HP_PCT,100) < 0) ok = false;
             if (BvSet(g_bvSlot,BV_KI_PCT,100) < 0) ok = false;
         }
-        const int ids[] = {PS_DMG_TAKEN,PS_BOSS_KI_DRAIN,PS_ONE_HIT_KI,PS_HOLD_KI_BREAK,PS_HOLD_KI_V2,
-                           PS_KI_FLOOR,PS_KI_LOG,PS_NEG_KI_METER,PS_BOSS_SPEED};
-        ok = ResetPracticeStats(ids) && ok;
     }
     else if (page == uBoss) {
         const uint32_t chr = SlotChr(g_bossSlot);
