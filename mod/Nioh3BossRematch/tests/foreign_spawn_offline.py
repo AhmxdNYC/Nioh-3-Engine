@@ -16,9 +16,10 @@ pre = r'''
 #include <cstdlib>
 double clockNow = 0; double Now() { return clockNow; }
 int logs = 0; void Log(const char*, ...) { ++logs; }
-std::atomic<double> g_pickT{-100}; std::atomic<uint32_t> g_pickCore{0}; std::atomic<bool> g_equippedReady{true};
+std::atomic<double> g_pickT{-100}; std::atomic<uint32_t> g_pickCore{0}; std::atomic<bool> g_equippedReady{true}; std::atomic<uint32_t> g_equippedCore[2];
+double snapT = -100;
 '''
-code = pre + between('std::atomic<int> g_formHelperMs{1500};', '// seal spawn hit: learn which core') + r'''
+code = pre + between('std::atomic<int> g_formHelperMs{1500};', 'double PressSnapT();') + 'double PressSnapT() { return snapT; }' + chr(10) + between('double g_pressCoreFor = -100', '// seal spawn hit: learn which core') + r'''
 int n = 0; void check(bool v, const char* w) { ++n; if (!v) { printf("FAIL %d %s\n", n, w); exit(1); } }
 void press(double t, uint32_t core) { g_pickT = t; g_pickCore = core; clockNow = t; }
 int main() {
@@ -39,6 +40,14 @@ int main() {
   g_formHelperMs = 1500;
   press(700, 0xA2ACB); clockNow = 700.5; check(!PressSpawnForeign(0xA2ACB, 10), "DOWN core A2ACB still forms");
   check(!PressSpawnForeign(0xA2ACB, 10), "A2ACB reuses one chr: a repeat spawn is still the core");
+  // #136367 live 19:38:11 -> 19:38:18: 5216E (Y1) picked, then a Y2 80D5F use the pick never saw; its own yokai must still bind
+  const uint32_t y1 = 0x5216E, y2 = 0x80D5F; g_equippedCore[0] = y1; g_equippedCore[1] = y2;
+  press(800, y1); snapT = 800; clockNow = 801.6; check(!PressSpawnForeign(y1, 11), "Y1 press binds Y1");
+  snapT = 806.67; clockNow = 807.11; check(!PressSpawnForeign(y2, 12), "stale pick: the Y2 use's own yokai is not foreign");
+  check(!PressSpawnForeign(crab, 13), "stale pick = old rule for any spawn");
+  press(900, y1); snapT = 900; clockNow = 900.3; check(PressSpawnForeign(crab, 14), "fresh pick: a wave crab is still foreign");
+  clockNow = 900.4; check(!PressSpawnForeign(y2, 15), "the other equipped core's chr is never foreign");
+  g_equippedCore[0] = 0; g_equippedCore[1] = 0;
   printf("foreign spawn ok: %d checks, %d log lines\n", n, logs);
   return 0;
 }
