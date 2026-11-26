@@ -251,8 +251,10 @@ void SoulPairKeys() {
     const bool f3 = KeyEdge(VK_F3), f4 = KeyEdge(VK_F4);  // TASK #137007 (human #137004): Yang 1 / Yang 2 summon <-> Transform
     rematch::SoulPairTick(mine && f9 && !sh, mine && f9 && sh, mine && f6);
 #if BR_SOULCORE
-    rematch::SoulCallKeyTick(mine && f3, mine && f4);
-    if (mine && (f9 || f3 || f4)) ScOverlayKick();  // the overlay redraws now, not on its next 250 ms poll
+    // TASK #137543 (regression #137316 gap 4): Alt+F4 quits the game; it must not also flip Yang 2 (and save it) on the way out.
+    const bool alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+    rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt);
+    if (mine && (f9 || ((f3 || f4) && !alt))) ScOverlayKick();  // the overlay redraws now, not on its next 250 ms poll
 #endif
 }
 #include "menu_bridge_impl.h"
@@ -338,7 +340,7 @@ DWORD WINAPI OvThread(void*) {
             memcpy(g_lines, lines, sizeof g_lines); memcpy(g_colors, colors, sizeof g_colors); g_n = n; g_px = px;
             g_adv = adv; g_box = look[4]; g_bold = bold; g_panel = (uint32_t)look[7];
             const int op = look[3] < 20 ? 20 : look[3] > 100 ? 100 : look[3];
-            N3StrokeWindowAlpha(g_wnd, PaintOv, (BYTE)(op * 255 / 100));
+            N3StrokeWindowAlpha(g_wnd, PaintOv, (BYTE)((op * 255 + 50) / 100));  // TASK #137543: rounded, 92% = 235 like #137000
             memcpy(was, lines, sizeof was); memcpy(wasC, colors, sizeof wasC); wasN = n; wasPx = px; memcpy(wasLook, look, sizeof look);
         }
     }

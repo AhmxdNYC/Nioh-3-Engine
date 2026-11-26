@@ -13,13 +13,15 @@ rows = cut('constexpr int uScOverlay = 951;', 'std::atomic<int> g_scOv[kScOvN];'
 clamp = cut('int ScOvClamp(int w, int v)', 'int ScOvGet(int w) {')
 step = cut('int ScOvStep(int w, int v, int dir) {', 'void ScOvValueText(')
 theme = cut('const uint32_t kScOvTheme[3][4] = {', 'int g_scEqSlot = 0;')
-key = cut('uint32_t g_scKeyId[16];', 'bool ScEqChange(int item, int dir) {')
+key = cut('constexpr int kScKeyMax = 32;', 'bool ScEqChange(int item, int dir) {')
 # wiring: F3 / F4 read in the same place as F2, the overlay thread reads the look and is woken by the keys
-assert 'KeyEdge(VK_F3), f4 = KeyEdge(VK_F4)' in ui and 'rematch::SoulCallKeyTick(mine && f3, mine && f4)' in ui, 'F3 / F4 wired next to F2'
+assert 'KeyEdge(VK_F3), f4 = KeyEdge(VK_F4)' in ui and 'rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt)' in ui and 'GetAsyncKeyState(VK_MENU)' in ui, 'F3 / F4 wired next to F2'
 assert 'ScOverlayKick()' in ui and 'WaitForSingleObject(g_kick, 250)' in ui, 'F2 / F3 / F4 redraw the overlay at once'
 assert 'addon::rematch::ScOverlayLook(look)' in ui and 'N3StrokeWindowAlpha(g_wnd, PaintOv' in ui, 'overlay uses the look rows'
 assert 'if (g_uiPages.page == uScOverlay) { add(kItScOverlay);' in rm, 'look page lists the on/off row first'
 assert 'add(kItScOvOpen);' in s, 'Player > Soul cores has the look page row'
+assert '(op * 255 + 50) / 100' in ui, 'opacity rounds: 92% = alpha 235 (#137543)'
+assert "colors[n] = tag[0] == 'S' ? th[0]" in rm, "'?' lines use the T colour (white), not the S gray (#137543)"
 assert 'SC_CALL_TRANSFORM_MOVE' not in key, 'F3 / F4 never choose Transform moveable (#136987)'
 code = r'''
 #include <cstdint>
@@ -27,6 +29,7 @@ code = r'''
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <cwchar>
 #include <string>
 #include "../../shared/soul_core_api.h"
 const uint32_t cWhite = 0xFFFFFF, cGray = 0xB4B4B4, cGreen = 0x6CFF6C, cYellow = 0x40E6FF;
@@ -35,6 +38,11 @@ void ToastF(uint32_t, unsigned long long, const char* f, ...) { char b[256]; va_
 void Log(const char*, ...) {}
 uint32_t eqIds[2] = {0x5129B, 0xA2ACB}; bool eqReady = true, formsOn = true; uint16_t slotItems[2] = {0x6DB5, 0x6E53};
 std::map<uint32_t, int> calls;
+std::map<std::wstring, std::wstring> ini;  // [Spirit] key -> value, survives a 'restart'
+const wchar_t* IniPath() { return L"x.ini"; }
+unsigned long GetPrivateProfileStringW(const wchar_t*, const wchar_t* k, const wchar_t* d, wchar_t* b, unsigned long n, const wchar_t*) {
+  auto it = ini.find(k); const std::wstring v = it == ini.end() ? d : it->second; wcsncpy(b, v.c_str(), n - 1); b[n - 1] = 0; return (unsigned long)wcslen(b); }
+int WritePrivateProfileStringW(const wchar_t*, const wchar_t* k, const wchar_t* v, const wchar_t*) { ini[k] = v; return 1; }
 uint16_t ScSlotItem(int y) { return slotItems[y]; }
 namespace bosslog {
 bool FormCoreEquippedIds(uint32_t out[2]) { out[0] = eqIds[0]; out[1] = eqIds[1]; return eqReady; }
@@ -55,6 +63,16 @@ int main() {
   ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_TRANSFORM, "F4 Fast summon -> Transform");
   ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "F4 back -> Fast summon (the summon kind it had)");
   ScCallKey(1); ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "twice more: still remembers Fast summon");
+  // TASK #137543: restart keeps it. Flip to Transform, 'restart' (nothing in memory but the ini), flip back -> Fast summon
+  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_TRANSFORM, "F4 -> Transform before the restart");
+  check(ini[L"FormCoreSummonKinds"].find(L"A2ACB:") == 0, "summon kind saved in [Spirit] FormCoreSummonKinds, newest first");
+  { std::map<uint32_t, int> keep = calls; calls.clear(); calls = keep; }
+  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "after a restart F4 still returns to Fast summon");
+  { int k = -1; check(ScKeySummonGet(0x5129B, &k) && k == SC_CALL_TRANSFORM ? false : true, "Yang 1 entry is a summon kind, never Transform"); }
+  for (uint32_t id = 1; id <= 40; ++id) ScKeySummonPut(0x10000 + id, SC_CALL_GAME);
+  { uint32_t ids[kScKeyMax]; int ks[kScKeyMax]; check(ScKeySummonRead(ids, ks) == kScKeyMax && ids[0] == 0x10028, "list capped at 32, newest first"); }
+  ini[L"FormCoreSummonKinds"] = L"junk"; { int k = 7; check(!ScKeySummonGet(0xA2ACB, &k) && k == 7, "bad ini value: no entry, default summon"); }
+  ini.clear();
   for (int i = 0; i < 8; ++i) { ScCallKey(i & 1); check(calls[eqIds[i & 1]] != SC_CALL_TRANSFORM_MOVE, "never Transform moveable"); }
   // not detected yet: no change, a toast
   calls.clear(); eqReady = false; const int t0 = toasts; ScCallKey(0);
@@ -71,7 +89,7 @@ int main() {
   check(ScOvStep(kScOvSize, 200, 0) == 50, "A past the top wraps");
   check(ScOvStep(kScOvX, 15, 1) == 30 && ScOvStep(kScOvX, 15, -1) == 10, "x 1% steps from the 1.5% default");
   check(ScOvStep(kScOvX, 1000, 1) == 1000 && ScOvStep(kScOvY, 0, -1) == 0, "position clamps 0..100%");
-  check(ScOvStep(kScOvAlpha, 20, -1) == 20 && ScOvStep(kScOvAlpha, 90, 1) == 100, "opacity steps");
+  check(ScOvStep(kScOvAlpha, 20, -1) == 20 && ScOvStep(kScOvAlpha, 90, 1) == 92 && ScOvStep(kScOvAlpha, 92, 1) == 100 && kScOv[kScOvAlpha].def == 92, "opacity steps");
   check(ScOvStep(kScOvBox, 1, -1) == 0 && ScOvStep(kScOvBox, 0, 0) == 1, "background on/off");
   check(ScOvStep(kScOvColors, 2, 1) == 0 && ScOvStep(kScOvColors, 0, -1) == 2 && ScOvStep(kScOvFont, 0, 0) == 1, "choices wrap");
   check(ScOvClamp(kScOvAlpha, 5) == 20 && ScOvClamp(kScOvColors, 9) == 2 && ScOvClamp(kScOvSize, 999) == 200, "bad ini values clamp");
