@@ -293,6 +293,74 @@ void PaintOv(HDC dc, int w, int h) {
         if (g_bold) N3StrokeText(dc, x + o, y, g_lines[i], len, g_px, g_adv);  // Bold: the strokes once more, one step right
     }
 }
+// TASK #138501 (human #138497): 'Game' font = the style meter's in-game letters (Nioh3Training style_meter_draw.h SmGameLetter: Cambria,
+// cream 0xECE6D6, soft black shadow at 70%), drawn as per-pixel alpha (premultiplied) so the anti-aliased edges never blend with a colour key.
+// The yokai name is cream; the ' | S / FS / T / TM' tag keeps the line's theme colour.
+constexpr uint32_t kGameCream = 0xD6E6EC;  // COLORREF of the style meter's SM_GAME_TEXT_RGB 0xECE6D6
+HFONT GameFont(int px) { return CreateFontW(-px, 0, 0, 0, FW_NORMAL, FALSE, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Cambria"); }
+int GameMeasure(const char* s, int px) {
+    HDC dc = CreateCompatibleDC(nullptr); HFONT f = GameFont(px); int cx = 0;
+    if (dc && f) { HGDIOBJ of = SelectObject(dc, f); SIZE sz = {}; GetTextExtentPoint32A(dc, s, (int)strlen(s), &sz); cx = sz.cx; SelectObject(dc, of); }
+    if (f) DeleteObject(f);
+    if (dc) DeleteDC(dc);
+    return cx;
+}
+inline void PmOver(uint32_t& d, uint32_t rgb, float a) {  // premultiplied src-over into BGRA; rgb = COLORREF
+    if (a <= 0.f) return;
+    const float r = (float)(rgb & 255), g = (float)((rgb >> 8) & 255), b = (float)((rgb >> 16) & 255), k = 1.f - a;
+    const float db = (float)(d & 255), dg = (float)((d >> 8) & 255), dr = (float)((d >> 16) & 255), da = (float)(d >> 24);
+    d = ((uint32_t)(da * k + 255.f * a + .5f) << 24) | ((uint32_t)(dr * k + r * a + .5f) << 16) | ((uint32_t)(dg * k + g * a + .5f) << 8) |
+        (uint32_t)(db * k + b * a + .5f);
+}
+void PaintGameOv(HWND wnd, BYTE alpha) {
+    RECT r; GetClientRect(wnd, &r); const int w = r.right, h = r.bottom; if (w <= 0 || h <= 0) return;
+    HDC scr = GetDC(nullptr), dc = CreateCompatibleDC(scr), mdc = CreateCompatibleDC(scr);
+    BITMAPINFO bi = {}; bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t *bits = nullptr, *mask = nullptr;
+    HBITMAP bm = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, (void**)&bits, nullptr, 0), mb = CreateDIBSection(mdc, &bi, DIB_RGB_COLORS, (void**)&mask, nullptr, 0);
+    HFONT f = GameFont(g_px);
+    if (bm && mb && f && bits && mask) {
+        HGDIOBJ ob = SelectObject(dc, bm), omb = SelectObject(mdc, mb), of = SelectObject(mdc, f);
+        memset(bits, 0, (size_t)w * h * 4);
+        if (g_box) for (size_t i = 0; i < (size_t)w * h; ++i) PmOver(bits[i], g_panel & 0xFFFFFF, 0.62f);
+        SetBkMode(mdc, TRANSPARENT); SetTextColor(mdc, RGB(255, 255, 255));
+        const int lh = g_px + g_px / 4, pad = g_px / 3, so = g_px / 16 > 1 ? g_px / 16 : 1;
+        for (int i = 0; i < g_n; ++i) {
+            memset(mask, 0, (size_t)w * h * 4);
+            const char* line = g_lines[i]; const char* bar = strstr(line, " | ");
+            SIZE all = {}, nm = {}; GetTextExtentPoint32A(mdc, line, (int)strlen(line), &all);
+            if (bar) GetTextExtentPoint32A(mdc, line, (int)(bar - line), &nm); else nm = all;
+            const int x0 = (w - all.cx) / 2, y0 = pad + i * lh;  // each line centred
+            TextOutA(mdc, x0, y0, line, (int)strlen(line)); GdiFlush();
+            const int split = x0 + nm.cx;
+            for (int pass = 0; pass < 2; ++pass)  // 0 = soft shadow (+so, +so) and a faint outline, 1 = the letters
+                for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+                    const uint32_t m = mask[(size_t)y * w + x];
+                    const unsigned c8 = (m & 255) > ((m >> 8) & 255) ? (m & 255) : ((m >> 8) & 255);
+                    if (!c8) continue;
+                    const float c = c8 / 255.f;
+                    if (pass == 0) {
+                        if (x + so < w && y + so < h) PmOver(bits[(size_t)(y + so) * w + x + so], 0, 0.7f * c);
+                        static const int d[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+                        for (const auto& k : d) {
+                            const int xx = x + k[0], yy = y + k[1];
+                            if (xx >= 0 && yy >= 0 && xx < w && yy < h) PmOver(bits[(size_t)yy * w + xx], 0, 0.35f * c);
+                        }
+                    } else {
+                        PmOver(bits[(size_t)y * w + x], x < split ? kGameCream : (g_colors[i] & 0xFFFFFF), c);
+                    }
+                }
+        }
+        POINT origin = {0, 0}; SIZE size = {w, h}; BLENDFUNCTION blend = {AC_SRC_OVER, 0, alpha, AC_SRC_ALPHA};
+        UpdateLayeredWindow(wnd, scr, nullptr, &size, dc, &origin, 0, &blend, ULW_ALPHA);
+        SelectObject(mdc, of); SelectObject(mdc, omb); SelectObject(dc, ob);
+    }
+    if (f) DeleteObject(f);
+    if (mb) DeleteObject(mb);
+    if (bm) DeleteObject(bm);
+    DeleteDC(mdc); DeleteDC(dc); ReleaseDC(nullptr, scr);
+}
 LRESULT CALLBACK OvProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     if (m == WM_NCHITTEST) return HTTRANSPARENT;
     return DefWindowProcW(h, m, w, l);
@@ -321,12 +389,14 @@ DWORD WINAPI OvThread(void*) {
         int look[8] = {}; addon::rematch::ScOverlayLook(look);  // TASK #137007: size %, x / y per-mille, opacity %, box, colors, font, panel
         const int base = cr.bottom / 54 < 14 ? 14 : cr.bottom / 54;  // 20 px at 1080p, the menu's size
         const int px = base * look[0] / 100 < 8 ? 8 : base * look[0] / 100;
+        const bool game = look[6] == 3;  // TASK #138501: the style meter's letters
         const int adv = look[6] == 1 ? N3StrokeWidth(px) * 6 / 5 : N3StrokeWidth(px), bold = look[6] == 2;
-        const int ol = look[4] ? 0 : 2 * (px / 14 > 1 ? px / 14 : 1);  // room for the outline
+        const int ol = game ? 2 + 2 * (px / 16 > 1 ? px / 16 : 1) : look[4] ? 0 : 2 * (px / 14 > 1 ? px / 14 : 1);  // room for the outline / shadow
         int wmax = 0;
-        for (int i = 0; i < n; ++i) { const SIZE sz = N3StrokeMeasure((int)strlen(lines[i]), px, adv); if (sz.cx > wmax) wmax = sz.cx; }
-        const int lh = px + px / 5, pad = px / 3, w = wmax + 2 * pad + ol + (bold ? px / 14 + 1 : 0), h = n * lh + 2 * pad;
-        int x = o.x + (int)((long long)cr.right * look[1] / 1000), y = o.y + (int)((long long)cr.bottom * look[2] / 1000) - h;  // x = left edge, y = bottom edge
+        for (int i = 0; i < n; ++i) { const int cx = game ? GameMeasure(lines[i], px) : N3StrokeMeasure((int)strlen(lines[i]), px, adv).cx; if (cx > wmax) wmax = cx; }
+        const int lh = game ? px + px / 4 : px + px / 5, pad = px / 3, w = wmax + 2 * pad + ol + (bold ? px / 14 + 1 : 0), h = n * lh + 2 * pad + (game ? ol : 0);
+        // TASK #138501: x = the overlay's centre (under the game's left item HUD by default), y = its bottom edge
+        int x = o.x + (int)((long long)cr.right * look[1] / 1000) - w / 2, y = o.y + (int)((long long)cr.bottom * look[2] / 1000) - h;
         if (x + w > o.x + cr.right) x = o.x + cr.right - w;
         if (x < o.x) x = o.x;
         if (y < o.y) y = o.y;
@@ -340,7 +410,8 @@ DWORD WINAPI OvThread(void*) {
             memcpy(g_lines, lines, sizeof g_lines); memcpy(g_colors, colors, sizeof g_colors); g_n = n; g_px = px;
             g_adv = adv; g_box = look[4]; g_bold = bold; g_panel = (uint32_t)look[7];
             const int op = look[3] < 20 ? 20 : look[3] > 100 ? 100 : look[3];
-            N3StrokeWindowAlpha(g_wnd, PaintOv, (BYTE)((op * 255 + 50) / 100));  // TASK #137543: rounded, 92% = 235 like #137000
+            if (game) PaintGameOv(g_wnd, (BYTE)((op * 255 + 50) / 100));  // TASK #138501
+            else N3StrokeWindowAlpha(g_wnd, PaintOv, (BYTE)((op * 255 + 50) / 100));  // TASK #137543: rounded, 92% = 235 like #137000
             memcpy(was, lines, sizeof was); memcpy(wasC, colors, sizeof wasC); wasN = n; wasPx = px; memcpy(wasLook, look, sizeof look);
         }
     }
