@@ -6131,6 +6131,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
 // TASK #137000: the soul core overlay lines (UI overlay thread). 0 = nothing to show (off, or no save / equipment not readable).
 int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
     if (max < 2 || !ScOverlayOn()) return 0;
+    if (ReadSnap().st[2]) return 0;  // TASK #138303 (human #138301): hidden on loading screens, the same game-state byte the style meter and the status 'loading=' use
     const uint16_t items[2] = {ScSlotItem(0), ScSlotItem(1)};
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
