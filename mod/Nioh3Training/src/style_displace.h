@@ -37,8 +37,10 @@
 #define SM_DP_FOLLOW_RUNS 1   // DisplaceFollowRuns: ... in the same use or this many MOVES after it (a cancel into another move). Only a run
                               // that is a move counts (attack window / skill row / hit): the cancel's transition runs (10493 2096 1775 2066
                               // 2069 2070, 1-8 frames each, no attack window) are not moves
-#define SM_DP_MIN_CM 200      // DisplaceMinCm: farthest from the use's start until the hit (a deflect / step is ~1-2 m; was 250: Swift Step
-                              // that went behind the boss from 1.4-1.7 m away measured 2.04 / 2.25 m)
+#define SM_DP_MIN_CM 150      // DisplaceMinCm: farthest from the use's start until the hit (was 250: Swift Step that went behind the boss
+                              // from 1.4-1.7 m away measured 2.04 / 2.25 m; was 200: human 2026-11-26 Fists defensive drop 25383 > 25384
+                              // around Ibaraki Doji (94 / 98 deg, follow-up landed) travels 1.85 m. A deflect is not eligible; the
+                              // bearing test still rejects a straight lunge / backstep)
 #define SM_DP_ANG_DEG 60      // DisplaceAngleDeg: turn around the boss (bearing change) from the use's start to the hit
 #define SM_DP_LIST_MIN_CM 100 // DisplaceListMinCm / DisplaceListAngleDeg: the same test for a DisplaceActs move (known to reposition: a short
 #define SM_DP_LIST_ANG_DEG 0  //   or point-blank step through the boss still counts; the bearing is noise that close to the boss's centre)
@@ -46,21 +48,26 @@
 #define SM_DP_GRACE_MS 1500   // no damage this long before the use (knockdown i-frames)
 #define SM_DP_TAIL_MS 800     // DisplaceTailMs: non-move runs this long after the displacement use still belong to it (a boss window that
                               // opens or closes during a cancel's transition runs is the displacement's)
+#define SM_DP_EVADE_LIST_MS 150  // human 2026-11-26: a plain dodge (i-frame run that is not a move, outside the displacement use) ends the
+                              // span / the candidate. After a DisplaceActs move only an i-frame run longer than this does (Swift Step
+                              // Heavy's cancel runs 10493 2096 1775 2066 .. have i-frames but last 1-8 frames each; a roll ~20 frames)
 #define SM_DP_ACTS 16
 // DisplaceActs defaults (human 2026-11-25 live test, Sword vs Demon of Pride): Swift Step Heavy = 25563 (0x63DB, the step, 117-250 ms,
 // 1.2-4.6 m, skill word 0xCCF6) -> 25564 (0x63DC, the slash, its hits ~850 ms in). Both are one use (same skill word, SmChainStep).
 #define SM_DP_DEFAULT_ACTS "25563,25564"
 enum { SM_DP_NONE = 0, SM_DP_AWARD = 1, SM_DP_MISS = 2 };
-enum { SM_DPM_DAMAGE = 1, SM_DPM_LATE = 2, SM_DPM_RUNS = 3, SM_DPM_MOTION = 4, SM_DPM_ANGLE = 5, SM_DPM_OFF = 6 };
+enum { SM_DPM_DAMAGE = 1, SM_DPM_LATE = 2, SM_DPM_RUNS = 3, SM_DPM_MOTION = 4, SM_DPM_ANGLE = 5, SM_DPM_OFF = 6, SM_DPM_EVADE = 7 };
 
 typedef struct { int on; float pts; int followMs, followRuns, minCm, angDeg, listMinCm, listAngDeg, threatCm, graceMs, tailMs; uint32_t acts[SM_DP_ACTS]; int nActs; } SmDispCfg;
 // move: this tick's run is a move (an attack window opened / a skill row / a guardian spirit / ninjutsu), not a transition run
-typedef struct { uint64_t run, use; uint32_t act; int elig, move; int plOk; float pl[2]; int win; int bossOk; float boss[2]; int took, hits, avoid; } SmDispIn;
+// ifr: the player has i-frames this tick (a dodge run that is not part of the displacement use ends it)
+typedef struct { uint64_t run, use; uint32_t act; int elig, move, ifr; int plOk; float pl[2]; int win; int bossOk; float boss[2]; int took, hits, avoid; } SmDispIn;
 // conv: this tick's avoid (not held) is a Counter! of a DisplaceActs move: the glue pays it as a Dodge! (Counter! is for parry skills)
 // asDodge: the released held Counter! was turned into a Dodge! (a displacement move that only missed the follow-up)
 typedef struct { uint32_t act; int why, runs, release, ate, replaced, conv, asDodge, listed; double ago; float moved, ang, dist0; } SmDispOut;
 typedef struct {
     uint64_t run, use; uint32_t act; int runOn; double lastDmg;
+    int evOn; uint64_t evRun; double evT0;    // the current run is an evade run (i-frames, not a move) since evT0
     double uT0; int uOn, uP0ok; float uP0[2], uB0[2]; int uMove;      // the use in progress: start, and whether it showed itself a move
     uint64_t sUse; uint32_t sAct; int sLive, sElig, sListed; double sT0, sLast;  // the span: a move and the transition runs after it
     int p0ok; float p0[2], b0[2], sMax;      // player / boss at the span start, farthest the player got from that start
@@ -155,6 +162,15 @@ static inline int SmDispStep(SmDisp* d, const SmDispCfg* c, double t, const SmDi
         d->uP0ok = in->plOk && in->bossOk; if (d->uP0ok) { d->uP0[0] = in->pl[0]; d->uP0[1] = in->pl[1]; d->uB0[0] = in->boss[0]; d->uB0[1] = in->boss[1]; }
     }
     const int mv = in->move || in->elig || in->hits > 0;
+    // human 2026-11-26: a plain dodge outside the displacement use (Takeda: martial art, then a roll through the grab, then an attack was
+    // paid as the martial art's Displacement with the roll's travel). The skill / attack itself must carry the player out: an evade run
+    // ends a span (its window is not the skill's) and a candidate that waits for its hit (the hit is the roll's).
+    if (in->ifr && !mv) { if (!d->evOn || d->evRun != in->run) { d->evOn = 1; d->evRun = in->run; d->evT0 = t; } } else d->evOn = 0;
+    if (d->evOn) {
+        const double ev = t - d->evT0;
+        if (d->sLive && in->use != d->sUse && ev >= (d->sListed ? (double)SM_DP_EVADE_LIST_MS : 0.0)) { d->sLive = 0; d->winSeen = d->pre = 0; }
+        if (d->pend && in->use != d->pUse && ev >= (d->pListed ? (double)SM_DP_EVADE_LIST_MS : 0.0)) return SmDispEnd(d, c, o, SM_DPM_EVADE, t);
+    }
     if (d->sLive && in->use == d->sUse) { d->sLast = t; d->sAct = in->act; }
     else if (mv && !d->uMove) {  // this use shows itself a move: it is the follow-up of a candidate, and the start of a new span
         d->uMove = 1;

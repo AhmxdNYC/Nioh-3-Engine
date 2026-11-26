@@ -268,9 +268,71 @@ static void ReplayKeptOut(void) {
     SmDispCfg p; SmDispCfgDefaults(&p); CHECK(SmDispParseActs(&p, "0x63DB, 25564,,7") == 3 && p.acts[0] == 25563 && p.acts[1] == 25564 && p.acts[2] == 7);
     CHECK(SmDispParseActs(&p, "") == 0);
 }
+// human 2026-11-26 Takeda log 01:18:17: martial art 25388 (skill row, hit), then LB 25500 (8 f) and a plain roll 25176 (i-frames) through
+// the boss's window (Dodge!), then X 25160 hits. Was paid as 25388's Displacement (3.70 m / 162 deg = the roll's travel). The roll ends
+// the span: no candidate, the Dodge! is the glue's as usual.
+static SmDispIn Roll(uint64_t run, uint32_t act, float px, float pz, int win, int avoid) { SmDispIn i = Tr(run, act, px, pz, win, avoid); i.ifr = 1; return i; }
+static void DodgeAfterSkill(void) {
+    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    Step(&d, &c, 0, In(1, 1, 25388, 1, 0, 250, 0, 0, 0), &o);          // martial art, 2.5 m from the boss, no boss window
+    Step(&d, &c, 300, In(1, 1, 25388, 1, 0, 250, 0, 1, 0), &o);
+    Step(&d, &c, 600, Tr(2, 25500, 0, 250, 0, 0), &o);                  // LB transition (no i-frames)
+    CHECK(Step(&d, &c, 700, Roll(3, 25176, 100, 220, 1, 0), &o) == SM_DP_NONE && !d.sLive);  // roll: the span ends, the window is not the skill's
+    Step(&d, &c, 800, Roll(3, 25176, 250, 0, 1, 0), &o);
+    CHECK(Step(&d, &c, 900, Roll(3, 25176, 250, -150, 0, SM_AV_DODGE), &o) == SM_DP_NONE && !o.ate && !d.pend);
+    Step(&d, &c, 1000, Wind(4, 25160, 250, -150, 0), &o);
+    CHECK(Step(&d, &c, 1300, In(4, 4, 25160, 0, 250, -150, 0, 1, 0), &o) == SM_DP_NONE);
+    // the old behaviour without i-frames on the roll (a real transition run): the same script still awards (the tail is kept for cancels)
+    SmDispReset(&d);
+    Step(&d, &c, 0, In(1, 1, 25388, 1, 0, 250, 0, 0, 0), &o); Step(&d, &c, 300, In(1, 1, 25388, 1, 0, 250, 0, 1, 0), &o); Step(&d, &c, 600, Tr(2, 25500, 0, 250, 0, 0), &o);
+    Step(&d, &c, 700, Tr(3, 25176, 100, 220, 1, 0), &o); Step(&d, &c, 800, Tr(3, 25176, 250, 0, 1, 0), &o);
+    Step(&d, &c, 900, Tr(3, 25176, 250, -150, 0, SM_AV_DODGE), &o); CHECK(d.pend);
+    Step(&d, &c, 1000, Wind(4, 25160, 250, -150, 0), &o);
+    CHECK(Step(&d, &c, 1300, In(4, 4, 25160, 0, 250, -150, 0, 1, 0), &o) == SM_DP_AWARD);
+    // a candidate the skill earned itself, then a roll before the follow-up hit: a miss (the roll carried the player), the avoid is paid
+    SmDispReset(&d);
+    Step(&d, &c, 0, In(1, 1, 25601, 1, 0, 300, 0, 0, 0), &o);
+    Step(&d, &c, 100, In(1, 1, 25601, 1, 100, 250, 1, 0, 0), &o);
+    Step(&d, &c, 200, In(1, 1, 25601, 1, 300, 0, 0, 0, SM_AV_COUNTER), &o); CHECK(d.pend && d.held == SM_AV_COUNTER);
+    CHECK(Step(&d, &c, 300, Roll(2, 25176, 300, -100, 0, 0), &o) == SM_DP_MISS && o.why == SM_DPM_EVADE && o.release && !d.pend);
+    // i-frames on the skill's own use (an evasive martial art) never end it
+    SmDispReset(&d);
+    Step(&d, &c, 0, In(1, 1, 25601, 1, 0, 300, 0, 0, 0), &o);
+    { SmDispIn i = In(1, 1, 25601, 1, 100, 250, 1, 0, 0); i.ifr = 1; i.move = 0; Step(&d, &c, 100, i, &o); }
+    { SmDispIn i = In(1, 1, 25601, 1, 300, 0, 0, 0, SM_AV_COUNTER); i.ifr = 1; Step(&d, &c, 200, i, &o); } CHECK(d.pend);
+    CHECK(Step(&d, &c, 400, In(1, 1, 25601, 1, 300, 0, 0, 1, 0), &o) == SM_DP_AWARD);
+}
+// A DisplaceActs move (Swift Step Heavy): its short cancel runs have i-frames and stay its tail; a long i-frame run (a roll) does not.
+static void ListedCancelIframes(void) {
+    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    Step(&d, &c, 0, In(1, 1, 25563, 1, 0, 200, 0, 0, 0), &o);
+    Step(&d, &c, 50, In(1, 1, 25563, 1, 0, 150, 0, 0, 0), &o);
+    Step(&d, &c, 100, Roll(2, 10493, 50, 100, 1, 0), &o);             // 2 cancel runs of 50 ms with i-frames, the window opens
+    Step(&d, &c, 150, Roll(3, 2066, 150, -50, 1, 0), &o); CHECK(d.sLive);
+    Step(&d, &c, 200, Roll(3, 2066, 150, -100, 0, SM_AV_COUNTER), &o); CHECK(d.pend && o.ate);
+    Step(&d, &c, 250, Wind(4, 25165, 150, -100, 0), &o);
+    CHECK(Step(&d, &c, 500, In(4, 4, 25165, 0, 150, -100, 0, 1, 0), &o) == SM_DP_AWARD && o.listed);
+    // a roll after the step (i-frames 200 ms): the span ends, the window is the roll's
+    SmDispReset(&d);
+    Step(&d, &c, 0, In(1, 1, 25563, 1, 0, 200, 0, 0, 0), &o);
+    Step(&d, &c, 100, Roll(2, 25176, 0, 200, 0, 0), &o); CHECK(d.sLive);
+    Step(&d, &c, 300, Roll(2, 25176, 100, 100, 1, 0), &o); CHECK(!d.sLive);
+}
+// human 2026-11-26 Ibaraki log 01:06:44 / 01:07:51: Fists defensive drop 25383 > 25384 (one use) 94-98 deg around the boss, farthest
+// 1.85 m, then Y 25398 lands: a displacement with DisplaceMinCm 150 (was 200).
+static void FistsDrop(void) {
+    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    CHECK(c.minCm == 150);
+    Step(&d, &c, 0, In(1, 1, 25383, 1, 0, 90, 0, 0, 0), &o);
+    Step(&d, &c, 100, In(1, 1, 25383, 1, 50, 80, 1, 0, 0), &o);
+    Step(&d, &c, 300, In(1, 1, 25384, 1, 95, 0, 1, 0, 0), &o);
+    Step(&d, &c, 400, In(1, 1, 25384, 1, 100, -10, 0, 0, 0), &o); CHECK(d.pend);   // farthest 1.42 m so far
+    Step(&d, &c, 500, Wind(2, 25398, 115, -55, 0), &o);
+    CHECK(Step(&d, &c, 650, In(2, 2, 25398, 1, 115, -55, 0, 1, 0), &o) == SM_DP_AWARD && o.moved > 175.f && o.moved < 195.f && o.ang > 90.f);
+}
 int main(void) {
     SameUse(); CancelFollow(); PlainRoll(); StraightLunge(); Misses(); PreHit(); Pay();
-    ReplayNoCancel(); ReplayCancel(); ReplayKeptOut();
+    ReplayNoCancel(); ReplayCancel(); ReplayKeptOut(); DodgeAfterSkill(); ListedCancelIframes(); FistsDrop();
     printf("style_displace_test: all %d checks passed\n", g_checks);
     return 0;
 }
