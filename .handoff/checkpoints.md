@@ -1536,3 +1536,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-26 12:12 pm EST | pc/1 session end | all code pushed (pc1/kbrepeat-138323 37434e99 EF D8DECD19 live PASS; pc1/loadhide-138303 7e55ed59 BR A1A9DE7D built, not live-tested) | half-done: loading-hide live check | next: after lead merges both + #138299 left stick into one RC, install, screenshot loading screen (soul core pop-up hidden) + gameplay (shown), TO-USER Done for #138301 | game folder = RC, no Nioh, lock free
 
 2026-11-26 12:27 pm EST | pc/1 #138367 combo 852f9eec live 4/4 PASS | proven live Main PC (RESULT #138392, proof #9463) | next: pc/0 decides ship of combo as 1.8.44 | D:/nioh3-wt/combo-138367
+2026-11-26 12:43 pm EST | regression-pc/0 | #138408 1.8.44 combo 852f9eec regression PASS (#138417) | proven offline | next: installer-pc RC rebuild from 852f9eec | D:/nioh3-wt/rg138408
