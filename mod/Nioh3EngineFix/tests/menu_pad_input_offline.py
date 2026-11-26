@@ -57,6 +57,7 @@ prelude = r'''
 #include <cstring>
 #include <initializer_list>
 #include "paddebug.h"
+#include "menurepeat.h"
 ULONGLONG g_fakeNow = 1000;
 #define GetTickCount64() g_fakeNow
 namespace padviz { template <class... A> void Feed(A...) {} }
@@ -69,6 +70,7 @@ struct Cfg {
     UINT vk = VK_F10; uint8_t dik = 0x44; char keyName[16] = "F10";
     uint32_t holdMask = XINPUT_GAMEPAD_START; int holdMs = 5000; int gesture = 1;
     int tapWindowMs = TAPWINDOW, tapGapMs = TAPGAP, swallowTaps = SWALLOW; uint8_t escDik = 0x01;  // shipped defaults (checked below)
+    int gmRepeat = 1, gmRepeatSpeed = 1;  // #137071 game menu hold-repeat (shipped: on, Normal)
 };
 Cfg g_cfg;
 volatile LONG g_disabled = 0;
@@ -101,6 +103,7 @@ void ResetAll() {
     g_virtLogged = 0; g_modalityLogged = 0; g_mlog[0] = 0; g_mlogLen = 0; g_mlogLines = 0;
     g_keyMsgEdge = 0; for (int i = 0; i < 16; ++i) { g_keyMsgAt[i] = 0; g_keySeenDownAt[i] = 0; }
     g_cfg = Cfg{};
+    for (auto& r : g_mrep) r = menurepeat::State{}; g_gameMenuOpen = 0; g_mrepLogged = 0;
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
 }
@@ -147,6 +150,33 @@ int main() {
     CHECK(PadNav(START) == 0 && PadNav(B_LT | B_RT) == 0);  // #44181 Start does nothing in the menu; triggers are not navigation
     CHECK(KeyNav(K_ENTER) == N_OK && KeyNav(K_NPENTER) == N_OK && KeyNav(K_ESC) == N_BACK && KeyNav(K_BACKSP) == N_BACK);
     CHECK(KeyNav(K_PAGEUP) == N_PAGEUP && KeyNav(K_PAGEDOWN) == N_PAGEDOWN && KeyNav(K_TOGGLE) == 0);
+
+    // ---- #137071 hold-repeat in the game's own menus (production PadFeed + menurepeat.h) ----
+    ResetAll();  // gameplay (no game menu): a held D-pad stays held for the game, never released
+    { bool allDown = true; for (ULONGLONG t = 1000; t < 3000; t += 8) allDown &= (Feed(t, DD).Gamepad.wButtons & DD) != 0; CHECK(allDown); }
+    ResetAll(); g_gameMenuOpen = 1;  // a game menu is open: held D-pad down gets released pulses after 400 ms, ~every 90 ms
+    { int edges = 0; bool prev = true, early = false;
+      for (ULONGLONG t = 1000; t < 2400; t += 8) {
+          const auto st = Feed(t, DD, 0, 0, 0, 0, 0, 0);
+          const bool down = (st.Gamepad.wButtons & DD) != 0;
+          if (!down && t < 1400) early = true;
+          if (down && !prev) ++edges;
+          prev = down;
+      }
+      CHECK(!early && edges >= 9 && edges <= 12);
+      CHECK(strstr(g_mlog, "game menu hold-repeat: first repeat") != nullptr); }
+    ResetAll(); g_gameMenuOpen = 1;  // LB repeats; left stick, LT, A and the right stick are never touched (#137566)
+    { bool stickRel = false, lbRel = false, ltRel = false, aRel = false, rsRel = false;
+      for (ULONGLONG t = 1000; t < 2400; t += 8) {
+          const auto st = Feed(t, A | LB, 0, -30000, 5000, 6000, 200, 0);
+          stickRel |= st.Gamepad.sThumbLY == 0; lbRel |= !(st.Gamepad.wButtons & LB); ltRel |= st.Gamepad.bLeftTrigger == 0;
+          aRel |= !(st.Gamepad.wButtons & A); rsRel |= st.Gamepad.sThumbRX != 5000 || st.Gamepad.sThumbRY != 6000;
+      }
+      CHECK(!stickRel && lbRel && !ltRel && !aRel && !rsRel); }
+    ResetAll(); g_gameMenuOpen = 1; g_cfg.gmRepeat = 0;  // row off: pass-through
+    { bool allDown = true; for (ULONGLONG t = 1000; t < 3000; t += 8) allDown &= (Feed(t, DD).Gamepad.wButtons & DD) != 0; CHECK(allDown); }
+    ResetAll(); g_gameMenuOpen = 1; g_open = 1;  // the mod menu is open: it owns the pad (blank), no repeat bookkeeping
+    { for (ULONGLONG t = 1000; t < 2000; t += 8) Feed(t, DD); CHECK(g_mrep[0].repeats == 0); }
 
     // ---- closed menu: the game sees the pad unchanged, no menu edges ----
     ResetAll();

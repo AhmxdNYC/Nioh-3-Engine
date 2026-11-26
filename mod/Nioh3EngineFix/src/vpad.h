@@ -28,6 +28,7 @@ struct StartInfo {
     // mod menu: get (set = 0) or set an item by its key; returns 0 ok, < 0 error; reply = one line (menu.cpp menu::Remote)
     int (*menuRemote)(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) = nullptr;
     int (*pauseReason)() = nullptr;  // menu::GamePauseReason (0 none, 1 game menu, 2 stopped, 3 loading)
+    int (*menuRepeatGate)() = nullptr;  // menu::GameMenuRepeatGate (bit0 gate, bit1 control-off)
     const wchar_t* pipeName = nullptr;  // tests only (default \\.\pipe\nioh3vpad)
     int (*hudIdsRemote)(const char* ids, char* reply, size_t n, unsigned timeoutMs) = nullptr;
 };
