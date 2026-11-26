@@ -631,6 +631,26 @@ void GameInputLogSafe(const uint8_t* keys) {
     }
 }
 
+// TASK #138323 (human #138321): held keyboard directions repeat in the game's own menus, like the pad (#137071). The game reads
+// the keyboard with GetDeviceState and moves its cursor once per key press (live 11-26: arrows and S held 2 s = 1 row). Same
+// gate, delay and rate as the pad (menurepeat::Step on the D-pad bits): arrows and W/A/S/D map to up/down/left/right, and a
+// repeat clears those keys for one short window so the game sees a fresh press. Off outside game menus and while the mod menu
+// is open; other keys (confirm, back, tabs) never repeat.
+menurepeat::State g_krep;  // keyboard read thread only
+volatile LONG g_krepLogged = 0;
+void KeyMenuRepeat(uint8_t* keys) {
+    struct K { uint8_t dik; uint32_t bit; };
+    static const K map[] = {{0xC8, menurepeat::kDUp}, {0x11, menurepeat::kDUp}, {0xD0, menurepeat::kDDown}, {0x1F, menurepeat::kDDown},
+                            {0xCB, menurepeat::kDLeft}, {0x1E, menurepeat::kDLeft}, {0xCD, menurepeat::kDRight}, {0x20, menurepeat::kDRight}};
+    uint32_t raw = 0;
+    for (const K& k : map) if (keys[k.dik] & 0x80) raw |= k.bit;
+    const bool act = g_cfg.gmRepeat && g_gameMenuOpen && !g_open;
+    const uint32_t rel = menurepeat::Step(g_krep, raw, act, Now(), g_cfg.gmRepeatSpeed);
+    if (!rel) return;
+    for (const K& k : map) if (rel & k.bit) keys[k.dik] = 0;
+    if (g_krep.repeats == 1 && !InterlockedExchange(&g_krepLogged, 1))
+        MLOG("game menu hold-repeat: first keyboard repeat (bits %06X, speed %s)", rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+}
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
     HRESULT hr = orig(self, cb, data);
@@ -641,6 +661,7 @@ HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
+        KeyMenuRepeat(static_cast<uint8_t*>(data));
         GameInputLogSafe(static_cast<uint8_t*>(data));
     }
     return hr;
