@@ -1537,3 +1537,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-26 12:27 pm EST | pc/1 #138367 combo 852f9eec live 4/4 PASS | proven live Main PC (RESULT #138392, proof #9463) | next: pc/0 decides ship of combo as 1.8.44 | D:/nioh3-wt/combo-138367
 2026-11-26 12:43 pm EST | regression-pc/0 | #138408 1.8.44 combo 852f9eec regression PASS (#138417) | proven offline | next: installer-pc RC rebuild from 852f9eec | D:/nioh3-wt/rg138408
+2026-11-26 1:00 pm EST | 1.8.44 RC rebuilt from 852f9eec (#138409) | proven offline: fresh 16/16, update sims 7/7 x2 | next: on regression PASS recheck public tag, publish D:/nioh3-re/rc-1844b-138409/out via release/publish_github.py, site deploy per latest-build recipe, live update check, TO-USER changelog | rc-1844b bd84ecc1
