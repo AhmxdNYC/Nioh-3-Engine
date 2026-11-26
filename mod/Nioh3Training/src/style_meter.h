@@ -12,7 +12,7 @@
 //           (game glue decides both signals; the rule here is only the priority: other skill -> counter, deflect -> deflect, else dodge)
 //   ki      a Ki pulse landed within cfg.kiHitMs of a landed hit     cfg.ki   (human #126744: a pulse after a whiff scores 0; kiHitMs 0 = no gate)
 //   startup (human 2026-11-26) a NEW use's points (and its martial art bonus) x SmStartupMult of the time from the move's start (all its
-//           chained segments) to its first landed hit: old ramp x1..x2 over 0.25..1 s, then 3 s x3, 4 s x4 .. (cap 5). Slow, risky moves earn more; unknown = x1.
+//           chained segments) to its first landed hit: 1 s x1.5, 2 s x2, 3 s x3 .. (cap 5). Slow, risky moves earn more; unknown = x1.
 //   counter (#126843) + cfg.counter once per use when the player had i-frames while an enemy hit window was open in the same action run
 //           (an invincible counter / attack through an attack), then landed the hit.
 //   skill   (#126850 soul core, #126854 ninjutsu) cfg.soul / cfg.nin, only in combat (a landed hit within cfg.combatMs): no out-of-fight farming.
@@ -74,7 +74,7 @@
 #define SM_STARTUP_MIN_F 15   // #126821: startups at or below this many 60 fps frames get no bonus
 #define SM_STARTUP_MAX_F 60   // ... at or above this the full bonus
 #define SM_STARTUP_PCT 100    // StartupBonusPct: % of the startup bonus (100 = the curve in SmStartupMult)
-#define SM_STARTUP_MAX_MULT 5 // StartupMaxMult: cap of the slow-move curve (human 2026-11-26: 2 s x2, 3 s x3, ..)
+#define SM_STARTUP_MAX_MULT 5 // StartupMaxMult: cap (human 2026-11-26: 1 s x1.5, 2 s x2, 3 s x3, ..)
 #define SM_COUNTER_PTS 30
 #define SM_NIN_PTS 20
 #define SM_SOUL_PTS 40
@@ -148,8 +148,8 @@ typedef struct {
     float kiPerfect;                      // #127075 extra points for a perfect Ki pulse (on top of ki)
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
-    int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling 
-    float startupMaxMult;  // human 2026-11-26: highest slow-move startup multiplier (5 = x5 at 5 s)
+    int startupMinF, startupMaxF, startupPct;  // #126821 startup scaling (startupMaxF: unused since 2026-11-26)
+    float startupMaxMult;  // human 2026-11-26: highest startup multiplier (5 = x5 at 5 s)
     float counter, nin, soul, style;      // #126843 / #126854 / #126850 bonus points
     float swap; int swapMs;               // #127057 weapon swap attack bonus / window
     int switchMs;                         // weapon switch: the last hit with the other weapon must be this recent
@@ -365,20 +365,21 @@ static inline float SmVariety(const SmState* s, const SmCfg* c, uint32_t act) {
     const float fl = (float)c->repeatFloorPct / 100.f;
     return f < fl ? fl : f;
 }
-// Startup multiplier: startupF = 60 fps frames from the start of the player's move (the use: every chained segment, wind-up / charge
-// included) to its first landed hit (< 0 = unknown -> 1). No move ids. The higher of two curves (human 2026-11-26: nothing earns less):
-//   #126821 (unchanged): x1 at <= startupMinF (15 f), linear up to x(1 + startupPct %) = x2 at >= startupMaxF (60 f, 1 s)
-//   slow moves:          2 s x2, then x(seconds): 3 s x3, 4 s x4, .. capped at startupMaxMult (5); bonus part x startupPct %
+// Startup multiplier (human 2026-11-26, replaces #126821's x1..x2 ramp over 15..60 f): startupF = 60 fps frames from the start of the
+// player's move (the use: every chained segment, wind-up / charge included) to its first landed hit (< 0 = unknown -> 1). No move ids.
+//   <= startupMinF (15 f, 0.25 s) x1;  1 s x1.5;  2 s x2;  then x(seconds): 3 s x3, 4 s x4, .. capped at startupMaxMult (5).
+// Linear between the points. startupPct scales the bonus part (100 = as above, 0 = off).
 static inline float SmStartupMult(const SmCfg* c, float startupF) {
     if (!(startupF >= 0.f) || c->startupPct <= 0) return 1.f;
-    float k = (startupF - (float)c->startupMinF) / (float)(c->startupMaxF - c->startupMinF);
-    k = k < 0.f ? 0.f : k > 1.f ? 1.f : k;
-    const float old = 1.f + k * (float)c->startupPct / 100.f;
-    float m = startupF / 60.f;  // seconds
+    const float mn = (float)c->startupMinF, sec = startupF / 60.f;
+    float m;
+    if (startupF <= mn) m = 1.f;
+    else if (startupF < 60.f) m = 1.f + 0.5f * (startupF - mn) / (60.f - mn);
+    else if (sec < 2.f) m = 1.5f + 0.5f * (sec - 1.f);
+    else m = sec;
     if (m > c->startupMaxMult) m = c->startupMaxMult;
     if (m < 1.f) m = 1.f;
-    const float slow = 1.f + (m - 1.f) * (float)c->startupPct / 100.f;
-    return slow > old ? slow : old;
+    return 1.f + (m - 1.f) * (float)c->startupPct / 100.f;
 }
 // One hit landed. act = the player's action id at the hit, run = a key of that action run (a new run of the same id = a new use).
 // startupF: that run's startup (frames, < 0 unknown); counter: 1 = the run had i-frames inside an enemy hit window (bonus once per use).
