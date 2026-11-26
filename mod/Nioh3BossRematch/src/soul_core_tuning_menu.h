@@ -67,7 +67,7 @@ bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore ||
 // TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot '<yokai name> | S / FS / T / TM' ('Core <item>' until the name is known, #137305)
 // (S = the game's own summon, FS = Fast summon (TASK #138484, human #138482), T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
 std::atomic<int> g_scOverlay{-1};
-bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 1) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
+bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 0) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
 const char* ScOverlayTag(uint32_t chr, bool formsOn) {
     if (!chr) return "?";
     const int c = bosslog::FormCoreCallGet(chr);
@@ -110,7 +110,7 @@ int ScOvSet(int w, int v) {
     return v;
 }
 void ScOvReset() { for (int w = 0; w < kScOvN; ++w) ScOvSet(w, kScOv[w].def); }
-void ScOvPageReset() { ScOvReset(); g_scOverlay.store(1); WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", L"1", IniPath()); }
+void ScOvPageReset() { ScOvReset(); g_scOverlay.store(0); WritePrivateProfileStringW(L"Menu", L"SoulCoreOverlay", L"0", IniPath()); }  // default off (user 2026-11-26)
 int ScOvStep(int w, int v, int dir) {
     const int k = kScOv[w].kind;
     if (k == 0) return dir > 0 ? 1 : dir < 0 ? 0 : !v;

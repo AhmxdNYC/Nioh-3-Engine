@@ -1144,6 +1144,20 @@
    ]
   },
   {
+   "rva": "0x4751848",
+   "kind": "global",
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 44 88 A9 F8 0C 00 00",
+   "offset": 0,
+   "anchor": "0xF203FF",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "mov rax, qword ptr [rip + 0x3831442] (MissionReplayMenu_Decide level sync write)",
+   "used_in": [
+    "rematch.cpp"
+   ]
+  },
+  {
    "rva": "0x4751860",
    "kind": "global",
    "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 08 80 B9 10 73 00 00 00 75 1B 8A",
