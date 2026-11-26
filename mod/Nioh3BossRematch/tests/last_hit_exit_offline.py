@@ -559,7 +559,7 @@ int main(){
   check(strstr(SctFooter(kItScOverlay),"SoulCoreOverlay")!=nullptr&&IsScEqItem(kItScOverlay));
   g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;check(!strcmp(ScOverlayTag(0x5129B,true),"T"));
   g_stubMoved=true;check(!strcmp(ScOverlayTag(0x5129B,true),"TM"));check(!strcmp(ScOverlayTag(0x5129B,false),"S"));
-  g_stubCall=SC_CALL_GAME;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));g_stubCall=SC_CALL_FAST_SUMMON;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));
+  g_stubCall=SC_CALL_GAME;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));g_stubCall=SC_CALL_FAST_SUMMON;check(!strcmp(ScOverlayTag(0x5129B,true),"FS"));check(!strcmp(ScOverlayTag(0x5129B,false),"FS"));
   check(!strcmp(ScOverlayTag(0,true),"?"));g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;ini.clear();}
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }

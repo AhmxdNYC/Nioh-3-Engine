@@ -6144,15 +6144,15 @@ int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
         char name[48];  // TASK #137305 (human #137303): the yokai's name from the game's tables; 'Core <id>' until it is known
         if (ScCoreName(items[y], name, sizeof name)) snprintf(lines[n], 64, "%s | %s", name, tag);
         else snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
-        colors[n] = tag[0] == 'S' ? th[0] : tag[1] && tag[0] != '?' ? th[2] : th[1];  // TASK #137543: '?' (not detected) white like #137000
+        colors[n] = (tag[0] == 'S' || tag[0] == 'F') ? th[0] : tag[1] && tag[0] != '?' ? th[2] : th[1];  // TASK #137543: '?' (not detected) white like #137000
         ++n;
     }
     return n;
 }
 // TASK #137007: the overlay look for the overlay thread: size %, x / y per-mille, opacity %, box, colors, font, then the panel COLORREF.
 void ScOverlayLook(int* v) { for (int w = 0; w < kScOvN; ++w) v[w] = ScOvGet(w); v[kScOvN] = (int)kScOvTheme[ScOvGet(kScOvColors)][3]; }
-// TASK #137007: F3 / F4 (UI worker, ~33 ms)
-void SoulCallKeyTick(bool f3, bool f4) { if (f3) ScCallKey(0); if (f4) ScCallKey(1); }
+// TASK #137007: F3 / F4 (UI worker, ~33 ms); TASK #138484: Shift+F3 / Shift+F4
+void SoulCallKeyTick(bool f3, bool f4, bool shift) { if (f3) ScCallKey(0, shift); if (f4) ScCallKey(1, shift); }  // TASK #138484: Shift = Fast summon on / off
 #endif
 bool Toast(char* buf, size_t n, uint32_t& color) {
     bool on = false;

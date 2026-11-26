@@ -64,13 +64,14 @@ void SctValueText(int w, double v, char* b, size_t n) {
 #include "../../Nioh3Training/src/soul_core_swap.h"
 constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301, kItScOverlay = 0xE0302;
 bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore || item == kItScOverlay; }
-// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot '<yokai name> | S / T / TM' ('Core <item>' until the name is known, #137305)
-// (S = the game's own summon or Fast summon, T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
+// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot '<yokai name> | S / FS / T / TM' ('Core <item>' until the name is known, #137305)
+// (S = the game's own summon, FS = Fast summon (TASK #138484, human #138482), T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
 std::atomic<int> g_scOverlay{-1};
 bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 1) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
 const char* ScOverlayTag(uint32_t chr, bool formsOn) {
     if (!chr) return "?";
     const int c = bosslog::FormCoreCallGet(chr);
+    if (c == SC_CALL_FAST_SUMMON) return "FS";  // TASK #138484: Fast summon runs on the game's summon path, forms ON or OFF
     if (!formsOn || sc_call_game_path(c)) return "S";
     return bosslog::FormCoreMoved(chr) ? "TM" : "T";
 }
@@ -201,7 +202,7 @@ bool ScOvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32
     return true;
 }
 const char* ScOvFooter(int item) {
-    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 flip Yang 1 / Yang 2 between summon and Transform.";
+    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 flip Yang 1 / Yang 2 between summon and Transform, Shift+F3 / Shift+F4 between Summon and Fast summon.";
     if (item >= kItScOvBase && item < kItScOvBase + kScOvN) return kScOv[item - kItScOvBase].foot;
     return nullptr;
 }
@@ -234,7 +235,9 @@ void ScKeySummonPut(uint32_t id, int kind) {
         if (ids[i] != id) { len += swprintf(b + len, 1024 - len, L",%X:%d", ids[i], kinds[i]); ++kept; }
     WritePrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", b, IniPath());
 }
-void ScCallKey(int y) {
+// TASK #138484 (human #138482): Shift+F3 / Shift+F4 = Fast summon on / off for Yang 1 / 2: Fast summon -> Summon (the game's own), anything
+// else (Summon or Transform) -> Fast summon. The new summon kind is also what F3 / F4 return to from Transform ([Spirit] FormCoreSummonKinds).
+void ScCallKey(int y, bool fast = false) {
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
     const uint16_t item = ScSlotItem(y);
@@ -247,11 +250,12 @@ void ScCallKey(int y) {
     const uint32_t id = chr[y];
     const int cur = bosslog::FormCoreCallGet(id);
     int want;
-    if (sc_call_forms(cur)) { int kind = SC_CALL_GAME; ScKeySummonGet(id, &kind); want = kind; }
+    if (fast) { want = cur == SC_CALL_FAST_SUMMON ? SC_CALL_GAME : SC_CALL_FAST_SUMMON; ScKeySummonPut(id, want); }
+    else if (sc_call_forms(cur)) { int kind = SC_CALL_GAME; ScKeySummonGet(id, &kind); want = kind; }
     else { ScKeySummonPut(id, cur); want = SC_CALL_TRANSFORM; }
     const int now = bosslog::FormCoreCallSet(id, want);
     const bool forms = bosslog::SoulCoreForms(nullptr);
-    Log("Rematch: F%d Yang %d core %X (item %X): %s -> %s (TASK #137007)", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
+    Log("Rematch: %sF%d Yang %d core %X (item %X): %s -> %s (TASK #137007/#138484)", fast ? "Shift+" : "", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
     const char* what = sc_call_forms(now) ? "Transform" : now == SC_CALL_FAST_SUMMON ? "Fast summon" : "Summon";
     if (sc_call_forms(now) && !forms) ToastF(cYellow, 4000, "Yang %d core %X: Transform (saved), but Soul core transformations is OFF in the menu.", y + 1, item);
     else if (now == want) ToastF(sc_call_forms(now) ? cGreen : cWhite, 3000, "Yang %d core %X: %s from the next use.", y + 1, item, what);
