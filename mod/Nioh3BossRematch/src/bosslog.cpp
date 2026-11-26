@@ -7177,10 +7177,12 @@ void FastSummonTraceTick() {
 // idle 1, so the chain held no hit). Each yokai chr gets its own phase from its own action file: sc_fast_chr_phase (soul_core_api.h).
 // Reads: its action file once (SealDataHits, SEH-guarded, the trace run read it on the spawn tick 3/3 with no stall), its live action id per
 // tick (SieRead) and its attack colliders (pool 45C6F38, the SealHitAtkOnly rule). Logs 'FastSummon phase chr'.
-constexpr int kFastStartMinMs = 200, kFastStartCapMs2 = 4000;
+constexpr int kFastStartMinMs = 200, kFastStartRunCapMs = 2000;  // TASK #137872: START only in the first 2 s after the spawn pose starts running (pose ~0.52 s at x1.44)
+constexpr float kFastStartLeadF = 2.f; constexpr int kFastStartHoldMs = 100;  // TASK #137872: stalled 100+ ms = not moving
+// TASK #137872: the spawn counter must be 2+ frames past its spawn value
 void FastSummonPhaseTick() {
     struct St { uint64_t chr = 0; double t0 = 0; bool read = false, ok = false, everHit = false; uint32_t spawnAct = 0xFFFFFFFF; int ph = SC_FAST_PH_ATTACK;
-                int nk = 0; uint16_t id[64]; uint8_t kind[64]; };
+                int nk = 0; uint16_t id[64]; uint8_t kind[64]; float f0 = 0, fp = 0; double advT = -1, runT = -1; bool stallLogged = false, movedLogged = false; };  // TASK #137872 spawn counter
     static St c[kFastMax];
     const int n = g_fastN.load();
     const double now = Now(), press = g_pickT.load();
@@ -7223,7 +7225,7 @@ void FastSummonPhaseTick() {
             char d[320]; const int h = SealDataHits(x.chr, core, d, sizeof d);
             x.ok = (h >= 0 || g_sdhLastReadOk) && g_sdhKindN > 0;
             if (x.ok) { x.nk = g_sdhKindN; memcpy(x.id, g_sdhKindId, sizeof x.id); memcpy(x.kind, g_sdhKind, sizeof x.kind); }
-            x.spawnAct = s.act;
+            x.spawnAct = s.act; x.f0 = x.fp = s.f;  // TASK #137872: the counter value it spawned at
             char ks[200]; int o = 0; ks[0] = 0;
             for (int k = 0; k < x.nk && o < 190; ++k) o += snprintf(ks + o, sizeof ks - o, " %X:%s", x.id[k], x.kind[k] == SC_FAST_ACT_HIT ? "hit" : "-");
             Log("FastSummon phase chr %llX core %X: file %s (%d actions:%s), spawn action %X +%d ms", (unsigned long long)x.chr, core, x.ok ? "read" : "unreadable",
@@ -7234,7 +7236,21 @@ void FastSummonPhaseTick() {
             for (int k = 0; k < x.nk; ++k) if (x.id[k] == (uint16_t)s.act) { kind = x.kind[k]; break; }
         if (kind == SC_FAST_ACT_HIT) x.everHit = true;
         const int age = (int)((now - x.t0) * 1000.0);
-        const int np = sc_fast_chr_phase(x.ok, kind, s.act == x.spawnAct, x.everHit, cnt[i] > 0, age, kFastStartMinMs, kFastStartCapMs2, startMul, endMul);
+        // TASK #137872: startup speed only while the spawn action's own frame counter runs (attached and playing), never during its attach hold.
+        const bool inSpawn = s.act == x.spawnAct;
+        if (inSpawn && s.f > x.fp + 0.05f) { x.advT = now; if (x.runT < 0 && s.f >= x.f0 + kFastStartLeadF) x.runT = now; }  // the counter stepped
+        const bool moving = inSpawn && sc_fast_spawn_moving(x.f0, s.f, x.advT < 0 ? -1 : (int)((now - x.advT) * 1000.0), kFastStartLeadF, kFastStartHoldMs);
+        if (inSpawn && startMul > 1.f && x.ok && kind == SC_FAST_ACT_NOHIT && !x.everHit) {
+            if (!moving && !x.movedLogged && !x.stallLogged && age >= kFastStartMinMs) { x.stallLogged = true;
+                Log("FastSummon phase chr %llX core %X: spawn act %X counter held at f%.1f (spawned at f%.1f) %d ms old: startup waits t=%.3f", (unsigned long long)x.chr, core, s.act, s.f, x.f0, age, now); }
+            if (moving && !x.movedLogged) { x.movedLogged = true;
+                Log("FastSummon phase chr %llX core %X: spawn act %X counter runs f%.1f (spawned at f%.1f) %d ms old t=%.3f", (unsigned long long)x.chr, core, s.act, s.f, x.f0, age, now); }
+        }
+        if (inSpawn) x.fp = s.f;
+        // TASK #137872 run 4: the game's own hold at f1.4 ran 8.9-35 s with no rate change, so the startup cap counts from the pose start, not the spawn.
+        const int runAge = x.runT < 0 ? 0 : (int)((now - x.runT) * 1000.0);
+        const int np = sc_fast_chr_phase(x.ok, kind, moving, x.everHit, cnt[i] > 0, age >= kFastStartMinMs ? runAge + kFastStartMinMs : 0,
+                                         kFastStartMinMs, kFastStartMinMs + kFastStartRunCapMs, startMul, endMul);
         if (np != x.ph) {
             Log("FastSummon phase chr %llX core %X %s->%s in act %X (%s) f=%.1f, %d colliders, %d ms old, +%d ms after the press, rate x%.2f t=%.3f",
                 (unsigned long long)x.chr, core, sc_fast_phase_name(x.ph), sc_fast_phase_name(np), s.act,
