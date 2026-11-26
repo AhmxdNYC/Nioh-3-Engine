@@ -25,6 +25,7 @@ static int ai_on=1;
 static const uint8_t* GameState(void){return gs;} static uint64_t PlayerChar(void){return 9;}
 static int MsRead(uint32_t*m,uint8_t*j,uint32_t*o){*m=mission;*j=0;*o=0;return 1;}
 static int ActorInTable(uint64_t a){return a==actor&&!removed;}
+static uint64_t ActorByHandle(uint32_t h){return h==44?actor:0;}
 static uint64_t FindWrapper(uint32_t h){return h==44?(uint64_t)wrapper:0;}
 static int Rd64(uint64_t a,uint64_t*out){*out=*(uint64_t*)a;return 1;}
 static uint64_t NativeEntryActor(uint32_t h,uint32_t c){return h==44&&c&&c==record[1]?actor:0;}

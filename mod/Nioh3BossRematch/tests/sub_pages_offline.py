@@ -82,7 +82,7 @@ for page, label, title, foot in pages:
     check(len(foot) > 20 and title, "%s needs a title and a footer" % page)
 
 # 5. Moved rows keep their ids and helpers (behaviour, ini keys and defaults unchanged).
-check("for (int i = 0; i < n; ++i) add(kItStyBase + i);" in ps, "style rows: same ids kItStyBase + i")
+check("for (int i = 0; i < n; ++i) { if (i == show) continue; add(kItStyBase + i); if (i == 0 && show < n) add(kItStyBase + show); }" in ps, "style rows: same ids kItStyBase + i (Show style meter row 25 right after row 0, Zack7214 1.8.43)")
 check("add(kItPstBase + PS_PLAYER_INF_KI)" in ps and "PS_PLAYER_SPEED" in ps, "player stat rows: same PS_* ids")
 for row in ("add(kItScForms);", "SctAddCoreRows(add);", "ScEqAddRows(add);", "SctAddHubRow(add);"):
     check(row in sp, "Soul cores page lost %s" % row)
