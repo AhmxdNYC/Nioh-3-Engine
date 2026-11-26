@@ -177,10 +177,10 @@ static void Tuning(void) {
 static void Startup(void) {
     SmCfg c; RealDefaults(&c);
     CHECK(near(SmStartupMult(&c, -1.f), 1.f) && near(SmStartupMult(&c, 5.f), 1.f) && near(SmStartupMult(&c, 15.f), 1.f));
-    // human 2026-11-26: time to land; 1 s x1.5, 2 s x2, 3 s x3, .. cap x5
-    CHECK(near(SmStartupMult(&c, 37.5f), 1.25f) && near(SmStartupMult(&c, 60.f), 1.5f) && near(SmStartupMult(&c, 90.f), 1.75f) && near(SmStartupMult(&c, 120.f), 2.f));
+    // old ramp unchanged up to 1 s; human 2026-11-26 slow moves: 2 s x2, 3 s x3, .. cap x5 (the higher of the two)
+    CHECK(near(SmStartupMult(&c, 37.5f), 1.5f) && near(SmStartupMult(&c, 60.f), 2.f) && near(SmStartupMult(&c, 90.f), 2.f) && near(SmStartupMult(&c, 120.f), 2.f));
     CHECK(near(SmStartupMult(&c, 150.f), 2.5f) && near(SmStartupMult(&c, 180.f), 3.f) && near(SmStartupMult(&c, 240.f), 4.f) && near(SmStartupMult(&c, 300.f), 5.f) && near(SmStartupMult(&c, 900.f), 5.f));
-    { SmCfg h = c; h.startupPct = 50; CHECK(near(SmStartupMult(&h, 180.f), 2.f)); h.startupMaxMult = 0.f; SmCfgClamp(&h); CHECK(near(h.startupMaxMult, 1.f) && near(SmStartupMult(&h, 180.f), 1.f)); }
+    { SmCfg h = c; h.startupPct = 50; CHECK(near(SmStartupMult(&h, 180.f), 2.f)); h.startupMaxMult = 0.f; SmCfgClamp(&h); CHECK(near(h.startupMaxMult, 1.f) && near(SmStartupMult(&h, 180.f), 1.5f)); }
     SmState s; SmReset(&s);
     CHECK(near(SmOnHitEx(&s, &c, 0, 5, 1, 120.f, 0), 2.f * c.hit));           // 2 s to land: double
     CHECK(near(SmOnHitEx(&s, &c, 10, 5, 1, 120.f, 0), 2.f * c.hit * c.multiPct / 100.f));    // second hit of the same use: multi-hit share of it
