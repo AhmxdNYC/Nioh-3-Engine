@@ -44,6 +44,8 @@ inline constexpr Entry kEntries[] = {
     {"Menu", "PauseHint", "2"},
     {"Menu", "PauseHintSource", "Both"},
     {"Menu", "KeyTripleTap", "Escape"},
+    {"Menu", "GameMenuRepeat", "1"},
+    {"Menu", "GameMenuRepeatSpeed", "Normal"},
     {"Menu", "PauseHintFlags", "58B 58C"},
     {"Menu", "FrameGenToggle", "0"},
     {"Patches", "MW", "0"},

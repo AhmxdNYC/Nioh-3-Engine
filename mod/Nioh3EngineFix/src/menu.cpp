@@ -50,6 +50,7 @@
 #include "reportsend.h"
 #include "crashupload.h"
 #include "menu_style.h"
+#include "menurepeat.h"
 #include "pad_family.h"
 #include "padcard.h"
 #include "btnstyle_migrate.h"
@@ -121,6 +122,8 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / stick / bumpers / triggers repeat in the game's own menus (#137069)
+    int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
 Cfg g_cfg;
@@ -210,6 +213,9 @@ struct PadSlot {
     uint32_t modalSnap = 0;       // UO #14: bits held when the input modality switched to keyboard; inert for the menu until released
 };
 PadSlot g_pad[4];
+menurepeat::State g_mrep[4];       // #137071 hold-to-repeat in game menus (pad input thread only)
+volatile LONG g_gameMenuOpen = 0;  // PauseDetect (Present thread): a game menu is open (menu signal or pause stop flags)
+volatile LONG g_mrepLogged = 0;
 // UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
 // hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
 // scripted pad or keys (they ride on the game's reads; vpad.cpp InputVirtual tells which read carried them). They still drive
@@ -423,6 +429,20 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil) { mk = (WORD)g_gameMask; s.maskHeld = (WORD)(g.wButtons & mk); }
         else { s.maskHeld = (WORD)(s.maskHeld & g.wButtons); mk = s.maskHeld; }
         if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; dbgBlock |= paddebug::kMaskLease; }
+    }
+    {   // #137071: hold-to-repeat in the game's own menus (menurepeat.h); never while the mod menu or a latch owns the pad
+        const bool act = g_cfg.gmRepeat && g_gameMenuOpen && !g_open && !s.latch;
+        const uint32_t rel = menurepeat::Step(g_mrep[idx], raw, act, t, g_cfg.gmRepeatSpeed);
+        if (rel) {
+            g.wButtons &= (WORD)~(rel & 0xFFFFu);
+            if (rel & menurepeat::kLT) g.bLeftTrigger = 0;
+            if (rel & menurepeat::kRT) g.bRightTrigger = 0;
+            if (rel & (menurepeat::kSU | menurepeat::kSD)) g.sThumbLY = 0;
+            if (rel & (menurepeat::kSL | menurepeat::kSR)) g.sThumbLX = 0;
+            st->dwPacketNumber += 0x40000000u;
+            if (g_mrep[idx].repeats == 1 && !InterlockedExchange(&g_mrepLogged, 1))
+                MLOG("game menu hold-repeat: first repeat (pad %lu, bits %06X, speed %s)", idx, rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
     }
     bool blank = g_open != 0;
     if (blank) dbgBlock |= paddebug::kMenuOpen;
@@ -1334,7 +1354,11 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 // #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
 bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
 // #121260: the held attack fix row also lives on Settings > Game in layout 0, where the General catalog page is not reachable
-bool IsGameFixKey(const char* section, const char* key) { return section && key && strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0; }
+bool IsGameFixKey(const char* section, const char* key) {
+    if (!section || !key) return false;
+    if (!strcmp(section, "Menu")) return !strcmp(key, "GameMenuRepeat") || !strcmp(key, "GameMenuRepeatSpeed");  // #137071
+    return strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0;
+}
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
@@ -2153,6 +2177,12 @@ void ApplyConfigValue(int index) {
             const int on = atoi(v.c_str()) ? 1 : 0;
             hudhide::g_elemOn[hudhide::ElemIndex(d.key)] = on;
             snprintf(g_configReply, sizeof(g_configReply), (hudhide::g_idsBad || !hudhide::ElementAvailable(hudhide::ElemIndex(d.key))) ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
+        } else if (!strcmp(d.key, "GameMenuRepeat")) {  // #137071
+            g_cfg.gmRepeat = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), g_cfg.gmRepeat ? "Held buttons repeat in game menus now. Save to keep it." : "Game menu hold-repeat off. Save to keep it.");
+        } else if (!strcmp(d.key, "GameMenuRepeatSpeed")) {
+            g_cfg.gmRepeatSpeed = !_stricmp(v.c_str(), "Slow") ? 0 : !_stricmp(v.c_str(), "Fast") ? 2 : 1;
+            snprintf(g_configReply, sizeof(g_configReply), "Game menu repeat speed %s applies now. Save to keep it.", menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -3008,6 +3038,7 @@ void PauseDetect(ULONGLONG t) {
     }
     g_menuShown = (g_menuSince && t - g_menuSince >= 120) || (g_menuShown && t - g_menuLastOpen < 150);
     g_pauseReason = g_menuShown ? 1 : g_stopPaused ? 2 : (haveFlags && (flags & 0x04)) ? 3 : 0;
+    g_gameMenuOpen = (g_menuShown || g_stopPaused) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
     const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
@@ -4465,6 +4496,9 @@ void Configure(const Host& h) {
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
     g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 2, f);
     g_cfg.freezeGame = GetPrivateProfileIntW(L"Menu", L"FreezeGame", 1, f) != 0;
+    g_cfg.gmRepeat = GetPrivateProfileIntW(L"Menu", L"GameMenuRepeat", 1, f) ? 1 : 0;  // #137071
+    GetPrivateProfileStringW(L"Menu", L"GameMenuRepeatSpeed", L"Normal", b, 96, f);
+    g_cfg.gmRepeatSpeed = !_wcsicmp(b, L"Slow") ? 0 : !_wcsicmp(b, L"Fast") ? 2 : 1;
     GetPrivateProfileStringW(L"Menu", L"PauseHintSource", L"Both", b, 96, f);
     g_cfg.pauseSrc = !_wcsicmp(b, L"Menu") ? 0 : !_wcsicmp(b, L"StopFlags") ? 1 : 2;
     GetPrivateProfileStringW(L"Menu", L"KeyTripleTap", L"Escape", b, 96, f);
