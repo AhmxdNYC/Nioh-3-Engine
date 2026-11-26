@@ -82,7 +82,7 @@ const ScOvRow kScOv[kScOvN] = {
     {"Overlay size:", L"SoulCoreOverlaySize", 130, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size; default 130%. Applies at once. Saved."},
     {"Overlay left/right:", L"SoulCoreOverlayX", 15, 4, 0, 1000, {}, "Where the overlay sits across the screen (its left edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},
     {"Overlay up/down:", L"SoulCoreOverlayY", 970, 4, 0, 1000, {}, "Where the overlay sits down the screen (its bottom edge): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
-    {"Overlay opacity:", L"SoulCoreOverlayOpacity", 90, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole overlay is. 100% = solid. Applies at once. Saved."},
+    {"Overlay opacity:", L"SoulCoreOverlayOpacity", 92, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 92, 100, -1}, "How see-through the whole overlay is. 100% = solid; default 92%. Applies at once. Saved."},
     {"Overlay background:", L"SoulCoreOverlayBox", 1, 0, 0, 1, {}, "ON = text on a dark panel. OFF = outlined text only, nothing behind it (like the style meter). Applies at once. Saved."},
     {"Overlay colors:", L"SoulCoreOverlayColors", 0, 5, 0, 2, {}, "Menu = the mod menu's white / green / gray. Style meter = the style meter's purple. Gold = warm gold. S lines are dimmer, TM lines brightest. Applies at once. Saved."},
     {"Overlay font:", L"SoulCoreOverlayFont", 0, 5, 0, 2, {}, "Letter style: Normal (the menu's), Wide (more space between letters) or Bold (heavier strokes). Applies at once. Saved."},
@@ -205,7 +205,33 @@ const char* ScOvFooter(int item) {
 }
 // TASK #137007 (human #137004): F3 / F4 flip the core in Yang slot 1 / 2 between summon and Transform. Transform never picks 'moves':
 // the detection decides (TASK #136987). Going back to summon restores the summon kind the core had (the game's own or Fast summon).
-uint32_t g_scKeyId[16]; int g_scKeySummon[16]; int g_scKeyN = 0;
+// TASK #137543 (regression #137316 gap 5): the summon kind is kept per core in [Spirit] FormCoreSummonKinds ("<core hex>:<kind>,..."), so a
+// restart still returns a Fast summon core to Fast summon. Newest entry first, at most 32 cores.
+constexpr int kScKeyMax = 32;
+int ScKeySummonRead(uint32_t* ids, int* kinds) {
+    wchar_t b[1024] = {}; GetPrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", L"", b, 1024, IniPath());
+    int n = 0;
+    for (wchar_t* p = b; *p && n < kScKeyMax;) {
+        wchar_t* e = nullptr; const unsigned long id = wcstoul(p, &e, 16);
+        if (e == p || *e != L':') break;
+        const long k = wcstol(e + 1, &p, 10);
+        if (id && !sc_call_forms((int)k)) { ids[n] = (uint32_t)id; kinds[n] = (int)k; ++n; }
+        while (*p == L',' || *p == L' ') ++p;
+    }
+    return n;
+}
+bool ScKeySummonGet(uint32_t id, int* kind) {
+    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
+    for (int i = 0; i < n; ++i) if (ids[i] == id) { *kind = kinds[i]; return true; }
+    return false;
+}
+void ScKeySummonPut(uint32_t id, int kind) {
+    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
+    wchar_t b[1024]; int len = swprintf(b, 1024, L"%X:%d", id, kind);
+    for (int i = 0, kept = 1; i < n && kept < kScKeyMax && len > 0 && len < 1000; ++i)
+        if (ids[i] != id) { len += swprintf(b + len, 1024 - len, L",%X:%d", ids[i], kinds[i]); ++kept; }
+    WritePrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", b, IniPath());
+}
 void ScCallKey(int y) {
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
@@ -218,14 +244,9 @@ void ScCallKey(int y) {
     }
     const uint32_t id = chr[y];
     const int cur = bosslog::FormCoreCallGet(id);
-    int k = 0; while (k < g_scKeyN && g_scKeyId[k] != id) ++k;
     int want;
-    if (sc_call_forms(cur)) want = k < g_scKeyN ? g_scKeySummon[k] : SC_CALL_GAME;
-    else {
-        if (k == g_scKeyN && g_scKeyN < 16) ++g_scKeyN;
-        if (k < 16) { g_scKeyId[k] = id; g_scKeySummon[k] = cur; }
-        want = SC_CALL_TRANSFORM;
-    }
+    if (sc_call_forms(cur)) { int kind = SC_CALL_GAME; ScKeySummonGet(id, &kind); want = kind; }
+    else { ScKeySummonPut(id, cur); want = SC_CALL_TRANSFORM; }
     const int now = bosslog::FormCoreCallSet(id, want);
     const bool forms = bosslog::SoulCoreForms(nullptr);
     Log("Rematch: F%d Yang %d core %X (item %X): %s -> %s (TASK #137007)", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
