@@ -109,9 +109,8 @@ int main(){
  press(1);PickLearn(0x5B402);check(ScOn()&&FormCoreTransforms(0x5B402)&&!FormCoreTransforms(0x5129B));
  check(FormCoreSeen(ids,dirs,10)==3&&ids[0]==0x5B402&&ids[1]==0x5129B);
  SctChange(kItScCore+1,1);check(FormCoreTransforms(0x5129B));
- SctChange(kItScCore+1,0);check(FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);  // TASK #136197: A = next call
- check(row(1).find("Transform moveable")!=std::string::npos&&ini[L"FormCoreCalls"].find(L"5129B:2")!=std::wstring::npos);
- // TASK #136502: A after Transform moveable = Fast summon: an OFF core (game's own summon) with call 3, saved in both keys
+ check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM&&row(1).find("moveable")==std::string::npos);  // TASK #136987: no Transform moveable choice
+ // TASK #136502 / #136987: A after Transform = Fast summon: an OFF core (game's own summon) with call 3, saved in both keys
  SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON&&ini[L"FormCoresOff"].find(L"5129B")!=std::wstring::npos&&ini[L"FormCoreCalls"].find(L"5129B:3")!=std::wstring::npos);
  check(row(1).find("Fast summon")!=std::string::npos);
  press(2);check(!ScOn()&&FastPress());clockNow+=11;press(1);press(2);check(FastPress());  // a Fast summon press: vanilla gates + the fast flag
@@ -122,12 +121,13 @@ int main(){
  SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);
  press(2);check(!ScOn()&&!FastPress());  // Game's own: no fast flag
  SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON);
- SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM_MOVE);SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM);
+ SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM&&FormCoreTransforms(0x5129B));
  check(FormCoreCallSet(0x5129B,SC_CALL_GAME)==SC_CALL_GAME&&!FormCoreTransforms(0x5129B));
  // same path for any id; reload keeps the calls; an unknown call is refused
- check(FormCoreCallSet(0xABCDE,SC_CALL_TRANSFORM_MOVE)==SC_CALL_TRANSFORM_MOVE&&FormCoreCallSet(0xABCDE,9)==SC_CALL_TRANSFORM_MOVE);
- CoreCallLoad();check(FormCoreCallGet(0xABCDE)==SC_CALL_TRANSFORM_MOVE&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);
- g_formSteer=1;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM_MOVE);g_formSteer=0;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);
+ check(FormCoreCallSet(0xABCDE,SC_CALL_TRANSFORM_MOVE)==SC_CALL_TRANSFORM&&FormCoreCallSet(0xABCDE,9)==SC_CALL_TRANSFORM);  // TASK #136987: 2 = Transform
+ check(ini[L"FormCoreCalls"].find(L"ABCDE:1")!=std::wstring::npos&&ini[L"FormCoreCalls"].find(L":2")==std::wstring::npos);
+ ini[L"FormCoreCalls"]=L"ABCDE:2";CoreCallLoad();check(FormCoreCallGet(0xABCDE)==SC_CALL_TRANSFORM&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);  // an old saved 2 loads as Transform
+ g_formSteer=1;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);g_formSteer=0;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);
  FormCoreCallSet(0xABCDE,-1);
  // Cached last-session directions never masquerade as equipped/current-session cores.
  reset(false);check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0&&ids[1]==0);

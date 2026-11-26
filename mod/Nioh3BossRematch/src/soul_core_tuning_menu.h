@@ -378,7 +378,7 @@ bool SctChange(int item, int dir) {
         const int v = bosslog::FormCoreCallSet(id, sc_call_step(cur, dir < 0 ? -1 : 1));
         Log("Rematch: menu soul core %X call -> %s (TASK #136197)", id, sc_call_name(v));
         snprintf(g_msg, sizeof g_msg, "Core %X: %s from the next use. Saved.", id,
-                 v == SC_CALL_TRANSFORM_MOVE ? "transform, moveable (left stick steers after the attack)" : v == SC_CALL_TRANSFORM ? "transform (stick locked)"
+                 sc_call_forms(v) ? "transform (moves if the yokai can move, detected)"  // TASK #136987
                  : v == SC_CALL_FAST_SUMMON ? "fast summon (the game's own summon, sped up)" : "the game's own summon");  // TASK #136502
         return true;
     }
@@ -467,7 +467,7 @@ const char* SctFooter(int item) {
         : TrainingExport("Nioh3Training_SoulCoreCatalog")
             ? "Left / Right: every soul core in the game, including ones this save does not own. A: equip it into the slot above. One you do not own is added with the game's own item add, then equipped the same way as one you own. Live."
             : "Left / Right: pick an owned core. A: equip it into the slot above, like at a shrine (the game's own check; the d-pad shortcut follows). Live.";  // human #129277, #136123
-    if (IsScCoreItem(item)) return "Each core: Game's own / Transform (stick locked) / Transform moveable (left stick steers once the attack is over) / Fast summon (the game's own summon, faster toss and yokai; the game ends it). [Spirit] FormCoreCalls. Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
+    if (IsScCoreItem(item)) return "Each core: Game's own / Transform (the left stick steers only if that yokai moves, detected; still cores stay locked) / Fast summon (the game's own summon, faster toss and yokai; the game ends it). [Spirit] FormCoreCalls. Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;
@@ -491,7 +491,7 @@ const char* SctFooter(int item) {
     case 17: return "A core whose last hit is a projectile / helper: the form ends this long after that hit starts, the projectile stays visible. OFF = wait for the yokai. 50 ms steps, 0-5000. [Spirit] SealExitOnHelperMs. Live, saved.";
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
     case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
-    case 20: return "Every Transform moveable soul core: how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
+    case 20: return "Every soul core yokai that moves (detected): how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
     case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). = Transform: same as Transform speed. x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";

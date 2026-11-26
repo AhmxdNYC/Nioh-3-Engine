@@ -2800,7 +2800,7 @@ std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // stick when the root leaves its start by that far, attack or not. Attacks stay blocked.
 // FormBlockLS is put back when the form ends. The keys are re-read about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{5};
-// TASK #136197: the core of this use picks Transform (stick locked) or Transform moveable; a core with no call follows [Spirit] FormSteer.
+// TASK #136197 / #136987: any Transform use may steer; the travel / idle-body detection below decides (still cores never arm).
 static bool FormSteerForCore() {
     const uint32_t core = g_pickCore.load(std::memory_order_relaxed);
     int c = -1;
@@ -4412,7 +4412,7 @@ static bool FormSteerBodyPos(uint64_t seal, float* p) {
 }
 // human #130495. True once this form's yokai body has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
-    if (!FormSteerForCore() || !g_fh4.seal) {  // TASK #136197: per-core Transform / Transform moveable
+    if (!FormSteerForCore() || !g_fh4.seal) {  // TASK #136987: Transform steers only once detection arms it
         if (g_fh4.steer) { g_fh4.steer = false; g_fbLS.store(g_fbLSIni); }
         return false;
     }
@@ -7842,15 +7842,14 @@ int FormCoreCallGet(uint32_t id) {
     const int c = sc_table_get(&g_callTab, id);
     ReleaseSRWLockShared(&g_coreEditLock);
     if (off) return c == SC_CALL_FAST_SUMMON ? SC_CALL_FAST_SUMMON : SC_CALL_GAME;  // TASK #136502
-    if (sc_call_forms(c)) return c;
-    return g_formSteer.load() > 0 ? SC_CALL_TRANSFORM_MOVE : SC_CALL_TRANSFORM;
+    return SC_CALL_TRANSFORM;  // TASK #136987: one Transform call; moving is detected per use (FormSteerTick)
 }
 // Returns the call now in effect (Game's own cannot be saved when the FormCoresOff list is full).
 int FormCoreCallSet(uint32_t id, int call) {
     if (!id || !sc_call_valid(call)) return id ? FormCoreCallGet(id) : SC_CALL_TRANSFORM;
     AcquireSRWLockExclusive(&g_coreEditLock);
     const bool forms = CoreSetTransformsLocked(id, sc_call_forms(call));
-    if (forms && sc_call_forms(call)) sc_table_set(&g_callTab, id, call);
+    if (forms && sc_call_forms(call)) sc_table_set(&g_callTab, id, sc_call_norm(call));  // TASK #136987: 2 saves as Transform
     else if (!forms) sc_table_set(&g_callTab, id, call == SC_CALL_FAST_SUMMON ? call : -1);  // TASK #136502: Fast summon = OFF + call 3
     CoreCallSave();
     ReleaseSRWLockExclusive(&g_coreEditLock);
