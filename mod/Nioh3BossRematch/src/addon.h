@@ -113,6 +113,8 @@ bool FormCoreTransforms(uint32_t id);
 bool FormCoreToggle(uint32_t id);
 bool FormCorePendingTransforms(int dir);
 bool FormCorePendingSet(int dir, bool transforms);
+int FormCoreCallGet(uint32_t id);            // TASK #136197: SC_CALL_* (mod/shared/soul_core_api.h)
+int FormCoreCallSet(uint32_t id, int call);  // returns the call now in effect; saved [Spirit] FormCoreCalls
 #endif  // BR_SOULCORE
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)

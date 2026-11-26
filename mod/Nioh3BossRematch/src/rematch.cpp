@@ -24,6 +24,7 @@
 // Every game call and every write runs on the game thread (the per-frame pump); the UI / pipe only post a request word. No story
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include "gamerva.h"
 #include "native_entry_gates_gen.h"
 #include "native_entry_waves_gen.h"

@@ -9,6 +9,7 @@
 #include "form_core_equipment.h"
 #include "seal_data_hits.h"
 #include "../../shared/soul_camera_vertical.h"
+#include "../../shared/soul_core_api.h"  // TASK #136197
 
 #include <intrin.h>
 #include <tlhelp32.h>
@@ -1350,6 +1351,22 @@ void CoreOffLoad() {
         g_slotSeen[d].store(false);
     }
     Log("FormCoresOff: %d core(s) use the game's own summon; last core LEFT=%X DOWN=%X", n, g_slotCore[1].load(), g_slotCore[2].load());
+}
+// TASK #136197 (human #136126 / #136194): per-core API call, mod/shared/soul_core_api.h. [Spirit] FormCoreCalls = "id:call,...".
+// Game's own still lives in FormCoresOff (old builds read it); the table adds Transform vs Transform moveable. Guarded by g_coreEditLock.
+ScCallTable g_callTab{};
+void CoreCallSave() {
+    wchar_t b[SC_TABLE_MAX * 16] = L"";
+    sc_table_format(&g_callTab, b, sizeof b / sizeof b[0]);
+    WritePrivateProfileStringW(L"Spirit", L"FormCoreCalls", b, IniPath());
+}
+void CoreCallLoad() {
+    wchar_t b[SC_TABLE_MAX * 16] = L"";
+    GetPrivateProfileStringW(L"Spirit", L"FormCoreCalls", L"", b, (DWORD)(sizeof b / sizeof b[0]), IniPath());
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const int n = sc_table_parse(&g_callTab, b);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCoreCalls: %d core(s) with their own call (TASK #136197)", n);
 }
 void CoreSeen(uint32_t id, int dir) {
     if (!id) return;
@@ -2752,6 +2769,13 @@ std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // stick when the root leaves its start by that far, attack or not. Attacks stay blocked.
 // FormBlockLS is put back when the form ends. The keys are re-read about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{5};
+// TASK #136197: the core of this use picks Transform (stick locked) or Transform moveable; a core with no call follows [Spirit] FormSteer.
+static bool FormSteerForCore() {
+    const uint32_t core = g_pickCore.load(std::memory_order_relaxed);
+    int c = -1;
+    if (core) { AcquireSRWLockShared(&g_coreEditLock); c = sc_table_get(&g_callTab, core); ReleaseSRWLockShared(&g_coreEditLock); }
+    return sc_call_moveable(c, g_formSteer.load(std::memory_order_relaxed) > 0);
+}
 int g_fbLSIni = 1;
 // human #61127: every soul-core yokai spawned turned off to the right of where the player faced. [Spirit] FormFaceOnSpawn=1: on the first
 // follow frame of a seal, write the player's facing rows (the facing at the press) into the seal before the player starts copying the seal.
@@ -3375,7 +3399,7 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    if (g_formSteer.load() > 0 && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted || g_fh4.steerRootD > 0.5f))
+    if (FormSteerForCore() && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted || g_fh4.steerRootD > 0.5f))
         Log("FormSteer: stick stayed off (body %.0f cm, root %.0f cm, need %d, travel %d, attack-only=%d)",
             g_fh4.steerD, g_fh4.steerRootD, g_formSteerCm.load(), g_formSteerTravelCm.load(), g_fh4.steerAtkNoted ? 1 : 0);
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
@@ -4309,7 +4333,7 @@ static bool FormSteerBodyPos(uint64_t seal, float* p) {
 }
 // human #130495. True once this form's yokai body has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
-    if (g_formSteer.load() <= 0 || !g_fh4.seal) {
+    if (!FormSteerForCore() || !g_fh4.seal) {  // TASK #136197: per-core Transform / Transform moveable
         if (g_fh4.steer) { g_fh4.steer = false; g_fbLS.store(g_fbLSIni); }
         return false;
     }
@@ -7625,9 +7649,33 @@ void FormCoreReset() {
     g_offN.store(0);
     for (auto& id : g_offIds) id.store(0);
     CoreOffSave();
+    sc_table_clear(&g_callTab); CoreCallSave();  // TASK #136197
     for (int dir = 1; dir <= 2; ++dir) { g_pendingPick[dir].store(-1); PendingPickSave(dir); }
     ReleaseSRWLockExclusive(&g_coreEditLock);
     // An ongoing form/press keeps its decision; the next press sees the shipped all-ON policy.
+}
+// TASK #136197: soul core API (mod/shared/soul_core_api.h). The call this core uses on its next use.
+int FormCoreCallGet(uint32_t id) {
+    AcquireSRWLockShared(&g_coreEditLock);
+    const bool off = CoreIsOff(id);
+    const int c = sc_table_get(&g_callTab, id);
+    ReleaseSRWLockShared(&g_coreEditLock);
+    if (off) return SC_CALL_GAME;
+    if (sc_call_forms(c)) return c;
+    return g_formSteer.load() > 0 ? SC_CALL_TRANSFORM_MOVE : SC_CALL_TRANSFORM;
+}
+// Returns the call now in effect (Game's own cannot be saved when the FormCoresOff list is full).
+int FormCoreCallSet(uint32_t id, int call) {
+    if (!id || !sc_call_valid(call)) return id ? FormCoreCallGet(id) : SC_CALL_TRANSFORM;
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const bool forms = CoreSetTransformsLocked(id, sc_call_forms(call));
+    if (forms && sc_call_forms(call)) sc_table_set(&g_callTab, id, call);
+    else if (!forms) sc_table_set(&g_callTab, id, -1);
+    CoreCallSave();
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    const int now = FormCoreCallGet(id);
+    Log("FormCore %X: call -> %s (asked %s, TASK #136197)", id, sc_call_name(now), sc_call_name(call));
+    return now;
 }
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {
@@ -7886,6 +7934,7 @@ void Register(bool boss, bool rm, bool inv) {
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(IniInt(L"Spirit", L"FormKeySwap", 0) > 0 ? 1 : 0); }
     g_scForms.store(IniInt(L"Spirit", L"SoulCoreForms", 1) != 0);  // human #61869 (read before FormKeyInstall applies the gate patch)
     CoreOffLoad();  // human #81220
+    CoreCallLoad();  // TASK #136197
     Log("SoulCoreForms=%d (FormKey=%d)", g_scForms.load() ? 1 : 0, g_fkOn.load());
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
@@ -8080,6 +8129,22 @@ void Register(bool boss, bool rm, bool inv) {
 }
 
 }  // namespace bosslog
+#if BR_SOULCORE
+// TASK #136197: soul core API exports (mod/shared/soul_core_api.h).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreApiVersion(void) { return SC_API_VERSION; }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallCount(void) { return SC_CALL_N; }
+extern "C" __declspec(dllexport) const char* Nioh3BossRematch_SoulCoreCallName(int call) { return sc_call_name(call); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDetected(uint32_t* ids, int max) {
+    if (!ids || max <= 0) return 0;
+    uint32_t tmp[32]; int dirs[32];
+    const int n = bosslog::FormCoreSeen(tmp, dirs, max < 32 ? max : 32);
+    int k = 0;
+    for (int i = 0; i < n; ++i) if (tmp[i]) ids[k++] = tmp[i];  // id 0 = a seal not identified yet, not a core
+    return k;
+}
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallGet(uint32_t id) { return bosslog::FormCoreCallGet(id); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallSet(uint32_t id, int call) { return bosslog::FormCoreCallSet(id, call); }
+#endif
 
 namespace fight {
 // 'Leave arena' (user 20261018): the native boss mode was ended outside the script's BossBattleModeEnd: clear the fight state as HkEnd does
