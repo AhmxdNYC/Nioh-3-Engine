@@ -17,6 +17,9 @@
 //   int Nioh3BossRematch_SoulCoreMoveSensGet(void)                   move sensitivity for every Transform moveable core (x1..x8, [Spirit] FormSteerMove)
 //   int Nioh3BossRematch_SoulCoreMoveSensSet(int x)                  sets it (clamped x1..x8), live + saved; returns the value now in effect
 //     (API version 2, TASK #136492 / human #136487: one value for all cores; x1 = the game's own step, default x5)
+//   int Nioh3BossRematch_SoulCoreDamageGet(void)                     'Soul core damage' % for every core's yokai hits (10..1000, 100 = normal), -1 = no Training
+//   int Nioh3BossRematch_SoulCoreDamageSet(int pct)                  sets it (Nioh3Training [Practice] SoulCoreDamagePct, everywhere), returns the value now in effect
+//   int Nioh3BossRematch_SoulCoreActorIs(uint64_t chr)               1 = chr is a soul-core yokai seen in the last 60 s (what Training's damage hook asks)
 // Pure logic, no game reads: tested offline by mod/Nioh3BossRematch/tests/soul_core_api_test.cpp.
 #pragma once
 #include <stdint.h>

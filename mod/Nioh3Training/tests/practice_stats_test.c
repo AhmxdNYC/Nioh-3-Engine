@@ -57,20 +57,23 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 36);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 37);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 36 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 37 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     // pc #57367 infinite soul cores: an OFF-by-default 0/1 toggle
     assert(PS_PLAYER_INF_SOUL == 35 && c.v[PS_PLAYER_INF_SOUL] == 0 && PstIsToggle(PS_PLAYER_INF_SOUL) && PstClamp(PS_PLAYER_INF_SOUL, 5) == 1 && PstStep(PS_PLAYER_INF_SOUL, 0, 0) == 1);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
     assert(PstDmgPct(0, 0, 1, 200, 50) == 100 /* an ally / NPC / unknown attacker hitting the player */ && PstDmgPct(0, 0, 0, 200, 50) == 100);
+    /* TASK #136492: Soul core damage = a soul-core yokai hit on anyone but the player; default 100, 10..1000 */
+    assert(PstSoulDmgPct(1, 0, 300) == 300 && PstSoulDmgPct(1, 1, 300) == 100 && PstSoulDmgPct(0, 0, 300) == 100);
+    assert(PstDefault(PS_SOUL_DMG) == 100 && PstClamp(PS_SOUL_DMG, 0) == 10 && PstClamp(PS_SOUL_DMG, 5000) == 1000 && !PstIsToggle(PS_SOUL_DMG));
     assert(PstDmgPct(1, 0, 1, 200, 50) == 100 /* the player hurting itself */ && PstDmgPct(1, 1, 0, 200, 0) == 200 /* player wins */);
     assert(PstScaleDmg(400, PstDmgPct(0, 1, 1, 100, 0)) == 0 && PstScaleDmg(400, PstDmgPct(1, 0, 0, 10, 100)) == 40);
     // frame meter toggle (default OFF)

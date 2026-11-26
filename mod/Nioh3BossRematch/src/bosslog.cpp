@@ -7844,8 +7844,30 @@ void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 void FormKeySealDesc(uint32_t id) { if (PressSpawnForeign(id, 0)) return; g_fkSealDesc.store(id); PickLearn(id); }  // #95567
+// TASK #136492 (human #136487): chrs the seal spawn note saw next to the player = soul-core yokai (any core, any call). Training's
+// 'Soul core damage' asks Nioh3BossRematch_SoulCoreActorIs(attacker) on each hit (live 11-25: a form hit's attacker is not the player).
+// 8 most recent, each counts for 60 s after its last note; Training also requires the player's team.
+static std::atomic<uint64_t> g_scActor[8];
+static std::atomic<uint32_t> g_scActorTick[8];
+static std::atomic<unsigned> g_scActorN{0};
+static void ScActorNote(uint64_t chr) {
+    const uint32_t now = GetTickCount();
+    for (int i = 0; i < 8; ++i) if (g_scActor[i].load() == chr) { g_scActorTick[i].store(now); return; }
+    const unsigned k = g_scActorN.fetch_add(1) % 8;
+    g_scActorTick[k].store(now);
+    g_scActor[k].store(chr);
+    static std::atomic<int> logs{0};
+    if (logs.fetch_add(1) < 40) Log("SoulCoreActor: %llX is a soul-core yokai for 60 s (Soul core damage, TASK #136492)", (unsigned long long)chr);
+}
+int ScActorIs(uint64_t chr) {
+    if (!chr) return 0;
+    const uint32_t now = GetTickCount();
+    for (int i = 0; i < 8; ++i) if (g_scActor[i].load() == chr && now - g_scActorTick[i].load() < 60000u) return 1;
+    return 0;
+}
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     { uint32_t key = 0; if (chr && Rd(chr, key) && PressSpawnForeign(key >> 4, chr)) return; }  // #95567: a wave enemy is never a seal
+    if (chr && dist >= 0 && dist < 15.f) ScActorNote(chr);  // TASK #136492, before the FormKey gates: the game's own summon counts too
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
@@ -8242,6 +8264,18 @@ extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDetected(uint32_t*
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallGet(uint32_t id) { return bosslog::FormCoreCallGet(id); }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallSet(uint32_t id, int call) { return bosslog::FormCoreCallSet(id, call); }
 // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core ([Spirit] FormSteerMove, menu row Move sensitivity).
+// TASK #136492: 1 = chr is a soul-core yokai seen in the last 60 s (Nioh3Training 'Soul core damage' asks this per hit).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreActorIs(uint64_t chr) { return bosslog::ScActorIs(chr); }
+// TASK #136492: 'Soul core damage' % lives in Nioh3Training ([Practice] SoulCoreDamagePct, practice stat 36); -1 = Training missing / too old.
+static int ScTrainingStat(int set, int v) {
+    HMODULE t = GetModuleHandleA("Nioh3Training.asi");
+    if (!t) return -1;
+    if (set) { const auto f = (int (*)(int, int, int))GetProcAddress(t, "Nioh3Training_PracticeStatSet"); return f ? f(36, v, 1) : -1; }
+    const auto g = (int (*)(int))GetProcAddress(t, "Nioh3Training_PracticeStatGet");
+    return g ? g(36) : -1;
+}
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDamageGet(void) { return ScTrainingStat(0, 0); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDamageSet(int pct) { return ScTrainingStat(1, pct); }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensGet(void) { return (int)bosslog::SoulTune(20, 0, nullptr); }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensSet(int x) {
     const int want = sc_move_sens_clamp(x);
