@@ -244,3 +244,68 @@ N3T_API int Nioh3Training_SoulCoreEquipItem(int slot, int itemId) {
     Log("SOULCORE swap: menu asks slot %d item %X (human #136123)", slot, itemId);
     return 1;
 }
+
+// TASK #137305 (human #137303): the overlay names each equipped core. soul_core_name.h walks core -> soul-core row -> Yang seal -> spawn
+// character -> name text id; the text comes from the game's own TextGetById (5A4B04, as training.c's mission-end check). Read-only, any thread:
+// every read is SEH-guarded, the result is cached per item id, nothing is written to the game.
+#include "soul_core_name.h"
+static __attribute__((noinline)) int ScnGameRead(void* c, uint64_t a, void* out, unsigned n) {
+    (void)c; if (a < 0x10000ull) return 0;
+    __try { memcpy(out, (const void*)(uintptr_t)a, n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static __attribute__((noinline)) int ScnGameText(uint32_t nid, uint16_t* w, int cap) {
+    const uintptr_t f = Grva(0x5A4B04); if (!f || cap < 2) return 0;
+    __try {
+        const uint16_t* t = (const uint16_t*)((const wchar_t* (*)(uint32_t))(B + f))(nid);
+        if (!t) return 0;
+        int i = 0; for (; i < cap - 1 && t[i]; ++i) w[i] = t[i];
+        w[i] = 0; return i;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+#define SCN_CACHE 256
+static SRWLOCK g_scn_lock = SRWLOCK_INIT;
+static struct { uint16_t id; int8_t state; char name[48]; } g_scn[SCN_CACHE];  // state 1 = named, -1 = no name in the game data
+static int g_scn_n, g_scn_chr = -2;  // character table GameData offset; -2 = not searched, -1 = searched, not found
+static DWORD g_scn_retry;
+// 1 = out holds the yokai's name (ASCII), 0 = not known (yet): the caller shows 'Core <id>'.
+N3T_API int Nioh3Training_SoulCoreName(int itemId, char* out, int cap) {
+    if (!out || cap < 2 || itemId <= 0 || itemId >= 0xFFFF) return 0;
+    out[0] = 0;
+    int got = 0, known = 0;
+    AcquireSRWLockShared(&g_scn_lock);
+    for (int i = 0; i < g_scn_n; ++i) if (g_scn[i].id == (uint16_t)itemId) {
+        known = 1; if (g_scn[i].state > 0) { snprintf(out, (size_t)cap, "%s", g_scn[i].name); got = 1; } break;
+    }
+    ReleaseSRWLockShared(&g_scn_lock);
+    if (known) return got;
+    const DWORD now = GetTickCount();
+    if (!ScwResolved() || !g_scw_ids_done || (g_scn_retry && now - g_scn_retry < 2000)) return 0;  // game data not ready: try later
+    AcquireSRWLockExclusive(&g_scn_lock);
+    for (int i = 0; i < g_scn_n; ++i) if (g_scn[i].id == (uint16_t)itemId) {  // another thread just did it
+        if (g_scn[i].state > 0) { snprintf(out, (size_t)cap, "%s", g_scn[i].name); got = 1; }
+        ReleaseSRWLockExclusive(&g_scn_lock); return got;
+    }
+    uint64_t gd = 0; ScnTable it, sc, ch; int definite = 0; char name[48] = {0};
+    if (Rd64(B + Grva(0x45B9E30), &gd) && gd > 0x10000ull && ScnTableAt(ScnGameRead, 0, gd, 0x68, &it) && ScnTableAt(ScnGameRead, 0, gd, 0x118, &sc)) {
+        const uint32_t spawn = ScnSpawnId(ScnGameRead, 0, &it, &sc, (uint16_t)itemId);
+        if (!spawn) definite = 1;  // not a mapped core in this game's tables
+        else {
+            if (g_scn_chr == -2) {
+                g_scn_chr = ScnFindChr(ScnGameRead, 0, gd, spawn);
+                Log("SOULCORE name: character table at GameData+0x%X (core %X spawn %X, TASK #137305)", g_scn_chr, itemId, spawn);
+            }
+            uint32_t nid = 0;
+            if (g_scn_chr >= 0 && ScnTableAt(ScnGameRead, 0, gd, (uint32_t)g_scn_chr, &ch)) nid = ScnNameInChr(ScnGameRead, 0, &ch, spawn);
+            uint16_t w[96];
+            if (nid && ScnGameText(nid, w, 96) && ScnAscii(w, 96, name, (int)sizeof name)) got = 1;
+            definite = g_scn_chr >= 0 && (got || !nid);  // a text miss may only be the language not loaded yet: retry later
+            Log("SOULCORE name: core %X spawn %X name id %u -> %s", itemId, spawn, nid, got ? name : "(none)");
+        }
+    }
+    if ((got || definite) && g_scn_n < SCN_CACHE) {
+        g_scn[g_scn_n].id = (uint16_t)itemId; g_scn[g_scn_n].state = got ? 1 : -1; memcpy(g_scn[g_scn_n].name, name, sizeof name); ++g_scn_n;
+    } else g_scn_retry = now ? now : 1;
+    ReleaseSRWLockExclusive(&g_scn_lock);
+    if (got) snprintf(out, (size_t)cap, "%s", name);
+    return got;
+}

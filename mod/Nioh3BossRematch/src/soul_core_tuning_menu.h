@@ -62,7 +62,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
 #include "../../Nioh3Training/src/soul_core_swap.h"
 constexpr int kItScEqSlot = 0xE0300, kItScEqCore = 0xE0301, kItScOverlay = 0xE0302;
 bool IsScEqItem(int item) { return item == kItScEqSlot || item == kItScEqCore || item == kItScOverlay; }
-// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot 'Core <item> | S / T / TM'
+// TASK #137000 (human #136998 / #137004): small bottom-left gameplay overlay, one line per Yang slot '<yokai name> | S / T / TM' ('Core <item>' until the name is known, #137305)
 // (S = the game's own summon or Fast summon, T = Transform, TM = Transform whose yokai the detection has seen move). [Menu] SoulCoreOverlay.
 std::atomic<int> g_scOverlay{-1};
 bool ScOverlayOn() { int v = g_scOverlay.load(); if (v < 0) { v = IniInt(L"Menu", L"SoulCoreOverlay", 1) ? 1 : 0; g_scOverlay.store(v); } return v != 0; }
@@ -79,7 +79,7 @@ constexpr int kItScOvOpen = 0xE0303, kItScOvBase = 0xE0310, kScOvN = 7;
 enum { kScOvSize = 0, kScOvX, kScOvY, kScOvAlpha, kScOvBox, kScOvColors, kScOvFont };
 struct ScOvRow { const char* label; const wchar_t* key; int def, kind, lo, hi; int steps[12]; const char* foot; };  // kind 0 on/off, 1 %, 4 per-mille (1% steps), 5 choice
 const ScOvRow kScOv[kScOvN] = {
-    {"Overlay size:", L"SoulCoreOverlaySize", 100, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size. Applies at once. Saved."},
+    {"Overlay size:", L"SoulCoreOverlaySize", 130, 1, 50, 200, {50, 60, 75, 85, 100, 115, 130, 150, 175, 200, -1}, "Size of the soul core overlay text. 100% = the mod menu's text size; default 130%. Applies at once. Saved."},
     {"Overlay left/right:", L"SoulCoreOverlayX", 15, 4, 0, 1000, {}, "Where the overlay sits across the screen (its left edge): 0% = left edge, 100% = right edge. 1% steps. Applies at once. Saved."},
     {"Overlay up/down:", L"SoulCoreOverlayY", 970, 4, 0, 1000, {}, "Where the overlay sits down the screen (its bottom edge): 0% = top, 100% = bottom. 1% steps. Applies at once. Saved."},
     {"Overlay opacity:", L"SoulCoreOverlayOpacity", 90, 1, 20, 100, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole overlay is. 100% = solid. Applies at once. Saved."},
@@ -155,6 +155,13 @@ bool ScCatRead(ScCat* c) {
     if (n <= 0) return false;
     c->n = n > SCW_MAX_IDS ? SCW_MAX_IDS : n;
     return true;
+}
+// TASK #137305: the yokai name of a soul core item (Nioh3Training_SoulCoreName: the game's own tables + text). false = not known (yet) / older TR.
+bool ScCoreName(uint16_t item, char* out, int cap) {
+    using F = int (*)(int, char*, int);
+    const auto f = (F)TrainingExport("Nioh3Training_SoulCoreName");
+    if (cap > 0) out[0] = 0;
+    return f && item && item != 0xFFFF && f(item, out, cap) > 0 && out[0];
 }
 // Item id of the core in Yang slot y (0/1), 0xFFFF = empty or not readable.
 uint16_t ScSlotItem(int y) {

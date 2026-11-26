@@ -6140,7 +6140,9 @@ int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
     for (int y = 0; y < 2; ++y) {
         if (items[y] == 0xFFFF || !items[y]) continue;
         const char* tag = ScOverlayTag(eq ? chr[y] : 0, forms);
-        snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
+        char name[48];  // TASK #137305 (human #137303): the yokai's name from the game's tables; 'Core <id>' until it is known
+        if (ScCoreName(items[y], name, sizeof name)) snprintf(lines[n], 64, "%s | %s", name, tag);
+        else snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
         colors[n] = tag[0] == 'S' || tag[0] == '?' ? th[0] : tag[1] ? th[2] : th[1];
         ++n;
     }

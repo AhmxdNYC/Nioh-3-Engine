@@ -76,7 +76,7 @@ int main() {
   check(ScOvStep(kScOvColors, 2, 1) == 0 && ScOvStep(kScOvColors, 0, -1) == 2 && ScOvStep(kScOvFont, 0, 0) == 1, "choices wrap");
   check(ScOvClamp(kScOvAlpha, 5) == 20 && ScOvClamp(kScOvColors, 9) == 2 && ScOvClamp(kScOvSize, 999) == 200, "bad ini values clamp");
   for (int w = 0; w < kScOvN; ++w) check(ScOvClamp(w, kScOv[w].def) == kScOv[w].def && kScOv[w].foot && kScOv[w].foot[0], "defaults in range, every row has a footer");
-  check(kScOv[kScOvX].def == 15 && kScOv[kScOvY].def == 970 && kScOv[kScOvSize].def == 100 && kScOv[kScOvBox].def == 1 && kScOv[kScOvColors].def == 0,
+  check(kScOv[kScOvX].def == 15 && kScOv[kScOvY].def == 970 && kScOv[kScOvSize].def == 130 && kScOv[kScOvBox].def == 1 && kScOv[kScOvColors].def == 0,
         "defaults = the #137000 overlay (bottom left 1.5% / 3%, menu size, panel, menu colours)");
   check(kScOvTheme[0][0] == cGray && kScOvTheme[0][1] == cWhite && kScOvTheme[0][2] == cGreen, "Menu theme = #137000 colours");
   printf("sc hotkeys + overlay look ok: %d checks\n", n); return 0;
