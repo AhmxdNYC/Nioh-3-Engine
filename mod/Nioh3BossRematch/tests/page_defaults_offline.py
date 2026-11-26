@@ -133,6 +133,6 @@ assert found[0]==found[1] and found[0][14]==0,(found)
 exit_keys=['SealGhostExit','SealIdleMinMs','SealExitOnHelperMs','SealExitEndPct','SealExitAfterShotMs']
 assert found[0][15:20]==[float(br['Spirit',k]) for k in exit_keys],(found[0][15:20],[br.get(('Spirit',k)) for k in exit_keys])
 assert found[0][21]==float(br['Spirit','FastSummonSpeed'])==0,(found[0][21:])  # TASK #136502 Fast summon speed = Transform
-assert found[0][22:24]==[float(br['Spirit','FastSummonStartSpeed']),float(br['Spirit','FastSummonEndSpeed'])]==[6,6],(found[0][22:])  # TASK #137323
-assert fallbacks['FastSummonStartSpeed']=='6' and fallbacks['FastSummonEndSpeed']=='6'
+assert found[0][22:24]==[float(br['Spirit','FastSummonStartSpeed']),float(br['Spirit','FastSummonEndSpeed'])]==[1,6],(found[0][22:])  # TASK #137323
+assert fallbacks['FastSummonStartSpeed']=='1' and fallbacks['FastSummonEndSpeed']=='6'
 print('25 soul-core shipped-default cross-checks PASS')

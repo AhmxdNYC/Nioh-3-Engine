@@ -3851,7 +3851,7 @@ std::atomic<double> g_fastAt[kFastMax];
 std::atomic<int> g_fastN{0};
 // TASK #137323 (human #137208): [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off). FastSummonPhaseTick (game thread) sets the
 // press phase; FastActorMul applies start / attack / end rate (soul_core_api.h sc_fast_phase_mul).
-std::atomic<float> g_fastStartMul{SC_FAST_EDGE_DEFAULT}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};
+std::atomic<float> g_fastStartMul{1.f}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};  // TASK #137616: startup off by default
 std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // #137323 press phase, unused since #137616
 std::atomic<int> g_fastChrPh[kFastMax];  // TASK #137616: per-chr phase (FastSummonPhaseTick); every write path sets ATTACK first, never START by default
 float FastSummonMul() {
@@ -4148,7 +4148,7 @@ void FastThrowInstall() {
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
     g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));
     g_fastTrace.store(IniInt(L"Spirit", L"FastSummonTrace", 0)); g_fastTraceQuietMs.store(IniInt(L"Spirit", L"FastSummonTraceQuietMs", 0));  // TASK #137616  // TASK #137013: 0 = Fast summon has no smoke
-    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"6", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"1", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
       GetPrivateProfileStringW(L"Spirit", L"FastSummonEndSpeed", L"6", tb, 32, IniPath()); g_fastEndMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr))); }  // TASK #137323
     const bool fastEdge = g_fastStartMul.load() > 1.f || g_fastEndMul.load() > 1.f;
     Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
@@ -8007,7 +8007,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0, 6, 6};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5, 0, 1, 6};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
