@@ -8,6 +8,9 @@ i = s.index('int ScPairCatPick('); fn = s[i:s.index('void ScPairStep(int dir) {'
 step = s[s.index('void ScPairStep(int dir) {'):s.index('void ScPairFlag() {')]
 assert 'Nioh3Training_SoulCoreEquipItem' in step and step.index('ScCatRead(&cat)') < step.index('ScPairList L;'), 'catalog first, owned list only as fallback'
 assert 'Nioh3Training_SoulCoreEquipItem' in s[s.index('int ScPairSend(int slot) {'):s.index('bool ScPairDone(')]
+fin = s[s.index('void ScPairFinish(bool ok, int r) {'):s.index('void ScPairStep(int dir) {', s.index('void ScPairFinish(bool ok, int r) {'))]
+assert 'g_scPairCat && g_scPairSkips < 8' in fin and 'ScPairStep(g_scPairCatDir)' in fin, 'a refused catalog pair is skipped (bounded), not retried forever'
+assert 'g_scPairCatP)' in step and 'g_scPairCatP = p' in step, 'the next F2 counts from the last pair tried'
 code = r'''
 #include <cstdint>
 #include <cstdio>
@@ -35,6 +38,11 @@ int main() {
   uint16_t ids[4] = {1, 2, 3, 4}; int a, b;
   ScPairCatPick(ids, 4, 0x999, 1, &a, &b); check(a == 0 && b == 1, "unknown core in Yang 1: F2 starts at pair 1");
   ScPairCatPick(ids, 4, 0x999, -1, &a, &b); check(a == 2 && b == 3, "unknown core in Yang 1: Shift+F2 starts at the last pair");
+  // live 11-25 8:38 pm: pair 24 was refused (Yang 1 stayed on pair 23's core) and every F2 retried pair 24
+  uint16_t big[10]; for (int i = 0; i < 10; ++i) big[i] = (uint16_t)(0x100 + i);
+  int p = ScPairCatPick(big, 10, big[4], 1, &a, &b, 3); check(p == 4 && a == 8, "Yang 1 still on pair index 2, pair index 3 tried: F2 goes to pair index 4");
+  p = ScPairCatPick(big, 10, big[4], 1, &a, &b, 2); check(p == 3, "Yang 1 matches the last pair: normal step");
+  p = ScPairCatPick(big, 10, 0x999, -1, &a, &b, 0); check(p == 4, "Shift+F2 from pair 1 tried: wraps to the last pair");
   printf("f2 catalog cycle ok: %d checks\n", n); return 0;
 }
 '''

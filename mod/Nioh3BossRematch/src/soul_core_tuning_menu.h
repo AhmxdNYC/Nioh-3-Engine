@@ -216,7 +216,8 @@ uint32_t g_scPairWant[2] = {SCW_EMPTY, SCW_EMPTY};
 uint16_t g_scPairItems[2] = {0, 0};
 int g_scPairNo = 0, g_scPairOf = 0;
 ULONGLONG g_scPairT0 = 0;
-bool g_scPairCat = false;  // TASK #136451 (human #136449): this step walks every soul core in the item master (SoulCoreCatalog), not only owned ones
+bool g_scPairCat = false;
+int g_scPairCatP = -1, g_scPairCatDir = 1, g_scPairSkips = 0;  // last catalog pair tried; a refused one is skipped, the next F2 counts from it  // TASK #136451 (human #136449): this step walks every soul core in the item master (SoulCoreCatalog), not only owned ones
 // Send one slot's request; 1 sent, 0 busy (retry), 2 nothing to do (already there), -1 failed.
 int ScPairSend(int slot) {
     using E = int (*)(int, int); using R = int (*)(int*);
@@ -245,8 +246,16 @@ bool ScPairDone(int* r) {  // request we sent finished?
     int seq = 0; *r = res ? res(&seq) : SCW_FAULT;
     return !res || seq != g_scPairSeq;
 }
+void ScPairStep(int dir);
 void ScPairFinish(bool ok, int r) {
     g_scPairStage = 0;
+    if (!ok && g_scPairCat && g_scPairSkips < 8) {  // TASK #136451: a core the game will not put in a Yang slot must not stop the walk
+        ++g_scPairSkips;
+        Log("Rematch: F2 pair %d/%d (core %X + core %X) refused by the game r=%d: skipped, next pair (TASK #136451)", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1], r);
+        ScPairStep(g_scPairCatDir);
+        return;
+    }
+    g_scPairSkips = 0;
     if (!ok) {
         Log("Rematch: pair step %d/%d failed r=%d (human #135018)", g_scPairNo, g_scPairOf, r);
         ToastF(cYellow, 4000, "Soul core pair change failed (%d). F2 tries the next pair.", r);
@@ -257,10 +266,11 @@ void ScPairFinish(bool ok, int r) {
     ToastF(cGreen, 5000, "Pair %d of %d: core %X (Yang 1) + core %X (Yang 2). F6 flag, F2 next", g_scPairNo, g_scPairOf, g_scPairItems[0], g_scPairItems[1]);
 }
 // Catalog pairs: entries (2p, 2p+1) of the item-master list, so F2 reaches the last core in the game, then wraps to pair 1.
-int ScPairCatPick(const uint16_t* ids, int n, uint16_t inYang1, int dir, int* a, int* b) {
+int ScPairCatPick(const uint16_t* ids, int n, uint16_t inYang1, int dir, int* a, int* b, int lastP = -1) {
     const int npairs = (n + 1) / 2;
     int cur = -1;
     for (int i = 0; i < n; ++i) if (ids[i] == inYang1) { cur = i; break; }
+    if (lastP >= 0 && lastP < npairs && (cur < 0 || cur / 2 != lastP)) cur = lastP * 2;  // the last pair tried did not land: go on from it
     const int p = cur < 0 ? (dir > 0 ? 0 : npairs - 1) : ((cur / 2 + dir) % npairs + npairs) % npairs;
     *a = p * 2; *b = *a + 1 < n ? *a + 1 : (*a ? 0 : -1);
     return p;
@@ -270,8 +280,8 @@ void ScPairStep(int dir) {
     ScCat cat;
     if (TrainingExport("Nioh3Training_SoulCoreEquipItem") && ScCatRead(&cat) && cat.n >= 2) {
         int a = 0, b = 0;
-        const int p = ScPairCatPick(cat.ids, cat.n, cat.slotItem[0], dir, &a, &b);
-        g_scPairCat = true;
+        const int p = ScPairCatPick(cat.ids, cat.n, cat.slotItem[0], dir, &a, &b, g_scPairCatP);
+        g_scPairCat = true; g_scPairCatP = p; g_scPairCatDir = dir;
         g_scPairItems[0] = cat.ids[a]; g_scPairItems[1] = cat.ids[b];
         g_scPairWant[0] = g_scPairWant[1] = SCW_EMPTY;
         g_scPairNo = p + 1; g_scPairOf = (cat.n + 1) / 2;
