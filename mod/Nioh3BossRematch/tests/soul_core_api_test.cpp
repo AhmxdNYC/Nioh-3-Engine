@@ -1,3 +1,4 @@
+#include <cmath>
 // Offline test for mod/shared/soul_core_api.h (TASK #136197). No asserts (NDEBUG-safe): counts failures, exit 1 on any.
 #include "../../shared/soul_core_api.h"
 #include <wchar.h>
@@ -62,7 +63,7 @@ int main() {
     // TASK #136502: Fast summon speed x10; 0 = the Transform speed (SealSpeed), else x1.0..x3.0
     CHECK(SC_API_VERSION == 4 && SC_FAST_SPEED_DEFAULT == 0);
     CHECK(sc_fast_speed_clamp(0) == 0 && sc_fast_speed_clamp(-3) == 0 && sc_fast_speed_clamp(5) == 10 && sc_fast_speed_clamp(16) == 16 && sc_fast_speed_clamp(99) == 30);
-    CHECK(sc_fast_speed_mul(0, 1.6f) == 1.6f && sc_fast_speed_mul(0, 0.f) == 1.f && sc_fast_speed_mul(0, 0.8f) == 1.f && sc_fast_speed_mul(20, 1.6f) == 2.f);
+    CHECK(fabsf(sc_fast_speed_mul(0, 1.6f) - 1.44f) < 1e-4f && sc_fast_speed_mul(0, 1.05f) == 1.f && sc_fast_speed_mul(0, 0.f) == 1.f && sc_fast_speed_mul(0, 0.8f) == 1.f && sc_fast_speed_mul(20, 1.6f) == 2.f);
     printf(g_fail ? "soul_core_api_test: %d FAIL\n" : "soul_core_api_test: PASS%.0d\n", g_fail);
     return g_fail ? 1 : 0;
 }

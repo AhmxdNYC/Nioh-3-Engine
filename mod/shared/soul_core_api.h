@@ -59,13 +59,19 @@ inline int sc_call_norm(int c) { return c == SC_CALL_TRANSFORM_MOVE ? SC_CALL_TR
 // TASK #136502: the game's own summon runs (no mod form) for Game's own and Fast summon; Fast summon is kept in FormCoresOff too, so an
 // older build reads it as Game's own.
 inline bool sc_call_game_path(int c) { return c == SC_CALL_GAME || c == SC_CALL_FAST_SUMMON; }
-// Fast summon speed, x10 (one factor for every core): 0 = the same as the Transform speed ([Spirit] SealSpeed, the default), 10..30 = x1.0..x3.0.
+// Fast summon speed, x10 (one factor for every core): 0 = 90 % of the Transform speed ([Spirit] SealSpeed, the default), 10..30 = x1.0..x3.0.
 #define SC_FAST_SPEED_MIN 10
 #define SC_FAST_SPEED_MAX 30
 #define SC_FAST_SPEED_DEFAULT 0
 inline int sc_fast_speed_clamp(int x10) { return x10 <= 0 ? 0 : x10 < SC_FAST_SPEED_MIN ? SC_FAST_SPEED_MIN : x10 > SC_FAST_SPEED_MAX ? SC_FAST_SPEED_MAX : x10; }
 // The yokai rate factor for this use: own value, or the Transform speed (sealMul <= 1 = off -> x1).
-inline float sc_fast_speed_mul(int x10, float sealMul) { return x10 > 0 ? x10 / 10.f : sealMul > 1.f ? sealMul : 1.f; }
+// TASK #137013 (human #137006): the auto value runs a tiny bit under the Transform speed (90 %), never under x1.
+#define SC_FAST_SPEED_AUTO_PCT 90
+inline float sc_fast_speed_mul(int x10, float sealMul) {
+    if (x10 > 0) return x10 / 10.f;
+    const float a = sealMul * (SC_FAST_SPEED_AUTO_PCT / 100.f);
+    return sealMul > 1.f && a > 1.f ? a : 1.f;
+}
 // Step through the calls for a menu row (Left -1 / Right +1 / A 0 = next), wraps. TASK #136987: the menu offers
 // Game's own -> Transform -> Fast summon (Transform moveable is detected, not a choice).
 inline int sc_call_step(int c, int dir) {
