@@ -1422,6 +1422,11 @@ void PickPoll() {
 // it is that core's chr, or a helper that comes within [Spirit] FormHelperMs (default 1500, Ibaraki's helper +0.4 s) after it. Anything else
 // is foreign: not a seal, not a hit source, not learned. Pressed core unknown (no equipment map) = the old rule. 0 = off.
 std::atomic<int> g_formHelperMs{1500};
+// #136367 (human #136361, 2 escapes 19:38:18 / 19:39:00): a use of the other equipped core (Y2 80D5F, seal action 0x28B6) that never came
+// through the d-pad pick left g_pickT/g_pickCore on the previous 5216E press (7.1 s / 6.0 s old, inside the 10 s window). The new core's own
+// yokai was then 'foreign', no seal bound and the form ended throw-done-no-seal at 2.28 s. Same rule for every core: (1) a pick older than
+// the current press signal (snapshot) is not this press's pick - old rule; (2) an equipped core's own chr is never foreign.
+double PressSnapT();
 double g_pressCoreFor = -100, g_pressCoreT = -100;
 bool PressSpawnForeign(uint32_t id, uint64_t chr) {
     const int helperMs = g_formHelperMs.load();
@@ -1429,7 +1434,9 @@ bool PressSpawnForeign(uint32_t id, uint64_t chr) {
     const double pickT = g_pickT.load(), now = Now();
     const uint32_t wanted = g_pickCore.load();
     if (!wanted || pickT <= 0 || now < pickT || now - pickT > 10.0) return false;  // no press in flight: not a press actor anyway
-    if (id == wanted) { if (g_pressCoreFor != pickT) { g_pressCoreFor = pickT; g_pressCoreT = now; } return false; }
+    if (PressSnapT() > pickT + 0.5) return false;  // #136367: a later press the pick never saw - its core is not known here
+    if (id == wanted || id == g_equippedCore[0].load() || id == g_equippedCore[1].load()) {  // #136367: either equipped core is a seal
+        if (g_pressCoreFor != pickT) { g_pressCoreFor = pickT; g_pressCoreT = now; } return false; }
     if (g_pressCoreFor == pickT && now - g_pressCoreT <= helperMs / 1000.0) return false;  // helper of the core's own yokai
     static uint64_t loggedChr = 0; static uint32_t loggedId = 0; static double loggedPick = -100;
     if (loggedPick != pickT || loggedId != id || loggedChr != chr) {
@@ -2584,6 +2591,7 @@ uint64_t ActorTableGlobal() {
 }
 struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; uint64_t player = 0; float groundY = 0; };
 PressSnap g_pressSnap;
+double PressSnapT() { return g_pressSnap.t; }  // #136367
 void SealExitReplayPressReset();
 bool PressSnapTake(double now) {  // false = table unreadable (then nothing is rejected by it; the other guards still apply)
     SealExitReplayPressReset();
