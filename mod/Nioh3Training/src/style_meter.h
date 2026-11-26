@@ -13,6 +13,9 @@
 //   ki      a Ki pulse landed within cfg.kiHitMs of a landed hit     cfg.ki   (human #126744: a pulse after a whiff scores 0; kiHitMs 0 = no gate)
 //   startup (#126821) a NEW use's points x (1 + startupPct % x how far its first hit window opened between startupMinF and startupMaxF, 60 fps
 //           frames, from the frame meter's own run: run.hit[0]). Slow, risky startups earn more; unknown startup = x1.
+//   slow    (human 2026-11-26) a use (SmChainStep key: chained segments of one martial art are one use) whose first landed hit came
+//           slowMs (500) or more after the use started scores x max(startup multiplier, slowPct % = x2) on every hit of the use
+//           (SmHitMult; never below the startup ramp; the martial art bonus is not scaled). General rule, no move ids.
 //   counter (#126843) + cfg.counter once per use when the player had i-frames while an enemy hit window was open in the same action run
 //           (an invincible counter / attack through an attack), then landed the hit.
 //   skill   (#126850 soul core, #126854 ninjutsu) cfg.soul / cfg.nin, only in combat (a landed hit within cfg.combatMs): no out-of-fight farming.
@@ -45,6 +48,8 @@
 // Decay: decayDelayMs after the last scoring event the gauge drains decayPerS points per second, +decayRankPct % per rank above D
 // (x decayLowPct % at ranks D..decayLowRank: 60 % = 40 % slower at D..B);
 // draining below 0 drops a rank (gauge refilled from that rank's top), at D it ends empty (idle).
+// Slow-move pause (human 2026-11-26, SmSlowHold): while the player's attack use has run slowMs or more without landing a hit and a boss is
+// within slowCm, the drain is held (s->drainHold: SmTick freezes the decay clock, lastScore is not refreshed), at most slowMaxMs per use.
 // Promotion: rankPts[r] points fill rank r; the overflow carries into the next rank. SSS caps at a full gauge.
 #ifndef STYLE_METER_H
 #define STYLE_METER_H
@@ -117,6 +122,10 @@
 #define SM_VERS_INC_PCT 5     // ... VersatilityIncPct: each later tier adds this much (10 moves +15 %, 15 +20 %, ..)
 #define SM_DECAY_LOW_RANK 2   // [StyleMeter] DecayLowRank: ranks D..this (B) drain at DecayLowPct % (human 2026-11-26: casual friendly)
 #define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
+#define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
+#define SM_SLOW_PCT 200       // ... SlowMovePct: a slow move's hits x this % (never below the startup ramp)
+#define SM_SLOW_CM 500        // ... SlowMovePauseCm: the drain holds during a slow move's wind-up only with a boss this close (cm; 0 = any distance)
+#define SM_SLOW_MAX_MS 3000   // ... SlowMovePauseMaxMs: longest drain pause per use (a held charge cannot freeze the meter; 0 = no pause)
 #define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
 #define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
 #define SM_VAR_INC 10         // ... VarietyBonusStep: the 2nd milestone pays this much more than the 1st
@@ -162,6 +171,7 @@ typedef struct {
     int versStep, versBasePct, versIncPct; int decayLowRank, decayLowPct;  // human 2026-11-26: versatility multiplier / slower D..B drain
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
+    int slowMs, slowPct, slowCm, slowMaxMs;  // human 2026-11-26: slow move (time to land) multiplier / drain pause distance / pause cap
     float rankPts[SM_RANKS];
 } SmCfg;
 
@@ -205,6 +215,7 @@ typedef struct {
     uint32_t blocked;       // hits the enemy guarded that scored (also counted in hits)
     uint32_t displaces;     // human 2026-11-26: Displacement! awards that scored (result card)
     uint32_t varIds[SM_VAR_IDS]; int varN;  // human: distinct moves that scored this run (SmVarietyMove)
+    int drainHold;          // human 2026-11-26: set by the game glue each tick (slow-move wind-up near a boss): SmTick does not drain
     uint32_t varBonuses; int varMile; float varLastPts, varPts; float versPts;  // variety milestones paid / the last one (distinct moves, bonus) / all bonus points
 } SmState;
 
@@ -222,6 +233,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
     c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
     c->blockPct = SM_BLOCK_PCT;
+    c->slowMs = SM_SLOW_MS; c->slowPct = SM_SLOW_PCT; c->slowCm = SM_SLOW_CM; c->slowMaxMs = SM_SLOW_MAX_MS;
     c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
@@ -253,6 +265,8 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->loopPts < 0) c->loopPts = 0; if (c->loopPts > 1000) c->loopPts = 1000; if (c->multiHitCap < 0) c->multiHitCap = 0; if (c->multiHitCap > 64) c->multiHitCap = 64;
     if (c->burst < 0) c->burst = 0; if (c->burstMs < 100) c->burstMs = 100; if (c->burstMs > 10000) c->burstMs = 10000; c->burstSkill = c->burstSkill ? 1 : 0;
     if (c->blockPct < 0) c->blockPct = 0; if (c->blockPct > 100) c->blockPct = 100;
+    if (c->slowMs < 0) c->slowMs = 0; if (c->slowMs > 10000) c->slowMs = 10000; if (c->slowPct < 100) c->slowPct = 100; if (c->slowPct > 1000) c->slowPct = 1000;
+    if (c->slowCm < 0) c->slowCm = 0; if (c->slowCm > 100000) c->slowCm = 100000; if (c->slowMaxMs < 0) c->slowMaxMs = 0; if (c->slowMaxMs > 30000) c->slowMaxMs = 30000;
     if (c->varStep < 1) c->varStep = 1; if (c->varStep > SM_VAR_IDS) c->varStep = SM_VAR_IDS; if (c->varBase < 0) c->varBase = 0; if (c->varInc < 0) c->varInc = 0; if (c->varGrow < 0) c->varGrow = 0; if (c->varPct < 0) c->varPct = 0; if (c->varPct > 1000) c->varPct = 1000;
     if (c->varMax < 0) c->varMax = 0; if (c->varMax > SM_VAR_IDS) c->varMax = SM_VAR_IDS;
     if (c->versStep < 0) c->versStep = 0; if (c->versBasePct < 0) c->versBasePct = 0; if (c->versIncPct < 0) c->versIncPct = 0;
@@ -369,12 +383,23 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
     k = k < 0.f ? 0.f : k > 1.f ? 1.f : k;
     return 1.f + k * (float)c->startupPct / 100.f;
 }
+// Slow move (human 2026-11-26): landMs = game ms from the start of the use to its first landed hit (< 0 = unknown / not tracked -> 1).
+// >= slowMs: slowPct / 100 (x2); else 1. slowMs 0 = off.
+static inline float SmSlowMult(const SmCfg* c, double landMs) {
+    if (c->slowMs <= 0 || !(landMs >= (double)c->slowMs)) return 1.f;
+    return (float)c->slowPct / 100.f;
+}
+// A new use's hit multiplier: the higher of the startup ramp and the slow-move factor (a move never earns less than with the ramp alone).
+static inline float SmHitMult(const SmCfg* c, float startupF, double landMs) {
+    const float a = SmStartupMult(c, startupF), b = SmSlowMult(c, landMs);
+    return a > b ? a : b;
+}
 // One hit landed. act = the player's action id at the hit, run = a key of that action run (a new run of the same id = a new use).
 // startupF: that run's startup (frames, < 0 unknown); counter: 1 = the run had i-frames inside an enemy hit window (bonus once per use).
 // summon = 1: a summoned guardian spirit hit (SmSummonHits does its own cap; no loop tracking, so its hits between the player's do not
 // split or repeat the player's use).
-// pct: % of the hit's value (100 = a hit that took HP, blockPct = a guarded hit).
-static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon, int pct) {
+// pct: % of the hit's value (100 = a hit that took HP, blockPct = a guarded hit). landMs: the use's time to land (SmSlowMult; < 0 = none).
+static inline float SmOnHitUseL(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, double landMs, int counter, int summon, int pct) {
     float f, bonus = 0.f;
     if (!summon) {  // loop penalty / multi-hit cap, per player use (own run key)
         SmLoopUse(s, c, act, run);
@@ -388,7 +413,7 @@ static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t
     if (!summon && s->lpPen == SM_LP_HALF) pct = pct * c->loopHalfPct / 100;  // rank A: a looped use scores loopHalfPct % (still a scored hit / combo)
     if (s->useOn && act == s->useAct && run == s->useRun) f = s->useFactor * (float)c->multiPct / 100.f;
     else {
-        f = SmVariety(s, c, act) * SmStartupMult(c, startupF);
+        f = SmVariety(s, c, act) * SmHitMult(c, startupF, landMs);
         if (counter && c->counter > 0.f) { bonus = c->counter; s->counters++; }
         const int newUse = !s->useOn || run != s->useRun;  // a chained segment (same use key, new act) is not a new move
         s->useOn = 1; s->useAct = act; s->useRun = run; s->useFactor = f;
@@ -433,15 +458,55 @@ static inline uint64_t SmChainStep(SmChain* ch, uint64_t run, uint32_t act, int 
     } else if (ch->pending && ++ch->wait > SM_CHAIN_WAIT) { ch->pending = 0; ch->key = run; ch->acts[0] = act; ch->n = 1; }
     return ch->key;
 }
+static inline float SmOnHitUsePct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon, int pct) { return SmOnHitUseL(s, c, t, act, run, startupF, -1.0, counter, summon, pct); }
+static inline float SmOnHitExL(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, double landMs, int counter) { return SmOnHitUseL(s, c, t, act, run, startupF, landMs, counter, 0, 100); }
 static inline float SmOnHitUse(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int summon) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, summon, 100); }
 static inline float SmOnHitPct(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter, int pct) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, 0, pct); }
 static inline float SmOnHitEx(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) { return SmOnHitUsePct(s, c, t, act, run, startupF, counter, 0, 100); }
 // A hit the enemy guarded: blockPct % of the same hit (variety, multi-hit, startup and counter rules unchanged). It is a landed hit for the
 // Ki pulse gate / combat / style switch (s->hits), and s->blocked. blockPct 0 = nothing happens (the hit is not counted at all).
-static inline float SmOnBlockedHit(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) {
+static inline float SmOnBlockedHitL(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, double landMs, int counter) {
     if (c->blockPct <= 0) return 0.f;
     s->blocked++;
-    return SmOnHitPct(s, c, t, act, run, startupF, counter, c->blockPct);
+    return SmOnHitUseL(s, c, t, act, run, startupF, landMs, counter, 0, c->blockPct);
+}
+static inline float SmOnBlockedHit(SmState* s, const SmCfg* c, double t, uint32_t act, uint64_t run, float startupF, int counter) { return SmOnBlockedHitL(s, c, t, act, run, startupF, -1.0, counter); }
+// Slow move (human 2026-11-26), per player use. SmSlowUse once per tick with the use key and the use's start (game ms, the first run's
+// t0); SmSlowLand on the tick the use lands its first hit (returns 1 then: w->landMs = time to land); SmSlowHold once per tick: 1 = hold
+// the drain this tick (s->drainHold). Held while: the use is an attack move (attack: the glue's signal), has run >= slowMs, has not landed,
+// a boss is within slowCm (distCm < 0 = unknown: no hold; slowCm 0 = any distance), and this use has held less than slowMaxMs in all
+// (then w->capped = 1, w->capNew = 1 on that tick). A whiff (the use ends with no hit) just ends the hold; nothing is refreshed.
+typedef struct { uint64_t key; double t0, landMs, heldMs; int on, landed, capped, capNew; } SmSlow;
+static inline void SmSlowReset(SmSlow* w) { w->key = 0; w->t0 = 0.0; w->landMs = -1.0; w->heldMs = 0.0; w->on = w->landed = w->capped = w->capNew = 0; }
+static inline int SmSlowUse(SmSlow* w, uint64_t key, double t0) {
+    if (w->on && key == w->key) return 0;
+    SmSlowReset(w); w->on = key != 0; w->key = key; w->t0 = t0; return 1;
+}
+static inline int SmSlowLand(SmSlow* w, double now) {
+    if (!w->on || w->landed) return 0;
+    w->landed = 1; w->landMs = now - w->t0; if (w->landMs < 0.0) w->landMs = 0.0; return 1;
+}
+static inline int SmSlowHold(SmSlow* w, const SmCfg* c, double now, double dt, int attack, float distCm) {
+    w->capNew = 0;
+    if (!w->on || w->landed || w->capped || !attack || c->slowMs <= 0 || c->slowMaxMs <= 0) return 0;
+    if (!(now - w->t0 >= (double)c->slowMs)) return 0;
+    if (!(distCm >= 0.f) || (c->slowCm > 0 && distCm > (float)c->slowCm)) return 0;
+    if (dt > 0) w->heldMs += dt;
+    if (w->heldMs >= (double)c->slowMaxMs) { w->capped = 1; w->capNew = 1; }
+    return 1;
+}
+// Attack moves the glue has seen open a hit window (learned per act id; general, no ids written in): a later use of the same act is known
+// as an attack from its first frame, before its window opens (a slow heavy attack's wind-up).
+#define SM_ATK_IDS 256
+typedef struct { uint32_t id[SM_ATK_IDS]; int n, pos; } SmAtkSet;
+static inline int SmAtkKnown(const SmAtkSet* a, uint32_t act) {
+    if (act == SM_ACT_NONE || act == 0) return 0;
+    for (int i = 0; i < a->n; ++i) if (a->id[i] == act) return 1;
+    return 0;
+}
+static inline void SmAtkLearn(SmAtkSet* a, uint32_t act) {
+    if (act == SM_ACT_NONE || act == 0 || SmAtkKnown(a, act)) return;
+    if (a->n < SM_ATK_IDS) a->id[a->n++] = act; else { a->id[a->pos] = act; a->pos = (a->pos + 1) % SM_ATK_IDS; }
 }
 // Guarded-hit detection (game glue feeds it from the hit apply 327DEC, which calls HP damage 787268 once and Ki damage 844604 once per hit,
 // both with the same hit object). One entry per (hit object, victim): SM_BLK_HP = the hit took HP (raw > 0), SM_BLK_HP0 = the HP damage
@@ -737,6 +802,7 @@ static inline void SmComboTick(SmState* s, const SmCfg* c, double t) { if (s->co
 // Per tick: idle decay. t = game ms now, dt = game ms since the last tick.
 static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     if (!s->active || dt <= 0) return;
+    if (s->drainHold) { if (s->lastScore > -1e17) s->lastScore += dt; return; }  // slow-move pause: the decay clock stands still (delay and ramp too)
     double idle = t - s->lastScore - (double)c->decayDelayMs;
     if (idle <= 0) return;
     const double idleAll = idle;  // ms idle past the delay: the ramp grows with it (#126972)

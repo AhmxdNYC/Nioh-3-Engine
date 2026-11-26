@@ -19,6 +19,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
     c->versStep = 0; c->decayLowPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
     c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
+    c->slowMs = 0;  // slow-move multiplier / drain pause (human 2026-11-26) came later: covered by SlowMove()
 }
 #define SmCfgDefaults PinnedDefaults
 static int g_checks;
@@ -1013,7 +1014,65 @@ static void DecayLow(void) {
         if (r <= 2) CHECK(near(la, lb * 0.6f)); else CHECK(near(la, lb));
     }
 }
+// human 2026-11-26: slow move. Time from the use's start to its first landed hit >= SlowMoveMs (500) = x2 on the use's hits, never below
+// the startup ramp; the drain pause holds SmTick while the wind-up runs near a boss, capped per use.
+static void SlowMove(void) {
+    SmCfg c; RealDefaults(&c);
+    CHECK(c.slowMs == 500 && c.slowPct == 200 && c.slowCm == 500 && c.slowMaxMs == 3000);
+    // multiplier: never below the old ramp, x2 from 500 ms
+    CHECK(near(SmSlowMult(&c, -1.0), 1.f) && near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 4000.0), 2.f));
+    for (float f = 0.f; f <= 120.f; f += 5.f) for (double l = -1.0; l <= 2000.0; l += 100.0) {
+        const float m = SmHitMult(&c, f, l); CHECK(m >= SmStartupMult(&c, f) - 0.0001f && m >= SmSlowMult(&c, l) - 0.0001f); }
+    CHECK(near(SmHitMult(&c, 10.f, 600.0), 2.f) && near(SmHitMult(&c, 37.5f, 100.0), 1.5f) && near(SmHitMult(&c, 37.5f, 700.0), 2.f));
+    SmCfg up = c; up.startupPct = 200; CHECK(near(SmHitMult(&up, 60.f, 700.0), 3.f));  // a higher ramp wins
+    SmCfg off = c; off.slowMs = 0; CHECK(near(SmHitMult(&off, 10.f, 900.0), 1.f));
+    // scoring: a fast-window hit of a use that took 800 ms to land pays x2; its later hits keep that factor; legacy calls unchanged
+    SmState s; SmReset(&s);
+    CHECK(near(SmOnHitExL(&s, &c, 0, 5, 1, 10.f, 800.0, 0), 2.f * c.hit));
+    CHECK(near(SmOnHitExL(&s, &c, 10, 5, 1, 10.f, 800.0, 0), 2.f * c.hit * c.multiPct / 100.f));
+    SmState q; SmReset(&q); CHECK(near(SmOnHitEx(&q, &c, 0, 5, 1, 10.f, 0), c.hit) && near(SmOnHitExL(&q, &c, 9, 6, 2, 10.f, 300.0, 0), c.hit));
+    SmState bq; SmReset(&bq); CHECK(near(SmOnBlockedHitL(&bq, &c, 0, 5, 1, 10.f, 800.0, 0), 2.f * c.hit * c.blockPct / 100.f));
+    // pause bookkeeping: use start t0 = 1000 (game ms)
+    SmSlow w; SmSlowReset(&w);
+    CHECK(SmSlowUse(&w, 77, 1000.0) == 1 && SmSlowUse(&w, 77, 1234.0) == 0 && w.t0 == 1000.0);
+    CHECK(SmSlowHold(&w, &c, 1400.0, 16.0, 1, 100.f) == 0);   // under 500 ms
+    CHECK(SmSlowHold(&w, &c, 1500.0, 16.0, 1, 100.f) == 1);   // 500 ms in, boss 1 m away
+    CHECK(SmSlowHold(&w, &c, 1516.0, 16.0, 0, 100.f) == 0);   // not an attack
+    CHECK(SmSlowHold(&w, &c, 1532.0, 16.0, 1, 600.f) == 0);   // boss too far
+    CHECK(SmSlowHold(&w, &c, 1548.0, 16.0, 1, -1.f) == 0);    // distance unknown
+    SmCfg any = c; any.slowCm = 0; CHECK(SmSlowHold(&w, &any, 1564.0, 16.0, 1, 5000.f) == 1);  // 0 = any distance
+    CHECK(near((float)w.heldMs, 32.f));
+    CHECK(SmSlowLand(&w, 1900.0) == 1 && near((float)w.landMs, 900.f) && SmSlowLand(&w, 2000.0) == 0);
+    CHECK(SmSlowHold(&w, &c, 2000.0, 16.0, 1, 100.f) == 0);   // landed: drain resumes
+    // cap: 3000 ms of pause per use, then never again for that use; a new use starts fresh
+    SmCfg k = c; k.slowMaxMs = 100; SmSlow v; SmSlowReset(&v); SmSlowUse(&v, 5, 0.0); int held = 0, capT = 0;
+    for (int i = 0; i < 50; ++i) { held += SmSlowHold(&v, &k, 500.0 + 16.0 * i, 16.0, 1, 100.f); if (v.capNew) capT++; }
+    CHECK(held == 7 && capT == 1 && v.capped && v.heldMs >= 100.0);
+    SmSlowUse(&v, 6, 2000.0); CHECK(!v.capped && SmSlowHold(&v, &k, 2600.0, 16.0, 1, 100.f) == 1);
+    SmCfg np = c; np.slowMaxMs = 0; SmSlow u; SmSlowReset(&u); SmSlowUse(&u, 9, 0.0); CHECK(SmSlowHold(&u, &np, 900.0, 16.0, 1, 100.f) == 0);
+    SmSlow z; SmSlowReset(&z); SmSlowUse(&z, 0, 0.0); CHECK(SmSlowHold(&z, &c, 900.0, 16.0, 1, 100.f) == 0);  // no use (key 0)
+    // SmTick: a held tick does not drain (and the decay clock stands still: the ramp does not grow), released it drains as before
+    SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = 3; a.pts = b.pts = 100.f; a.lastScore = b.lastScore = 0;
+    double t = 0; for (int i = 0; i < 125; ++i) { t += 16.0; a.drainHold = 1; SmTick(&a, &c, t, 16.0); SmTick(&b, &c, t, 16.0); }
+    CHECK(a.rank == 3 && near(a.pts, 100.f) && (b.rank < 3 || b.pts < 100.f) && near((float)a.lastScore, 2000.f));
+    a.drainHold = 0; SmTick(&a, &c, t + 600.0, 600.0); CHECK(a.pts < 100.f);   // 600 ms after the pause: the 500 ms delay ran out, drains
+    SmState g; SmReset(&g); g.active = 1; g.rank = 3; g.pts = 50.f; g.lastScore = 0; SmTick(&g, &c, 5000.0, 16.0); const float d1 = 50.f - g.pts;
+    SmState h; SmReset(&h); h.active = 1; h.rank = 3; h.pts = 50.f; h.lastScore = 0; h.drainHold = 1; SmTick(&h, &c, 3000.0, 2000.0); h.drainHold = 0;
+    SmTick(&h, &c, 5000.0, 16.0); CHECK(50.f - h.pts < d1 && h.rank == 3 && g.rank == 3);  // the paused 2 s did not grow the ramp
+    // attack learning
+    SmAtkSet as; memset(&as, 0, sizeof as);
+    CHECK(!SmAtkKnown(&as, 42)); SmAtkLearn(&as, 42); SmAtkLearn(&as, 42); CHECK(SmAtkKnown(&as, 42) && as.n == 1);
+    SmAtkLearn(&as, SM_ACT_NONE); SmAtkLearn(&as, 0); CHECK(as.n == 1 && !SmAtkKnown(&as, 0));
+    for (uint32_t i = 1000; i < 1000 + SM_ATK_IDS + 3; ++i) SmAtkLearn(&as, i);
+    CHECK(as.n == SM_ATK_IDS && SmAtkKnown(&as, 1000 + SM_ATK_IDS + 2) && !SmAtkKnown(&as, 42));
+    // clamp
+    SmCfg cl = c; cl.slowMs = -3; cl.slowPct = 50; cl.slowCm = -1; cl.slowMaxMs = -9; SmCfgClamp(&cl);
+    CHECK(cl.slowMs == 0 && cl.slowPct == 100 && cl.slowCm == 0 && cl.slowMaxMs == 0);
+    // legacy cases: PinnedDefaults turns it off
+    SmCfg pn; SmCfgDefaults(&pn); CHECK(pn.slowMs == 0 && near(SmHitMult(&pn, 10.f, 900.0), 1.f));
+}
 int main(void) {
+    SlowMove();
     MoveVariety(); Versatility(); DecayLow();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
     BurstBreak();

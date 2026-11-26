@@ -167,6 +167,10 @@ static void SmReadIni(const char* ini, int reset) {
     c.varPct = (int)GetPrivateProfileIntA("StyleMeter", "VarietyPct", SM_VAR_PCT, ini);
     c.ma = SmMaPtsResolve((int)GetPrivateProfileIntA("StyleMeter", "MartialArtPts", -1, ini), c.nin);       // #127295 unset = NinjutsuPts
     c.blockPct = (int)GetPrivateProfileIntA("StyleMeter", "BlockPct", SM_BLOCK_PCT, ini);                // human: a guarded hit = this % of a hit
+    c.slowMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMoveMs", SM_SLOW_MS, ini);                   // human 2026-11-26: slow moves
+    c.slowPct = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePct", SM_SLOW_PCT, ini);
+    c.slowCm = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseCm", SM_SLOW_CM, ini);
+    c.slowMaxMs = (int)GetPrivateProfileIntA("StyleMeter", "SlowMovePauseMaxMs", SM_SLOW_MAX_MS, ini);
     c.soul = (float)(int)GetPrivateProfileIntA("StyleMeter", "SoulCorePts", SM_SOUL_PTS, ini);            // #126850 / #126913 (PstPlayerSoul use count)
     c.burst = (float)(int)GetPrivateProfileIntA("StyleMeter", "BurstBreakPts", SM_BURST_PTS, ini);  // human: Burst Break
     c.burstMs = (int)GetPrivateProfileIntA("StyleMeter", "BurstBreakMs", SM_BURST_MS, ini);
@@ -216,6 +220,8 @@ static void SmReadIni(const char* ini, int reset) {
         g_smc.loopPts, g_smc.loopFullRank < 7 ? sm_rank_name[g_smc.loopFullRank] : "never", g_cfg_sm_lpfree ? "on" : "off", g_cfg_sm_lpfreems);
     Log("STYLE METER: move variety every %d distinct moves +%d (step +%d, growing +%d) up to %d moves%s, per run (boss fight start / death / load)",
         g_smc.varStep, g_smc.varBase, g_smc.varInc, g_smc.varGrow, g_smc.varMax, g_smc.varBase > 0 && g_smc.varMax >= g_smc.varStep ? "" : " (off)");
+    Log("STYLE METER: slow move: first hit %d ms or more after the move started = hits x%.2f (never below the startup ramp)%s; drain paused during its wind-up with a boss within %d cm, at most %d ms per move",
+        g_smc.slowMs, g_smc.slowPct / 100.f, g_smc.slowMs > 0 ? "" : " (off)", g_smc.slowCm, g_smc.slowMaxMs);
 }
 // human #126804: settings adjustable live. The ini is re-read when its write time changes (checked every ~0.5 s from the pump), so an edit of
 // [StyleMeter] or a menu change applies without a restart.
@@ -738,13 +744,20 @@ static void SmFeed(double gdt) {
     static SmChain useCh; static int useChInit;
     if (!useChInit) { useChInit = 1; SmChainReset(&useCh); }
     const uint64_t useKey = SmChainStep(&useCh, pl ? run : 0, act, skill, skw);
+    // human 2026-11-26: slow move = the use's first landed hit came SlowMoveMs or more after the use started (its first run's start, so a
+    // charge / wind-up segment of a chained martial art counts). General rule, no move ids. Acts that opened a hit window are learned as
+    // attacks (SmAtkSet), so a later use is known as an attack during its wind-up (before its window opens).
+    static SmSlow slw; static SmAtkSet atkSet; static int slwInit;
+    if (!slwInit) { slwInit = 1; SmSlowReset(&slw); }
+    if (pl) { SmSlowUse(&slw, useKey, g_fp[FP_PL].run.t0); if (g_fp[FP_PL].run.hits > 0) SmAtkLearn(&atkSet, act); } else SmSlowReset(&slw);
     if (!pl) SmMaReset(&mam);
     const LONG soul = InterlockedExchange(&g_soul_uses, 0);  // #126913 soul core uses (PstPlayerSoul: inventory drop in the seal throw / form start)
     // human: Displacement! inputs (style_displace.h): player and boss positions (actor+0x110 x / z floats, cm), the boss whose hit window is
     // open (nearest one if several; else the nearest boss slot, for the bearing at the use start), eligible = a skill row that is not the
     // deflect / a guardian spirit spend, or a DisplaceActs id.
-    float dpPl[2] = {0.f, 0.f}, dpBoss[2] = {0.f, 0.f}; int dpPlOk = 0, dpBossOk = 0, dpSlot = -1; float dpBest = 1e30f;
-    if (pl && g_dpc.on) {
+    // slowCm: the nearest boss slot's distance (slow-move drain pause), -1 = unknown
+    float dpPl[2] = {0.f, 0.f}, dpBoss[2] = {0.f, 0.f}; int dpPlOk = 0, dpBossOk = 0, dpSlot = -1; float dpBest = 1e30f, slowCm = -1.f;
+    if (pl && (g_dpc.on || g_smc.slowMs > 0)) {
         __try { dpPl[0] = *(volatile float*)(g_fp[FP_PL].a + 0x110); dpPl[1] = *(volatile float*)(g_fp[FP_PL].a + 0x118); dpPlOk = dpPl[0] == dpPl[0] && dpPl[1] == dpPl[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { dpPlOk = 0; }
         const LONG em = g_sm_enemyMask;
         for (int s = 0; s < N3T_SLOTS && dpPlOk; ++s) {
@@ -752,6 +765,7 @@ static void SmFeed(double gdt) {
             float b[2]; int ok = 0;
             __try { b[0] = *(volatile float*)(g_fp[s].a + 0x110); b[1] = *(volatile float*)(g_fp[s].a + 0x118); ok = b[0] == b[0] && b[1] == b[1]; } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
             if (!ok) continue;
+            { const float d = SmDispDist(dpPl, b); if (slowCm < 0.f || d < slowCm) slowCm = d; }
             const float k = SmDispDist(dpPl, b) + (s < 32 && ((em >> s) & 1) ? 0.f : 1e6f);  // a slot that is attacking first
             if (k < dpBest) { dpBest = k; dpSlot = s; dpBoss[0] = b[0]; dpBoss[1] = b[1]; dpBossOk = 1; }
         }
@@ -879,9 +893,14 @@ static void SmFeed(double gdt) {
     float ph = 0.f, pk = -1.f, pd = -1.f, pn = -1.f, ps = -1.f;  // human #126744: per-event play log (points each event scored)
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
-    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitEx(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, ctr && run != ctrPaidRun);
+    const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
+    const double landMs = slw.landed ? slw.landMs : -1.0;
+    const float slowX = SmSlowMult(&g_smc, landMs);
+    if (slowLand && slowX > 1.f) { static int sll; if (sll++ < 4000) Log("STYLE SLOW: act %u landed %.0f ms after the move started -> x%.2f (startup ramp x%.2f, run startup %.0f f), drain was paused %.0f ms",
+        (unsigned)act, landMs, SmHitMult(&g_smc, startupF, landMs), SmStartupMult(&g_smc, startupF), startupF, slw.heldMs); }
+    for (LONG i = 0; i < hits && i < 64; ++i) ph += SmOnHitExL(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, landMs, ctr && run != ctrPaidRun);
     float pb = 0.f;  // blocked hits: BlockPct % of a hit of this move (no counter bonus: that is paid by a hit that lands)
-    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHit(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, 0);
+    for (int i = 0; i < blocked && i < 64; ++i) pb += SmOnBlockedHitL(&g_sm, &g_smc, g_sm_clock, act, useKey, startupF, landMs, 0);
     (void)rsT;  // the old swap attack window (SmSwapHit, WeaponSwapMs) is replaced by the any-switch rule
     float psw = hits > 0 && !(g_sm.lpOn && g_sm.lpPen == SM_LP_FULL) ? SmWeaponHit(&g_sm, &g_smc, g_sm_clock, wslot) : 0.f;
     if (psw > 0.f && g_sm.lpOn && g_sm.lpPen == SM_LP_HALF) {  // rank A looped use: its weapon switch bonus at LoopHalfPct % too
@@ -962,7 +981,15 @@ static void SmFeed(double gdt) {
     if (taken > 0) SmOnDamaged(&g_sm, &g_smc, g_sm_clock);
     SmComboTick(&g_sm, &g_smc, g_sm_clock);
     InterlockedExchange(&g_sm_combo, (LONG)g_sm.combo);
+    // human 2026-11-26: slow-move pause. An attack move (hit window seen in this run, a learned attack act, a skill row that is not the
+    // deflect, a guardian spirit spend or a ninjutsu move) running SlowMoveMs+ without a hit, a boss within SlowMovePauseCm: no drain.
+    {   const int atkNow = pl && g_sm.active && !deflectNow && (skill > 0 || gsm.gs || ninMove || g_fp[FP_PL].run.hits > 0 || SmAtkKnown(&atkSet, act));
+        g_sm.drainHold = pl && SmSlowHold(&slw, &g_smc, g_fp_gms, dt, atkNow, slowCm);
+        if (slw.capNew) { static int slc; if (slc++ < 2000) Log("STYLE SLOW: act %u drain pause cap %d ms reached, %.0f ms into the move with no hit (drain resumes)",
+            (unsigned)act, g_smc.slowMaxMs, g_fp_gms - slw.t0); }
+    }
     SmTick(&g_sm, &g_smc, g_sm_clock, dt);
+    g_sm.drainHold = 0;
     {   // human 2026-11-25: button presses for the card's APM (sampled every tick so a fight start mid-hold is not a press)
         static SrInput srIn; uint16_t ib; uint8_t il, ir; uint32_t ik[8];
         SmInputNow(&ib, &il, &ir, ik);
@@ -1079,7 +1106,7 @@ static void SmFeed(double gdt) {
         static int evl;
         if (evl++ < 4000) {
             char e[640]; int n = 0; e[0] = 0;
-            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s)", (long)hits, ph, startupF, ctrHit ? ", counter" : "");
+            if (hits > 0) n += snprintf(e + n, sizeof e - n, " hit x%ld +%.1f (startup %.0f f%s%s)", (long)hits, ph, startupF, slowX > 1.f ? ", slow move" : "", ctrHit ? ", counter" : "");
             if (blocked > 0) n += snprintf(e + n, sizeof e - n, " blocked x%d +%.1f", blocked, pb);
             if (pcombo > 0.f) n += snprintf(e + n, sizeof e - n, " combo %u +%.0f", comboMile, pcombo);
             if (varN) n += snprintf(e + n, sizeof e - n, " variety %d moves +%.0f", varMile, pvar);
