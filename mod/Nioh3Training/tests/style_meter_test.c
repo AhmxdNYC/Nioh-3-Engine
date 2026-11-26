@@ -1018,7 +1018,9 @@ static void DecayLow(void) {
 // the startup ramp; the drain pause holds SmTick while the wind-up runs near a boss, capped per use.
 static void SlowMove(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(c.slowMs == 500 && c.slowPct == 200 && c.slowCm == 500 && c.slowMaxMs == 3000);
+    CHECK(c.slowMs == 500 && c.slowPct == 200 && c.slowCm == 500 && c.slowMaxMs == 5000);
+    CHECK(SmSlowNear(&c, 499.f) && SmSlowNear(&c, 500.f) && !SmSlowNear(&c, 501.f) && !SmSlowNear(&c, -1.f));
+    { SmCfg a = c; a.slowCm = 0; CHECK(SmSlowNear(&a, 99999.f) && !SmSlowNear(&a, -1.f)); }
     // multiplier: never below the old ramp, x2 from 500 ms
     CHECK(near(SmSlowMult(&c, -1.0), 1.f) && near(SmSlowMult(&c, 499.0), 1.f) && near(SmSlowMult(&c, 500.0), 2.f) && near(SmSlowMult(&c, 4000.0), 2.f));
     for (float f = 0.f; f <= 120.f; f += 5.f) for (double l = -1.0; l <= 2000.0; l += 100.0) {
@@ -1044,7 +1046,7 @@ static void SlowMove(void) {
     CHECK(near((float)w.heldMs, 32.f));
     CHECK(SmSlowLand(&w, 1900.0) == 1 && near((float)w.landMs, 900.f) && SmSlowLand(&w, 2000.0) == 0);
     CHECK(SmSlowHold(&w, &c, 2000.0, 16.0, 1, 100.f) == 0);   // landed: drain resumes
-    // cap: 3000 ms of pause per use, then never again for that use; a new use starts fresh
+    // cap: 5000 ms (default) of pause per use, then never again for that use; a new use starts fresh
     SmCfg k = c; k.slowMaxMs = 100; SmSlow v; SmSlowReset(&v); SmSlowUse(&v, 5, 0.0); int held = 0, capT = 0;
     for (int i = 0; i < 50; ++i) { held += SmSlowHold(&v, &k, 500.0 + 16.0 * i, 16.0, 1, 100.f); if (v.capNew) capT++; }
     CHECK(held == 7 && capT == 1 && v.capped && v.heldMs >= 100.0);

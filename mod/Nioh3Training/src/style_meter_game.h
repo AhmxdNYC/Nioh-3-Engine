@@ -910,7 +910,12 @@ static void SmFeed(double gdt) {
     if (crouchCancel) g_sm.crouchCancels++;
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
     const int slowLand = pl && (hits > 0 || blocked > 0) && SmSlowLand(&slw, g_fp_gms);  // the use's first landed hit
-    const double landMs = slw.landed ? slw.landMs : -1.0;
+    static int slowNear;  // human 2026-11-26: x2 only when a boss was within SlowMovePauseCm as the slow move landed (no far-away farming)
+    if (slowLand) {
+        slowNear = SmSlowNear(&g_smc, slowCm);
+        if (!slowNear && SmSlowMult(&g_smc, slw.landMs) > 1.f) { static int slf; if (slf++ < 2000) Log("STYLE SLOW: act %u landed %.0f ms after the move started, but no boss within %d cm (nearest %.0f cm): no x2", (unsigned)act, slw.landMs, g_smc.slowCm, slowCm); }
+    }
+    const double landMs = slw.landed && slowNear ? slw.landMs : -1.0;
     const float slowX = SmSlowMult(&g_smc, landMs);
     if (slowLand && slowX > 1.f) { static int sll; if (sll++ < 4000) Log("STYLE SLOW: act %u landed %.0f ms after the move started -> x%.2f (startup ramp x%.2f, run startup %.0f f), drain was paused %.0f ms",
         (unsigned)act, landMs, SmHitMult(&g_smc, startupF, landMs), SmStartupMult(&g_smc, startupF), startupF, slw.heldMs); }

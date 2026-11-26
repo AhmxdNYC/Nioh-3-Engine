@@ -124,8 +124,8 @@
 #define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
 #define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
 #define SM_SLOW_PCT 200       // ... SlowMovePct: a slow move's hits x this % (never below the startup ramp)
-#define SM_SLOW_CM 500        // ... SlowMovePauseCm: the drain holds during a slow move's wind-up only with a boss this close (cm; 0 = any distance)
-#define SM_SLOW_MAX_MS 3000   // ... SlowMovePauseMaxMs: longest drain pause per use (a held charge cannot freeze the meter; 0 = no pause)
+#define SM_SLOW_CM 500        // ... SlowMovePauseCm: the drain pause AND the x2 need a boss this close (cm; 0 = any distance; human 2026-11-26)
+#define SM_SLOW_MAX_MS 5000   // ... SlowMovePauseMaxMs: longest drain pause per use (a held charge cannot freeze the meter; 0 = no pause; human 2026-11-26: was 3000)
 #define SM_VAR_STEP 5         // [StyleMeter] VarietyStep: a bonus every this many distinct moves in one run
 #define SM_VAR_BASE 20        // ... VarietyBonus: first milestone's bonus (0 = off)
 #define SM_VAR_INC 10         // ... VarietyBonusStep: the 2nd milestone pays this much more than the 1st
@@ -386,6 +386,8 @@ static inline float SmStartupMult(const SmCfg* c, float startupF) {
 }
 // Slow move (human 2026-11-26): landMs = game ms from the start of the use to its first landed hit (< 0 = unknown / not tracked -> 1).
 // >= slowMs: slowPct / 100 (x2); else 1. slowMs 0 = off.
+// human 2026-11-26: the slow-move rule (pause and x2) only applies with a boss within slowCm (distCm < 0 = unknown: no).
+static inline int SmSlowNear(const SmCfg* c, float distCm) { return distCm >= 0.f && (c->slowCm <= 0 || distCm <= (float)c->slowCm); }
 static inline float SmSlowMult(const SmCfg* c, double landMs) {
     if (c->slowMs <= 0 || !(landMs >= (double)c->slowMs)) return 1.f;
     return (float)c->slowPct / 100.f;
