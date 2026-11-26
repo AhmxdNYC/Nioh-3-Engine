@@ -49,7 +49,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
     else if (w == 18) snprintf(b, n, "%d %%", (int)v);
     else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 20) { if (v <= 1) snprintf(b, n, "x1 (game)"); else snprintf(b, n, "x%d", (int)v); }  // TASK #136492
-    else if (w == 21) { if (v <= 0) snprintf(b, n, "= Transform"); else snprintf(b, n, "x%.1f", v); }  // TASK #136502
+    else if (w == 21) { if (v <= 0) snprintf(b, n, "90%% of Transform"); else snprintf(b, n, "x%.1f", v); }  // TASK #136502
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
     else if (w == 12 && v <= 0) snprintf(b, n, "OFF");
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
@@ -523,7 +523,7 @@ const char* SctFooter(int item) {
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
     case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
     case 20: return "Every soul core yokai that moves (detected): how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
-    case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). = Transform: same as Transform speed. x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
+    case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). 90% of Transform: a tiny bit slower than Transform speed, and no smoke ([Spirit] FastSummonSmoke=1 keeps it). x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }

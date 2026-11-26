@@ -1299,6 +1299,7 @@ inline bool ScOn() { return g_scForms.load(std::memory_order_relaxed) && !g_pick
 // TASK #136502 (human #136500): this press's core is Fast summon = the game's own summon (g_pickOff, so every form gate stays vanilla), with
 // the Transform startup cuts (FastThrow toss speed, OrbSkip) and its yokai's motion rate x FastSummonSpeed. The game ends it; no seal/exit code.
 std::atomic<bool> g_pickFast{false};
+extern std::atomic<int> g_fastFxLog;  // TASK #137013
 inline bool FastPress() {
     return g_pickFast.load(std::memory_order_relaxed) && g_pickOff.load(std::memory_order_relaxed) && Now() - g_pickT.load(std::memory_order_relaxed) < 10.0;
 }
@@ -1424,6 +1425,7 @@ void PickPoll() {
         const bool fast = off && pending < 0 && callNow == SC_CALL_FAST_SUMMON;
         FastActorsClear();  // TASK #136502: a new press ends the last Fast summon's speed-up
         g_pickFast.store(fast);
+        if (fast) g_fastFxLog.store(0);  // TASK #137013
         g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
         FccPress(now, held);  // human #122288: crouch-cancel window + core count snapshot for this press
         if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
@@ -3839,6 +3841,7 @@ std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, s
 // TASK #136502: yokai of the current Fast summon press. Every chr the seal spawn note sees next to the player (< 15 m, not foreign) within 5 s
 // of a Fast summon press: the core's own yokai and its helpers. Each plays at x FastSummonSpeed until the next press, or until the address
 // holds another chr (key changed), or 30 s. Nothing else is touched: the game spawns, plays and ends it.
+std::atomic<int> g_fastSmoke{0}, g_fastFxLog{0};  // TASK #137013 [Spirit] FastSummonSmoke (0 = no smoke), fx log cap per press
 std::atomic<int> g_fastSpeed{SC_FAST_SPEED_DEFAULT};  // [Spirit] FastSummonSpeed x10, 0 = same as Transform speed
 std::atomic<float> g_sealIniMul{1.4f};                // [Spirit] SealSpeed from the ini (g_sealMul is 0 when FormHide != 4)
 constexpr int kFastMax = 4;
@@ -4135,7 +4138,9 @@ void FastThrowInstall() {
     const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
     const bool fastOwn = g_fastSpeed.load() > SC_FAST_SPEED_MIN;  // TASK #136502: Fast summon's own speed needs the same hooks
-    Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502)", g_fastSpeed.load() > 0 ? "own value" : "= Transform speed", FastSummonMul());
+    g_fastSmoke.store(IniInt(L"Spirit", L"FastSummonSmoke", 0));  // TASK #137013: 0 = Fast summon has no smoke
+    Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
+        g_fastSpeed.load() > 0 ? "own value" : "= 90%% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
     if (pct <= 1 && !tail && !sspeed && !fastOwn) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
@@ -6018,6 +6023,33 @@ void FxMuteTick() {  // game thread: give the effects back once this spawn is pa
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 bool ExitSmokeId(uint32_t id);
+// TASK #137013 (human #137006): Fast summon has no smoke. While a Fast summon press is live (FastPress, 10 s), every smoke effect
+// (the exit/cover smoke ids ExitSmokeId + SealExitFxId, no per-core list) on the player or on that press's yokai is not spawned (the
+// game's own "effect disabled" flag, FxMute) or moved below the floor. Other effects (attacks) stay. [Spirit] FastSummonSmoke=1 keeps it.
+bool FxMute(uint32_t id);
+bool FastChr(uint64_t a) {
+    const int n = g_fastN.load(std::memory_order_relaxed);
+    for (int i = 0; i < n && i < kFastMax; ++i) if (a && g_fastChr[i].load(std::memory_order_relaxed) == a) return true;
+    return false;
+}
+bool FastSmokeHide(uint32_t id, uint64_t owner, uint64_t d, const uint64_t* sp) {
+    if (g_fastSmoke.load(std::memory_order_relaxed) || !FastPress()) return false;
+    bool smoke = ExitSmokeId(id);
+    for (int i = 0; i < g_sxfN && !smoke; ++i) smoke = g_sxfIds[i] == id;
+    const uint64_t pl = FkPlayer();
+    const bool ours = !owner || owner == pl || FastChr(owner);
+    const int ms = (int)((Now() - g_pickT.load()) * 1000.0);
+    if (!smoke || !ours) {
+        if (g_fastFxLog.fetch_add(1) < 40) Log("FastSummon fx %X owner %llX (%s) +%d ms: kept", id, (unsigned long long)owner,
+            owner == pl ? "player" : FastChr(owner) ? "yokai" : owner ? "other" : "none", ms);
+        return false;
+    }
+    const bool world = d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
+    const bool muted = FxMute(id);
+    if (!muted && world) ((float*)d)[13] -= 100000.f;
+    Log("FastSummon smoke %X owner %s +%d ms: %s", id, owner == pl ? "player" : owner ? "yokai" : "none", ms, muted ? "not spawned" : world ? "moved away" : "kept (no handle)");
+    return muted || world;
+}
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
     (void)a; (void)b;
     if (t_coldCover && (uint32_t)c == 0x62557) {
@@ -6037,6 +6069,7 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
                 (uint32_t)c, p ? "bone" : "unknown", bone, boneRead ? 1 : 0, (unsigned long long)StackArg(sp, 6));
         }
     }
+    if (!t_fxReplaying && FastSmokeHide((uint32_t)c, StackArg(sp, 6), d, sp)) return;  // TASK #137013
     if (t_fxReplaying || g_fxrOn.load(std::memory_order_relaxed) <= 0) return;
     if (g_fbStyleFx.load(std::memory_order_relaxed) && g_fbActive.load(std::memory_order_relaxed) &&
         Now() - g_fbStyleT.load(std::memory_order_relaxed) < g_fbStyleFxMs.load(std::memory_order_relaxed) / 1000.0) {  // human #58422
