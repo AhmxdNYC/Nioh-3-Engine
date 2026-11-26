@@ -15,13 +15,13 @@ step = cut('int ScOvStep(int w, int v, int dir) {', 'void ScOvValueText(')
 theme = cut('const uint32_t kScOvTheme[3][4] = {', 'int g_scEqSlot = 0;')
 key = cut('constexpr int kScKeyMax = 32;', 'bool ScEqChange(int item, int dir) {')
 # wiring: F3 / F4 read in the same place as F2, the overlay thread reads the look and is woken by the keys
-assert 'KeyEdge(VK_F3), f4 = KeyEdge(VK_F4)' in ui and 'rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt)' in ui and 'GetAsyncKeyState(VK_MENU)' in ui, 'F3 / F4 wired next to F2'
+assert 'KeyEdge(VK_F3), f4 = KeyEdge(VK_F4)' in ui and 'rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt, sh)' in ui and 'GetAsyncKeyState(VK_MENU)' in ui, 'F3 / F4 wired next to F2'
 assert 'ScOverlayKick()' in ui and 'WaitForSingleObject(g_kick, 250)' in ui, 'F2 / F3 / F4 redraw the overlay at once'
 assert 'addon::rematch::ScOverlayLook(look)' in ui and 'N3StrokeWindowAlpha(g_wnd, PaintOv' in ui, 'overlay uses the look rows'
 assert 'if (g_uiPages.page == uScOverlay) { add(kItScOverlay);' in rm, 'look page lists the on/off row first'
 assert 'add(kItScOvOpen);' in s, 'Player > Soul cores has the look page row'
 assert '(op * 255 + 50) / 100' in ui, 'opacity rounds: 92% = alpha 235 (#137543)'
-assert "colors[n] = tag[0] == 'S' ? th[0]" in rm, "'?' lines use the T colour (white), not the S gray (#137543)"
+assert "colors[n] = (tag[0] == 'S' || tag[0] == 'F') ? th[0]" in rm, "'?' lines use the T colour (white), not the S gray (#137543)"
 assert 'SC_CALL_TRANSFORM_MOVE' not in key, 'F3 / F4 never choose Transform moveable (#136987)'
 code = r'''
 #include <cstdint>
@@ -83,6 +83,19 @@ int main() {
   formsOn = false; ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "forms OFF: summon still saved");
   ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM && lastToast.find("OFF in the menu") != std::string::npos, "forms OFF: Transform saved, toast says forms OFF");
   formsOn = true;
+  // TASK #138484 (human #138482): Shift+F3 / Shift+F4 = Fast summon on / off; F3 / F4 then return to that summon kind from Transform
+  calls.clear(); ini.clear();
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON && lastToast.find("Fast summon") != std::string::npos, "Shift+F3 Transform -> Fast summon");
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_GAME, "Shift+F3 again -> Summon (game's own)");
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "Shift+F3 again -> Fast summon");
+  check(calls.find(0xA2ACB) == calls.end(), "Shift+F3 leaves Yang 2 alone");
+  ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM, "F3 Fast summon -> Transform");
+  ScCallKey(0); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "F3 back -> Fast summon (set by Shift+F3)");
+  ScCallKey(0); ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "Shift+F3 from Transform -> Fast summon");
+  ScCallKey(0, true); ScCallKey(0); ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "Summon via Shift+F3, F3 twice -> back to Summon");
+  calls[0xA2ACB] = SC_CALL_GAME; ScCallKey(1, true); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "Shift+F4 Summon -> Fast summon on Yang 2");
+  eqIds[1] = 0; slotItems[1] = 0xFFFF; { const int t0 = toasts; ScCallKey(1, true); check(toasts == t0 + 1 && lastToast.find("no soul core") != std::string::npos, "Shift+F4 empty slot: toast only"); }
+  eqIds[1] = 0xA2ACB; slotItems[1] = 0x6E53; calls.clear(); ini.clear();
   // look rows
   check(ScOvStep(kScOvSize, 100, 1) == 115 && ScOvStep(kScOvSize, 100, -1) == 85, "size steps");
   check(ScOvStep(kScOvSize, 200, 1) == 200 && ScOvStep(kScOvSize, 50, -1) == 50, "size stops at the ends");
