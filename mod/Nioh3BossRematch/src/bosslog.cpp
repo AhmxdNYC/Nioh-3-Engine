@@ -7625,7 +7625,8 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"FastThrow", 1, 1, 16, false}, {L"RunThrowMaxMs", 100, 0, 3000, false}, {L"SealTailRampMs", 50, 0, 1000, false},  // human #128855 throw layers
                           {nullptr, 0, 0, 0, false},  // 14 = the menu's Start + end speed row (no value of its own, #129070)
                           {L"SealGhostExit", 1, 0, 1, false}, {L"SealIdleMinMs", 50, 0, 3000, false}, {L"SealExitOnHelperMs", 50, -1, 5000, false},
-                          {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false}};  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
+                          {L"FormSteerMove", 1, 1, 8, false}};  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
     if (live) *live = which < 5 || (which >= 7 && which < 11) || which >= 15 || g_ftHooked.load();  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
@@ -7633,7 +7634,7 @@ double SoulTune(int which, int dir, bool* live) {
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
-             : which == 19 ? (double)g_exitAfterShotMs.load() : g_frz[which - 7].load();
+             : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load() : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
@@ -7642,7 +7643,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 300, 150, 90, 700, 5};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
@@ -7666,6 +7667,7 @@ double SoulTune(int which, int dir, bool* live) {
     case 17: g_exitOnHelperMs.store((int)v); break;
     case 18: g_exitEndPct.store((int)v); break;
     case 19: g_exitAfterShotMs.store((int)v); break;  // TASK #136113
+    case 20: g_formSteerMove.store((int)v); break;  // TASK #136492: FormSteerBoost reads it per step; FormSteerPoll reads the same ini key
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
@@ -7676,7 +7678,7 @@ double SoulTune(int which, int dir, bool* live) {
 }
 
 void SoulTuneReset() {
-    for (int which = 0; which < 20; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
+    for (int which = 0; which < 21; ++which) if (which != 14) SoulTune(which, 2, nullptr);  // 14 = Start + end speed (no value)
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
@@ -8239,6 +8241,14 @@ extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreDetected(uint32_t*
 }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallGet(uint32_t id) { return bosslog::FormCoreCallGet(id); }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreCallSet(uint32_t id, int call) { return bosslog::FormCoreCallSet(id, call); }
+// TASK #136492 (human #136487): one move sensitivity for every Transform moveable core ([Spirit] FormSteerMove, menu row Move sensitivity).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensGet(void) { return (int)bosslog::SoulTune(20, 0, nullptr); }
+extern "C" __declspec(dllexport) int Nioh3BossRematch_SoulCoreMoveSensSet(int x) {
+    const int want = sc_move_sens_clamp(x);
+    int v = (int)bosslog::SoulTune(20, 0, nullptr);
+    for (int i = 0; i < SC_MOVE_SENS_MAX && v != want; ++i) v = (int)bosslog::SoulTune(20, want > v ? 1 : -1, nullptr);  // same path as the menu row (live + ini)
+    return v;
+}
 #endif
 
 namespace fight {
