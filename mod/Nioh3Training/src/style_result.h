@@ -32,6 +32,7 @@
 // Grade. Two rules, both must hold for rank R:
 //   1. floor(average) >= R                                (C for half the fight and A for the other half: average about 2.5 -> B)
 //   2. at least holdPct % of the fight was spent at rank R or higher   (a high average built on a short burst does not count)
+// or rule 3 alone (human 2026-11-26): holdPct % (45) of the fight at R or higher earns R, one grade lower per 1.00 of hit penalty.
 // The grade is the highest R that passes both. The card says which rule held it back when rule 2 lowered it.
 #ifndef STYLE_RESULT_H
 #define STYLE_RESULT_H
@@ -68,6 +69,7 @@ static inline SrCount SrCountSub(SrCount a, SrCount b) {
 typedef struct {
     int grade;                   // 0 = D .. 6 = SSS
     int byAvg;                   // floor(average) before rule 2 (grade < byAvg = rule 2 held it back)
+    int byHold;                  // rule 3: highest rank held holdPct % of the fight, less the hit penalty
     float avg;                   // 0 .. 7, after the hit penalty (what the grade uses)
     float rawAvg, penalty;       // the meter average before the penalty / the penalty subtracted
     float pctAt[SM_RANKS];       // % of the fight spent at each rank
@@ -187,6 +189,18 @@ static inline int SrGrade(const double* atRank, double ms, double area, int hold
     }
     return g;
 }
+// Rule 3 (human 2026-11-26, the intent of the 2026-11-25 "45 %" request): holding rank R or higher for at least holdPct % of the fight earns
+// R on its own, minus one grade per full 1.00 of hit penalty (8 hits at 0.125). The grade is the higher of this and rules 1 + 2.
+static inline int SrGradeHeld(const double* atRank, double ms, int holdPct, double penalty) {
+    if (!(ms > 0.0) || holdPct <= 0) return 0;  // ResultHoldPct 0 = rules 2 and 3 off
+    int g = SM_RANKS - 1;
+    for (; g > 0; --g) {
+        double up = 0; for (int r = g; r < SM_RANKS; ++r) up += atRank[r];
+        if (up * 100.0 >= (double)holdPct * ms) break;
+    }
+    if (penalty > 0) g -= (int)(penalty + 1e-6);
+    return g < 0 ? 0 : g;
+}
 // hitPenaltyCenti: average lost per hit taken, in hundredths (0 = none).
 static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPct, float hitPenaltyCenti) {
     SrResult r; uint8_t* p = (uint8_t*)&r; for (unsigned i = 0; i < sizeof r; ++i) p[i] = 0;
@@ -194,6 +208,7 @@ static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPc
     r.rawAvg = f->ms > 0 ? (float)(f->area / f->ms) : 0.f;
     r.penalty = hitPenaltyCenti > 0 ? (float)r.n.damaged * hitPenaltyCenti / 100.f : 0.f;
     r.grade = SrGrade(f->atRank, f->ms, f->area, holdPct, r.penalty, &r.avg, &r.byAvg); r.hold = holdPct;
+    r.byHold = SrGradeHeld(f->atRank, f->ms, holdPct, r.penalty); if (r.byHold > r.grade) r.grade = r.byHold;
     for (int i = 0; i < SM_RANKS; ++i) r.pctAt[i] = f->ms > 0 ? (float)(f->atRank[i] * 100.0 / f->ms) : (i == 0 ? 100.f : 0.f);
     r.peak = f->peak; r.ms = f->ms; r.moves = f->nActs; r.maMoves = f->nMa; r.comboBest = f->comboBest;
     r.inputs = f->inputs; r.apm = f->ms > 0 ? (float)(f->inputs * 60000.0 / f->ms) : 0.f;
@@ -249,10 +264,10 @@ static inline void SrHudDrop(SrHud* h, int i) { if (i >= 0 && i < SR_HUD) { h->e
 static inline void SrHudExpire(SrHud* h, double wall, int keepMs) { for (int i = 0; i < SR_HUD; ++i) if (h->e[i].a && wall - h->e[i].last > (double)keepMs) SrHudDrop(h, i); }
 // One log / card line of the counts.
 static inline int SrFmt(char* o, int n, const SrResult* r) {
-    return snprintf(o, n, "grade %s avg %.2f (meter %.2f - %.2f for hits taken; by average %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "
+    return snprintf(o, n, "grade %s avg %.2f (meter %.2f - %.2f for hits taken; by average %s, by time held %s) peak %s | %.1f s, %d boss%s | moves %d, martial arts %u (%d different), ninjutsu %u, "
         "soul cores %u, guardian spirit %u, weapon switches %u, style switches %u | hits %u, counters %u, burst breaks %u, dodges %u, deflects %u, Ki pulses %u (%u perfect), hits taken %u, best combo %u, inputs %u (APM %.0f)"
         " | D %.0f%% C %.0f%% B %.0f%% A %.0f%% S %.0f%% SS %.0f%% SSS %.0f%%",
-        sm_rank_name[r->grade], r->avg, r->rawAvg, r->penalty, sm_rank_name[r->byAvg], sm_rank_name[r->peak], r->ms / 1000.0, r->bosses, r->bosses == 1 ? "" : "es",
+        sm_rank_name[r->grade], r->avg, r->rawAvg, r->penalty, sm_rank_name[r->byAvg], sm_rank_name[r->byHold], sm_rank_name[r->peak], r->ms / 1000.0, r->bosses, r->bosses == 1 ? "" : "es",
         r->moves, r->n.maHits, r->maMoves, r->n.nins, r->n.souls, r->n.gsHits, r->n.swapHits, r->n.styles, r->n.hits, r->n.counters + r->n.counterAvoids, r->n.bursts, r->n.dodges, r->n.deflects,
         r->n.kis, r->n.kiPerfects, r->n.damaged, r->comboBest, r->inputs, r->apm,
         r->pctAt[0], r->pctAt[1], r->pctAt[2], r->pctAt[3], r->pctAt[4], r->pctAt[5], r->pctAt[6]);

@@ -76,7 +76,7 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     if (r->grade < r->byAvg)
         snprintf(b, sizeof b, "Average reached %s, but under %d%% of the fight was spent at %s or higher", sm_rank_name[r->byAvg], r->hold, sm_rank_name[r->byAvg]);
     else if (r->grade < SM_RANKS - 1)
-        snprintf(b, sizeof b, "Next: average %d.00 with %d%% of the fight at %s or higher", r->grade + 1, r->hold, sm_rank_name[r->grade + 1]);
+        snprintf(b, sizeof b, "Next: %d%% of the fight at %s or higher", r->hold, sm_rank_name[r->grade + 1]);
     else snprintf(b, sizeof b, "Heavenly");
     SrText(ref, px, W, H, b, W / 2, SRX(320), SRX(16), FW_NORMAL, 1, 1, r->grade < r->byAvg ? 0xE6A050u : SR_LABEL);
     // time at each rank: one bar split by share, then a legend row

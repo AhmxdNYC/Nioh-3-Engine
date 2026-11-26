@@ -21,7 +21,8 @@ static void HalfAndHalf(void) {
     SrBossHit(&f, &s, 0x1000);
     Run(&f, &s, &c, 1, 0.5f, 60000); Run(&f, &s, &c, 3, 0.5f, 60000);
     const SrResult r = Done(&f, &s, SR_HOLD_PCT);
-    CHECK(near(r.avg, 2.5, 0.01) && r.grade == 2 && r.byAvg == 2 && r.peak == 3);
+    CHECK(near(r.avg, 2.5, 0.01) && r.byAvg == 2 && r.peak == 3);
+    CHECK(r.byHold == 3 && r.grade == 3);  // rule 3 (2026-11-26): 50 % at A >= 45 % -> A
     CHECK(near(r.pctAt[1], 50, 0.1) && near(r.pctAt[3], 50, 0.1) && near(r.ms, 120000, 1));
 }
 // A few seconds at SSS in a long fight barely moves the average.
@@ -39,8 +40,8 @@ static void HoldRule(void) {
     Run(&f, &s, &c, 0, 0.f, 70000); Run(&f, &s, &c, 6, 0.9f, 30000);   // idle 70 %, SSS 30 %: average 2.07
     SrResult r = Done(&f, &s, SR_HOLD_PCT);
     CHECK(r.byAvg == 2 && r.grade == 0);                                // only 30 % at B or higher (and at C or higher): D
-    r = Done(&f, &s, 25);                                               // looser rule: 30 % >= 25 % at B
-    CHECK(r.grade == 2);
+    r = Done(&f, &s, 25);                                               // looser rule: 30 % >= 25 % at SSS: rule 3 gives SSS
+    CHECK(r.byHold == 6 && r.grade == 6);
     r = Done(&f, &s, 0);                                                // rule 2 off: the average alone
     CHECK(r.grade == r.byAvg);
 }
@@ -56,7 +57,16 @@ static void SssIsHard(void) {
     for (int r = 0; r < 6; ++r) Run(&f, &s, &c, r, 0.5f, 5000);
     Run(&f, &s, &c, 6, 0.3f, 60000);                                    // SSS with a low gauge: average under 6
     rr = Done(&f, &s, SR_HOLD_PCT);
-    CHECK(rr.grade == 5);
+    CHECK(rr.avg < 6.f && rr.byHold == 6 && rr.grade == 6);              // 2026-11-26 rule 3: 67 % of the fight at SSS earns SSS
+    // human's fight 2026-11-26 04:02: SSS 61 %, average 5.62 -> SS before; now SSS. 8 hits (1.00 penalty) take one grade off rule 3.
+    SrReset(&f); SrBossHit(&f, &s, 0x1000);
+    Run(&f, &s, &c, 1, 0.5f, 3900); Run(&f, &s, &c, 3, 0.5f, 3000); Run(&f, &s, &c, 4, 0.5f, 5800); Run(&f, &s, &c, 5, 0.5f, 7400); Run(&f, &s, &c, 6, 0.3f, 32700);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byAvg == 5 && rr.grade == 6);
+    rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 6 && rr.grade == 6);  // 1 hit: 0.125, still SSS
+    s.damaged += 8; rr = SrFinishEx(&f, &s, SR_HOLD_PCT, 12.5f); CHECK(rr.byHold == 5); s.damaged -= 8;
+    // 40 % at SSS (under 45 %), 60 % at SS: SS
+    SrReset(&f); SrBossHit(&f, &s, 0x1000); Run(&f, &s, &c, 5, 0.5f, 60000); Run(&f, &s, &c, 6, 0.5f, 40000);
+    rr = Done(&f, &s, SR_HOLD_PCT); CHECK(rr.byHold == 5 && rr.grade == 5);
 }
 // Fight length is not scored: the same meter for 10 s or for 10 minutes grades the same. A one-tick kill grades from that one tick.
 static void NoClearTime(void) {
