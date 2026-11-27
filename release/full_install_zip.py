@@ -29,7 +29,7 @@ REPO_FILES = {
     "mod/Nioh3Training/Nioh3Training.ini": None,
     "mod/Nioh3CamKiProbe/Nioh3CamKiProbe.ini": None,
 }
-RELEASE_FILES = ("Nioh3 Mod Website.url", "install_mod.py", "Install-Mod.cmd", "install-mod.sh", "USER_GUIDE.md",
+RELEASE_FILES = ("Nioh3 Mod Website.url", "install_mod.py", "Install-Mod.cmd", "install-mod.sh", "USER_GUIDE.md", "FIRST_TIME_INSTALL.md",
                  "Restore Vanilla Game.cmd", "Put the mod back.cmd", "restore-vanilla.sh", "put-mod-back.sh")
 INSTALL_TXT = """Nioh 3 mods - FRESH INSTALL (first time)
 

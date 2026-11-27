@@ -22,7 +22,7 @@ static SmDispIn Wind(uint64_t run, uint32_t act, float px, float pz, int win) { 
 
 // Just Reprisal shape: one skill use carries the player 90 deg around the boss through its hit window, the same use then hits.
 static void SameUse(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     CHECK(Step(&d, &c, 5000, In(1, 1, 25601, 1, 0, 300, 0, 0, 0), &o) == SM_DP_NONE);
     CHECK(Step(&d, &c, 5100, In(1, 1, 25601, 1, 100, 250, 1, 0, 0), &o) == SM_DP_NONE);   // window opens at 2.7 m
     CHECK(Step(&d, &c, 5200, In(1, 1, 25601, 1, 250, 100, 1, 0, 0), &o) == SM_DP_NONE);
@@ -32,7 +32,7 @@ static void SameUse(void) {
 }
 // Swift Step Heavy shape: the step (skill row) goes behind the boss, a different move (cancel, not a skill row) lands the hit.
 static void CancelFollow(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(10, 10, 25400, 1, 0, 300, 0, 0, 0), &o);
     Step(&d, &c, 50, In(10, 10, 25400, 1, 0, 200, 1, 0, 0), &o);
     Step(&d, &c, 100, In(10, 10, 25400, 1, 50, -150, 0, 0, SM_AV_DODGE), &o); CHECK(o.ate && d.pend);
@@ -41,7 +41,7 @@ static void CancelFollow(void) {
 }
 // Roll away then poke: a plain roll is not eligible (no skill row): no candidate, the Dodge! is not touched.
 static void PlainRoll(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(1, 1, 25157, 0, 0, 200, 0, 0, 0), &o);
     Step(&d, &c, 50, In(1, 1, 25157, 0, 200, 100, 1, 0, 0), &o);
     CHECK(Step(&d, &c, 100, In(1, 1, 25157, 0, 300, -100, 0, 0, SM_AV_DODGE), &o) == SM_DP_NONE && !o.ate && !d.pend);
@@ -51,7 +51,7 @@ static void PlainRoll(void) {
 }
 // A skill move that lunges straight at the boss (bearing unchanged) is not a displacement: the held avoid is paid after all.
 static void StraightLunge(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(1, 1, 7, 1, 0, 450, 0, 0, 0), &o);
     Step(&d, &c, 50, In(1, 1, 7, 1, 0, 350, 1, 0, 0), &o);
     Step(&d, &c, 100, In(1, 1, 7, 1, 0, 150, 0, 0, SM_AV_COUNTER), &o); CHECK(o.ate);
@@ -64,7 +64,7 @@ static void StraightLunge(void) {
     CHECK(Step(&d, &c, 1200, In(2, 2, 7, 1, 100, 0, 0, 1, 0), &o) == SM_DP_MISS && o.why == SM_DPM_MOTION && o.release == SM_AV_DODGE);
 }
 static void Misses(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispOut o;
     // late: no hit within followMs of the window close
     SmDispReset(&d);
     Step(&d, &c, 0, In(1, 1, 7, 1, 0, 300, 0, 0, 0), &o); Step(&d, &c, 50, In(1, 1, 7, 1, 0, 300, 1, 0, 0), &o);
@@ -105,7 +105,7 @@ static void Misses(void) {
 }
 // A fast counter that hits before the boss's window closes: judged at the close with the geometry of that hit.
 static void PreHit(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(1, 1, 7, 1, 0, 300, 0, 0, 0), &o);
     Step(&d, &c, 50, In(1, 1, 7, 1, 0, 300, 1, 0, 0), &o);
     Step(&d, &c, 100, In(1, 1, 7, 1, -300, 0, 1, 1, 0), &o); CHECK(d.pre);
@@ -118,7 +118,7 @@ static void PreHit(void) {
 }
 // Paying: replaces the avoid, a loop step of the use, variety pseudo id; off / clamp.
 static void Pay(void) {
-    SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; SmDispCfg c; SmDispCfgDefaults(&c); SmState s; SmReset(&s);
+    SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmState s; SmReset(&s);
     SmOnHitUse(&s, &sc, 100, 25601, 1, -1.f, 0, 0);
     CHECK(SmOnDisplace(&s, &sc, &c, 100, 25601, 1) == c.pts && s.varN == 2);
     // the same use looped (A A A with LoopReps 2): its hit scored 0, so does the displacement
@@ -150,7 +150,7 @@ static void SwiftStepSlash(SmDisp* d, const SmDispCfg* c, double t0, float sx, f
     }
 }
 static void ReplayNoCancel(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispOut o; int r;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispOut o; int r;
     CHECK(SmDispListed(&c, 25563) && SmDispListed(&c, 25564) && c.nActs == 2);
     // 07:48:46 boss 1.51 m away, window closed ~170 ms into the step (Counter! held), the slash hit 930 ms after: was "no hit in time"
     SmDispReset(&d); SwiftStepSlash(&d, &c, 1000, 0, 151, -150, -250, 150, SM_AV_COUNTER, 1100, &o, &r);
@@ -186,7 +186,7 @@ static double CancelChain(SmDisp* d, const SmDispCfg* c, double t, float x, floa
     (void)t0; return t;
 }
 static void ReplayCancel(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispOut o; int r;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispOut o; int r;
     // 07:55:54: window closed 100 ms into the step (Counter! held), cancel chain, Y attack hits 980 ms after the step's start.
     // Old: "too many moves before the hit" (2 moves = 10493, 2096) -> Counter!. Now: the transition runs are not moves -> Displacement.
     SmDispReset(&d);
@@ -241,7 +241,7 @@ static void ReplayCancel(void) {
 // Kept out: the parry counter (25376 -> 25377, skill word 0xF53B, barely moves), deflects / rolls (not eligible: glue), and the avoid of
 // a parry skill stays a Counter!.
 static void ReplayKeptOut(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispOut o;
     SmDispReset(&d);
     Step(&d, &c, 0, In(1, 1, 25376, 1, 0, 150, 1, 0, 0), &o);
     Step(&d, &c, 100, In(1, 1, 25376, 1, 20, 140, 0, 0, SM_AV_COUNTER), &o); CHECK(d.pend && o.ate);
@@ -273,7 +273,7 @@ static void ReplayKeptOut(void) {
 // the span: no candidate, the Dodge! is the glue's as usual.
 static SmDispIn Roll(uint64_t run, uint32_t act, float px, float pz, int win, int avoid) { SmDispIn i = Tr(run, act, px, pz, win, avoid); i.ifr = 1; return i; }
 static void DodgeAfterSkill(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(1, 1, 25388, 1, 0, 250, 0, 0, 0), &o);          // martial art, 2.5 m from the boss, no boss window
     Step(&d, &c, 300, In(1, 1, 25388, 1, 0, 250, 0, 1, 0), &o);
     Step(&d, &c, 600, Tr(2, 25500, 0, 250, 0, 0), &o);                  // LB transition (no i-frames)
@@ -304,7 +304,7 @@ static void DodgeAfterSkill(void) {
 }
 // A DisplaceActs move (Swift Step Heavy): its short cancel runs have i-frames and stay its tail; a long i-frame run (a roll) does not.
 static void ListedCancelIframes(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     Step(&d, &c, 0, In(1, 1, 25563, 1, 0, 200, 0, 0, 0), &o);
     Step(&d, &c, 50, In(1, 1, 25563, 1, 0, 150, 0, 0, 0), &o);
     Step(&d, &c, 100, Roll(2, 10493, 50, 100, 1, 0), &o);             // 2 cancel runs of 50 ms with i-frames, the window opens
@@ -321,7 +321,7 @@ static void ListedCancelIframes(void) {
 // human 2026-11-26 Ibaraki log 01:06:44 / 01:07:51: Fists defensive drop 25383 > 25384 (one use) 94-98 deg around the boss, farthest
 // 1.85 m, then Y 25398 lands: a displacement with DisplaceMinCm 150 (was 200).
 static void FistsDrop(void) {
-    SmDispCfg c; SmDispCfgDefaults(&c); SmDisp d; SmDispReset(&d); SmDispOut o;
+    SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmDisp d; SmDispReset(&d); SmDispOut o;
     CHECK(c.minCm == 150);
     Step(&d, &c, 0, In(1, 1, 25383, 1, 0, 90, 0, 0, 0), &o);
     Step(&d, &c, 100, In(1, 1, 25383, 1, 50, 80, 1, 0, 0), &o);
@@ -332,7 +332,7 @@ static void FistsDrop(void) {
 }
 // human 2026-11-26: every 3rd displacement landed adds a flat 80; one the repetition penalty applies to neither counts nor pays.
 static void Streak(void) {
-    SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; sc.versStep = 0; SmDispCfg c; SmDispCfgDefaults(&c); SmState s; SmReset(&s);
+    SmCfg sc; SmCfgDefaults(&sc); sc.loopFullRank = sc.loopHalfRank = 0; sc.versStep = 0; SmDispCfg c; SmDispCfgDefaults(&c); c.ctrOnly = 0; SmState s; SmReset(&s);
     CHECK(c.triN == 3 && c.triPts == 150.f && c.pts == 100.f);
     SmOnHitUse(&s, &sc, 100, 25601, 1, -1.f, 0, 0); CHECK(SmOnDisplace(&s, &sc, &c, 100, 25601, 1) == c.pts);           // 1st
     SmOnHitUse(&s, &sc, 200, 25601, 2, -1.f, 0, 0); SmOnHitUse(&s, &sc, 300, 25601, 3, -1.f, 0, 0); CHECK(s.lpPen);
@@ -348,9 +348,37 @@ static void Streak(void) {
     for (int i = 0; i < 3; ++i) { SmOnHitUse(&q, &sc, 100.0 * i, 26000 + i, 10 + i, -1.f, 0, 0); SmOnDisplace(&q, &sc, &o, 100.0 * i, 26000 + i, 10 + i); }
     CHECK(q.dispStreaks == 0);
 }
+// human 2026-11-27 (DisplaceCounterOnly, default on): Just Reprisal (25336, not a DisplaceActs move) is a counter move: the same use that
+// SameUse() awards pays its Counter! only (the avoid is not held, no candidate); a later use of it out of reach (no avoid) is no Displacement!
+// either (learned); a DisplaceActs move (Swift Step Heavy 25563) still is one.
+static void CounterOnly(void) {
+    SmDispCfg c; SmDispCfgDefaults(&c); CHECK(c.ctrOnly == 1); SmDisp d; SmDispReset(&d); SmDispOut o;
+    Step(&d, &c, 5000, In(1, 1, 25336, 1, 0, 300, 0, 0, 0), &o); Step(&d, &c, 5100, In(1, 1, 25336, 1, 100, 250, 1, 0, 0), &o);
+    Step(&d, &c, 5200, In(1, 1, 25336, 1, 250, 100, 1, 0, 0), &o);
+    CHECK(Step(&d, &c, 5250, In(1, 1, 25336, 1, 300, 0, 0, 0, SM_AV_COUNTER), &o) == SM_DP_NONE && !o.ate && !d.pend && o.ctr && o.act == 25336);
+    CHECK(Step(&d, &c, 5450, In(1, 1, 25336, 1, 300, 0, 0, 1, 0), &o) == SM_DP_NONE && !o.release);
+    // the counter closes a tick after the candidate opened: dropped, not held
+    SmDispReset(&d);
+    Step(&d, &c, 1000, In(2, 2, 25336, 1, 0, 300, 0, 0, 0), &o); Step(&d, &c, 1050, In(2, 2, 25336, 1, 0, 300, 1, 0, 0), &o);
+    Step(&d, &c, 1100, In(2, 2, 25336, 1, 300, 0, 0, 0, 0), &o); CHECK(d.pend);
+    Step(&d, &c, 1117, In(2, 2, 25336, 1, 300, 0, 0, 0, SM_AV_COUNTER), &o); CHECK(!o.ate && !d.pend && o.ctr);
+    // a later use out of reach (no avoid at all): the learned counter move still gets no Displacement!
+    Step(&d, &c, 3000, In(3, 3, 25336, 1, 0, 300, 0, 0, 0), &o); Step(&d, &c, 3050, In(3, 3, 25336, 1, 0, 300, 1, 0, 0), &o);
+    Step(&d, &c, 3100, In(3, 3, 25336, 1, 300, 0, 0, 0, 0), &o); CHECK(d.pend);
+    CHECK(Step(&d, &c, 3300, In(3, 3, 25336, 1, 300, 0, 0, 1, 0), &o) == SM_DP_MISS && o.why == SM_DPM_COUNTER && !o.release);
+    // the old rule (DisplaceCounterOnly = 0): the same use is a Displacement! (SameUse)
+    SmDispCfg old = c; old.ctrOnly = 0; SmDispReset(&d);
+    Step(&d, &old, 5000, In(1, 1, 25336, 1, 0, 300, 0, 0, 0), &o); Step(&d, &old, 5100, In(1, 1, 25336, 1, 100, 250, 1, 0, 0), &o);
+    Step(&d, &old, 5200, In(1, 1, 25336, 1, 250, 100, 1, 0, 0), &o); Step(&d, &old, 5250, In(1, 1, 25336, 1, 300, 0, 0, 0, SM_AV_COUNTER), &o);
+    CHECK(o.ate && Step(&d, &old, 5450, In(1, 1, 25336, 1, 300, 0, 0, 1, 0), &o) == SM_DP_AWARD);
+    // a DisplaceActs move keeps its Displacement! with the new rule on
+    SmDispReset(&d); int r;
+    SwiftStepSlash(&d, &c, 1000, 0, 151, -150, -250, 150, SM_AV_COUNTER, 1100, &o, &r);
+    CHECK(r == SM_DP_AWARD && o.listed);
+}
 int main(void) {
     SameUse(); CancelFollow(); PlainRoll(); StraightLunge(); Misses(); PreHit(); Pay();
-    ReplayNoCancel(); ReplayCancel(); ReplayKeptOut(); DodgeAfterSkill(); ListedCancelIframes(); FistsDrop(); Streak();
+    ReplayNoCancel(); ReplayCancel(); ReplayKeptOut(); DodgeAfterSkill(); ListedCancelIframes(); FistsDrop(); Streak(); CounterOnly();
     printf("style_displace_test: all %d checks passed\n", g_checks);
     return 0;
 }
