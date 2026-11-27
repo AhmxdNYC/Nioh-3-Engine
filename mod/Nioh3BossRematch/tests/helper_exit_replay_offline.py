@@ -2,7 +2,7 @@
 
 Forms are parsed from archived live logs (SealHitSource burst lines: press time, owner, new objects). The bound seal is actor 456,
 every other source actor is helper 789. Expected: a core whose bursts all come from a helper (78A8D Kasha, no learned count) ends
-at its first helper burst + 150 ms with the helper NOT ghosted and the hidden seal kept at form speed (no x2 tail, #108161); every other core (5129B helper burst 1 of 2, seal-only cores) ends
+(use 2, count learned on use 1) at its last helper burst + 150 ms with the helper NOT ghosted and the hidden seal kept at form speed (no x2 tail, #108161); every other core (5129B helper burst 1 of 2, seal-only cores) ends
 at the same time with the same ghost list as with the rule off. Usage: helper_exit_replay_offline.py [LOG ...]
 """
 from pathlib import Path
@@ -125,14 +125,18 @@ int main(){
         same = lambda a, b: abs(a[0] - b[0]) < 1e-6 and a[1:] == b[1:]
         body = f['body']  # TASK #137052: spawned before the form began = body part, never a helper exit
         if helper_only and not body:
-            first = f['bursts'][0][0]
-            # use 1 plays in full (flag not learned yet) and learns; use 2 ends at the first helper burst + 150 ms, helper visible, seal at form speed
+            last = f['bursts'][-1][0]
+            # use 1 plays in full (flag not learned yet) and learns; use 2 ends at the LAST helper burst + 150 ms, helper visible, seal at form speed.
+            # TASK #141682 re-baseline: #140119 (136d0921, helper exit only once the count is reached) + e21a9efb (hits up to the seal's despawn
+            # raise the learned count) make use 2 wait for the whole attack. Live proof 11-27 (D:/nioh3-re/live-141572 survey log 07:58:07 and
+            # zeroexit-141441/before 07:06:41): 'SealTailHits learn core 78A8D: 3 hit bursts', next use 'ending the form 4.924 s (burst 3)',
+            # tail 'finished: 3 bursts (exit at 3)' = no hit after the exit. The old 'first burst + 150 ms' was the early escape (human #141298).
             # #108262: and the x2 tail seal is NOT set on the helper exit (fails if '&& !helperDue' is dropped from the g_tailSeal store),
             # while every rule-off exit and the full use 1 do set it
-            ok = (same(n1, o1) and n1[2] == 0 and n2[0] > 0 and abs(n2[0] - (first + 0.150)) <= 0.035 and n2[1] == 0 and n2[2] == 1
+            ok = (same(n1, o1) and n1[2] == 0 and n2[0] > 0 and abs(n2[0] - (last + 0.150)) <= 0.035 and n2[1] == 0 and n2[2] == 1
                   and n2[3] == 0 and n1[3] == 1 and o1[3] == 1 and o2[3] == 1
-                  and o1[0] > n2[0] + 1.0 and o2[0] > n2[0] + 1.0 and o2[2] == 0)  # rule off: never early on any use
-            kind = 'full once, then early'
+                  and o1[0] >= n2[0] and o2[0] >= n2[0] and o2[2] == 0)  # rule off: never earlier than the helper exit
+            kind = 'full once, then at the last helper burst'
         else:
             ok = same(n1, o1) and same(n2, o2) and n1[2] == n2[2] == 0  # same() also compares the x2 tail flag: non-helper exits keep it
             kind = 'body part: unchanged' if helper_only else 'unchanged'

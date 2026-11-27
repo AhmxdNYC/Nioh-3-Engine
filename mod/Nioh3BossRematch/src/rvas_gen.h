@@ -15,6 +15,8 @@ struct Def {
     const char* iat;      // iat: "dll!func"
 };
 constexpr Def kDefs[] = {
+    {0xB9C74, kCode, "40 53 48 83 EC 20 48 8B 81 E8 00 00 00 48 8B D9 B2 01 48 89", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0xB9E50, kCode, "40 53 48 83 EC 20 83 B9 84 AB 00 00 FF 48 8B D9 75 45 48 8B", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0xEFC30, kCode, "48 8B C4 48 89 58 10 55 56 57 48 8B", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0xEFC41, kCode, "4C 8B 19 49 8B F8 0F 29 70 D8 40 8A", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0xEFC99, kCode, "F3 41 0F 10 8B 44 B4 00 00 48 8D 45", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
@@ -34,6 +36,8 @@ constexpr Def kDefs[] = {
     {0x134E68, kCode, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 40 48 8B D9 0F 29 70 D8", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x1621FA, kCode, "48 8B D6 48 8B CF E8 ?? ?? ?? ?? 48 8B D6 48 8B CF E8 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 49 8B 16 4C 8B C6", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x162200, kCode, "E8 ?? ?? ?? ?? 48 8B D6 48 8B CF E8 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 49 8B 16 4C", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x19BB08, kCode, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8D 68 C1 48 81 EC C0 00 00 00 4C", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x2A10B4, kCode, "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 81 EC F0 00 00 00 48 83 79 10 00 41 8B F9 41 8B F0 4C 8B F2 48 8B D9 74 4C 48", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2BD04B, kCode, "E8 ?? ?? ?? ?? EB 09 45 33 ED 41 BF", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2BF7E8, kCode, "48 83 EC 28 48 8B D1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0C 48 81 C1 98 0B 00 00 E8 ??", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2BF7EF, kCode, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0C 48 81 C1 98 0B 00 00 E8 ?? ?? ?? ?? 48 83 C4 28 C3 48 81 C1 98 0B 00 00", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
@@ -41,6 +45,7 @@ constexpr Def kDefs[] = {
     {0x2BF7F6, kCode, "48 85 C9 74 0C 48 81 C1 98 0B 00 00 E8 ?? ?? ?? ?? 48 83 C4 28 C3 48 81 C1 98 0B 00", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2C4450, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 50 8B 01 41 8B E8 C1 E8 04", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2C6CE0, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 49 8B D9 41 8B F8 48 8B", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x2C7E90, kCode, "48 83 EC 28 48 85 C9 74 2D E8 ?? ??", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2E9934, kCode, "4C 8B 81 E8 00 00 00 E9 ?? ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp, transition_native_read.h
     {0x2E9C95, kCode, "48 C1 E8 08 E9 ?? ?? ?? ?? 48 8B CE", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x2EA0FA, kCode, "41 83 E9 28 0F 84 ?? ?? ?? ?? 45 2B", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
@@ -74,9 +79,12 @@ constexpr Def kDefs[] = {
     {0x4892A8, kCode, "40 53 48 83 EC 20 48 8B 81 A0 03 00 00 48 8B D9 48 85 C0 0F", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x48E97C, kCode, "40 53 48 83 EC 20 83 21 00 48 8B D9 83 61 04 00 83 61 0C 00", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x4CE90C, kCode, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29 40 88 44 0F", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x54CCD0, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED C7 41 0E 00 40 00", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
+    {0x54D324, kCode, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F8 FE FF FF 48 81 EC 08 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B E9 4C 89 4C 24", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x563F1C, kCode, "C6 40 01 00 E8 ?? ?? ?? ?? 48 8B 5C 24 40 48 83 C4 20 5F C3", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x567568, kCode, "48 8B C4 48 89 58 08 48 89 70 10 57 48 83 EC 50 80 B9 08 01", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x56778C, kCode, "F3 0F 11 B6 A8 03 00 00 48 8B 5C 24", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x5B635C, kCode, "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 48 8B 00 80 B8 84 00 00 00", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x60370B, kCode, "E8 ?? ?? ?? ?? 44 38 A6 06 01 00 00 74 6E 4C 39 A6 A0 03 00", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x603782, kCode, "E8 ?? ?? ?? ?? 44 39 A6 84 AB 00 00 75 07 44 88 AE 58 A9 00", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x669AB8, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 41 8A E8 48 8B FA 48 8B", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
@@ -85,6 +93,7 @@ constexpr Def kDefs[] = {
     {0x681044, kCode, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 40 48 8B F1 48 8B FA 48 83 C1 10 E8 ?? ??", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x681E9C, kCode, "48 83 EC 28 48 8B D1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0C 48 81 C1 D0 0B 00 00 E8 ??", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x705B5D, kCode, "89 41 34 48 8B F9 48 8B 59 18 48 8B", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
+    {0x70EEA8, kCode, "41 B9 D7 40 00 00 83 F9 02 74 61 83", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x74C27F, kCode, "E8 ?? ?? ?? ?? 48 85 C0 74 2A 8B 78", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x74C2FC, kCode, "48 8B 81 E0 00 00 00 45 33 C0 48 85", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x74C438, kCode, "E8 ?? ?? ?? ?? 4C 8B F8 48 83 F8 FF 74 D8 48 8B 0D ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
@@ -98,6 +107,8 @@ constexpr Def kDefs[] = {
     {0xA550E8, kCode, "48 89 5C 24 10 57 48 83 EC 20 80 B9 D4 09 00 00 00 40 8A FA", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp, rematch.cpp
     {0xFC1A20, kCode, "48 83 EC 28 45 0F B6 D0 4C 8B C9 48 83 FA 77 73 40 48 8B C2", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0xFDE6A2, kCode, "49 8B 50 10 48 85 D2 74 3D 4C 8B 4A", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
+    {0x102B840, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 40 8B C2", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
+    {0x102BB60, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 8B C2 48 8D 4C 24 20 81", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x10C46A5, kCode, "E8 ?? ?? ?? ?? 4C 8B 64 24 70 0F B7", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x10C4712, kCode, "E8 ?? ?? ?? ?? 4D 85 F6 74 2C 48 8B", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x1175400, kCode, "40 53 48 83 EC 20 8B DA 48 8B D1 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 7C", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
@@ -132,12 +143,13 @@ constexpr Def kDefs[] = {
     {0x29667D8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 08 48 8B 80 10 5D 3F 00 C3", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x45B9E30, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 8B 80 58 02 00 00 C3 CC 48 8B C1 C3", 0, 0x465AC, 3, 7, 0, ""},  // bosslog.cpp, rematch.cpp
     {0x45B9E38, kGlobal, "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 89 73 10 8B 53 14 85 D2", 0, 0x91313, 3, 7, 0, ""},  // bosslog.cpp
+    {0x45B9E50, kGlobal, "4C 8B 3D ?? ?? ?? ?? 48 8B CF F3 44", 0, 0x84A09, 3, 7, 0, ""},  // bosslog.cpp
     {0x45B9E58, kGlobal, "4C 8B 3D ?? ?? ?? ?? 48 8B F9 0F 29", 0, 0x43D09, 3, 7, 0, ""},  // rematch.cpp
     {0x45B9E60, kGlobal, "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 73 44 38 A0", 0, 0xA030E, 3, 7, 0, ""},  // bosslog.cpp
     {0x45BA228, kGlobal, "4C 8B 05 ?? ?? ?? ?? 8B F0 49 83 B8 A0 00 00 00 00 75 2D 49 8B C8 E8 ?? ?? ?? ?? 4C 8B 05 ?? ?? ?? ?? 49 8B C8 E8 ?? ?? ?? ?? 84 C0 74 12 E8 ?? ?? ?? ?? 48 85 C0 74 08 48 8B C8 E8 ?? ?? ?? ?? 49 8B 80 A0 00 00 00 48 63 5C 24 24", 0, 0x91078, 3, 7, 0, ""},  // rematch.cpp
     {0x45C6F38, kGlobal, "4C 39 3D ?? ?? ?? ?? 0F 84 ?? ?? ?? ?? 4D 85 C9 0F 84 ?? ??", 0, 0x2B5F63, 3, 7, 0, ""},  // bosslog.cpp
     {0x4751530, kGlobal, "48 8B 2D ?? ?? ?? ?? 45 33 D2 45 8A", 0, 0xF4520, 3, 7, 0, ""},  // rematch.cpp
-    {0x4751848, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 44 88 A9 F8 0C 00 00", 0, 0xF203FF, 3, 7, 0, ""},  // rematch.cpp
+    {0x4751848, kGlobal, "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 0F 85 ?? ?? ?? ?? 8A 4F 54 84 C9 0F 85 ??", 0, 0x9022D, 3, 7, 0, ""},  // rematch.cpp
     {0x4751860, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 8B 08 80 B9 10 73 00 00 00 75 1B 8A", 0, 0x85AAE, 3, 7, 0, ""},  // rematch.cpp
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));

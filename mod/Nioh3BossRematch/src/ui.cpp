@@ -253,7 +253,7 @@ void SoulPairKeys() {
 #if BR_SOULCORE
     // TASK #137543 (regression #137316 gap 4): Alt+F4 quits the game; it must not also flip Yang 2 (and save it) on the way out.
     const bool alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-    rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt, sh);  // TASK #138484: Shift+F3 / Shift+F4 = Fast summon on / off
+    rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt, sh);  // TASK #141276: F3 / F4 step Summon -> Transform -> Fast summon, Shift = back
     if (mine && (f9 || ((f3 || f4) && !alt))) ScOverlayKick();  // the overlay redraws now, not on its next 250 ms poll
 #endif
 }

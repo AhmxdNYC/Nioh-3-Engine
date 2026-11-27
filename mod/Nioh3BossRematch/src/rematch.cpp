@@ -6230,7 +6230,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
 int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
     if (max < 2 || !ScOverlayOn()) return 0;
     if (ReadSnap().st[2]) return 0;  // TASK #138303 (human #138301): hidden on loading screens, the same game-state byte the style meter and the status 'loading=' use
-    const uint16_t items[2] = {ScSlotItem(0), ScSlotItem(1)};
+    uint16_t items[2] = {ScSlotItem(0), ScSlotItem(1)};
+    // TASK #140454 (human #140434): a core whose only usable item lives in slots 2-3 is equipped there by Training and its d-pad
+    // shortcut follows it (#140431: d-pad y -> slot 2 + y). Show that core on its d-pad line instead of dropping the line.
+    for (int y = 0; y < 2; ++y) if (items[y] == 0xFFFF || !items[y]) items[y] = ScSlotItem(2 + y);
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
     const bool forms = bosslog::SoulCoreForms(nullptr);
@@ -6501,6 +6504,25 @@ void Command(const char* line, char* reply, size_t n) {
         return;
     }
 #if BR_SOULCORE
+    if (!strcmp(cmd, "posreset")) {  // human #139207: posreset save|go|status : remember the player's place + facing, warp back there after each soul core (CallWarp = Player::SetPos tail)
+        static float sp[4] = {}; static bool have = false;
+        const uint64_t ch = PlayerChar();
+        float p[4] = {}, f[4] = {};
+        if (!ch || !PlayerPos(p) || !Copy(f, ch + 0x140, 16)) { snprintf(reply, n, "error no player"); return; }
+        if (!strcmp(arg, "save")) {
+            memcpy(sp, p, sizeof(sp)); sp[3] = atan2f(f[0], f[2]) * 57.2957795f; have = true;
+            snprintf(reply, n, "ok saved %.0f %.0f %.0f yaw %.0f", sp[0], sp[1], sp[2], sp[3]); return;
+        }
+        if (!strcmp(arg, "go")) {
+            if (!have) { snprintf(reply, n, "error nothing saved"); return; }
+            if (!g_warpOk) { snprintf(reply, n, "error warp off %s", g_warpWhy); return; }
+            const int rc = CallWarp(sp[0], sp[1], sp[2], sp[3]);
+            float a[4] = {}; PlayerPos(a);
+            Log("Rematch: posreset go -> %.0f %.0f %.0f rc=%d step=%d (from %.0f %.0f %.0f)", a[0], a[1], a[2], rc, g_warpStep, p[0], p[1], p[2]);
+            snprintf(reply, n, "%s rc=%d step=%d now %.0f %.0f %.0f from %.0f %.0f %.0f", rc == 0 ? "ok" : "error", rc, g_warpStep, a[0], a[1], a[2], p[0], p[1], p[2]); return;
+        }
+        snprintf(reply, n, "ok pos %.0f %.0f %.0f yaw %.0f saved=%d", p[0], p[1], p[2], atan2f(f[0], f[2]) * 57.2957795f, have ? 1 : 0); return;
+    }
     if (!strcmp(cmd, "tenshin") && !strcmp(arg, "equip")) {  // tenshin equip <id> [slot] : write the equipped spirit id dword [[pd]+0x100+slot*4] (Equip 217D8B4 does the same store)
         unsigned id = 0, slotArg = 9;
         const char* p = strstr(line, "equip");
@@ -6670,6 +6692,95 @@ void Command(const char* line, char* reply, size_t n) {
             if (k < 1 || !id) { snprintf(reply, n, "error usage: spirit corecall <hex core> [0-3]"); return; }
             const int now = k >= 2 ? bosslog::FormCoreCallSet(id, call) : bosslog::FormCoreCallGet(id);
             snprintf(reply, n, "ok core %X call %d %s", id, now, sc_call_name(now) ? sc_call_name(now) : "?");
+            return;
+        }
+        if (!strcmp(arg, "scstate")) {  // spirit scstate [offset]: owned soul cores, 8 per reply. Training's shrine list (human #134285).
+            using F = int (*)(uint32_t*, uint32_t*, uint16_t*, int);
+            const auto f = (F)TrainingExport("Nioh3Training_SoulCoreState");
+            if (!f) { snprintf(reply, n, "error no SoulCoreState export"); return; }
+            unsigned off = 0;
+            const char* p = strstr(line, "scstate");
+            if (p) sscanf_s(p + 7, "%u", &off);
+            uint32_t slots[8] = {}, idx[64] = {}; uint16_t item[64] = {};
+            int c = -1;
+            for (int i = 0; i < 40 && c < 0; ++i) { c = f(slots, idx, item, 64); if (c < 0) Sleep(100); }
+            if (c < 0) { snprintf(reply, n, "error state not ready"); return; }
+            size_t k = (size_t)snprintf(reply, n, "ok n=%d off=%u slots=%X,%X", c, off, slots[0], slots[1]);
+            int shown = 0;
+            for (unsigned i = off; i < (unsigned)c && shown < 8 && k + 20 < n; ++i, ++shown)
+                k += (size_t)snprintf(reply + k, n - k, " %u:%X", idx[i], item[i]);
+            Log("Survey scstate n=%d off=%u", c, off);
+            return;
+        }
+        if (!strcmp(arg, "sccat")) {  // spirit sccat [offset]: every soul core in the item master, 8 ITEM:YOKAI per reply (TASK #138870)
+            using C = int (*)(uint16_t*, int, uint16_t*);
+            const auto cat = (C)TrainingExport("Nioh3Training_SoulCoreCatalog");
+            if (!cat) { snprintf(reply, n, "error no SoulCoreCatalog export"); return; }
+            unsigned off = 0;
+            const char* p = strstr(line, "sccat");
+            if (p) sscanf_s(p + 5, "%u", &off);
+            static uint16_t ids[1024]; uint16_t slot8[8] = {};
+            int c = -1;
+            for (int i = 0; i < 40 && c < 0; ++i) { c = cat(ids, 1024, slot8); if (c < 0) Sleep(100); }
+            if (c < 0) { snprintf(reply, n, "error catalog not ready"); return; }
+            if (c > 1024) c = 1024;
+            static uint16_t mi[2048]; static uint32_t mc[2048];
+            int m = bosslog::FormCoreMapCopy(mi, mc, 2048);
+            if (m > 2048) m = 2048;
+            size_t k = (size_t)snprintf(reply, n, "ok n=%d map=%d off=%u slots=%X,%X", c, m, off, slot8[0], slot8[1]);
+            int shown = 0;
+            for (unsigned i = off; i < (unsigned)c && shown < 8 && k + 24 < n; ++i, ++shown) {
+                uint32_t chr = 0;
+                for (int j = 0; j < m; ++j) if (mi[j] == ids[i]) { chr = mc[j]; break; }
+                k += (size_t)snprintf(reply + k, n - k, " %X:%X", ids[i], chr);
+            }
+            Log("Survey sccat n=%d map=%d off=%u", c, m, off);
+            return;
+        }
+        if (!strcmp(arg, "scequipitem")) {  // spirit scequipitem <slot 0-7> <hex item>: any core in the item master, owned or not (TASK #138870)
+            int slot = -1; unsigned item = 0;
+            const char* p = strstr(line, "scequipitem");
+            if (!p || sscanf_s(p + 11, "%d %x", &slot, &item) != 2) { snprintf(reply, n, "error spirit scequipitem <slot> <hex item>"); return; }
+            using E = int (*)(int, int);
+            using R = int (*)(int*);
+            const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem");
+            const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
+            if (!eq || !res) { snprintf(reply, n, "error no SoulCoreEquipItem export"); return; }
+            int seq0 = 0; res(&seq0);
+            const int q = eq(slot, (int)item);
+            if (q != 1) { snprintf(reply, n, "error queue %d slot=%d item=%X", q, slot, item); return; }
+            int seq = seq0, r = 1;
+            for (int i = 0; i < 150; ++i) { r = res(&seq); if (seq != seq0) break; Sleep(20); }
+            uint32_t rc = 0; int rt = 0;
+            const int rm = bosslog::SurveyCoreRecord(item, &rc, &rt);  // TASK #140431: rec=0 = the slot has nothing the game can use
+            char rl[160] = {}; bosslog::SurveyCoreRecordList(rl, (int)sizeof rl);
+            Log("Survey scequipitem slot %d item %X queue %d result %d seq %d->%d rec=%d count=%u records=%d use=%s", slot, item, q, r, seq0, seq, rm, rc, rt, rl);
+            snprintf(reply, n, "ok queue=%d result=%d seq=%d->%d slot=%d item=%X rec=%d count=%u records=%d use=%s", q, r, seq0, seq, slot, item, rm, rc, rt, rl);
+            return;
+        }
+        if (!strcmp(arg, "scequip")) {  // spirit scequip <slot 0-7> <inventory idx>: shrine equip on the game thread. Not a slot-index write.
+            int slot = -1, idx = -1;
+            const char* p = strstr(line, "scequip");
+            if (!p || sscanf_s(p + 7, "%d %d", &slot, &idx) != 2) {
+                snprintf(reply, n, "error spirit scequip <slot> <idx>");
+                return;
+            }
+            using E = int (*)(int, int);
+            using R = int (*)(int*);
+            const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquip");
+            const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
+            if (!eq || !res) { snprintf(reply, n, "error no SoulCoreEquip export"); return; }
+            int seq0 = 0; res(&seq0);
+            const int q = eq(slot, idx);
+            if (q != 1) { snprintf(reply, n, "error queue %d slot=%d idx=%d", q, slot, idx); return; }
+            int seq = seq0, r = 1;
+            for (int i = 0; i < 150; ++i) {
+                r = res(&seq);
+                if (seq != seq0) break;
+                Sleep(20);
+            }
+            Log("Survey scequip slot %d idx %d queue %d result %d seq %d->%d", slot, idx, q, r, seq0, seq);
+            snprintf(reply, n, "ok queue=%d result=%d seq=%d->%d slot=%d idx=%d", q, r, seq0, seq, slot, idx);
             return;
         }
         if (!strcmp(arg, "formkey")) {  // spirit formkey on [hex X]|off|status : log the summon body key, then one SetForm with that key (pc/soulcore-formkey)
@@ -6861,6 +6972,22 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "open") || !strcmp(cmd, "scroll")) {
         Post(!strcmp(cmd, "open") ? kReqOpen : kReqScroll, -1, "pipe");
         snprintf(reply, n, "queued");
+        return;
+    }
+    if (!strcmp(cmd, "trainarena")) {  // trainarena <id>: the menu's 'Train in this arena' (no boss, no waves), no confirm step (human #139207 sweep)
+        for (size_t i = 0; i < g_rows.size(); ++i)
+            if (!strcmp(g_rows[i].id, arg)) {
+                const int row = (int)i;
+                if (ArenaTrainRoute(row) == rcore::kAtScroll) { snprintf(reply, n, "refused scroll route"); return; }
+                if (const char* w = Gates(ReadSnap(), true)) { snprintf(reply, n, "refused %s", w); return; }
+                if (const char* w = ArenaTrainWhy(row)) { snprintf(reply, n, "refused %s", w); return; }
+                SetPracticeNext(0);
+                g_arenaOnlyRow.store(row);
+                Post(kReqFight, row, "pipe (train in this arena)");
+                snprintf(reply, n, "queued %s trainarena start=%u", g_rows[i].id, g_rows[i].fightStart);
+                return;
+            }
+        snprintf(reply, n, "error no row %s", arg);
         return;
     }
     if (!strcmp(cmd, "fight") || !strcmp(cmd, "shrine")) {  // fight <id>: Fight now (in the arena); shrine <id>: the start point alone

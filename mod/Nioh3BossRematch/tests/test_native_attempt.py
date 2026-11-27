@@ -51,6 +51,10 @@ void AutoMovesTick() {}
 bool TrainingOwnsFight() { return false; }
 std::atomic<bool> g_staleBbm{false};
 void TfTick(const Snap&,ULONGLONG) {}
+// public 1.8.47 level sync (TASK #141907): the request / swap / tick paths now call these
+ULONGLONG g_lvSyncSwapAt=0; int g_lvSyncBegins=0;
+void LvSyncBegin(const char*) { ++g_lvSyncBegins; }
+void LvSyncTick(const Snap&,ULONGLONG) {}
 ULONGLONG now=20000;
 ULONGLONG Ms() { return now; }
 Snap ReadSnap() { return fixtureSnap; }

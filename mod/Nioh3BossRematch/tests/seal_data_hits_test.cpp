@@ -27,6 +27,12 @@ int main() {
     a[1].ev[1] = 0xFFFF;
     Row(h3, 0xFFFF, 0xFFFF, 30); a[3].hb = h3.data(); a[3].nhb = 1; a[2].next = 0x100;  // untimed damaging row: not certain
     r = SdhCount(a, 4, 0xC52); assert(r.untimed == 1 && !r.certain() && r.chain == 4);
+    {   // TASK #141195 Yasha 5B402 (live 02:29): bound in C53 with 3 bursts, finish link to an action outside the file -> cut, not certain
+        std::vector<uint8_t> y; Row(y, 20, 26, 50); Row(y, 30, 40, 50); Row(y, 45, 60, 50);
+        SdhAction ya[2]; ya[0].id = 0xC53; ya[0].next = 0xC54; ya[0].hb = y.data(); ya[0].nhb = 3; ya[1].id = 0x200; ya[1].next = 0x200;
+        SdhResult yr = SdhCount(ya, 2, 0xC53); assert(yr.bursts == 3 && yr.cut && !yr.certain());
+        ya[0].next = 0xFFFF; yr = SdhCount(ya, 2, 0xC53); assert(yr.bursts == 3 && !yr.cut && yr.certain());  // chain ends in the file: certain
+    }
     r = SdhCount(a, 4, 0x999); assert(r.chain == 0 && !r.certain() && r.firstIdx == -1 && r.lastIdx == -1);  // unknown start
     // #135408: helpers noted before the seal binds and from the press-source list are read once each; never below learned.
     SdhWant w; w.Bind(0, 1, 1); assert(w.fromData && w.want == 1);          // 5129B-like: seal data 1, nothing learned
@@ -89,6 +95,113 @@ int main() {
         SdhResult o; o.bursts = 2; o.spawns = 1; assert(SdhMinBursts(o) == 2 && !SdhHitsSettled(true, o, 2, 2, false, 2640, 2840, 200));  // #138952: spawn can still hit
         SdhResult c; c.bursts = 2; assert(c.certain() && SdhHitsSettled(true, c, 2, 2, false, 2640, 2840, 200) && !SdhHitsSettled(true, c, 2, 2, false, 2640, 2839, 200));  // certain: unchanged
         assert(!SdhHitsSettled(true, o, 1, 1, false, 2640, 3000, 200));   // own data has 2 timed bursts, 1 seen
+    }
+    {   // TASK #140119: frame exit = start of the last damaging row of the last-burst action, only on a fully mapped seal-only data count
+        std::vector<uint8_t> y, k;
+        Row(y, 20, 30, 50); Row(y, 31, 40, 50); Row(y, 100, 120, 60); Row(y, 110, 115, 60); Row(y, 200, 0xFFFF, 0, 0);  // 2 bursts; last row starts f110
+        SdhAction c[3];
+        c[0].id = 0xC5A; c[0].next = 1; c[0].hb = y.data(); c[0].nhb = 5;
+        c[1].id = 1; c[1].next = 1;                                        // idle self loop with no hits: fine
+        c[2].id = 0xC5B; c[2].next = 0xC5A;
+        SdhResult fr = SdhCount(c, 3, 0xC5A);
+        assert(fr.certain() && fr.bursts == 2 && fr.lastIdx == 0 && fr.lastBurstStart == 100 && fr.lastStart == 110 && !fr.loopHits && !fr.cut);
+        SdhWant fw; fw.Bind(0, 2, 1);
+        assert(SdhEndFrameOf(true, fr, fw) == 110);
+        assert(!SdhEndFrameReached(fr, 110, 0xC5A, 109.9f) && SdhEndFrameReached(fr, 110, 0xC5A, 110.2f));
+        assert(!SdhEndFrameReached(fr, 110, 1, 500.f) && !SdhEndFrameReached(fr, -1, 0xC5A, 500.f));  // other act / off
+        assert(SdhEndFrameOf(false, fr, fw) == -1);                          // data not read
+        fw.Bind(3, 2, 1); assert(SdhEndFrameOf(true, fr, fw) == -1);          // learned above data: count path
+        fw.Bind(0, 2, 1); assert(fw.Take(0xA1)); fw.Join(1); assert(SdhEndFrameOf(true, fr, fw) == -1);  // helper data joined
+        fw.Bind(0, 0, 1); assert(SdhEndFrameOf(true, fr, fw) == -1);          // data not certain
+        fw.Bind(0, 2, 0); assert(SdhEndFrameOf(true, fr, fw) == -1);          // SealHitsData off
+        fr = SdhCount(c, 3, 0xC5B);                                         // C5B -> C5A -> 1: last burst in the 2nd action
+        assert(fr.chain == 3 && fr.lastIdx == 1 && fr.ids[1] == 0xC5A && fr.lastStart == 110);
+        fw.Bind(0, 2, 1); assert(SdhEndFrameOf(true, fr, fw) == 110 && !SdhEndFrameReached(fr, 110, 0xC5B, 200.f));
+        c[0].next = 0xC5A; fr = SdhCount(c, 3, 0xC5A); assert(fr.loopHits && SdhEndFrameOf(true, fr, fw) == -1);  // hitting self loop: can play again
+        c[0].next = 0xC5B; fr = SdhCount(c, 3, 0xC5A); assert(fr.loopHits && SdhEndFrameOf(true, fr, fw) == -1);  // cycle back into a hitting action
+        c[0].next = 0x777; fr = SdhCount(c, 3, 0xC5A); assert(fr.cut && SdhEndFrameOf(true, fr, fw) == -1);       // next action not in the file
+        Row(k, 0xFFFF, 0xFFFF, 30); c[1].hb = k.data(); c[1].nhb = 1; c[0].next = 1;
+        fr = SdhCount(c, 3, 0xC5A); assert(fr.untimed == 1 && SdhEndFrameOf(true, fr, fw) == -1);                    // untimed row: count path
+        char d2[256]; c[1].nhb = 0; fr = SdhCount(c, 3, 0xC5A); SdhDescribe(fr, d2, sizeof d2); puts(d2);
+    }
+    {   // TASK #141441: universal 0 ms turn-back - the seal's own data is done past the last source frame of the last source action
+        std::vector<uint8_t> y, u;
+        Row(y, 20, 30, 50); Row(y, 100, 120, 60); Row(y, 110, 115, 60); Row(y, 200, 0xFFFF, 0, 0);  // last hitbox ends f120 (no-damage row ignored)
+        SdhAction c[4];
+        c[0].id = 0xC53; c[0].next = 0xC54; c[0].hb = y.data(); c[0].nhb = 4;
+        c[1].id = 0xC54; c[1].next = 1;                                    // recovery, no source
+        c[2].id = 1; c[2].next = 1;                                        // idle
+        c[3].id = 0xC60; c[3].next = 0xC60;
+        for (auto& x : c) { x.ev[0] = 20001; x.evFrame[0] = 0; }          // ambient body object: not a source
+        SdhResult zr = SdhCount(c, 4, 0xC53);
+        assert(zr.srcIdx == 0 && zr.srcEnd == 120 && zr.certain());
+        assert(!SdhSealSourcesDone(true, zr, 0xC53, 119.f, true));        // last hitbox still due
+        assert(SdhSealSourcesDone(true, zr, 0xC53, 120.f, true));          // past it: nothing left in the seal data
+        assert(SdhSealSourcesDone(true, zr, 0xC54, 3.f, true));            // recovery action after the source action
+        assert(SdhSealSourcesDone(true, zr, 1, 3.f, true));                // idle
+        assert(!SdhSealSourcesDone(true, zr, 1, 3.f, false));              // never seen in the source action: no proof
+        assert(!SdhSealSourcesDone(true, zr, 0xC53, 120.f, true, 1, 2));   // 19C1F: live hit 1 of a wanted 2 - not done
+        assert(SdhSealSourcesDone(true, zr, 0xC53, 120.f, true, 2, 2));
+        assert(!SdhSealSourcesDone(true, zr, 0xC99, 3.f, true));           // 19C1F: an action the chain does not name - no proof
+        assert(!SdhSealSourcesDone(true, zr, 0xFFFFFFFF, 500.f, true));    // unreadable action
+        assert(!SdhSealSourcesDone(false, zr, 0xC53, 500.f, true));        // data not read
+        c[1].ev[1] = 20009; c[1].evFrame[1] = 40;                          // projectile thrown in the recovery action at f40: the source moves on
+        zr = SdhCount(c, 4, 0xC53);
+        assert(zr.srcIdx == 1 && zr.srcEnd == 40 && !zr.certain());        // not certain, still mapped
+        assert(!SdhSealSourcesDone(true, zr, 0xC53, 500.f, true));         // an earlier source action is not the end
+        assert(!SdhSealSourcesDone(true, zr, 0xC54, 39.f, true) && SdhSealSourcesDone(true, zr, 0xC54, 40.f, true));
+        c[1].ev[1] = 0xFFFF; Row(u, 0xFFFF, 0xFFFF, 30); Row(u, 5, 9, 30); c[1].hb = u.data(); c[1].nhb = 2;  // untimed + timed row in C54
+        zr = SdhCount(c, 4, 0xC53); assert(zr.srcIdx == 1 && zr.srcEnd == 9 && zr.untimed == 1 && zr.srcUntimed);
+        // TASK #141595: timed+untimed source action - its timed end (f9) is not the end, the untimed row can still hit while the seal is in it
+        assert(!SdhSealSourcesDone(true, zr, 0xC54, 9.f, true) && !SdhSealSourcesDone(true, zr, 0xC54, 500.f, true));
+        assert(SdhSealSourcesDone(true, zr, 1, 3.f, true));                 // left it for idle after being seen in it: done
+        c[1].nhb = 1; zr = SdhCount(c, 4, 0xC53); assert(zr.srcIdx == 1 && zr.srcEnd == 0 && zr.srcUntimed);  // untimed only: a source with no frame of its own
+        assert(!SdhSealSourcesDone(true, zr, 0xC54, 0.f, true));            // srcEnd 0 is NOT done on entry (early escape #141595)
+        assert(!SdhSealSourcesDone(true, zr, 0xC54, 300.f, true));
+        assert(!SdhSealSourcesDone(true, zr, 1, 3.f, false) && SdhSealSourcesDone(true, zr, 1, 3.f, true));
+        c[1].nhb = 0; c[0].next = 0xC53; zr = SdhCount(c, 4, 0xC53);
+        assert(zr.loopHits && !SdhSealSourcesDone(true, zr, 0xC53, 500.f, true));   // hitting self loop: can play again
+        c[0].next = 0x777; zr = SdhCount(c, 4, 0xC53);
+        assert(zr.cut && !SdhSealSourcesDone(true, zr, 0xC53, 500.f, true));        // chain leaves the file
+        c[0].next = 0xC54; c[1].next = 0xC53; zr = SdhCount(c, 4, 0xC53);
+        assert(zr.loopHits && !SdhSealSourcesDone(true, zr, 0xC54, 5.f, true));     // cycle back into the hitting action
+        {   // 72E4F: a spawn event in the idle action (0x1) is not a hit source
+            SdhAction m[2]; m[0].id = 0xC53; m[0].next = 1; m[0].hb = y.data(); m[0].nhb = 4; m[1].id = 1; m[1].next = 1;
+            m[1].ev[0] = 20044; m[1].evFrame[0] = 5;
+            SdhResult mr = SdhCount(m, 3, 0xC53); assert(mr.srcIdx == 0 && mr.srcEnd == 120 && mr.spawns == 1);
+            assert(SdhSealSourcesDone(true, mr, 1, 0.f, true));
+        }
+        SdhAction e[1]; e[0].id = 0xC70; e[0].next = 1; zr = SdhCount(e, 1, 0xC70);
+        assert(zr.srcIdx == -1 && !SdhSealSourcesDone(true, zr, 0xC70, 500.f, true)); // no source at all: no data proof
+    }
+    {   // TASK #141728: a spawn whose object tree has no damaging hitbox is no hit source (D15AC: last burst f60, effect spawn f115)
+        std::vector<uint8_t> hb, ob; Row(hb, 40, 60, 50);                // C53 slot 0: timed damaging row
+        { uint16_t ff = 0xFFFF; Row(ob, 0, 0, 0); memcpy(&ob[8], &ff, 2); }                             // C60 slot 0: untimed, no damage
+        { uint16_t ff = 0xFFFF; size_t o = ob.size(); Row(ob, 0, 0, 30); memcpy(&ob[o + 8], &ff, 2); }  // C60 slot 1: damaging untimed row (object hitbox)
+        std::vector<uint8_t> o7(3 * SDH_OBJ, 0), o8(1 * SDH_OBJC, 0);
+        auto obj = [&](int N, uint16_t act, uint8_t slot) { uint8_t* b = &o7[(size_t)N * SDH_OBJ]; memcpy(b + 0x12, &act, 2); b[0x15] = slot;
+                                                            for (int k = 0; k < 6; ++k) { uint16_t ff = 0xFFFF; memcpy(b + 0x110 + 2 * k, &ff, 2); } };
+        obj(0, 0xFFFF, 0xFF);            // effect: no own hitbox, no components
+        obj(1, 0xC60, 1);                // projectile: own slot 1 = damaging untimed row
+        obj(2, 0xC60, 0);                // own slot 0 has no damage, but component 0 = child object 1 (hits)
+        { uint16_t c0 = 0, ty = 3, ch = 20001; memcpy(&o7[2 * SDH_OBJ + 0x110], &c0, 2); memcpy(&o8[0x4C], &ty, 2); memcpy(&o8[4], &ch, 2); }
+        SdhAction m[3]; m[0].id = 0xC53; m[0].next = 1; m[0].hb = hb.data(); m[0].nhb = 1; m[1].id = 1; m[1].next = 1;
+        m[2].id = 0xC60; m[2].next = 0xC60; m[2].hb = ob.data(); m[2].nhb = 2;   // the projectile's own action (not in the chain)
+        m[0].ev[0] = 20000; m[0].evFrame[0] = 115;
+        SdhResult before = SdhCount(m, 3, 0xC53); assert(before.spawns == 1 && before.srcEnd == 115 && !before.certain());
+        std::vector<uint8_t> memo(3, 0); SdhMarkSpawnHits(m, 3, o7.data(), 3, o8.data(), 1, memo.data());
+        assert(m[0].evHits[0] == 0);
+        SdhResult r2 = SdhCount(m, 3, 0xC53);
+        assert(r2.spawns == 0 && r2.freeSpawns == 1 && r2.srcEnd == 60);
+        assert(SdhSealSourcesDone(true, r2, 0xC53, 60.f, true) && !SdhSealSourcesDone(true, r2, 0xC53, 59.f, true));
+        m[0].ev[1] = 20001; m[0].evFrame[1] = 90; m[0].ev[2] = 20002; m[0].evFrame[2] = 100;   // projectile + its parent: both may hit
+        std::fill(memo.begin(), memo.end(), 0); SdhMarkSpawnHits(m, 3, o7.data(), 3, o8.data(), 1, memo.data());
+        assert(m[0].evHits[0] == 0 && m[0].evHits[1] == 1 && m[0].evHits[2] == 1);
+        r2 = SdhCount(m, 3, 0xC53); assert(r2.spawns == 2 && r2.freeSpawns == 1 && r2.srcEnd == 100);
+        std::fill(memo.begin(), memo.end(), 0); SdhMarkSpawnHits(m, 3, nullptr, 0, nullptr, 0, memo.data());  // no tables: may hit
+        assert(m[0].evHits[0] == 1 && SdhCount(m, 3, 0xC53).srcEnd == 115);
+        uint8_t* b0 = &o7[0]; b0[0x14] = 3; std::fill(memo.begin(), memo.end(), 0);                        // byte +0x14 > 2: may hit
+        SdhMarkSpawnHits(m, 3, o7.data(), 3, o8.data(), 1, memo.data()); assert(m[0].evHits[0] == 1);
     }
     puts("seal_data_hits_test PASS"); return 0;
 }

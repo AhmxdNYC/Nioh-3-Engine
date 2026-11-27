@@ -236,6 +236,74 @@ inline int sc_table_parse(ScCallTable* t, const wchar_t* s) {
     }
     return t->n;
 }
+// human #141372 / #141378: per-core values the player sets on top of the universal rules (one table per setting, same "id:value"
+// text as FormCoreCalls). [Spirit] FormCoreSpeed = "id:x10" (5..30 = x0.5..x3.0; that core's yokai speed in place of Transform speed /
+// Fast summon speed; absent = the universal speed). [Spirit] FormCoresMove = "id:1" (the left stick steers that core's yokai from the
+// start instead of waiting for the travel detection; absent / 0 = detection). Not thread safe by itself; the caller holds its lock.
+#define SC_CORE_SPEED_MIN 5
+#define SC_CORE_SPEED_MAX 30
+struct ScValTable {
+    uint32_t id[SC_TABLE_MAX];
+    int16_t v[SC_TABLE_MAX];
+    int n;
+};
+inline void sc_vtab_clear(ScValTable* t) { t->n = 0; }
+// def = no value for this core.
+inline int sc_vtab_get(const ScValTable* t, uint32_t id, int def) {
+    if (!id) return def;
+    for (int i = 0; i < t->n; ++i) if (t->id[i] == id) return t->v[i];
+    return def;
+}
+// v outside lo..hi removes the core's value (back to the universal rule). False when the table is full.
+inline bool sc_vtab_set(ScValTable* t, uint32_t id, int v, int lo, int hi) {
+    if (!id) return false;
+    const bool del = v < lo || v > hi;
+    for (int i = 0; i < t->n; ++i) if (t->id[i] == id) {
+        if (del) { for (int j = i + 1; j < t->n; ++j) { t->id[j - 1] = t->id[j]; t->v[j - 1] = t->v[j]; } --t->n; }
+        else t->v[i] = (int16_t)v;
+        return true;
+    }
+    if (del) return true;
+    if (t->n >= SC_TABLE_MAX) return false;
+    t->id[t->n] = id; t->v[t->n] = (int16_t)v; ++t->n;
+    return true;
+}
+// "8D402:13,5216E:20". Bad pieces and values outside lo..hi are skipped.
+inline int sc_vtab_parse(ScValTable* t, const wchar_t* s, int lo, int hi) {
+    sc_vtab_clear(t);
+    if (!s) return 0;
+    const wchar_t* p = s;
+    while (*p) {
+        wchar_t* e = 0;
+        const unsigned long id = wcstoul(p, &e, 16);
+        if (e == p) { ++p; continue; }
+        p = e;
+        if (*p != L':') continue;
+        ++p;
+        const long v = wcstol(p, &e, 10);
+        if (e == p) continue;
+        p = e;
+        if (id && id <= 0xFFFFFFFFul && v >= lo && v <= hi) sc_vtab_set(t, (uint32_t)id, (int)v, lo, hi);
+    }
+    return t->n;
+}
+inline int sc_vtab_format(const ScValTable* t, wchar_t* b, size_t cap) {
+    if (!b || !cap) return 0;
+    b[0] = 0;
+    size_t o = 0;
+    for (int i = 0; i < t->n; ++i) {
+        wchar_t piece[24];
+        const int k = swprintf(piece, 24, L"%ls%X:%d", i ? L"," : L"", (unsigned)t->id[i], (int)t->v[i]);
+        if (k <= 0 || o + (size_t)k + 1 > cap) break;
+        for (int j = 0; j < k; ++j) b[o++] = piece[j];
+        b[o] = 0;
+    }
+    return (int)o;
+}
+// The speed a core's yokai plays at: its own x10 value if it has one, else the universal speed.
+inline float sc_core_speed(int x10, float universal) {
+    return (x10 >= SC_CORE_SPEED_MIN && x10 <= SC_CORE_SPEED_MAX) ? (float)x10 / 10.f : universal;
+}
 inline int sc_table_format(const ScCallTable* t, wchar_t* b, size_t cap) {
     if (!b || !cap) return 0;
     b[0] = 0;

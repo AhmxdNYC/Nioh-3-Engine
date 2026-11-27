@@ -113,9 +113,12 @@ bool FormCoreTransforms(uint32_t id);
 bool FormCoreToggle(uint32_t id);
 bool FormCorePendingTransforms(int dir);
 bool FormCorePendingSet(int dir, bool transforms);
+int FormCoreMapCopy(uint16_t* items, uint32_t* chrs, int cap);  // TASK #138870: item -> yokai map from the game tables; full count, -1 not built
 int FormCoreCallGet(uint32_t id);            // TASK #136197: SC_CALL_* (mod/shared/soul_core_api.h)
 int FormCoreCallSet(uint32_t id, int call);  // returns the call now in effect; saved [Spirit] FormCoreCalls
 bool FormCoreEquippedIds(uint32_t out[2]);  // TASK #137000: Yang 1 / Yang 2 yokai ids (0 = empty or unknown); false = equipment not read yet
+int SurveyCoreRecord(unsigned item, uint32_t* count, int* total);  // TASK #140431: records of this item id in the core count table (-1 unreadable)
+int SurveyCoreRecordList(char* out, int cap);  // TASK #140431: "slot:id:count" of the live soul core use records
 bool FormCoreMoved(uint32_t id);            // TASK #137000: this core's yokai has steered (FormSteerTick armed) at least once; saved [Spirit] FormCoresMoved
 #endif  // BR_SOULCORE
 }
@@ -207,7 +210,7 @@ void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max);  // TASK #137000: soul core overlay, 0 = hide
 void ScOverlayLook(int* v);  // TASK #137007: 8 ints: size %, x / y per-mille, opacity %, box, colors, font, panel COLORREF
-void SoulCallKeyTick(bool f3, bool f4, bool shift);  // TASK #137007: F3 / F4 flip Yang 1 / 2 summon <-> Transform; TASK #138484: with Shift, Summon <-> Fast summon
+void SoulCallKeyTick(bool f3, bool f4, bool shift);  // TASK #141276: F3 / F4 step Yang 1 / 2 Summon -> Transform -> Fast summon; with Shift, the other way
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
 #if BR_SOULCORE

@@ -35,6 +35,7 @@ BOOL FakeWrite(const wchar_t*,const wchar_t* key,const wchar_t* value,const wcha
 #define WritePrivateProfileStringW FakeWrite
 const wchar_t* IniPath(){return L"memory-only";}
 int IniInt(const wchar_t*,const wchar_t* key,int def){auto it=ini.find(key);return it==ini.end()?def:std::stoi(it->second);}
+SRWLOCK g_coreMapLock=SRWLOCK_INIT;struct CoreMapE{uint16_t item;uint32_t chr;};std::vector<CoreMapE> g_coreMap;  // TASK #138870 stub: FormCoreMapCopy sits in the sliced block
 double clockNow=10; WORD buttons=0;
 double Now(){return clockNow;}
 void Log(const char*,...){}

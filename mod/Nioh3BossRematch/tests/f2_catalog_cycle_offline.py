@@ -8,6 +8,9 @@ i = s.index('int ScPairCatPick('); fn = s[i:s.index('void ScPairStep(int dir) {'
 step = s[s.index('void ScPairStep(int dir) {'):s.index('void ScPairFlag() {')]
 assert 'Nioh3Training_SoulCoreEquipItem' in step and step.index('ScCatRead(&cat)') < step.index('ScPairList L;'), 'catalog first, owned list only as fallback'
 assert 'Nioh3Training_SoulCoreEquipItem' in s[s.index('int ScPairSend(int slot) {'):s.index('bool ScPairDone(')]
+tick = s[s.index('void ScPairTickImpl('):s.index('bool SctChange(', s.index('void ScPairTickImpl('))]
+assert 'if (catApi && !catOk)' in step and 'Ms() - g_scPairWaitT < 5000' in step and step.index('g_scPairWaitDir = dir; return;') < step.index('ScPairList L;'), 'TASK #141276: F2 waits up to 5 s for the catalog before the owned list'
+assert 'else if (g_scPairWaitDir) ScPairStep(g_scPairWaitDir);' in tick, 'TASK #141276: the tick retries a waiting F2'
 fin = s[s.index('void ScPairFinish(bool ok, int r) {'):s.index('void ScPairStep(int dir) {', s.index('void ScPairFinish(bool ok, int r) {'))]
 assert 'g_scPairCat && g_scPairSkips < 8' in fin and 'ScPairStep(g_scPairCatDir)' in fin, 'a refused catalog pair is skipped (bounded), not retried forever'
 assert 'g_scPairCatP)' in step and 'g_scPairCatP = p' in step, 'the next F2 counts from the last pair tried'

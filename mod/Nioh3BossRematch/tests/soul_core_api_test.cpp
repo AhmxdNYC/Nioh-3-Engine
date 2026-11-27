@@ -149,6 +149,17 @@ int main() {
     CHECK(!sc_fast_hit_counts(true, 0, 1, 5.f, 20, 4) && sc_fast_hit_counts(true, 1, 1, 18.f, 20, 4) && sc_fast_hit_counts(true, -1, 1, 0.f, 20, 4) && sc_fast_hit_counts(false, 0, -1, 0.f, 0, 4));
     // keys 1/1 (off): every phase gives the 645efbf5 rate
     for (int p = 0; p < 3; ++p) CHECK(sc_fast_phase_mul(p, 1.44f, 1.f, 1.f) == 1.44f);
+    {  // human #141372 / #141378: per-core value tables
+        ScValTable t{};
+        CHECK(sc_vtab_parse(&t, L"8D402:13,5216E:40,ZZ,0:12,B18D3:4,3B1AB:30", SC_CORE_SPEED_MIN, SC_CORE_SPEED_MAX) == 2);  // 40, 4, id 0 skipped
+        CHECK(sc_vtab_get(&t, 0x8D402, 0) == 13 && sc_vtab_get(&t, 0x3B1AB, 0) == 30 && sc_vtab_get(&t, 0x5216E, 0) == 0);
+        CHECK(sc_core_speed(sc_vtab_get(&t, 0x8D402, 0), 1.6f) == 1.3f && sc_core_speed(0, 1.6f) == 1.6f);  // Enenra halfway; others universal
+        wchar_t b[256]; sc_vtab_format(&t, b, 256);
+        CHECK(wcscmp(b, L"8D402:13,3B1AB:30") == 0);
+        CHECK(sc_vtab_set(&t, 0x8D402, 0, SC_CORE_SPEED_MIN, SC_CORE_SPEED_MAX) && sc_vtab_get(&t, 0x8D402, -1) == -1 && t.n == 1);  // out of range = removed
+        ScValTable m{};
+        CHECK(sc_vtab_parse(&m, L"8D402:1,5129B:0,1361D:2", 0, 1) == 2 && sc_vtab_get(&m, 0x8D402, 0) == 1 && sc_vtab_get(&m, 0x5129B, 7) == 0);
+    }
     printf(g_fail ? "soul_core_api_test: %d FAIL\n" : "soul_core_api_test: PASS%.0d\n", g_fail);
     return g_fail ? 1 : 0;
 }

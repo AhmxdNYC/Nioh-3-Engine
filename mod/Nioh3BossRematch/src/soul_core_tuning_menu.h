@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 24;  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 25;  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -31,8 +31,8 @@ const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke for
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
                                       "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:", "Move sensitivity:", "Fast summon speed:",
-                                      "Fast summon startup:", "Fast summon end pose:"};  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0, 1, 6};
+                                      "Fast summon startup:", "Fast summon end pose:", "Move speed:"};  // human #141255 Move speed (24)  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -204,42 +204,16 @@ bool ScOvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32
     return true;
 }
 const char* ScOvFooter(int item) {
-    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 flip Yang 1 / Yang 2 between summon and Transform, Shift+F3 / Shift+F4 between Summon and Fast summon.";
+    if (item == kItScOvOpen) return "Size, place, opacity, background, colors and letters of the soul core overlay (bottom left while you play). F2 changes the core pair, F3 / F4 step Yang 1 / Yang 2 through Summon, Transform and Fast summon (Shift+F3 / Shift+F4 step back).";
     if (item >= kItScOvBase && item < kItScOvBase + kScOvN) return kScOv[item - kItScOvBase].foot;
     return nullptr;
 }
-// TASK #137007 (human #137004): F3 / F4 flip the core in Yang slot 1 / 2 between summon and Transform. Transform never picks 'moves':
-// the detection decides (TASK #136987). Going back to summon restores the summon kind the core had (the game's own or Fast summon).
-// TASK #137543 (regression #137316 gap 5): the summon kind is kept per core in [Spirit] FormCoreSummonKinds ("<core hex>:<kind>,..."), so a
-// restart still returns a Fast summon core to Fast summon. Newest entry first, at most 32 cores.
-constexpr int kScKeyMax = 32;
-int ScKeySummonRead(uint32_t* ids, int* kinds) {
-    wchar_t b[1024] = {}; GetPrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", L"", b, 1024, IniPath());
-    int n = 0;
-    for (wchar_t* p = b; *p && n < kScKeyMax;) {
-        wchar_t* e = nullptr; const unsigned long id = wcstoul(p, &e, 16);
-        if (e == p || *e != L':') break;
-        const long k = wcstol(e + 1, &p, 10);
-        if (id && !sc_call_forms((int)k)) { ids[n] = (uint32_t)id; kinds[n] = (int)k; ++n; }
-        while (*p == L',' || *p == L' ') ++p;
-    }
-    return n;
-}
-bool ScKeySummonGet(uint32_t id, int* kind) {
-    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
-    for (int i = 0; i < n; ++i) if (ids[i] == id) { *kind = kinds[i]; return true; }
-    return false;
-}
-void ScKeySummonPut(uint32_t id, int kind) {
-    uint32_t ids[kScKeyMax]; int kinds[kScKeyMax]; const int n = ScKeySummonRead(ids, kinds);
-    wchar_t b[1024]; int len = swprintf(b, 1024, L"%X:%d", id, kind);
-    for (int i = 0, kept = 1; i < n && kept < kScKeyMax && len > 0 && len < 1000; ++i)
-        if (ids[i] != id) { len += swprintf(b + len, 1024 - len, L",%X:%d", ids[i], kinds[i]); ++kept; }
-    WritePrivateProfileStringW(L"Spirit", L"FormCoreSummonKinds", b, IniPath());
-}
-// TASK #138484 (human #138482): Shift+F3 / Shift+F4 = Fast summon on / off for Yang 1 / 2: Fast summon -> Summon (the game's own), anything
-// else (Summon or Transform) -> Fast summon. The new summon kind is also what F3 / F4 return to from Transform ([Spirit] FormCoreSummonKinds).
-void ScCallKey(int y, bool fast = false) {
+// TASK #137007 (human #137004): F3 / F4 change the call of the core in Yang slot 1 / 2. Transform never picks 'moves': the detection decides
+// (TASK #136987). TASK #141276 (human #141268: 'I don't think it toggles fast summon and sometimes toggles don't change stuff'): F3 / F4 used to
+// flip Transform <-> a summon kind remembered per core ([Spirit] FormCoreSummonKinds), so one core flipped Transform <-> Summon and the next
+// Transform <-> Fast summon, and Fast summon was only reachable with Shift. Now every core steps through the same three calls as the menu row
+// (sc_call_step): F3 / F4 = Summon -> Transform -> Fast summon -> Summon, Shift+F3 / Shift+F4 = the other way. No per-core memory.
+void ScCallKey(int y, bool back = false) {
     uint32_t chr[2] = {};
     const bool eq = bosslog::FormCoreEquippedIds(chr);
     const uint16_t item = ScSlotItem(y);
@@ -251,13 +225,10 @@ void ScCallKey(int y, bool fast = false) {
     }
     const uint32_t id = chr[y];
     const int cur = bosslog::FormCoreCallGet(id);
-    int want;
-    if (fast) { want = cur == SC_CALL_FAST_SUMMON ? SC_CALL_GAME : SC_CALL_FAST_SUMMON; ScKeySummonPut(id, want); }
-    else if (sc_call_forms(cur)) { int kind = SC_CALL_GAME; ScKeySummonGet(id, &kind); want = kind; }
-    else { ScKeySummonPut(id, cur); want = SC_CALL_TRANSFORM; }
+    const int want = sc_call_step(cur, back ? -1 : 1);
     const int now = bosslog::FormCoreCallSet(id, want);
     const bool forms = bosslog::SoulCoreForms(nullptr);
-    Log("Rematch: %sF%d Yang %d core %X (item %X): %s -> %s (TASK #137007/#138484)", fast ? "Shift+" : "", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
+    Log("Rematch: %sF%d Yang %d core %X (item %X): %s -> %s (TASK #137007/#138484)", back ? "Shift+" : "", y + 3, y + 1, id, item, sc_call_name(cur), sc_call_name(now));
     const char* what = sc_call_forms(now) ? "Transform" : now == SC_CALL_FAST_SUMMON ? "Fast summon" : "Summon";
     if (sc_call_forms(now) && !forms) ToastF(cYellow, 4000, "Yang %d core %X: Transform (saved), but Soul core transformations is OFF in the menu.", y + 1, item);
     else if (now == want) ToastF(sc_call_forms(now) ? cGreen : cWhite, 3000, "Yang %d core %X: %s from the next use.", y + 1, item, what);
@@ -415,6 +386,7 @@ uint32_t g_scPairWant[2] = {SCW_EMPTY, SCW_EMPTY};
 uint16_t g_scPairItems[2] = {0, 0};
 int g_scPairNo = 0, g_scPairOf = 0;
 ULONGLONG g_scPairT0 = 0;
+int g_scPairWaitDir = 0; ULONGLONG g_scPairWaitT = 0;  // TASK #141276: F2 pressed before Training's catalog is built
 bool g_scPairCat = false;
 int g_scPairCatP = -1, g_scPairCatDir = 1, g_scPairSkips = 0;  // last catalog pair tried; a refused one is skipped, the next F2 counts from it  // TASK #136451 (human #136449): this step walks every soul core in the item master (SoulCoreCatalog), not only owned ones
 // Send one slot's request; 1 sent, 0 busy (retry), 2 nothing to do (already there), -1 failed.
@@ -474,10 +446,21 @@ int ScPairCatPick(const uint16_t* ids, int n, uint16_t inYang1, int dir, int* a,
     *a = p * 2; *b = *a + 1 < n ? *a + 1 : (*a ? 0 : -1);
     return p;
 }
+// TASK #141276 (live 06:34:57: the first F2 after a load equipped by owned inventory idx): Training builds the item-master list on the game
+// thread only after the first ask, so the first F2 found no catalog and walked the owned cores instead. While Training has the catalog
+// export, F2 waits for the list (the tick retries, up to 5 s) and only then falls back to the owned cores.
 void ScPairStep(int dir) {
     if (g_scPairStage) { ToastF(cYellow, 2000, "Still changing cores..."); return; }
     ScCat cat;
-    if (TrainingExport("Nioh3Training_SoulCoreEquipItem") && ScCatRead(&cat) && cat.n >= 2) {
+    const bool catApi = TrainingExport("Nioh3Training_SoulCoreEquipItem") && TrainingExport("Nioh3Training_SoulCoreCatalog");
+    const bool catOk = catApi && ScCatRead(&cat);
+    if (catApi && !catOk) {
+        if (!g_scPairWaitDir) { g_scPairWaitT = Ms(); ToastF(cWhite, 2000, "Reading the soul core list..."); }
+        if (Ms() - g_scPairWaitT < 5000) { g_scPairWaitDir = dir; return; }
+        Log("Rematch: F2 soul core list not ready after 5 s: owned cores only (TASK #141276)");
+    }
+    g_scPairWaitDir = 0;
+    if (catOk && cat.n >= 2) {
         int a = 0, b = 0;
         const int p = ScPairCatPick(cat.ids, cat.n, cat.slotItem[0], dir, &a, &b, g_scPairCatP);
         g_scPairCat = true; g_scPairCatP = p; g_scPairCatDir = dir;
@@ -535,6 +518,7 @@ void ScPairFlag() {
 void ScPairTickImpl(bool next, bool prev, bool flag) {
     if (flag) ScPairFlag();
     if (next || prev) ScPairStep(next ? 1 : -1);
+    else if (g_scPairWaitDir) ScPairStep(g_scPairWaitDir);  // TASK #141276: catalog being built
     if (!g_scPairStage) return;
     if (Ms() - g_scPairT0 > 20000) { ScPairFinish(false, SCW_FAULT); return; }
     int r = 0;
@@ -689,11 +673,12 @@ const char* SctFooter(int item) {
     case 16: return "The yokai's idle pose ends the form only this long after it appeared (shorter = earlier possible exit). 50 ms steps, 0-3000. [Spirit] SealIdleMinMs. Live, saved.";
     case 17: return "A core whose last hit is a projectile / helper: the form ends this long after that hit starts, the projectile stays visible. OFF = wait for the yokai. 50 ms steps, 0-5000. [Spirit] SealExitOnHelperMs. Live, saved.";
     case 18: return "A core whose hit count is not certain from game data exits no earlier than this % of its attack (bind to the yokai's own end, seen on a full use this session; the first use plays in full). OFF = exit at the last hit. 5 % steps, 0-100. [Spirit] SealExitEndPct. Live, saved.";
-    case 19: return "After the last projectile of any soul core, turn back this soon. A bit quicker than waiting out the rest of the attack. OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
+    case 19: return "A core with a certain hit count turns back this long after its last hit or projectile (0 = the same tick). OFF = the older wait. 50 ms steps, 0-3000. [Spirit] SealExitAfterShotMs. Live, saved.";
     case 20: return "Every soul core yokai that moves (detected): how far the left stick carries the yokai once it steers. One value for all cores. x1 = the game's own step. 1 steps, x1-x8. [Spirit] FormSteerMove. Live, saved.";  // TASK #136492
     case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). 90% of Transform: a tiny bit slower than Transform speed, and no smoke ([Spirit] FastSummonSmoke=1 keeps it). x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 22: return "Every Fast summon soul core: speed of the yokai's startup (appear / wind-up before its first hit, from the game's own action data). Its attack keeps Fast summon speed. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonStartSpeed. Live, saved.";  // TASK #137323
     case 23: return "Every Fast summon soul core: speed of the yokai's end pose: the recovery after its last hit (past the hit's data frames) and its end action, until the game removes it. Hit frames never change. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonEndSpeed. Live, saved.";
+    case 24: return "Every soul core yokai that moves: the speed the left stick moves it at, in cm/s. Each core is scaled from its own live speed toward this one value (Move sensitivity is the most it may boost). OFF (0) = the flat Move sensitivity step. 100 steps, 0-5000, default 1500. [Spirit] FormSteerSpeed. Live, saved.";  // human #141255
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }

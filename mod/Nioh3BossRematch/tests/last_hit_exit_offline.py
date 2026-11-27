@@ -41,7 +41,7 @@ struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
-std::atomic<int> g_sealHitsData{0},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_fastSpeed{0};int dataHits=-1;
+std::atomic<int> g_sealHitsData{0},g_sealEndFrame{1},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_formSteerSpeed{1300},g_fastSpeed{0},g_exitZero{1};int dataHits=-1;
 std::atomic<float> g_fastStartMul{6.f},g_fastEndMul{6.f};  // TASK #137323
 SdhDurTable g_sealDurs;
 SdhDurTable g_sealLastHit;int lastHitNotes=0;  // TASK #136328
@@ -71,7 +71,7 @@ uint32_t action=0x4E57,coreId=0x5129B;
 struct SieSample {uint32_t act=0xFFFFFFFF;uint16_t mot=0,fact=0;float f=0,e=0,rate=0;uint8_t loop=0;bool moOk=false;};
 std::atomic<int> g_sieLog{0},g_sieMinMs{300},g_sieLoop{1},g_sieHold{1},g_sieHoldMs{100};
 struct {uint64_t actorGlobal=1;} g_fhEnd;
-void SieRead(uint64_t,SieSample& s){s.act=action;}
+float actionFrame=0;void SieRead(uint64_t,SieSample& s){s.act=action;s.f=actionFrame;}
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
 bool SealExitCore(uint32_t){return true;}int extraSmokes=0;int SealExitReplayQueue(uint64_t,uint64_t,bool append=false){if(append)++extraSmokes;else ++smokes;return 1;}
@@ -142,7 +142,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
  check(g_exitSettleMs==200);ini[L"SealExitSettleMs"]=L"-7";LoadExitSetting();check(g_exitSettleMs==-1);ini[L"SealExitSettleMs"]=L"9000";LoadExitSetting();check(g_exitSettleMs==3000);ini.clear();LoadExitSetting();  // TASK #135803
  check(g_exitEndPct==80);g_exitEndPct=0;  // TASK #135613 / #137035: shipped 80 (human settings); the cases below pin the old rule (0), the new rule is checked further down
- check(g_exitAfterShotMs==700);g_exitAfterShotMs=-1;  // TASK #136113: shipped 700; the older cases keep the EndPct hold
+ check(g_exitAfterShotMs==0);g_exitAfterShotMs=-1;  // TASK #136113 / #141441: shipped 0 (was 700); the older cases keep the EndPct hold
  check(g_exitOnHelperMs==0);g_exitOnHelperMs=150; // #137035: shipped 0 (human settings); #108189: the rule stays ON at 150 ms for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
@@ -225,9 +225,11 @@ int main(){
   check(ini[L"H:60B86"]==(owner==456?L"0":L"1")); // #108189: owner of the last burst learned with the count
   start(-1,0,true,true,0x60B86);persistent=true;extraOwner=owner;
   if(owner!=456){g_sehKid[1]=owner;g_sehKidT[1]=base+.3;}
-  if(owner!=456){ // learned helper-only core: SealExitOnHelperMs ends use 2 at the first helper burst + 150 ms, helper not ghosted, seal kept at form speed
-   extraAttack=true;step(.6,false);check(!smokes);ghostKept=false;step(.76,false);
-   check(smokes==1&&g_ghostReq==456&&ghostKept&&!std::count(ghostActors.begin(),ghostActors.end(),owner));extraAttack=false;continue;}
+  if(owner!=456){ // learned helper-only core: TASK #140119 (human #140029, Biwa Boku-boku exited at helper burst 1 of 5) - the helper exit waits for the
+   // learned count: burst 1 of 2 keeps the form, the 2nd (last) helper burst ends it at its spawn
+   extraAttack=true;step(.6,false);check(!smokes);step(.76,false);check(!smokes);extraAttack=false;step(.9,false);check(!smokes);
+   extraAttack=true;step(1.3,false);check(smokes==1&&g_ghostReq==456); // ends at the last helper hit's spawn (count reached)
+   extraAttack=false;continue;}
   extraAttack=true;step(.6,false);extraAttack=false;step(.9,false);check(!smokes);
   extraAttack=true;step(1.3,false);check(smokes==1&&g_ghostReq==456);
  }
@@ -335,6 +337,16 @@ int main(){
   replay(learnGap,false); // old A2 max=3 cannot seed the A4 learner
   replay(!learnGap,true); // learn with one sampling phase, exit with the other
   replay(learnGap,true);  // current A4 count=2 is reachable in both variants
+ }
+ // TASK #141682: a window that re-opens inside the 150 ms merge is the next hit only while the CERTAIN data count expects more
+ // (e21a9efb live 45FF/3A6A2: data 2, open .834 close .896 re-open .944). A learned count above the data (5129B: data 1, learned 2) never splits it.
+ for(int dh : {2,1}){
+  ini.clear();if(dh==1)ini[L"16127"]=L"2";g_sealHitsData=1;dataHits=dh;g_sdhLastReadOk=false;
+  start(-1,0,true,false,0x16127);censusMode=true;
+  census[0x90000]=456;step(.834,false);census.clear();step(.896,false);census[0x91000]=456;step(.944,false);
+  census.clear();for(double t=.96;t<=1.4;t+=.016)step(t,false);
+  check(dh==2?(g_ghostReq==456):(!g_ghostReq&&!smokes));
+  census.clear();censusMode=false;g_sealHitsData=0;dataHits=-1;ini.clear();
  }
  // #82344 A2ACB: .274 appearance must not teach a second hit; repeat exits on one real hit.
  ini.clear();start(-1,0,true,true,0xA2ACB);censusMode=true;census={{0x20000,456},{0x21000,456}};
@@ -498,6 +510,16 @@ int main(){
  ini.clear();LoadExitSetting();check(g_exitEndPct==80);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
  ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
  g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
+ // TASK #140119: a data-mapped count (certain, chain C5A > 1, last window opens f110) ends on the seal's action frame, not the live count.
+ {g_exitEndPct=0;g_exitAfterShotMs=-1;g_sealHitsData=1;dataHits=2;g_sdhLastRead=SdhResult();g_sdhLastRead.bursts=2;g_sdhLastRead.chain=2;g_sdhLastRead.ids[0]=0xC5A;g_sdhLastRead.ids[1]=1;
+  g_sdhLastRead.perAct[0]=2;g_sdhLastRead.lastIdx=0;g_sdhLastRead.lastStart=110;g_sdhLastReadOk=true;ini.clear();
+  start(2,0,true,false,0x52B7A);manualAction=true;action=0xC5A;actionFrame=20;step(.8,true);step(.9,false);step(1.0,true);check(!g_ghostReq);  // live count 2/2 (inflated): no exit
+  step(1.1,false);actionFrame=109;step(1.2,false);check(!g_ghostReq);actionFrame=110.5f;step(1.3,false);check(g_ghostReq==456);  // frame reached: exit
+  start(2,0,true,false,0x72FA);manualAction=true;action=0xC5A;actionFrame=20;step(.8,true);step(.9,false);actionFrame=111;step(1.0,false);check(g_ghostReq==456);  // undercount 1/2: frame still exits
+  start(2,0,true,false,0x72FA);manualAction=true;action=0xC5A;actionFrame=20;step(.8,true);step(.9,false);action=1;actionFrame=5;step(.95,false);check(!g_ghostReq);  // left the act early
+  step(1.2,true);check(g_ghostReq==456);  // count fallback: burst 2/2 opens -> exit
+  g_sealEndFrame=0;start(2,0,true,false,0x52B7A);manualAction=true;action=0xC5A;actionFrame=111;step(.8,true);check(!g_ghostReq);step(.9,false);step(1.0,true);check(g_ghostReq==456);g_sealEndFrame=1;  // off: count
+  dataHits=0;g_sdhLastReadOk=false;g_sdhLastRead=SdhResult();g_sealHitsData=0;dataHits=-1;ini.clear();}
  // TASK #136113: last hit closed, EndPct would hold, AfterShot 700 turns back at close+700. OFF (-1) keeps the hold.
  // TASK #136328: only once a full form of this core showed its last hit no later than this close (count not certain).
  g_exitEndPct=90;g_exitAfterShotMs=700;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();g_sealLastHit.Reset();
@@ -528,7 +550,7 @@ int main(){
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==24&&rows.back()==kItSctBase+23);  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==25&&rows.back()==kItSctBase+24);  // TASK #141682: +1 Move speed row (3d55fd27, human #141255)  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");
@@ -544,14 +566,15 @@ int main(){
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
  check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
- check(g_ghostOn==1&&g_sieMinMs==0&&g_exitOnHelperMs==0&&g_exitEndPct==80&&ini[L"SealExitEndPct"]==L"80"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
+ check(g_ghostOn==1&&g_sieMinMs==0&&g_exitOnHelperMs==0&&g_exitEndPct==80&&ini[L"SealExitEndPct"]==L"80"&&g_exitAfterShotMs==0&&ini[L"SealExitAfterShotMs"]==L"0");  // TASK #135613 / #136113 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
  check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.6"&&ini[L"SealTailSpeed"]==L"2.0");
- {// TASK #137000: soul core overlay row (default ON, A flips, Left OFF, Right ON, saved) and the S / T / TM tag
-  ini.clear();g_scOverlay=-1;check(ScOverlayOn());char tx[512];uint32_t co=0;
-  check(ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co)&&strstr(tx,"Soul core overlay: ON"));
-  check(ScEqChange(kItScOverlay,0)&&!ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"0");
-  ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF")!=nullptr);
+ {// TASK #137000: soul core overlay row (default OFF since public 1.8.47, user 2026-11-26; A flips, Left OFF, Right ON, saved) and the S / T / TM tag
+  ini.clear();g_scOverlay=-1;check(!ScOverlayOn());char tx[512];uint32_t co=0;
+  check(ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co)&&strstr(tx,"Soul core overlay: OFF"));
+  check(ScEqChange(kItScOverlay,0)&&ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"1");
+  ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co);check(strstr(tx,"ON")!=nullptr);
+  ScEqChange(kItScOverlay,-1);check(!ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"0");
   ScEqChange(kItScOverlay,1);check(ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"1");ScEqChange(kItScOverlay,-1);check(!ScOverlayOn());
   g_scOverlay=-1;check(!ScOverlayOn());ini[L"SoulCoreOverlay"]=L"1";g_scOverlay=-1;check(ScOverlayOn());
   check(strstr(SctFooter(kItScOverlay),"SoulCoreOverlay")!=nullptr&&IsScEqItem(kItScOverlay));

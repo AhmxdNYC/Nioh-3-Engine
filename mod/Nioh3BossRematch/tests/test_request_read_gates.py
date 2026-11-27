@@ -56,6 +56,8 @@ bool TrainingOwnsFight() { return false; }
 std::atomic<bool> g_staleBbm{false};
 void Log(const char*,...);
 @SNAPSHOT@
+// public 1.8.47 level sync (TASK #141907): the tick path now calls this
+void LvSyncTick(const Snap&,ULONGLONG) {}
 @ATTEMPT@
 bool XwPending() { return false; }  // Nioh3Training absent
 // Newer production state the slices below read: no scroll trip, no in-place swap, no map to restore in this fixture.

@@ -27,6 +27,12 @@ static inline int ScwIsCoreRow(const uint8_t* r) {
     uint32_t cat; memcpy(&cat, r + 0x64, 4);
     return cat == 900000000u && r[0x182] == 9;
 }
+// TASK #141276: the Summoning Seal item row a soul core links to (its +0x54 is the yokai's spawn character; formcore::BuildMap's rule)
+#define SCW_SC_STRIDE 0x54u
+static inline int ScwIsSealRow(const uint8_t* r) {
+    uint32_t cat, chr; memcpy(&cat, r + 0x64, 4); memcpy(&chr, r + 0x54, 4);
+    return cat == 700000000u && r[0x182] == 7 && chr && chr != 0xFFFFFFFFu;
+}
 static inline uint16_t ScwRowId(const uint8_t* r) { uint16_t v; memcpy(&v, r + 0x152, 2); return v; }
 
 // sorted insert, no duplicates; returns the new count

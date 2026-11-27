@@ -13,7 +13,8 @@ rows = cut('constexpr int uScOverlay = 951;', 'std::atomic<int> g_scOv[kScOvN];'
 clamp = cut('int ScOvClamp(int w, int v)', 'int ScOvGet(int w) {')
 step = cut('int ScOvStep(int w, int v, int dir) {', 'void ScOvValueText(')
 theme = cut('const uint32_t kScOvTheme[3][4] = {', 'int g_scEqSlot = 0;')
-key = cut('constexpr int kScKeyMax = 32;', 'bool ScEqChange(int item, int dir) {')
+key = cut('void ScCallKey(int y, bool back = false) {', 'bool ScEqChange(int item, int dir) {')
+assert 'FormCoreSummonKinds' not in key and 'sc_call_step(cur, back ? -1 : 1)' in key, 'TASK #141276: one cycle for every core, no per-core summon memory'
 # wiring: F3 / F4 read in the same place as F2, the overlay thread reads the look and is woken by the keys
 assert 'KeyEdge(VK_F3), f4 = KeyEdge(VK_F4)' in ui and 'rematch::SoulCallKeyTick(mine && f3 && !alt, mine && f4 && !alt, sh)' in ui and 'GetAsyncKeyState(VK_MENU)' in ui, 'F3 / F4 wired next to F2'
 assert 'ScOverlayKick()' in ui and 'WaitForSingleObject(g_kick, 250)' in ui, 'F2 / F3 / F4 redraw the overlay at once'
@@ -53,49 +54,32 @@ bool SoulCoreForms(bool*) { return formsOn; }
 ''' + rows + clamp + step + theme + key + r'''
 int n = 0; void check(bool v, const char* w) { ++n; if (!v) { printf("FAIL %d %s\n", n, w); exit(1); } }
 int main() {
-  // F3: Yang 1 default Transform -> Summon (game's own) -> Transform
-  ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "F3 Transform -> the game's own summon");
+  // TASK #141276 (human #141268): F3 / F4 = Summon -> Transform -> Fast summon -> Summon for every core; Shift = the other way
+  ScCallKey(0); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "F3 Transform -> Fast summon");
   check(calls.find(0xA2ACB) == calls.end(), "F3 leaves Yang 2 alone");
-  ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM, "F3 again -> Transform");
-  check(lastToast.find("Yang 1 core 6DB5: Transform") == 0, "toast names slot, core and call");
-  // F4: Fast summon core keeps Fast summon when flipped back
-  calls[0xA2ACB] = SC_CALL_FAST_SUMMON;
-  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_TRANSFORM, "F4 Fast summon -> Transform");
-  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "F4 back -> Fast summon (the summon kind it had)");
-  ScCallKey(1); ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "twice more: still remembers Fast summon");
-  // TASK #137543: restart keeps it. Flip to Transform, 'restart' (nothing in memory but the ini), flip back -> Fast summon
-  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_TRANSFORM, "F4 -> Transform before the restart");
-  check(ini[L"FormCoreSummonKinds"].find(L"A2ACB:") == 0, "summon kind saved in [Spirit] FormCoreSummonKinds, newest first");
-  { std::map<uint32_t, int> keep = calls; calls.clear(); calls = keep; }
-  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "after a restart F4 still returns to Fast summon");
-  { int k = -1; check(ScKeySummonGet(0x5129B, &k) && k == SC_CALL_TRANSFORM ? false : true, "Yang 1 entry is a summon kind, never Transform"); }
-  for (uint32_t id = 1; id <= 40; ++id) ScKeySummonPut(0x10000 + id, SC_CALL_GAME);
-  { uint32_t ids[kScKeyMax]; int ks[kScKeyMax]; check(ScKeySummonRead(ids, ks) == kScKeyMax && ids[0] == 0x10028, "list capped at 32, newest first"); }
-  ini[L"FormCoreSummonKinds"] = L"junk"; { int k = 7; check(!ScKeySummonGet(0xA2ACB, &k) && k == 7, "bad ini value: no entry, default summon"); }
-  ini.clear();
-  for (int i = 0; i < 8; ++i) { ScCallKey(i & 1); check(calls[eqIds[i & 1]] != SC_CALL_TRANSFORM_MOVE, "never Transform moveable"); }
+  check(lastToast.find("Yang 1 core 6DB5: Fast summon") == 0, "toast names slot, core and call");
+  ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "F3 Fast summon -> Summon");
+  ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM, "F3 Summon -> Transform (3 presses = full circle)");
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_GAME, "Shift+F3 Transform -> Summon");
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "Shift+F3 Summon -> Fast summon");
+  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_TRANSFORM, "Shift+F3 Fast summon -> Transform");
+  // same order on a second core whatever it was before (the old per-core memory made cores differ)
+  calls[0xA2ACB] = SC_CALL_GAME; ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_TRANSFORM, "F4 Summon -> Transform");
+  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "F4 Transform -> Fast summon (Yang 2 same order)");
+  ScCallKey(1); check(calls[0xA2ACB] == SC_CALL_GAME, "F4 Fast summon -> Summon");
+  ini[L"FormCoreSummonKinds"] = L"A2ACB:3"; calls[0xA2ACB] = SC_CALL_TRANSFORM; ScCallKey(1);
+  check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON && ini.size() == 1, "an old FormCoreSummonKinds entry changes nothing, nothing new written");
+  for (int i = 0; i < 9; ++i) { ScCallKey(i & 1, i % 3 == 0); check(calls[eqIds[i & 1]] != SC_CALL_TRANSFORM_MOVE, "never Transform moveable"); }
   // not detected yet: no change, a toast
-  calls.clear(); eqReady = false; const int t0 = toasts; ScCallKey(0);
+  calls.clear(); ini.clear(); eqReady = false; const int t0 = toasts; ScCallKey(0);
   check(calls.empty() && toasts == t0 + 1 && lastToast.find("not detected") != std::string::npos, "undetected slot: toast, nothing saved");
   eqReady = true; eqIds[1] = 0; slotItems[1] = 0xFFFF; ScCallKey(1);
   check(calls.empty() && lastToast.find("no soul core") != std::string::npos, "empty slot: toast, nothing saved");
+  { const int t1 = toasts; ScCallKey(1, true); check(toasts == t1 + 1 && lastToast.find("no soul core") != std::string::npos, "Shift+F4 empty slot: toast only"); }
   eqIds[1] = 0xA2ACB; slotItems[1] = 0x6E53;
-  formsOn = false; ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "forms OFF: summon still saved");
+  formsOn = false; calls[0x5129B] = SC_CALL_FAST_SUMMON; ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "forms OFF: summon still saved");
   ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM && lastToast.find("OFF in the menu") != std::string::npos, "forms OFF: Transform saved, toast says forms OFF");
-  formsOn = true;
-  // TASK #138484 (human #138482): Shift+F3 / Shift+F4 = Fast summon on / off; F3 / F4 then return to that summon kind from Transform
-  calls.clear(); ini.clear();
-  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON && lastToast.find("Fast summon") != std::string::npos, "Shift+F3 Transform -> Fast summon");
-  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_GAME, "Shift+F3 again -> Summon (game's own)");
-  ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "Shift+F3 again -> Fast summon");
-  check(calls.find(0xA2ACB) == calls.end(), "Shift+F3 leaves Yang 2 alone");
-  ScCallKey(0); check(calls[0x5129B] == SC_CALL_TRANSFORM, "F3 Fast summon -> Transform");
-  ScCallKey(0); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "F3 back -> Fast summon (set by Shift+F3)");
-  ScCallKey(0); ScCallKey(0, true); check(calls[0x5129B] == SC_CALL_FAST_SUMMON, "Shift+F3 from Transform -> Fast summon");
-  ScCallKey(0, true); ScCallKey(0); ScCallKey(0); check(calls[0x5129B] == SC_CALL_GAME, "Summon via Shift+F3, F3 twice -> back to Summon");
-  calls[0xA2ACB] = SC_CALL_GAME; ScCallKey(1, true); check(calls[0xA2ACB] == SC_CALL_FAST_SUMMON, "Shift+F4 Summon -> Fast summon on Yang 2");
-  eqIds[1] = 0; slotItems[1] = 0xFFFF; { const int t0 = toasts; ScCallKey(1, true); check(toasts == t0 + 1 && lastToast.find("no soul core") != std::string::npos, "Shift+F4 empty slot: toast only"); }
-  eqIds[1] = 0xA2ACB; slotItems[1] = 0x6E53; calls.clear(); ini.clear();
+  formsOn = true; calls.clear(); ini.clear();
   // look rows
   check(ScOvStep(kScOvSize, 100, 1) == 115 && ScOvStep(kScOvSize, 100, -1) == 85, "size steps");
   check(ScOvStep(kScOvSize, 200, 1) == 200 && ScOvStep(kScOvSize, 50, -1) == 50, "size stops at the ends");

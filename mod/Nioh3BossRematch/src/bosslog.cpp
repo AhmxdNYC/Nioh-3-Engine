@@ -8,6 +8,7 @@
 #include "press_queue.h"
 #include "form_core_equipment.h"
 #include "seal_data_hits.h"
+#include "steer_wall.h"  // TASK #141407
 #include "../../shared/soul_camera_vertical.h"
 #include "../../shared/soul_core_api.h"  // TASK #136197
 
@@ -1380,6 +1381,33 @@ void CoreCallLoad() {
     const int n = sc_table_parse(&g_callTab, b);
     ReleaseSRWLockExclusive(&g_coreEditLock);
     Log("FormCoreCalls: %d core(s) with their own call (TASK #136197)", n);
+}
+// human #141372 / #141378: per-core speed + forced stick (soul_core_api.h ScValTable). Read with the calls; guarded by g_coreEditLock.
+ScValTable g_speedTab{}, g_moveTab{};
+void CoreTuneLoad() {
+    wchar_t b[SC_TABLE_MAX * 16] = L"", m[SC_TABLE_MAX * 16] = L"";
+    GetPrivateProfileStringW(L"Spirit", L"FormCoreSpeed", L"", b, (DWORD)(sizeof b / sizeof b[0]), IniPath());
+    GetPrivateProfileStringW(L"Spirit", L"FormCoresMove", L"", m, (DWORD)(sizeof m / sizeof m[0]), IniPath());
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const int ns = sc_vtab_parse(&g_speedTab, b, SC_CORE_SPEED_MIN, SC_CORE_SPEED_MAX), nm = sc_vtab_parse(&g_moveTab, m, 0, 1);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCoreSpeed: %d core(s) with their own speed; FormCoresMove: %d core(s) steer from the start (human #141372)", ns, nm);
+}
+// x10 speed of this core, 0 = none (the universal speed applies).
+int CoreSpeedX10(uint32_t core) {
+    if (!core) return 0;
+    AcquireSRWLockShared(&g_coreEditLock);
+    const int x = sc_vtab_get(&g_speedTab, core, 0);
+    ReleaseSRWLockShared(&g_coreEditLock);
+    return x;
+}
+float CoreSpeedFor(uint32_t core, float universal) { return sc_core_speed(CoreSpeedX10(core), universal); }
+bool CoreMoveForced(uint32_t core) {
+    if (!core) return false;
+    AcquireSRWLockShared(&g_coreEditLock);
+    const bool f = sc_vtab_get(&g_moveTab, core, 0) > 0;
+    ReleaseSRWLockShared(&g_coreEditLock);
+    return f;
 }
 void CoreSeen(uint32_t id, int dir) {
     if (!id) return;
@@ -2765,6 +2793,14 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // The player position is the only position. Facing follows the player every frame, not the press yaw.
 // The input tick runs before that root motion, so HkMotionSpeed calls this again once the move is in the body.
 static void FormSteerHold(uint64_t player, uint64_t seal, double now) {
+    // TASK #140119 (Gaki Chief 92E03 hung the game thread 0.07 s after its seal despawned by itself, 3 of 3 runs): the steer hold kept
+    // writing position/yaw into the freed seal before the seal-despawn end ran. Same rule as 4d94344b: never write a seal that is not
+    // provably in the actor table (unreadable table = no write).
+    if (!seal || FormHideSealPresent(ActorTableGlobal(), seal) != 1) {
+        static uint64_t goneLogged = 0;
+        if (goneLogged != seal) { goneLogged = seal; Log("FormSteer hold: seal %llX is not in the actor table - no pin/write t=%.3f", (unsigned long long)seal, now); }
+        return;
+    }
     FormPin(player, seal);
     float pos[4] = {};
     if (!Copy(pos, player + 0x110, 12) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return;
@@ -2802,6 +2838,10 @@ std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 // stick when the root leaves its start by that far, attack or not. Attacks stay blocked.
 // FormBlockLS is put back when the form ends. The keys are re-read about twice a second.
 std::atomic<int> g_formSteer{0}, g_formSteerCm{10}, g_formSteerTravelCm{300}, g_formSteerMove{5};
+// human #139904/#139906 (TASK #139948): [Spirit] FormSteerSpeed=<cm/s> (0 = off, old fixed FormSteerMove multiplier). While the stick
+// steers, each step is scaled so the player moves at this speed: a slow yokai is boosted (at most FormSteerMove x), a fast one is
+// slowed (down to x0.2). One rule for every core; the baseline is Whirlmonk's steered speed.
+std::atomic<int> g_formSteerSpeed{1500};  // human #141255 1300 -> 1500  // TASK #140882 (human #140742): on by default, Wheelmonk 5216E native 262 cm/s x5 (spawn-139948 log)
 // TASK #136197 / #136987: any Transform use may steer; the travel / idle-body detection below decides (still cores never arm).
 // TASK #137000 (human #136998): cores whose yokai the travel / idle detection has armed at least once (overlay shows TM). Same id table as
 // FormCoreCalls (call 1 = moved), saved [Spirit] FormCoresMoved. Guarded by g_coreEditLock.
@@ -2897,8 +2937,15 @@ static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
 }
 // #82256: form-start player height is a conservative ceiling, never the leaping seal's height.
 // No terrain query is inferred: horizontal following and downward movement remain native.
-struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; };
+// human #140988/#140992 (stuck in the ground after turning back on a ledge): the start height alone is wrong once the yokai has walked
+// up or down. Its physics body ([[seal+3B0]+30]+70, the controller that collides with the ground) is where it really stands, so that height
+// is tracked during the form: the follow ceiling is the higher of the start and the body, and the exit puts the player back on the body's
+// last ground height (start height only if the body was never readable). One rule for every core.
+struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; float bodyY = 0; bool bodyHave = false; };
 FormFollowGroundState g_followGround;
+static bool FormSteerBodyPos(uint64_t seal, float* p);
+uint64_t ActorTableGlobal();
+static bool FormFollowGroundBody();  // defined after g_fh4
 bool FormFollowWrite(uint64_t player, const float* target, bool* didWarp = nullptr) {
     const bool warped = g_fhWarp.load() && FormPinWarpCall(player,target);
     if (didWarp) *didWarp=warped;
@@ -2920,7 +2967,9 @@ void FormFollowGroundBegin(uint64_t player) {
 }
 bool FormFollowGroundTarget(uint64_t player, float* pos) {
     if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
-    pos[1] = (std::min)(pos[1], g_followGround.y);
+    FormFollowGroundBody();
+    const float ceil = g_followGround.bodyHave ? (std::max)(g_followGround.y, g_followGround.bodyY) : g_followGround.y;
+    pos[1] = (std::min)(pos[1], ceil);
     return true;
 }
 bool FormFollowGroundRestore(uint64_t player) {
@@ -2931,12 +2980,21 @@ bool FormFollowGroundRestore(uint64_t player) {
     if (!std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
     // TASK #136113: a small end snap is the camera bump. Live 5:07-5:09 pm the restore moved Y by 1 to 53
     // (E0E94 and 5129B). Leave those. A real miss (more than 80, the camera's own spike hold) still goes back.
-    if (std::fabs(before - g_followGround.y) <= 80.f) {
-        Log("FormFollow restore Y: player=%llX before=%.1f start=%.1f dY=%.1f skipped (under 80)", (unsigned long long)player,
-            before, g_followGround.y, before - g_followGround.y);
+    // human #141230/#141250: the player ends where the yokai stands NOW, never at an old sample. Live 05:07:16 (BR b44165d0): the seal
+    // had left the actor table, the restore used a body Y read earlier (23097.4) and pulled the player down from 23250.0 into the
+    // ground. No live body read = no height of ours: the player stays where the game put them (no ground check of our own).
+    if (!FormFollowGroundBody()) {
+        Log("FormFollow restore Y: player=%llX before=%.1f - yokai body not readable now (last %s %.1f), player left where the game put them",
+            (unsigned long long)player, before, g_followGround.bodyHave ? "body" : "start", g_followGround.bodyHave ? g_followGround.bodyY : g_followGround.y);
         return true;
     }
-    pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
+    const float ground = g_followGround.bodyY;  // human #140988: where the yokai stands
+    if (std::fabs(before - ground) <= 80.f) {
+        Log("FormFollow restore Y: player=%llX before=%.1f ground=%.1f (%s) start=%.1f dY=%.1f skipped (under 80)", (unsigned long long)player,
+            before, ground, g_followGround.bodyHave ? "yokai body" : "start", g_followGround.y, before - ground);
+        return true;
+    }
+    pos[1] = ground; // exit puts the player on the yokai body's last ground height (start height only without a body read)
     const bool changed = pos[1] != before;
     const bool ok = !changed || FormFollowWrite(player,pos);
     Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
@@ -3228,6 +3286,15 @@ struct Fh4State {
     bool steerRootHave = false;
 };
 Fh4State g_fh4;
+// human #140988: the yokai body's ground height for FormFollowGroundTarget / FormFollowGroundRestore
+static bool FormFollowGroundBody() {  // true = the yokai body was read live this call
+    const uint64_t seal = g_fh4.seal;
+    float b[4] = {};
+    if (!seal || FormHideSealPresent(ActorTableGlobal(), seal) != 1 || !FormSteerBodyPos(seal, b)) return false;
+    if (!g_followGround.bodyHave) Log("FormFollow ground: yokai body at Y %.1f (start %.1f) t=%.3f", b[1], g_followGround.y, Now());
+    g_followGround.bodyY = b[1]; g_followGround.bodyHave = true;
+    return true;
+}
 bool PickFormActive() { return g_fh4.owner != 0; }
 bool FormSealContinuation(uint64_t actor) { return actor && g_fh4.owner && actor == g_fh4.seal; }
 // pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
@@ -3503,6 +3570,12 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
 // then until the SealDefer deadline. [Spirit] FormSealKeep=1 (default) holds the seal root +248 at 1.0 while FormHide=4 owns a captured
 // seal that is still in the actor table, with its own root (never the player's).
 std::atomic<int> g_fhSealKeep{1};
+// human #140631 (TASK #140634/#140408): [Spirit] SealBodyOpacity=<0..100> (default 60). The transformed yokai body is drawn at this opacity
+// for the whole form, every core alike: the hold value of its own model root fade [[seal+20]+248] (the fade it vanishes with) is 0.60
+// instead of 1.0, the start fade-in ramps 0 -> 0.60 and the exit fade starts from it. Body only: effects/projectiles are not this root.
+// 100 = the game's full body. Re-read from the ini file every 0.5 s (FormSteerPoll), so an edit applies in the running game.
+std::atomic<int> g_sealBodyPct{60};
+static float SealBodyAlpha() { const int p = (std::clamp)(g_sealBodyPct.load(std::memory_order_relaxed), 0, 100); return p / 100.f; }
 uint64_t PressPrimarySeal(double* at);
 bool NativeSealExitReady(uint64_t seal, double captureAt, uint64_t player);
 bool g_nativeExitPending = false;
@@ -3538,11 +3611,14 @@ std::atomic<int> g_exitOnHelperMs{150};  // live test #108072: 150 ms
 // TASK #135613: [Spirit] SealExitEndPct (0..100, default 90, 0 = off): a hit count that is not a certain data count exits no earlier than
 // this % of the core's attack duration (seal_data_hits.h SdhExitAtMs). Atomic: the Soul core tuning page changes it live.
 std::atomic<int> g_exitEndPct{90};
+// TASK #141441: [Spirit] SealExitZero (default 1, 0 = off): turn back on the tick the last hitbox closed and the last thrown actor is gone,
+// once the seal's own action data has nothing left (SdhSealSourcesDone). Releases the EndPct / idle hold. Same rule for every core.
+std::atomic<int> g_exitZero{1};
 // TASK #135803: [Spirit] SealExitSettleMs (default 200, -1 = off): the EndPct hold ends this long after the last hit closes once the
 // game data says every hit is in (seal_data_hits.h SdhHitsSettled). Atomic: the Soul core tuning page changes it live.
 std::atomic<int> g_exitSettleMs{200};
 // TASK #136113: after the last hit / projectile closes, turn back this many ms later, even while EndPct would hold for the yokai's idle.
-// -1 = off (the older hold). Default 700 is a bit under the ~1.0 s gap measured on E0E94 (11-25 5:08 pm, EndPct 80).
+// -1 = off (the older hold). TASK #141441: default 0 (was 700): a certain count turns back on the tick its last hit closes.
 std::atomic<int> g_exitAfterShotMs{-1};
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
@@ -3660,13 +3736,21 @@ void Fh4KeepSeal() {
     if (!g_fhSealKeep.load() || !g_fh4.owner || !g_fh4.seal) return;
     if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1) return;
     uint64_t sr = 0; float k6 = 0;
-    if (!Rd(g_fh4.seal + 0x20, sr) || !sr || sr == g_fh4.root || !Rd(sr + 0x248, k6) || !std::isfinite(k6) || k6 == 1.f) return;
-    const float one = 1.f;
-    if (WrBytes(sr + 0x248, &one, 4)) {
+    const float body = SealBodyAlpha();  // human #140631: held at SealBodyOpacity, not 1.0
+    if (!Rd(g_fh4.seal + 0x20, sr) || !sr || sr == g_fh4.root || !Rd(sr + 0x248, k6) || !std::isfinite(k6) || std::fabs(k6 - body) < 1e-4f) return;
+    if (WrBytes(sr + 0x248, &body, 4)) {
         static uint64_t logged = 0;
-        if (logged != g_fh4.seal && k6 < 0.99f) { logged = g_fh4.seal; Log("FormSealKeep: seal %llX root %llX fade %.3f -> 1 (held until the form ends) t=%.3f",
-            (unsigned long long)g_fh4.seal, (unsigned long long)sr, k6, Now()); }
+        if (logged != g_fh4.seal) { logged = g_fh4.seal; Log("FormSealKeep: seal %llX root %llX fade %.3f -> %.2f (SealBodyOpacity, held until the form ends) t=%.3f",
+            (unsigned long long)g_fh4.seal, (unsigned long long)sr, k6, body, Now()); }
     }
+}
+// human #140631: with FormSealKeep=0 the game's own fade runs, but never above SealBodyOpacity
+void Fh4CapSeal() {
+    const float body = SealBodyAlpha();
+    if (body >= 1.f || !g_fh4.owner || !g_fh4.seal || FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1) return;
+    uint64_t sr = 0; float k6 = 0;
+    if (!Rd(g_fh4.seal + 0x20, sr) || !sr || sr == g_fh4.root || !Rd(sr + 0x248, k6) || !std::isfinite(k6) || k6 <= body) return;
+    WrBytes(sr + 0x248, &body, 4);
 }
 bool Fh4Apply(uint64_t chr) {
     if (!chr || chr != g_fh4.owner || chr != FkPlayer()) return false;
@@ -3699,7 +3783,7 @@ void SealShowHold(uint64_t chr, double at) {
     if (!(chr == g_fkSealChr.load() && g_fkSealT >= press - .05) && !(chr == g_fs0CapChr.load() && g_fs0CapT >= press - .05)) return;
     uint64_t sr = 0; float k6 = 0;
     if (!Rd(chr + 0x20, sr) || !sr || !Rd(sr + 0x248, k6) || !std::isfinite(k6)) return;
-    const float v = now < at ? 0.f : (float)((now - at) / ramp);
+    const float v = now < at ? 0.f : (float)((now - at) / ramp) * SealBodyAlpha();  // human #140631: fades in to SealBodyOpacity
     if (k6 > v) WrBytes(sr + 0x248, &v, 4);
 }
 void HkFh4Multiplier(uint64_t chr, uint64_t root) {
@@ -3717,7 +3801,7 @@ void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
     Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
-    if (g_fh4.owner && g_fh4.seal && chr == g_fh4.seal) Fh4KeepSeal();
+    if (g_fh4.owner && g_fh4.seal && chr == g_fh4.seal) { if (g_fhSealKeep.load()) Fh4KeepSeal(); else Fh4CapSeal(); }
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4ClampRoot(chr, root, true)) g_fh4Fault.store(true);
     ReleaseSRWLockExclusive(&g_fh4Lock);
 }
@@ -3864,6 +3948,7 @@ std::atomic<float> g_fastStartMul{1.f}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};  // 
 std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // #137323 press phase, unused since #137616
 std::atomic<int> g_fastChrPh[kFastMax];  // TASK #137616: per-chr phase (FastSummonPhaseTick); every write path sets ATTACK first, never START by default
 float FastSummonMul() {
+    if (const int x = CoreSpeedX10(g_pickCore.load(std::memory_order_relaxed)); x) return sc_core_speed(x, 1.f);  // human #141378: core's own speed
     const float sm = g_sealMul.load(std::memory_order_relaxed);
     return sc_fast_speed_mul(g_fastSpeed.load(std::memory_order_relaxed), sm > 0.f ? sm : g_sealIniMul.load(std::memory_order_relaxed));
 }
@@ -3900,7 +3985,7 @@ float FastActorMul(uint64_t a) {  // 1 = not a Fast summon yokai
 }
 float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     if (const float fm = FastActorMul(a); fm != 1.f) return fm;  // TASK #136502, before the forms-OFF rule below (Fast summon is vanilla)
-    const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
+    const float sm0 = g_sealMul.load();  // human #58117: 0 = off; the menu may also slow it (0.5..1)
     PressGhost ghost;
     if (PressGhostGet(a, ghost)) {
         const double e = ghost.ramp > 0 ? (Now()-ghost.at)*1000.0/ghost.ramp : 1;
@@ -3909,12 +3994,16 @@ float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
     // human #61869: forms OFF - only the form still up / its ghost tail keeps its speed (a stale tail seal address may be a vanilla yokai now)
     if (!ScOn() && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
+    const bool mine = (ts && a == ts) || (g_fh4.owner && a == g_fh4.seal);
+    if (!mine) return 1.f;
+    // human #141378: the form's core may have its own speed ([Spirit] FormCoreSpeed) in place of Transform speed
+    const float base = sm0 > 0.f ? CoreSpeedFor(g_pickCore.load(std::memory_order_relaxed), sm0) : 1.f;
     if (ts && a == ts) {
         const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
         const double e = ms > 0.f ? (Now() - g_tailT0.load()) * 1000.0 / ms : 1.0;
         return e >= 1.0 ? t : e <= 0.0 ? base : base + (t - base) * (float)e;
     }
-    return g_fh4.owner && a == g_fh4.seal ? base : 1.f;
+    return base;
 }
 std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
@@ -4423,6 +4512,10 @@ static void FormSteerPoll(double now) {
     if (travel > 100000) travel = 100000;
     if (move < 1) move = 1;
     if (move > 8) move = 8;
+    { int op = (std::clamp)(FormSteerFileInt("SealBodyOpacity", g_sealBodyPct.load()), 0, 100);  // human #140631 live opacity
+      if (op != g_sealBodyPct.load()) { Log("SealBodyOpacity live %d (was %d)", op, g_sealBodyPct.load()); g_sealBodyPct.store(op); } }
+    { int sp = FormSteerFileInt("FormSteerSpeed", g_formSteerSpeed.load()); sp = (std::clamp)(sp, 0, 5000);  // TASK #139948 live tuning
+      if (sp != g_formSteerSpeed.load()) { Log("FormSteerSpeed live %d (was %d)", sp, g_formSteerSpeed.load()); g_formSteerSpeed.store(sp); } }
     const int wasOn = g_formSteer.load(), wasCm = g_formSteerCm.load(), wasTravel = g_formSteerTravelCm.load(), wasMove = g_formSteerMove.load();
     if (on == wasOn && cm == wasCm && travel == wasTravel && move == wasMove) return;
     g_formSteer.store(on);
@@ -4430,6 +4523,51 @@ static void FormSteerPoll(double now) {
     g_formSteerTravelCm.store(travel);
     g_formSteerMove.store(move);
     Log("FormSteer live on=%d cm=%d travel=%d move=%d (was on=%d cm=%d travel=%d move=%d)", on, cm, travel, move, wasOn, wasCm, wasTravel, wasMove);
+}
+// TASK #141407 (escape walls #141235/#141194, RE notes/collision-move-141253.md). The game casts WorldRaycast 19BB08 before it moves
+// a character (2043E84: from pos+(0,100,0) to from+step, mask 70EEA8(team chr+91C, kind B9E50(chr), ..), flag 1, ignore 0; a hit = no
+// step). FormSteerBoost casts the same ray before its extra stick step. 1 = hit (hit point / normal out), 0 = clear, -1 = the ray is not
+// available (code bytes differ, no collision world, fault) - the caller then skips the extra step, it never steps unchecked.
+static int FormSteerWallRay(uint64_t chr, const float* from3, const float* to3, float* hitOut, float* nrmOut) {
+    static int guard = -1;
+    if (guard < 0) {
+        static const uint8_t ray[16] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C};
+        static const uint8_t msk[16] = {0x41, 0xB9, 0xD7, 0x40, 0x00, 0x00, 0x83, 0xF9, 0x02, 0x74, 0x61, 0x83, 0xF9, 0x01, 0xB8, 0xD7};
+        static const uint8_t kind[16] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x83, 0xB9, 0x84, 0xAB, 0x00, 0x00, 0xFF, 0x48, 0x8B, 0xD9};
+        static const uint8_t extra[16] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x81, 0xE8, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xD9};
+        const bool ok = FormHideCodeMatches(0x19BB08, ray, 16) && FormHideCodeMatches(0x70EEA8, msk, 16) &&
+                        FormHideCodeMatches(0xB9E50, kind, 16) && FormHideCodeMatches(0xB9C74, extra, 16);
+        guard = ok ? 1 : 0;
+        Log("FormSteerWall: world ray 19BB08 + mask 70EEA8 %s", ok ? "ok - the stick step is wall-checked" : "code differs - no extra stick step");
+    }
+    if (!guard || !chr) return -1;
+    uint64_t ctx = 0;
+    if (!Rd(g_base + Grva(0x45B9E50), ctx) || !ctx) {
+        static bool noted = false;
+        if (!noted) { noted = true; Log("FormSteerWall: no collision world (45B9E50 = 0) - no extra stick step"); }
+        return -1;
+    }
+    int team = 0;
+    if (!Rd(chr + 0x91C, team)) return -1;
+    alignas(16) float from[4] = {from3[0], from3[1], from3[2], 1.f};
+    alignas(16) float to[4] = {to3[0], to3[1], to3[2], 1.f};
+    alignas(16) float hit[4] = {}, nrm[4] = {};
+    uint64_t rec = 0;
+    __try {
+        const int kd = ((int (*)(uint64_t))(g_base + Grva(0xB9E50)))(chr);
+        const bool noExtra = ((uint64_t (*)(uint64_t))(g_base + Grva(0xB9C74)))(chr) == 0;  // as 0xB1410's per-frame character cast
+        const uint64_t mask = ((uint64_t (*)(int, int, bool))(g_base + Grva(0x70EEA8)))(team, kd, noExtra);
+        rec = ((uint64_t (*)(uint64_t, const float*, const float*, float*, float*, uint64_t, bool, uint64_t))(g_base + Grva(0x19BB08)))(
+            ctx, from, to, hit, nrm, mask, true, 0);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        guard = 0;
+        Log("FormSteerWall: the world ray faulted on chr %llX - no extra stick step from now on", (unsigned long long)chr);
+        return -1;
+    }
+    if (!rec) return 0;
+    if (hitOut) memcpy(hitOut, hit, 12);
+    if (nrmOut) memcpy(nrmOut, nrm, 12);
+    return 1;
 }
 // human #130685 / #130692 / #130698 / #130704. While the stick steers, one ground step of the player is multiplied by
 // FormSteerMove (5 = five times as far). 1 leaves the game's own step. The attack still cannot walk the yokai.
@@ -4443,13 +4581,52 @@ static void FormSteerBoost(uint64_t player) {
     const double now = Now();
     if (who == player && now - lt < 0.008) return;
     const bool fresh = who != player || now - lt > 0.25;
+    const double dt = now - lt;
     who = player;
     lt = now;
-    if (fresh || mul <= 1) { lx = p[0]; lz = p[2]; return; }
+    const int spd = g_formSteerSpeed.load();
+    if (fresh || (mul <= 1 && spd <= 0)) { lx = p[0]; lz = p[2]; return; }
     const float dx = p[0] - lx, dz = p[2] - lz;
     const float d = std::sqrt(dx * dx + dz * dz);
     if (!(d > 0.02f) || d > 250.f) { lx = p[0]; lz = p[2]; return; }
-    const float np[3] = { p[0] + dx * (float)(mul - 1), p[1], p[2] + dz * (float)(mul - 1) };
+    float k = (float)(mul - 1);
+    {   // native step speed of this yokai (cm/s), logged once a second so the baseline can be read from any core
+        const float v = dt > 0.0005 ? d / (float)dt : 0.f;
+        static double sumT = 0, logT = 0; static float sumD = 0;
+        sumT += dt; sumD += d;
+        if (v > 0.f && spd > 0) k = (std::clamp)((float)spd / v, 0.2f, (float)(std::max)(mul, 1)) - 1.f;
+        if (now - logT > 1.0 && sumT > 0.05) {
+            Log("FormSteerSpeed: native %.0f cm/s, scale x%.2f -> %.0f cm/s (FormSteerSpeed %d, FormSteerMove %d) t=%.3f",
+                sumD / sumT, k + 1.f, sumD / sumT * (k + 1.f), spd, mul, now);
+            logT = now; sumT = 0; sumD = 0;
+        }
+    }
+    if (std::fabs(k) < 0.01f) { lx = p[0]; lz = p[2]; return; }
+    // TASK #141407: the extra step is cast against the world first (the game's own 2043E84 rule: chest height 100, the step plus its
+    // 30 cm recovery lead). A wall hit slides the step along the wall; if the slide hits too, this tick adds nothing (the game's own
+    // step still runs). No ray available = no extra step, never an unchecked one.
+    float sx = dx * k, sz = dz * k;
+    {
+        const float from[3] = { p[0], p[1] + 100.f, p[2] };
+        float to[4] = {}, hit[3] = {}, nrm[3] = {};
+        SteerWallProbeEnd(from, sx, sz, 30.f, to);
+        int r = FormSteerWallRay(player, from, to, hit, nrm);
+        if (r == 1) {
+            float ox = 0, oz = 0;
+            const bool slid = SteerWallSlide(sx, sz, nrm[0], nrm[2], &ox, &oz) && (ox * ox + oz * oz) > 0.0004f;
+            int r2 = -1;
+            if (slid) { SteerWallProbeEnd(from, ox, oz, 30.f, to); r2 = FormSteerWallRay(player, from, to, nullptr, nullptr); }
+            static double wallLogT = 0;
+            if (now - wallLogT > 0.5) {
+                wallLogT = now;
+                Log("FormSteerWall: step %.0f,%.0f hits at %.0f/%.0f/%.0f n=%.2f,%.2f,%.2f -> %s t=%.3f", sx, sz, hit[0], hit[1], hit[2], nrm[0], nrm[1], nrm[2],
+                    r2 == 0 ? "slides along the wall" : "no extra step", now);
+            }
+            if (r2 == 0) { sx = ox; sz = oz; } else r = -1;
+        }
+        if (r < 0) { lx = p[0]; lz = p[2]; return; }
+    }
+    const float np[3] = { p[0] + sx, p[1], p[2] + sz };
     if (!FormPinWarpCall(player, np)) {
         WrBytes(player + 0x110, &np[0], 4);
         WrBytes(player + 0x118, &np[2], 4);
@@ -4481,6 +4658,12 @@ static bool FormSteerTick(double now) {
         return false;
     }
     if (g_fh4.steer) return true;
+    // human #141372: [Spirit] FormCoresMove - this core steers from the start, no travel detection.
+    if (const uint32_t core = g_pickCore.load(std::memory_order_relaxed); CoreMoveForced(core)) {
+        g_fh4.steer = true;
+        Log("FormSteer: core %X in FormCoresMove -> left stick steers from the start t=%.3f", core, now);
+        return true;
+    }
     // human #130619. chr+0x110 is the spot the player follows. 5129B stayed under 160 cm.
     // 5216E passed 400 cm in the first second, during the attack, and the stick stayed off.
     float root[4] = {};
@@ -4657,6 +4840,25 @@ bool FccSnapInv() {
     }
     v.ok = v.have > 0;
     return v.ok;
+}
+// TASK #140431 (human #140428): survey equip check. Reads the same count table as the core count guard and reports how many records
+// carry this item id (u16) and their count, plus the total live records, so the survey can tell an empty / unusable slot before it
+// presses use. No id list. Returns -1 when the table is unreadable.
+static int SurveyCoreRecordImpl(unsigned item, uint32_t* count, int* total) {
+    if (count) *count = 0;
+    if (total) *total = 0;
+    if (!gamerva::g_known) return -1;
+    const uint64_t inv = InvBase();
+    if (!inv) return -1;
+    int match = 0, have = 0;
+    for (int i = 0; i < kFccInvN; ++i) {
+        uint16_t id = 0; uint32_t c = 0;
+        if (!FccReadInvRec(inv, i, id, c) || !id) continue;
+        ++have;
+        if (id == (uint16_t)item) { ++match; if (count) *count += c; }
+    }
+    if (total) *total = have;
+    return match;
 }
 void FccPress(double now, int dir) {
     const int ms = g_fccMs.load();
@@ -5630,6 +5832,7 @@ void SealIdleEndTick() {
 // X = [P+0x30], X +0x88 action objects / +0x90 row pointers / u16 +0x98 count, object +0x40 hitbox row pointer array, u16 +0x48 first,
 // +0x4A count). 1 = a certain data count is used before (and over) a learned one; 2 = logged only; 0 = off. Read only.
 std::atomic<int> g_sealHitsData{1};
+std::atomic<int> g_sealEndFrame{1};  // TASK #140119: [Spirit] SealEndFrame (default 1, 0 = off): data-mapped forms end on the seal's action frame (SdhEndFrameOf)
 SdhResult g_sdhLastRead; bool g_sdhLastReadOk = false;  
 bool g_sdhDumpAll = false;  int g_sdhKindN = 0; uint16_t g_sdhKindId[64]; uint8_t g_sdhKind[64]; uint16_t g_sdhKindEnd[64];  // TASK #138533: last damaging row end frame, SC_FAST_NO_END = not certain  // TASK #137616: last file read, per action can-hit  // TASK #137616: SealDataHits logs every action of the file (Fast summon trace)  // TASK #135803: shape of the last SealDataHits read (bind copies it)
 SdhDurTable g_sealDurs;  // TASK #135613: per-core attack duration (bind -> live end) of full forms this session, game thread only
@@ -5689,6 +5892,24 @@ int SealDataHits(uint64_t seal, uint32_t sid, char* desc, size_t cap) {
         for (int e = 0; e < SDH_EVENTS; ++e) sp |= acts[k].ev[e] >= 20000 && acts[k].ev[e] != 0xFFFF;
         g_sdhKindEnd[g_sdhKindN] = (uint16_t)(b > 0 && !ut && !sp && le > 0 ? le : SC_FAST_NO_END);  // TASK #138533
         g_sdhKindId[g_sdhKindN] = acts[k].id; g_sdhKind[g_sdhKindN++] = (uint8_t)(b || ut || sp ? SC_FAST_ACT_HIT : SC_FAST_ACT_NOHIT);
+    }
+    // TASK #141728: spawned objects (sub-table 7, 336-byte rows) and components (sub-table 8, 80-byte rows) of the same descriptor, the
+    // pointer-array + u16 count form Nioh3Training auto_moves_game.h AmLoadImg reads (X +0x1A0 / +0x1A8, +0x1B0 / +0x1B8, found live on
+    // Yamagata 2026-11-20). Each array must be contiguous at its record size; anything else leaves the objects out (every spawn may hit).
+    {
+        uint64_t a7 = 0, a8 = 0; uint16_t c7 = 0, c8 = 0; bool ok = false;
+        std::vector<uint8_t> o7, o8;
+        if (Rd(X + 0x1A0, a7) && a7 && Rd(X + 0x1A8, c7) && c7 && c7 <= 4096 && Rd(X + 0x1B0, a8) && Rd(X + 0x1B8, c8) && c8 <= 8192 && (!c8 || a8)) {
+            o7.resize((size_t)c7 * SDH_OBJ); o8.resize((size_t)c8 * SDH_OBJC); ok = true;
+            uint64_t b7 = 0, b8 = 0;
+            for (int i = 0; ok && i < c7; ++i) { uint64_t q = 0; ok = Rd(a7 + 8u * (uint64_t)i, q) && q && (i ? q == b7 + (uint64_t)i * SDH_OBJ : (b7 = q, true)) && Copy(o7.data() + (size_t)i * SDH_OBJ, q, SDH_OBJ); }
+            for (int i = 0; ok && i < c8; ++i) { uint64_t q = 0; ok = Rd(a8 + 8u * (uint64_t)i, q) && q && (i ? q == b8 + (uint64_t)i * SDH_OBJC : (b8 = q, true)) && Copy(o8.data() + (size_t)i * SDH_OBJC, q, SDH_OBJC); }
+        }
+        if (ok) { std::vector<uint8_t> memo(c7, 0); SdhMarkSpawnHits(acts.data(), (int)n, o7.data(), c7, c8 ? o8.data() : nullptr, c8, memo.data()); }
+        else if (c7) {
+            static uint64_t objLogX = 0;
+            if (objLogX != X) { objLogX = X; Log("SealHitsData file %llX: spawned objects unreadable (%u objects, %u components) - every spawn counts as a hit source", (unsigned long long)X, c7, c8); }
+        }
     }
     const SdhResult r = SdhCount(acts.data(), (int)n, (uint16_t)curId);
     g_sdhLastRead = r; g_sdhLastReadOk = r.chain > 0;  // TASK #135803
@@ -5994,7 +6215,8 @@ void SealExitReplayLoad() {
     { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 0); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_exitEndPct = (std::clamp)(IniInt(L"Spirit", L"SealExitEndPct", 80), 0, 100);  // TASK #135613
     { const int st = IniInt(L"Spirit", L"SealExitSettleMs", 200); g_exitSettleMs = st < 0 ? -1 : (std::min)(st, 3000); }  // TASK #135803
-    { const int a = IniInt(L"Spirit", L"SealExitAfterShotMs", 700); g_exitAfterShotMs = a < 0 ? -1 : (std::min)(a, 3000); }  // TASK #136113
+    g_exitZero = IniInt(L"Spirit", L"SealExitZero", 1) > 0 ? 1 : 0;  // TASK #141441
+    { const int a = IniInt(L"Spirit", L"SealExitAfterShotMs", 0); g_exitAfterShotMs = a < 0 ? -1 : (std::min)(a, 3000); }  // TASK #136113
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -6069,6 +6291,7 @@ bool ExitSmokeId(uint32_t id);
 // TASK #137013 (human #137006): Fast summon has no smoke. While a Fast summon press is live (FastPress, 10 s), every smoke effect
 // (the exit/cover smoke ids ExitSmokeId + SealExitFxId, no per-core list) on the player or on that press's yokai is not spawned (the
 // game's own "effect disabled" flag, FxMute) or moved below the floor. Other effects (attacks) stay. [Spirit] FastSummonSmoke=1 keeps it.
+// TASK #141218: effects attached to the player (the arm effect of the summon gesture) always stay; only seal / yokai / unowned smoke goes.
 bool FxMute(uint32_t id);
 bool FastChr(uint64_t a) {
     const int n = g_fastN.load(std::memory_order_relaxed);
@@ -6084,8 +6307,13 @@ bool FastSmokeHide(uint32_t id, uint64_t owner, uint64_t d, const uint64_t* sp) 
     // live 11-26 (3B1AB): the big summon smoke 62557 is made on the seal's own object (not the player, not the yokai) +110 ms after the
     // press, so any smoke id in the first 2 s of the press counts as this summon's; later only the player's / the yokai's own.
     const bool ours = !owner || owner == pl || FastChr(owner) || (ms >= 0 && ms < 2000);
-    if (!smoke || !ours) {
-        if (g_fastFxLog.fetch_add(1) < 40) Log("FastSummon fx %X owner %llX (%s) +%d ms: kept", id, (unsigned long long)owner,
+    // TASK #141218 (human #141215 'u removed the smoke but also removed the piece effect that's on players arm I liked'): an effect the
+    // game attaches to the PLAYER is the player's own summon effect (live 05:3x: 62548 owner player at +55/+413 ms = the arm effect, the
+    // only player-owned id this filter muted), never the summon smoke (62557 sits on the seal object). Owner rule, no id list: keep it.
+    const bool onPlayer = owner && owner == pl;
+    if (!smoke || !ours || onPlayer) {
+        if (onPlayer && smoke) Log("FastSummon fx %X owner player +%d ms: kept (player's own effect, TASK #141218)", id, ms);
+        else if (g_fastFxLog.fetch_add(1) < 40) Log("FastSummon fx %X owner %llX (%s) +%d ms: kept", id, (unsigned long long)owner,
             owner == pl ? "player" : FastChr(owner) ? "yokai" : owner ? "other" : "none", ms);
         return false;
     }
@@ -6417,7 +6645,7 @@ void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
         if (!Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
         float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
         g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
-        g.base=g_sealMul.load()>0?g_sealMul.load():1.f; g.ramp=g_tailRampMs.load();
+        g.base=g_sealMul.load()>0?CoreSpeedFor(g_pickCore.load(),g_sealMul.load()):1.f; g.ramp=g_tailRampMs.load();  // human #141378
         if (g_ghostKeepSpeed.load()) g.tail=g.base;
         PressGhostForget(actor);
         AcquireSRWLockExclusive(&g_pressGhostLock); g_pressGhosts.push_back(g); ReleaseSRWLockExclusive(&g_pressGhostLock);
@@ -6465,6 +6693,16 @@ void SealTailHitTick() {
         if (present == 0 || now - w.started > 30.0 || (present > 0 && Rd(w.seal, id) && (id >> 4) != w.boundId)) {
             Log("SealTailHits core %X finished: %d bursts (exit at %d), %s", w.sid, w.bursts, w.atExit,
                 present == 0 ? "despawn" : "identity/30s guard");
+            // TASK #139948 (98AB/55141: data 2 windows, 7 more hits after the exit): the seal's own despawn closes the attack, so every
+            // burst it dealt up to then is the core's count; raise the learned count so the next use ends at the real last hit's spawn.
+            if (present == 0 && w.sid && w.bursts > w.atExit && w.bursts <= 32) {
+                const int had = SealHitsFor(w.sid);
+                if (w.bursts > had) {
+                    wchar_t k[16], v[16]; swprintf_s(k, L"%X", w.sid); swprintf_s(v, L"%d", w.bursts);
+                    WritePrivateProfileStringW(SecHits(), k, v, IniPath());
+                    Log("SealTailHits learn core %X: %d hit bursts up to the seal's despawn (was %d, exit at %d) -> [%ls]", w.sid, w.bursts, had, w.atExit, SecHits());
+                }
+            }
             it = g_tailHitWatches.erase(it); continue;
         }
         if (present < 0 || !poolOk) { ++it; continue; }
@@ -6583,6 +6821,8 @@ void SealEndOnHitTick() {
         Log("SealSetLink core %X: part %llX id %X%s", sid, (unsigned long long)actor, key >> 4,
             hits ? out : " - no pointer to or from the seal in 0x4000 bytes");
     };
+    // TASK #140119: frame exit state (SdhEndFrameOf): seal seen in the last-burst action, left it before the frame (count fallback), reach time
+    static bool efSeen = false, efMissed = false; static double efReachT = -1; static int efState = -2;
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
     if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
@@ -6616,6 +6856,7 @@ void SealEndOnHitTick() {
         }
         sdh.Reset(); shapeOk = false; sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
+        efSeen = efMissed = false; efReachT = -1; efState = -2;  // TASK #140119
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
         // Use the accepted press snapshot, not observer/bind time, for source admission.
@@ -6690,6 +6931,35 @@ void SealEndOnHitTick() {
     const int exitAtLastHitMs = g_exitAtLastHitMs.load();
     // Opening a hit must never route to despawn: only enable this early rule with ghost exit available.
     const bool atOpen = exitAtLastHitMs != -9999 && g_ghostOn.load() > 0;
+    // TASK #140119: a data-mapped form ends when the seal's action frame reaches the start of its last hit window, not on the live burst
+    // count (it flips by one between uses of the same core when a window closes and reopens inside one tick). The count path stays for
+    // every other form, and takes over if the seal leaves the last-burst action before that frame. Read every tick (helpers can join).
+    const int efFrame = g_sealEndFrame.load() > 0 && atOpen && !idleOnly && seal && !efMissed ? SdhEndFrameOf(shapeOk, shape, sdh) : -1;
+    bool frameDue = false;
+    if (seal && efFrame != efState) {
+        if (efState != -2 || efFrame >= 0)
+            Log("SealEndFrame core %X: %s (data %d, learned %d, want %d, helper data %d, chain last act %X, last window opens f%d, burst starts f%d%s%s%s)", sid,
+                efFrame >= 0 ? "frame exit armed, the live count only logs" : "frame exit off, live count decides", sdh.sealData, sdh.learned, want, sdh.helperData,
+                shapeOk && shape.lastIdx >= 0 ? shape.ids[shape.lastIdx] : 0xFFFF, shapeOk ? (int)shape.lastStart : -1, shapeOk ? (int)shape.lastBurstStart : -1,
+                shapeOk && !shape.certain() ? ", not certain" : "", shapeOk && shape.loopHits ? ", loops" : "", shapeOk && shape.cut ? ", chain cut" : "");
+        efState = efFrame;
+    }
+    if (efFrame >= 0) {
+        SieSample es; SieRead(seal, es);
+        const uint16_t lastAct = shape.ids[shape.lastIdx];
+        if (es.act == lastAct) efSeen = true;
+        if (efReachT < 0 && SdhEndFrameReached(shape, efFrame, es.act, es.f)) {
+            efReachT = now;
+            Log("SealEndFrame core %X: last window opens f%d, seal at f%.1f in act %X -> exit (%.3f s after the press, live burst %d/%d %s)", sid, efFrame, es.f,
+                es.act, now - sess, bursts, want, open ? "open" : "closed");
+        } else if (efReachT < 0 && efSeen && es.act != lastAct && es.act != 0xFFFFFFFF) {
+            efMissed = true;
+            Log("SealEndFrame core %X: seal left act %X for %X at f%.1f before f%d - live count decides (burst %d/%d) t=%.3f", sid, lastAct, es.act, es.f, efFrame,
+                bursts, want, now);
+        }
+        frameDue = efReachT >= 0 && now - efReachT >= (exitAtLastHitMs > 0 ? exitAtLastHitMs : 0) / 1000.0;
+    }
+    const bool frameRule = efFrame >= 0 && !efMissed;
     // TASK #135613: a count that is not a certain data count (sdh.fromData) is low-confidence: its hit-N exit waits for
     // max(hit exit, bind + SealExitEndPct % of the core's attack duration); no duration known yet -> only the live end (idle / despawn).
     const int endPct = g_exitEndPct.load();
@@ -6711,7 +6981,7 @@ void SealEndOnHitTick() {
                 sid, bursts, want, lastClose, SdhMinBursts(shape), shape.bursts, shape.spawns, shape.untimed, now - sess, endAtMs / 1000.0);
         }
     }
-    const bool idleFire = seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want || lowConf);
+    const bool idleFire = seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want || lowConf || frameRule);  // TASK #140119
     if (natural && !idleOnly && !atOpen) {
         // human #61113/#61119: with a known hit count the smoke starts at THIS form's real last close, never from a learned time
         const bool lastDone = want && bursts >= want && !open && lastClose > 0 && !endHold;  // TASK #135613
@@ -6789,7 +7059,15 @@ void SealEndOnHitTick() {
     // #82179: new eligible objects start a cluster even while earlier attacks remain open.
     // Same-source opens within 150 ms merge; a new attack owner starts a distinct cluster.
     const bool newSource = std::any_of(freshActors.begin(),freshActors.end(),[&](const auto& a){return a.second>0 && !clusterOwners.count(a.first);});
-    const bool newCluster = poolOk && fresh && (now >= lastNew + 0.150 || newSource);
+    // TASK #139948 (45FF/3A6A2 data 2, E631/72FA data 4): a hit window that opens again after it fully closed is the game's next
+    // window even inside the 150 ms same-source merge; only while the count still expects more, so it can never pass the count.
+    // TASK #141682: "expects more" = the CERTAIN game-data window count (seal + joined helpers), never the learned count alone. A learned
+    // count can be above the data (5129B Ibaraki: data 1 window, learned 2-3: its 2nd hit is the seal after a helper whose objects split
+    // 117 ms apart, #82280), so splitting that merge on the learned count counted the helper twice and ended the form before the real hit.
+    const int dataWindows = sdh.fromData ? sdh.sealData + sdh.helperData : 0;
+    const bool reopen = poolOk && fresh && !open && bursts > 0 && want > bursts && dataWindows > bursts;
+    const bool newCluster = poolOk && fresh && (now >= lastNew + 0.150 || newSource || reopen);
+    if (reopen && now < lastNew + 0.150 && !newSource) Log("SealEndOnHit core %X: window re-opened %.3f s after the press inside the merge time - counted as burst %d (want %d, data windows %d)", sid, now - sess, bursts + 1, want, dataWindows);
     if (poolOk) {
         if (newCluster) clusterOwners.clear();
         for(const auto& a:freshActors) if(a.second>0) clusterOwners.insert(a.first);
@@ -6814,7 +7092,10 @@ void SealEndOnHitTick() {
     // #108189: the learned flag decides - only a core seen in a full natural form with a helper-only last burst (an unknown or a learned
     // count alone is not enough), and only while the seal itself has not hit this form.
     const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastCached(sid) == 1;
-    if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
+    // TASK #140119 (Biwa Boku-boku DCDAB: learned 3, helper exit fired at burst 1 of 5): a helper burst ends the form only once the
+    // count is reached (or no count is known); an earlier helper burst is not the last hitbox, so the form keeps playing.
+    const bool helperCountOk = want <= 0 || bursts >= want;
+    if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast && helperCountOk)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
             // TASK #137052 (human #137047, replaces the 100 ms rule of #136981): the form is the WHOLE set the summon spawns. Every actor
             // the game spawned for this press before the form began (bound seal) is part of the yokai's body (Sukuna CF875 = CF875 + 42FB
@@ -6855,9 +7136,10 @@ void SealEndOnHitTick() {
     }
     // Negative offsets cannot predict a future live open: their deadline is already due when it is first observed.
     if (atOpen && seal && want > 0 && bursts >= want && exitOpen < 0) exitOpen = lastOpen;
-    const bool openDue = atOpen && seal && want > 0 && bursts >= want && exitOpen >= 0 &&
+    const bool openDue = atOpen && seal && want > 0 && bursts >= want && exitOpen >= 0 && !frameRule &&  // TASK #140119: frame rule owns the exit
                          now - sess >= exitOpen + exitAtLastHitMs / 1000.0;
     if (openDue) fire = true;
+    if (frameDue) fire = true;  // TASK #140119
     // TASK #135613: the hit-N exit of a low-confidence count is held (the helper exit, idle edge and FormMaxSec below are not)
     if (fire && endHold) {
         fire = false;
@@ -6873,7 +7155,7 @@ void SealEndOnHitTick() {
     // TASK #136113: the last projectile is already out. Turn back after SealExitAfterShotMs instead of waiting out the idle.
     // Does not delay a certain-count exit that already fired. -1 leaves the EndPct / idle hold as it is.
     const int afterShotMs = g_exitAfterShotMs.load();
-    const bool afterShotTime = afterShotMs >= 0 && !idleOnly && seal && want > 0 && bursts >= want && !open && lastClose > 0 &&
+    const bool afterShotTime = afterShotMs >= 0 && !idleOnly && !frameRule && seal && want > 0 && bursts >= want && !open && lastClose > 0 &&  // TASK #140119
                                (now - sess) >= lastClose + afterShotMs / 1000.0;
     // TASK #136328: a count that is not certain may be short (early escape between two bursts); see SdhAfterShotOk.
     const int closeFromBindMs = (int)((lastClose - (boundAt - sess)) * 1000.0), lastHitMs = lowConf ? g_sealLastHit.At(sid, g_sealMul.load()) : 0;
@@ -6895,9 +7177,47 @@ void SealEndOnHitTick() {
                 sid, bursts, want, lastClose, afterShotMs, now - sess);
         }
     }
+    // TASK #141441 (human #141298/#141299): 0 ms turn-back for every core, read from game state, no per-core rows or timers.
+    // The form ends on the tick where (1) the seal's own action data has nothing left to let out (SdhSealSourcesDone: in the chain's last
+    // source action past its last hitbox end / spawn frame, chain fully mapped), (2) no hit collider of the press is open (seal + every
+    // source actor, the pool census above), and (3) every thrown actor (spawned after the bind) and every body part that hit this form is
+    // gone from the actor table (its projectile is over). This also releases the EndPct / idle hold of a count that is not certain: the
+    // hold waited for the yokai's idle edge, the recovery time after its last hit. Needs a real hit this form; SealEndMinMs still applies.
+    bool zeroFire = false;
+    static double zeroSess = -1; static bool zeroSeen = false; static std::set<uint64_t> zeroHit; static int zeroWhy = -1;
+    if (zeroSess != sess) { zeroSess = sess; zeroSeen = false; zeroHit.clear(); zeroWhy = -1; }
+    for (const auto& a : freshActors) if (a.second > 0) zeroHit.insert(a.first);
+    if (g_exitZero.load() > 0 && !fire && !idleOnly && seal && poolOk && !n && !open && bursts > 0 && lastClose > 0) {
+        SieSample zs; SieRead(seal, zs);
+        if (shapeOk && shape.srcIdx >= 0 && zs.act == shape.ids[shape.srcIdx]) zeroSeen = true;
+        int why = SdhSealSourcesDone(shapeOk, shape, zs.act, zs.f, zeroSeen, bursts, want) ? 0 : 1;
+        uint64_t blocker = 0;
+        if (!why) {
+            const uint64_t tbl = ActorTableGlobal();
+            for (const uint64_t actor : sources) {
+                if (!actor || actor == seal || actor == g_fh4.owner) continue;
+                const auto at = srcAt.find(actor);
+                const bool thrown = at != srcAt.end() && boundAt > 0 && at->second > boundAt;
+                if (!thrown && !zeroHit.count(actor)) continue;  // a body part / standing object that never hit is not a hit source
+                if (FormHideSealPresent(tbl, actor) != 0) { why = 2; blocker = actor; break; }  // still there (or unreadable): its hit can come
+            }
+        }
+        if (why != zeroWhy) {
+            zeroWhy = why;
+            if (why == 2) Log("SealExitZero core %X: seal data done (act %X f%.1f, last source act %X f%u), hit %d closed at %.3f s - waits for source %llX to be gone t=%.3f",
+                              sid, zs.act, zs.f, shape.ids[shape.srcIdx], shape.srcEnd, bursts, lastClose, (unsigned long long)blocker, now - sess);
+        }
+        if (!why) {
+            fire = zeroFire = true;
+            Log("SealExitZero core %X: last hitbox closed at %.3f s (hit %d, want %d%s), seal act %X f%.1f past its last source f%u in act %X, no thrown actor left - turning back %.3f s after the press (+%d ms)",
+                sid, lastClose, bursts, want, lowConf ? ", count not certain" : "", zs.act, zs.f, shape.srcEnd, shape.ids[shape.srcIdx], now - sess,
+                (int)((now - sess - lastClose) * 1000.0));
+        }
+    }
     if (helperDue && !fire) { fire = true; Log("SealExitOnHelper core %X: ending the form %.3f s after the press (burst %d)", sid, now - sess, bursts); }
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
-    if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
+    // TASK #141441: a SealExitZero end is proven by the seal's own action frame (past its last hitbox / spawn), not by a bind-time collider
+    if (fire && !zeroFire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
     // Default hit fallback needs a real observed hit and a readable, empty attack pool.
     // An idle edge alone can precede a helper attack; never truncate active attack windows.
@@ -6947,7 +7267,7 @@ void SealEndOnHitTick() {
     fired = true;
     if (openDue && !idleOnly) Log("SealCover: core %X last burst %d/%d opened %.3f s after press, exit +%d ms (observed %.3f s, minimum %d ms)",
         sid, bursts, want, exitOpen, exitAtLastHitMs, now - sess, g_sealEndMinMs.load());
-    if (g_sdHeld == seal && !openDue) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (g_sdHeld == seal && !openDue && !frameDue) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
     if (g_ghostOn.load() > 0) {  // pc #57569: end the form now, the seal runs on invisible (tail speed) until its own despawn
         // Copy the already-filtered state before the visible form resets; never replay exit effects.
         if (g_tailHitWatches.size() >= 8) {
@@ -8026,16 +8346,17 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"SealExitEndPct", 5, 0, 100, false}, {L"SealExitAfterShotMs", 50, -1, 3000, false},
                           {L"FormSteerMove", 1, 1, 8, false},
                           {L"FastSummonSpeed", .1, 0, 3, true},
-                          {L"FastSummonStartSpeed", .5, 1, 12, true}, {L"FastSummonEndSpeed", .5, 1, 12, true}};  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"FastSummonStartSpeed", .5, 1, 12, true}, {L"FastSummonEndSpeed", .5, 1, 12, true},
+                          {L"FormSteerSpeed", 100, 0, 5000, false}};  // human #141255: 24 Move speed  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
-    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || which == 24 || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
              : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load()
-             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load()
+             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load() : which == 24 ? (double)g_formSteerSpeed.load()
              : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
@@ -8045,7 +8366,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 700, 5, 0, 1, 6};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
@@ -8075,6 +8396,7 @@ double SoulTune(int which, int dir, bool* live) {
     case 21: g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(v * 10))); break;  // TASK #136502: FastActorMul reads it per frame
     case 22: g_fastStartMul.store(sc_fast_edge_clamp((float)v)); break;  // TASK #137323: FastActorMul reads it per frame
     case 23: g_fastEndMul.store(sc_fast_edge_clamp((float)v)); break;
+    case 24: g_formSteerSpeed.store((int)v); break;  // human #141255: FormSteerBoost reads it per step
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
@@ -8158,6 +8480,15 @@ void FormCoreReset() {
     ReleaseSRWLockExclusive(&g_coreEditLock);
     // An ongoing form/press keeps its decision; the next press sees the shipped all-ON policy.
 }
+// TASK #138870 (human #138862): the item -> yokai map built from the game's own item + param tables (BuildMap), for the
+// all-cores survey. Copies at most cap rows; returns the full count, -1 while the worker has not built it.
+int FormCoreMapCopy(uint16_t* items, uint32_t* chrs, int cap) {
+    AcquireSRWLockShared(&g_coreMapLock);
+    const int all = g_coreMap.empty() ? -1 : (int)g_coreMap.size();
+    for (int i = 0; i < all && i < cap; ++i) { if (items) items[i] = g_coreMap[i].item; if (chrs) chrs[i] = g_coreMap[i].chr; }
+    ReleaseSRWLockShared(&g_coreMapLock);
+    return all;
+}
 // TASK #136197: soul core API (mod/shared/soul_core_api.h). The call this core uses on its next use.
 int FormCoreCallGet(uint32_t id) {
     AcquireSRWLockShared(&g_coreEditLock);
@@ -8183,6 +8514,23 @@ int FormCoreCallSet(uint32_t id, int call) {
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool FormCoreMoved(uint32_t id) { return FormCoreMovedImpl(id); }  // TASK #137000
 bool FormCoreEquippedIds(uint32_t out[2]) { return FormCoreEquippedIdsImpl(out); }
+int SurveyCoreRecord(unsigned item, uint32_t* count, int* total) { return SurveyCoreRecordImpl(item, count, total); }
+// TASK #140431: "id:count" list of the live soul core use records (same table), for the survey reply.
+int SurveyCoreRecordList(char* out, int cap) {
+    if (!out || cap <= 0) return -1;
+    out[0] = 0;
+    if (!gamerva::g_known) return -1;
+    const uint64_t inv = InvBase();
+    if (!inv) return -1;
+    int k = 0, have = 0;
+    for (int i = 0; i < kFccInvN && k + 24 < cap; ++i) {
+        uint16_t id = 0; uint32_t c = 0;
+        if (!FccReadInvRec(inv, i, id, c) || !id) continue;
+        ++have;
+        k += snprintf(out + k, cap - k, "%s%d:%X:%u", have > 1 ? "," : "", i, id, c);
+    }
+    return have;
+}
 bool SoulCoreFormsSet(int dir, bool* formUp) {
     const bool v = dir ? dir > 0 : !g_scForms.load();
     g_scForms.store(v);
@@ -8463,6 +8811,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_scForms.store(IniInt(L"Spirit", L"SoulCoreForms", 1) != 0);  // human #61869 (read before FormKeyInstall applies the gate patch)
     CoreOffLoad();  // human #81220
     CoreCallLoad();  // TASK #136197
+    CoreTuneLoad();  // human #141372
     Log("SoulCoreForms=%d (FormKey=%d)", g_scForms.load() ? 1 : 0, g_fkOn.load());
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
@@ -8475,6 +8824,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
     g_fhSealKeep.store(IniInt(L"Spirit", L"FormSealKeep", 1));
+    g_sealBodyPct.store((std::clamp)(IniInt(L"Spirit", L"SealBodyOpacity", 60), 0, 100));  // human #140631 default 60
     { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xFF4F", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
@@ -8482,7 +8832,8 @@ void Register(bool boss, bool rm, bool inv) {
     g_formSteer.store(IniInt(L"Spirit", L"FormSteer", 0));  // human #130495
     g_formSteerCm.store(IniInt(L"Spirit", L"FormSteerCm", 10));  // human #130513: first try 10 cm, then live edits
     g_formSteerTravelCm.store(IniInt(L"Spirit", L"FormSteerTravelCm", 300));  // human #130619: moving yokai, not the 150 cm attack
-    g_formSteerMove.store(IniInt(L"Spirit", L"FormSteerMove", 5));  // human #130704: 5 = the stick moves the yokai five times as far
+    g_formSteerMove.store(IniInt(L"Spirit", L"FormSteerMove", 5));
+    g_formSteerSpeed.store((std::clamp)(IniInt(L"Spirit", L"FormSteerSpeed", 1500), 0, 5000));  // TASK #139948  // human #130704: 5 = the stick moves the yokai five times as far
     Log("FormSteer=%d cm=%d travel=%d move=%d", g_formSteer.load(), g_formSteerCm.load(), g_formSteerTravelCm.load(), g_formSteerMove.load());
     {   // human #122288 crouch cancel window (ms, 0 = off) and the core count guard
         const int ms = IniInt(L"Spirit", L"FormCrouchCancel", 200);
@@ -8553,6 +8904,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
         g_sehAtk.store(IniInt(L"Spirit", L"SealHitAtkOnly", 1)); Log("SealHitAtkOnly=%d", g_sehAtk.load());  // human #61056
         g_sealHitsData.store(IniInt(L"Spirit", L"SealHitsData", 1)); Log("SealHitsData=%d", g_sealHitsData.load());  // TASK #135148
+        g_sealEndFrame.store(IniInt(L"Spirit", L"SealEndFrame", 1)); Log("SealEndFrame=%d", g_sealEndFrame.load());  // TASK #140119
         g_sieMode.store(IniInt(L"Spirit", L"SealIdleEnd", 0)); g_sieLog.store(IniInt(L"Spirit", L"SealIdleLog", 1));  // human #61026
         g_sieMinMs.store(IniInt(L"Spirit", L"SealIdleMinMs", 0)); g_sieLoop.store(IniInt(L"Spirit", L"SealIdleLoop", 1));
         g_sieHold.store(IniInt(L"Spirit", L"SealIdleHold", 1)); g_sieHoldMs.store(IniInt(L"Spirit", L"SealIdleHoldMs", 100));
