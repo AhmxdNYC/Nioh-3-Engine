@@ -83,8 +83,8 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     SrFill(px, W, H, SRX(40), SRX(58), W - SRX(80), 1, 0xA89A6Cu, 140);
     // score line under the letter
     char b[160], t[24]; SrClock(t, sizeof t, r->ms);
-    snprintf(b, sizeof b, "Score %.2f / 7     Peak %s     Fight %s%s", r->score, sm_rank_name[r->peak], t,
-             r->place == 1 ? "     New best!" : r->place == 2 ? "     2nd best" : r->place == 3 ? "     3rd best" : "");  // human 2026-11-26: the grade score, not the average; its place in the boss's best scores
+    snprintf(b, sizeof b, "Score %.2f / 7     Peak %s     Fight %s%s%s", r->score, sm_rank_name[r->peak], t, r->note[0] ? "     " : "",
+             r->note[0] ? r->note : r->place == 1 ? "     New best!" : r->place == 2 ? "     2nd best" : r->place == 3 ? "     3rd best" : "");  // human 2026-11-26: the grade score, not the average; its place in the boss's best scores
     SrText(ref, px, W, H, b, W / 2, SRX(266), SrFitPx(ref, b, SRX(21), FW_NORMAL, W - SRX(40)), FW_NORMAL, 0, 1, SR_VALUE);
     if (r->n.damaged == 0) snprintf(b, sizeof b, "No hits taken: no penalty");
     else snprintf(b, sizeof b, "Style %.2f  \x96 %.2f for %u hit%s taken", r->rawScore, r->penalty, r->n.damaged, r->n.damaged == 1 ? "" : "s");

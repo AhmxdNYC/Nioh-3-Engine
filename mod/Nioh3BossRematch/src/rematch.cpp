@@ -5376,7 +5376,7 @@ bool UiAct() {
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
     if (SubOpenChange(item, 0)) return false;  // TASK #137249: opens the page
-    if (ScoresAct(item, 0)) return false;  // human 2026-11-26: open / delete (twice)
+    if (const int sa = ScoresAct(item, 0)) return sa == 2;  // human 2026-11-26: open / view the card (closes the menu) / delete all (twice)
     if (PstChange(item, 0)) return false;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, 0)) return false;  // human #58117: opens the page / A = one step up

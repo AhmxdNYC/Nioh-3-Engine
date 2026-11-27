@@ -5,19 +5,23 @@
 //
 // Boss identity (key): the fight's boss character ids, sorted, "c:<hex>[+<hex>..]" (a duo or a second form = its own entry, same every time).
 // A fight with no character id (a Picture Scroll boss on the HUD bar only) is not kept. The name is the card's title name.
-// File: one line per score, tab separated: key, name, score (2 decimals), grade 0..6, fight ms, hits taken, mod version, date. '#' = comment.
+// File: one line per score, tab separated: key, name, score (2 decimals), grade 0..6, fight ms, hits taken, mod version, date, then (1.8.48)
+// the whole card: 'R<size>:<hex of the SrResult>' (the menu shows it again, both pages). A card of another size (another build) is not loaded;
+// the score still is. '#' = comment.
 #ifndef STYLE_SCORES_H
 #define STYLE_SCORES_H
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "style_result.h"
 
 #define SC_KEEP 3
 #define SC_BOSSES 256
 #define SC_KEY 64
 #define SC_NAME 96
-typedef struct { float score; int grade; double ms; uint32_t hits; char ver[16]; char date[20]; } ScRec;
+typedef struct { float score; int grade; double ms; uint32_t hits; char ver[16]; char date[20]; int hasCard; SrResult card; } ScRec;
+#define SC_LINE 4096
 typedef struct { char key[SC_KEY]; char name[SC_NAME]; ScRec r[SC_KEEP]; int n; } ScBoss;
 typedef struct { ScBoss b[SC_BOSSES]; int n; } ScTable;
 
@@ -77,18 +81,34 @@ static inline int ScDelete(ScTable* t, int i, int j) {
 // One file line -> table (bad lines are skipped). Returns 1 when the line held a score.
 static inline int ScParseLine(ScTable* t, const char* line) {
     if (!line || !line[0] || line[0] == '#') return 0;
-    char buf[512]; ScCopy(buf, (int)sizeof buf, "");
+    static char buf[SC_LINE];
     { int i = 0; for (; line[i] && line[i] != '\n' && line[i] != '\r' && i < (int)sizeof buf - 1; ++i) buf[i] = line[i]; buf[i] = 0; }
-    char* f[8]; int n = 0; char* p = buf;
-    while (n < 8) { f[n++] = p; char* tab = strchr(p, '\t'); if (!tab) break; *tab = 0; p = tab + 1; }
+    char* f[9]; int n = 0; char* p = buf;
+    while (n < 9) { f[n++] = p; char* tab = strchr(p, '\t'); if (!tab) break; *tab = 0; p = tab + 1; }
     if (n < 8 || strncmp(f[0], "c:", 2) || !f[0][2]) return 0;
     ScRec r; memset(&r, 0, sizeof r);
     r.score = (float)atof(f[2]); r.grade = atoi(f[3]); r.ms = atof(f[4]); r.hits = (uint32_t)strtoul(f[5], 0, 10);
     if (!(r.score >= 0.f && r.score <= 7.01f) || r.grade < 0 || r.grade > 6) return 0;
     ScCopy(r.ver, (int)sizeof r.ver, f[6]); ScCopy(r.date, (int)sizeof r.date, f[7]);
+    if (n >= 9 && f[8][0] == 'R') {  // the card: R<size>:<hex>, only when the size is this build's SrResult
+        char* c = strchr(f[8], ':'); const unsigned long sz = strtoul(f[8] + 1, 0, 10);
+        if (c && sz == sizeof r.card && strlen(c + 1) == 2 * sizeof r.card) {
+            uint8_t* o = (uint8_t*)&r.card; int ok = 1;
+            for (size_t i = 0; i < sizeof r.card && ok; ++i) { unsigned v = 0; ok = sscanf(c + 1 + 2 * i, "%2x", &v) == 1; o[i] = (uint8_t)v; }
+            r.hasCard = ok; r.card.name[sizeof r.card.name - 1] = 0; r.card.note[0] = 0;
+            if (!ok) memset(&r.card, 0, sizeof r.card);
+        }
+    }
     return ScInsert(t, f[0], f[1], &r) > 0;
 }
 static inline int ScFmtLine(char* o, int cap, const ScBoss* b, const ScRec* r) {
-    return snprintf(o, (size_t)cap, "%s\t%s\t%.2f\t%d\t%.0f\t%u\t%s\t%s\n", b->key, b->name, r->score, r->grade, r->ms, r->hits, r->ver[0] ? r->ver : "?", r->date[0] ? r->date : "?");
+    int k = snprintf(o, (size_t)cap, "%s\t%s\t%.2f\t%d\t%.0f\t%u\t%s\t%s", b->key, b->name, r->score, r->grade, r->ms, r->hits, r->ver[0] ? r->ver : "?", r->date[0] ? r->date : "?");
+    if (r->hasCard && k + 16 + 2 * (int)sizeof r->card < cap) {
+        k += snprintf(o + k, (size_t)(cap - k), "\tR%u:", (unsigned)sizeof r->card);
+        const uint8_t* p = (const uint8_t*)&r->card;
+        for (size_t i = 0; i < sizeof r->card; ++i) k += snprintf(o + k, (size_t)(cap - k), "%02x", p[i]);
+    }
+    if (k < cap - 1) { o[k++] = '\n'; o[k] = 0; }
+    return k;
 }
 #endif

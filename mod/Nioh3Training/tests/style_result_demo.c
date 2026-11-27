@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
     // human 2026-11-26: boss names on the title + the place in the boss's best scores (sss: no name known = the old title)
     snprintf(fights[0].r.name, sizeof fights[0].r.name, "Demon of Pride"); fights[0].r.place = 1;
     snprintf(fights[1].r.name, sizeof fights[1].r.name, "Anayama Nobutada & Baba Nobuharu"); fights[1].r.place = 3;
+    snprintf(fights[2].r.name, sizeof fights[2].r.name, "Tokugawa Kunimatsu"); snprintf(fights[2].r.note, sizeof fights[2].r.note, "#1 best, build 1.8.48, 2026-11-26 21:05");  // a saved card viewed from the menu
     const int H = 1080; const SrGeo g = SrGeom(H, SR_SCALE_PCT);
     const int VW = g.w + 80, VH = g.h + 80;
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);

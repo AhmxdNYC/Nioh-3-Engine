@@ -72,6 +72,12 @@ static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_
 static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
 static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
+static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
+static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
+static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
+static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
+static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
+static SrResult g_sr_card; static double g_sr_cardT = -1e18; static LONG g_sr_cardGen;
 // human 2026-11-26: boss names on the result card and the best scores per boss (style_scores.h). g_sc: g_sc_lock (game thread writes when a
 // card is made, the mod menu reads / deletes through the Nioh3Training_Score* exports). The file is read on first use, rewritten on a change.
 #include "style_scores.h"
@@ -82,7 +88,7 @@ static void ScLoadLocked(void) {
     g_sc_loaded = 1; memset(&g_sc, 0, sizeof g_sc);
     char p[MAX_PATH]; ScPath(p, sizeof p);
     FILE* f = fopen(p, "rb"); if (!f) return;
-    char line[512]; int n = 0;
+    static char line[SC_LINE]; int n = 0;
     while (fgets(line, sizeof line, f)) n += ScParseLine(&g_sc, line);
     fclose(f);
     Log("STYLE SCORES: %d best scores of %d bosses loaded (%s)", n, g_sc.n, p);
@@ -92,7 +98,7 @@ static int ScSaveLocked(void) {
     FILE* f = fopen(tmp, "wb"); if (!f) { Log("STYLE SCORES: could not write %s (%lu)", tmp, GetLastError()); return 0; }
     fputs("# Nioh3Training best style scores per boss (local only; the mod menu Style meter > Best scores shows and deletes them).\n"
           "# key\tname\tscore\tgrade (0 D .. 6 SSS)\tfight ms\thits taken\tmod version\tdate\n", f);
-    char line[512];
+    static char line[SC_LINE];
     for (int i = 0; i < g_sc.n; ++i) for (int j = 0; j < g_sc.b[i].n; ++j) { ScFmtLine(line, sizeof line, &g_sc.b[i], &g_sc.b[i].r[j]); fputs(line, f); }
     const int ok = fclose(f) == 0 && MoveFileExA(tmp, p, MOVEFILE_REPLACE_EXISTING);
     if (!ok) Log("STYLE SCORES: could not save %s (%lu)", p, GetLastError());
@@ -126,6 +132,7 @@ static void ScRecordResult(SrResult* r) {
     if (!ScKeyOf(r->chr, r->nChr, key, sizeof key)) { Log("STYLE SCORES: not kept (no boss character id: a HUD-only boss)"); return; }
     ScRec rec; memset(&rec, 0, sizeof rec);
     rec.score = r->score; rec.grade = r->grade; rec.ms = r->ms; rec.hits = r->n.damaged;
+    rec.hasCard = 1; rec.card = *r; rec.card.place = 0; rec.card.note[0] = 0;  // 1.8.48: the whole card, viewed again from the menu
     snprintf(rec.ver, sizeof rec.ver, "%s", ScModVersion());
     SYSTEMTIME st; GetLocalTime(&st); snprintf(rec.date, sizeof rec.date, "%04u-%02u-%02u %02u:%02u", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute);
     AcquireSRWLockExclusive(&g_sc_lock);
@@ -156,6 +163,22 @@ N3T_API int Nioh3Training_ScoreText(int i, int j, char* out, int cap) {
     }
     ReleaseSRWLockExclusive(&g_sc_lock); return ok;
 }
+// 1.8.48: show score j of boss i's saved card again (both pages, D-pad / arrows; A / Enter closes), as when the boss died. The caller closes
+// the mod menu (the card hides while it is open). Returns 1 shown, 0 no card kept with that score (saved by an older build), -1 no such score.
+N3T_API int Nioh3Training_ScoreShowCard(int i, int j) {
+    int rc = -1; SrResult card;
+    AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
+    if (i >= 0 && i < g_sc.n && j >= 0 && j < g_sc.b[i].n) {
+        const ScRec* r = &g_sc.b[i].r[j]; rc = r->hasCard ? 1 : 0;
+        if (rc) { card = r->card; snprintf(card.note, sizeof card.note, "#%d best, build %s, %s", j + 1, r->ver, r->date); card.place = 0; }
+    }
+    ReleaseSRWLockExclusive(&g_sc_lock);
+    if (rc == 1) {
+        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = card; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+        Log("STYLE SCORES: card shown again from the mod menu (%s, %s)", card.name, card.note);
+    }
+    return rc;
+}
 // Delete score j of boss i (j < 0 = every score of that boss). Saved at once. Returns 1 when deleted.
 N3T_API int Nioh3Training_ScoreDelete(int i, int j) {
     AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
@@ -166,12 +189,6 @@ N3T_API int Nioh3Training_ScoreDelete(int i, int j) {
     if (ok) Log("STYLE SCORES: deleted %s of %s (mod menu)", j < 0 ? "every score" : j == 0 ? "the best score" : j == 1 ? "the 2nd score" : "the 3rd score", nm);
     return ok;
 }
-static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
-static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
-static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMileGen;  // + the last combo milestone (hits, bonus) and its generation  // human: current combo (landed hits), published for the draw thread
-static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
-static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
-static SrResult g_sr_card; static double g_sr_cardT = -1e18; static LONG g_sr_cardGen;
 static HWND g_sr_wnd;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;

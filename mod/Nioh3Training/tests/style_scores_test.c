@@ -82,4 +82,18 @@ static void Tuning48(void) {
     for (int r = 2; r <= 4; ++r) { SmState s; SmReset(&s); s.active = 1; s.rank = r; s.pts = c.rankPts[r]; s.lastScore = 0; SmTick(&s, &c, 1000, 1000); lost[r] = c.rankPts[r] - s.pts; }
     CHECK(lost[3] > lost[2] * 1.299f && lost[3] < lost[2] * 1.301f && lost[4] > lost[2] * 1.299f && lost[4] < lost[2] * 1.301f);  // B normal, A / S x1.3
 }
-int main(void) { Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }
+// 1.8.48: the whole card is kept with the score and comes back from the file (both pages' data); a card of another size is dropped, not the score.
+static void Card(void) {
+    ScTable* t = (ScTable*)calloc(1, sizeof *t); ScTable* u = (ScTable*)calloc(1, sizeof *u);
+    ScRec r = Rec(4.25f, "1.8.48"); r.hasCard = 1; r.card.score = 4.25f; r.card.grade = 4; r.card.n.damaged = 3; r.card.n.earned[2] = 123.5f; r.card.comboBest = 41;
+    snprintf(r.card.name, sizeof r.card.name, "Demon of Pride"); r.card.pctAt[4] = 61.f;
+    CHECK(ScInsert(t, "c:1", "Demon of Pride", &r) == 1);
+    static char line[SC_LINE]; const int k = ScFmtLine(line, sizeof line, &t->b[0], &t->b[0].r[0]);
+    CHECK(k > 2 * (int)sizeof(SrResult) && line[k - 1] == '\n');
+    CHECK(ScParseLine(u, line) && u->b[0].r[0].hasCard && u->b[0].r[0].card.grade == 4 && u->b[0].r[0].card.n.earned[2] == 123.5f
+          && u->b[0].r[0].card.comboBest == 41 && !strcmp(u->b[0].r[0].card.name, "Demon of Pride") && u->b[0].r[0].card.pctAt[4] == 61.f);
+    char* bad = strstr(line, "\tR"); bad[2] = '9';  // another build's card size
+    memset(u, 0, sizeof *u); CHECK(ScParseLine(u, line) && !u->b[0].r[0].hasCard && u->b[0].r[0].score == 4.25f);
+    free(t); free(u);
+}
+int main(void) { Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }

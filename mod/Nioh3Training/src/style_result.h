@@ -93,6 +93,7 @@ typedef struct {
     uint32_t chr[SR_BOSSES]; int nChr;  // human 2026-11-26: the fight's boss character ids (0 = not known: HUD-only boss), for its name and best scores
     char name[96];               // ... the bosses' names (glue: Nioh3Training_BossName), empty = not known: card title '<name>: Results'
     int place;                   // ... 1..3 = this score's place in that boss's best scores (style_scores.h), 0 = not in them / not kept
+    char note[64];               // ... a saved card viewed again from the mod menu: '#2 best, build 1.8.48, 2026-11-26 19:40' (replaces the place text)
 } SrResult;
 
 typedef struct {
