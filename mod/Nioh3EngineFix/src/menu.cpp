@@ -3017,20 +3017,26 @@ int g_ctlLogs = 0;
 volatile LONG g_ctlOff = 0;    // vpad state / tests: 1 = the game holds a control-off reason (debounced)
 
 // manager+0x34 (aggregate) and the active primary reasons (for the log); false = unreadable (signal treated as off)
-bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n) {
+bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n, bool* onlyPlay) {
     uint64_t m = 0, prim = 0, cnt = 0;
     agg = 0; r30 = 0;
+    if (onlyPlay) *onlyPlay = false;
     if (list && n) list[0] = 0;
     if (!Rd(g_host.base + Grva(kRvaCtlMgrPtr), m) || m < 0x10000) return false;
     const uint8_t* M = reinterpret_cast<const uint8_t*>((uintptr_t)m);
     if (!Rd(M + kOffCtlAggregate, agg) || !Rd(M + kOffCtlReason, r30)) return false;
-    if (list && n && agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
+    if (agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
         const uint8_t* P = reinterpret_cast<const uint8_t*>((uintptr_t)prim);
+        bool full = true, any = false, other = false;
         for (uint64_t i = 0; i < cnt; ++i) {
             uint8_t k = 0, a = 0;
-            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) break;
-            if (a) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
+            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) { full = false; break; }
+            if (!a) continue;
+            any = true;
+            if (!menurepeat::IsPlayReason(k)) other = true;
+            if (list && n) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
         }
+        if (onlyPlay) *onlyPlay = full && any && !other;
     }
     return true;
 }
@@ -3108,8 +3114,9 @@ void PauseDetect(ULONGLONG t) {
         uint32_t agg = 0;
         uint8_t r30 = 0;
         char list[96];
-        const bool ok = ReadControlOff(agg, r30, list, sizeof(list));
-        ctlNow = menurepeat::ControlOff(ok, agg);
+        bool onlyPlay = false;
+        const bool ok = ReadControlOff(agg, r30, list, sizeof(list), &onlyPlay);
+        ctlNow = menurepeat::ControlOff(ok, agg, onlyPlay);
         if (ok) {
             if (agg != g_ctlLogged) {
                 if (g_ctlLogs < 200)

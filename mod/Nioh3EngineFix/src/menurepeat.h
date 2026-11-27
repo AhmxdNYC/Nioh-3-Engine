@@ -59,7 +59,13 @@ struct Debounce {
 // aggregate 3840 in every Boss Match of the log). Counting them as a menu turned a held left stick into D-pad pulses mid fight and
 // fired soul cores / summon seals on their own. Only bits outside these count.
 constexpr uint32_t kFightCtlMask = 0x3840u;
-inline bool ControlOff(bool readOk, uint32_t aggregate) { return readOk && (aggregate & ~kFightCtlMask) != 0; }
+// human 2026-11-27 (v1.8.50): after a won Boss Match the game keeps reason 39 (mask 1AC0) on while the player walks around again.
+// Its mask overlaps real menu bits, so it is told apart by id: when every active reason is one of these, nobody is in a menu.
+inline bool IsPlayReason(uint8_t id) { return id == 0x39 || id == 0x9C || id == 0x9F; }
+// onlyPlay = the reason list was read and every active reason is a play reason (IsPlayReason).
+inline bool ControlOff(bool readOk, uint32_t aggregate, bool onlyPlay = false) {
+    return readOk && !onlyPlay && (aggregate & ~kFightCtlMask) != 0;
+}
 
 // One pad poll. raw = what the player holds now; active = a game menu is open and the mod menu is closed.
 // Returns the bits to report as released for THIS poll (0 = pass the pad through unchanged).

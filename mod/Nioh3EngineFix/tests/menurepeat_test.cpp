@@ -83,6 +83,9 @@ int main() {
         CHECK(!ControlOff(true, 0x3840));  // boss fight reasons 9C + 9F only: the player plays, no menu
         CHECK(!ControlOff(true, 0x1800) && !ControlOff(true, 0x2040));
         CHECK(ControlOff(true, 0x3847) && ControlOff(true, 0x3FD4));  // a real control-off on top of them still counts
+        CHECK(!ControlOff(true, 0x1AC0, true));  // after a won Boss Match: reason 39 only, the player walks again (v1.8.50 stick = D-pad bug)
+        CHECK(ControlOff(true, 0x1AC7, false));  // reason 39 + a menu reason (9A) still counts
+        CHECK(IsPlayReason(0x39) && IsPlayReason(0x9C) && IsPlayReason(0x9F) && !IsPlayReason(0x9A) && !IsPlayReason(0x17) && !IsPlayReason(0x48));
     }
     {   // debounce: a short blip (< 120 ms) never arms; 120 ms continuous does; off ~150 ms after it clears
         Debounce d; uint64_t t = 1000; bool any = false;
