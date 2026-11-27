@@ -27,6 +27,7 @@ __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
 static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (human 2026-11-26)
+static uint32_t g_cfg_grapple_skill = SM_GRAPPLE_SKILL;  // [StyleMeter] GrappleSkill (human 2026-11-26, 1.8.48)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
  static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
@@ -70,7 +71,7 @@ static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
 static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
-static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
+static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_hold_sss = SR_HOLD_SSS_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
 static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
 static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
@@ -78,6 +79,117 @@ static volatile LONG g_sm_combo, g_sm_comboMile, g_sm_comboMilePts, g_sm_comboMi
 static volatile LONG g_sm_allyHits, g_sr_allyMask;  // SmHpEvent: hits on an enemy by a same-team actor (summoned guardian spirit), boss slots hit so
 static volatile LONG g_sr_hitMask;  // SmHpEvent: bit s = the player's hit took HP off boss slot s since the last tick
 static SrResult g_sr_card; static double g_sr_cardT = -1e18; static LONG g_sr_cardGen;
+// human 2026-11-26: boss names on the result card and the best scores per boss (style_scores.h). g_sc: g_sc_lock (game thread writes when a
+// card is made, the mod menu reads / deletes through the Nioh3Training_Score* exports). The file is read on first use, rewritten on a change.
+#include "style_scores.h"
+static ScTable g_sc; static SRWLOCK g_sc_lock = SRWLOCK_INIT; static int g_sc_loaded;
+static void ScPath(char* p, int n) { snprintf(p, (size_t)n, "%s\\Nioh3Training_scores.tsv", g_dir); }
+static void ScLoadLocked(void) {
+    if (g_sc_loaded) return;
+    g_sc_loaded = 1; memset(&g_sc, 0, sizeof g_sc);
+    char p[MAX_PATH]; ScPath(p, sizeof p);
+    FILE* f = fopen(p, "rb"); if (!f) return;
+    static char line[SC_LINE]; int n = 0;
+    while (fgets(line, sizeof line, f)) n += ScParseLine(&g_sc, line);
+    fclose(f);
+    Log("STYLE SCORES: %d best scores of %d bosses loaded (%s)", n, g_sc.n, p);
+}
+static int ScSaveLocked(void) {
+    char p[MAX_PATH], tmp[MAX_PATH + 8]; ScPath(p, sizeof p); snprintf(tmp, sizeof tmp, "%s.tmp", p);
+    FILE* f = fopen(tmp, "wb"); if (!f) { Log("STYLE SCORES: could not write %s (%lu)", tmp, GetLastError()); return 0; }
+    fputs("# Nioh3Training best style scores per boss (local only; the mod menu Style meter > Best scores shows and deletes them).\n"
+          "# key\tname\tscore\tgrade (0 D .. 6 SSS)\tfight ms\thits taken\tmod version\tdate\n", f);
+    static char line[SC_LINE];
+    for (int i = 0; i < g_sc.n; ++i) for (int j = 0; j < g_sc.b[i].n; ++j) { ScFmtLine(line, sizeof line, &g_sc.b[i], &g_sc.b[i].r[j]); fputs(line, f); }
+    const int ok = fclose(f) == 0 && MoveFileExA(tmp, p, MOVEFILE_REPLACE_EXISTING);
+    if (!ok) Log("STYLE SCORES: could not save %s (%lu)", p, GetLastError());
+    return ok;
+}
+// The mod build (EngineFix's MOD_VERSION; '?' with an EngineFix older than 1.8.48).
+static const char* ScModVersion(void) {
+    static const char* (*f)(void); static int tried;
+    if (!tried) { tried = 1; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); f = ef ? (const char* (*)(void))GetProcAddress(ef, "Nioh3EngineFix_Version") : 0; }
+    const char* v = f ? f() : 0;
+    return v && v[0] ? v : "?";
+}
+// The card title name: each known boss name once, joined with ' & ' (a second form with the same name shows once). None known: 'Boss <id>'.
+static void SrNameOf(SrResult* r) {
+    r->name[0] = 0; int o = 0; char seen[SR_BOSSES][64]; int ns = 0;
+    for (int i = 0; i < r->nChr && i < SR_BOSSES; ++i) {
+        char nm[64] = {0};
+        if (!r->chr[i] || !Nioh3Training_BossName(r->chr[i], nm, (int)sizeof nm) || !nm[0]) continue;
+        int dup = 0; for (int k = 0; k < ns; ++k) dup |= !strcmp(seen[k], nm);
+        if (dup) continue;
+        snprintf(seen[ns++], 64, "%s", nm);
+        o += snprintf(r->name + o, sizeof r->name - (size_t)o, "%s%s", o ? " & " : "", nm);
+        if (o >= (int)sizeof r->name - 1) break;
+    }
+    if (!r->name[0]) for (int i = 0; i < r->nChr; ++i) if (r->chr[i]) { snprintf(r->name, sizeof r->name, "Boss %X", r->chr[i]); break; }
+}
+// A finished card: its name, then keep it if it is one of the boss's best SC_KEEP scores (r->place).
+static void ScRecordResult(SrResult* r) {
+    SrNameOf(r); r->place = 0;
+    char key[SC_KEY];
+    if (!ScKeyOf(r->chr, r->nChr, key, sizeof key)) { Log("STYLE SCORES: not kept (no boss character id: a HUD-only boss)"); return; }
+    ScRec rec; memset(&rec, 0, sizeof rec);
+    rec.score = r->score; rec.grade = r->grade; rec.ms = r->ms; rec.hits = r->n.damaged;
+    rec.hasCard = 1; rec.card = *r; rec.card.place = 0; rec.card.note[0] = 0;  // 1.8.48: the whole card, viewed again from the menu
+    snprintf(rec.ver, sizeof rec.ver, "%s", ScModVersion());
+    SYSTEMTIME st; GetLocalTime(&st); snprintf(rec.date, sizeof rec.date, "%04u-%02u-%02u %02u:%02u", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute);
+    AcquireSRWLockExclusive(&g_sc_lock);
+    ScLoadLocked();
+    r->place = ScInsert(&g_sc, key, r->name, &rec);
+    if (r->place) ScSaveLocked();
+    ReleaseSRWLockExclusive(&g_sc_lock);
+    Log("STYLE SCORES: %s (%s) %.2f %s v%s: %s", r->name, key, r->score, sm_rank_name[r->grade], rec.ver, r->place ? (r->place == 1 ? "new best score" : r->place == 2 ? "2nd best score" : "3rd best score") : "not in the best 3");
+}
+// Mod menu (Nioh3BossRematch Style meter > Best scores). Bosses are in name order; i = boss, j = score 0..2 (best first).
+N3T_API int Nioh3Training_ScoreBosses(void) { AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked(); const int n = g_sc.n; ReleaseSRWLockExclusive(&g_sc_lock); return n; }
+// Name of boss i; returns its number of scores (0 = no such boss).
+N3T_API int Nioh3Training_ScoreBoss(int i, char* name, int cap) {
+    int n = 0; if (name && cap > 0) name[0] = 0;
+    AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
+    if (i >= 0 && i < g_sc.n) { n = g_sc.b[i].n; if (name && cap > 0) snprintf(name, (size_t)cap, "%s", g_sc.b[i].name); }
+    ReleaseSRWLockExclusive(&g_sc_lock); return n;
+}
+// Score j of boss i as one menu line: 'SS  5.42   1:23   2 hits   1.8.48   2026-11-26 19:40'. Returns 0 when there is no such score.
+N3T_API int Nioh3Training_ScoreText(int i, int j, char* out, int cap) {
+    int ok = 0; if (out && cap > 0) out[0] = 0;
+    AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
+    if (out && cap > 0 && i >= 0 && i < g_sc.n && j >= 0 && j < g_sc.b[i].n) {
+        const ScRec* r = &g_sc.b[i].r[j]; const int sec = (int)(r->ms / 1000.0 + 0.5);
+        snprintf(out, (size_t)cap, "%-3s %.2f   %d:%02d   %u hit%s taken   build %s   %s", sm_rank_name[r->grade < 0 ? 0 : r->grade > 6 ? 6 : r->grade], r->score,
+                 sec / 60, sec % 60, r->hits, r->hits == 1 ? "" : "s", r->ver, r->date);
+        ok = 1;
+    }
+    ReleaseSRWLockExclusive(&g_sc_lock); return ok;
+}
+// 1.8.48: show score j of boss i's saved card again (both pages, D-pad / arrows; A / Enter closes), as when the boss died. The caller closes
+// the mod menu (the card hides while it is open). Returns 1 shown, 0 no card kept with that score (saved by an older build), -1 no such score.
+N3T_API int Nioh3Training_ScoreShowCard(int i, int j) {
+    int rc = -1; SrResult card;
+    AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
+    if (i >= 0 && i < g_sc.n && j >= 0 && j < g_sc.b[i].n) {
+        const ScRec* r = &g_sc.b[i].r[j]; rc = r->hasCard ? 1 : 0;
+        if (rc) { card = r->card; snprintf(card.note, sizeof card.note, "#%d best, build %s, %s", j + 1, r->ver, r->date); card.place = 0; }
+    }
+    ReleaseSRWLockExclusive(&g_sc_lock);
+    if (rc == 1) {
+        AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = card; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);
+        Log("STYLE SCORES: card shown again from the mod menu (%s, %s)", card.name, card.note);
+    }
+    return rc;
+}
+// Delete score j of boss i (j < 0 = every score of that boss). Saved at once. Returns 1 when deleted.
+N3T_API int Nioh3Training_ScoreDelete(int i, int j) {
+    AcquireSRWLockExclusive(&g_sc_lock); ScLoadLocked();
+    char nm[SC_NAME] = ""; if (i >= 0 && i < g_sc.n) snprintf(nm, sizeof nm, "%s", g_sc.b[i].name);
+    const int ok = ScDelete(&g_sc, i, j);
+    if (ok) ScSaveLocked();
+    ReleaseSRWLockExclusive(&g_sc_lock);
+    if (ok) Log("STYLE SCORES: deleted %s of %s (mod menu)", j < 0 ? "every score" : j == 0 ? "the best score" : j == 1 ? "the 2nd score" : "the 3rd score", nm);
+    return ok;
+}
 static HWND g_sr_wnd;
 static void SmReadIni(const char* ini, int reset) {
     g_cfg_sm = (int)GetPrivateProfileIntA("StyleMeter", "StyleMeter", 0, ini) ? 1 : 0;
@@ -105,6 +217,7 @@ static void SmReadIni(const char* ini, int reset) {
       g_cfg_sr_hitpen = hp[0] ? (float)atof(hp) : SR_HIT_PENALTY; } if (!(g_cfg_sr_hitpen >= 0.f && g_cfg_sr_hitpen <= 700.f)) g_cfg_sr_hitpen = SR_HIT_PENALTY;
     g_cfg_sr_scale = (int)GetPrivateProfileIntA("StyleMeter", "ResultScalePct", SR_SCALE_PCT, ini); if (g_cfg_sr_scale < 50 || g_cfg_sr_scale > 300) g_cfg_sr_scale = SR_SCALE_PCT;
     g_cfg_sr_hold = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPct", SR_HOLD_PCT, ini); if (g_cfg_sr_hold < 0 || g_cfg_sr_hold > 100) g_cfg_sr_hold = SR_HOLD_PCT;
+    g_cfg_sr_hold_sss = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPctSSS", SR_HOLD_SSS_PCT, ini); if (g_cfg_sr_hold_sss < 1 || g_cfg_sr_hold_sss > 100) g_cfg_sr_hold_sss = SR_HOLD_SSS_PCT;  // 1.8.48
     g_cfg_sr_delay = (int)GetPrivateProfileIntA("StyleMeter", "ResultEndDelayMs", SR_END_DELAY_MS, ini); if (g_cfg_sr_delay < 0 || g_cfg_sr_delay > 20000) g_cfg_sr_delay = SR_END_DELAY_MS;
     g_cfg_sr_show = (int)GetPrivateProfileIntA("StyleMeter", "ResultShowMs", SR_SHOW_MS, ini); if (g_cfg_sr_show != 0 && (g_cfg_sr_show < 2000 || g_cfg_sr_show > 600000)) g_cfg_sr_show = SR_SHOW_MS;  // 0 = until confirm
     SmCfg c; SmCfgDefaults(&c);
@@ -149,6 +262,11 @@ static void SmReadIni(const char* ini, int reset) {
     c.damagePct = (int)GetPrivateProfileIntA("StyleMeter", "DamagePenaltyPct", SM_DAMAGE_PCT, ini);  // human 2026-11-26
     c.decayLowRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowRank", SM_DECAY_LOW_RANK, ini);  // human 2026-11-26: D..B drain slower
     c.decayLowPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowPct", SM_DECAY_LOW_PCT, ini);
+    c.decayHighRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayHighRank", SM_DECAY_HIGH_RANK, ini);  // human 2026-11-26 (1.8.48): A+ drain faster
+    c.decayHighPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayHighPct", SM_DECAY_HIGH_PCT, ini);
+    c.decayTopPct[0] = (int)GetPrivateProfileIntA("StyleMeter", "DecayPctS", SM_DECAY_S_PCT, ini);
+    c.decayTopPct[1] = (int)GetPrivateProfileIntA("StyleMeter", "DecayPctSS", SM_DECAY_SS_PCT, ini);
+    c.decayTopPct[2] = (int)GetPrivateProfileIntA("StyleMeter", "DecayPctSSS", SM_DECAY_SSS_PCT, ini);
     c.versStep = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityStep", SM_VERS_STEP, ini);  // human 2026-11-26: versatility multiplier
     c.versBasePct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityBasePct", SM_VERS_BASE_PCT, ini);
     c.versIncPct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityIncPct", SM_VERS_INC_PCT, ini);
@@ -195,6 +313,7 @@ static void SmReadIni(const char* ini, int reset) {
         g_tmc.maxMs = (int)GetPrivateProfileIntA("StyleMeter", "TmtmMaxMs", SM_TMTM_MAX_MS, ini); if (g_tmc.maxMs < 17) g_tmc.maxMs = 17; if (g_tmc.maxMs > 500) g_tmc.maxMs = 500;
         g_tmc.needAttack = GetPrivateProfileIntA("StyleMeter", "TmtmNeedAttack", 0, ini) != 0;
         GetPrivateProfileStringA("StyleMeter", "FluxSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_flux_skill = ids[0];
+        GetPrivateProfileStringA("StyleMeter", "GrappleSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_grapple_skill = ids[0];
     }
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -860,7 +979,7 @@ static void SmFeed(double gdt) {
       if (g_sm.lpFree != lpFreeWas) { lpFreeWas = g_sm.lpFree; Log("STYLE LOOP: zero-Ki loop on a human boss %s (looping is %s)", g_sm.lpFree ? "started" : "ended", g_sm.lpFree ? "free at any rank" : "back to the rank rule"); } }
     // Result card. srSlotA / srSlotT: the actor of each boss slot and the wall ms it was first seen there (kept after the slot clears), so
     // a boss hit in the end wait can be told apart: next form (seen as the fight went down) or the next boss of a gauntlet (SrBossHitEx).
-    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES], srTag[SR_BOSSES] = {0}; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
+    uint64_t srHit[SR_BOSSES], srLethal[SR_BOSSES], srTag[SR_BOSSES] = {0}; uint32_t srChr[SR_BOSSES] = {0}; double srSeen[SR_BOSSES]; int nSrHit = 0, nSrLethal = 0;
     static uint64_t srSlotA[N3T_SLOTS]; static double srSlotT[N3T_SLOTS];
     const double srWall = SmWallMs();
     SrHudTick(srWall);  // Picture Scroll bosses (HUD bar, no boss slot)
@@ -871,7 +990,7 @@ static void SmFeed(double gdt) {
             uint64_t a = BvActor(s);
             if (!a) a = (uint64_t)g_sr_hitAct[s];  // the slot cleared since the hit (the hit killed it): still that boss's hit
             if (!a) continue;
-            srHit[nSrHit] = a; srSeen[nSrHit] = srSlotA[s] == a ? srSlotT[s] : srWall; nSrHit++;
+            srHit[nSrHit] = a; srChr[nSrHit] = g_slot_act[s] == a ? g_slot_chr[s] : 0; srSeen[nSrHit] = srSlotA[s] == a ? srSlotT[s] : srWall; nSrHit++;  // human 2026-11-26: chr = its name / best scores
             if ((lm & (LONG)(1u << s)) && nSrLethal < SR_BOSSES) srLethal[nSrLethal++] = a;
         }
         if (g_cfg_sr && m) for (int k = 0; k < SR_HUD && nSrHit < SR_BOSSES; ++k) {  // HUD-only bosses: tagged, first seen = when that identity got the bar
@@ -909,14 +1028,16 @@ static void SmFeed(double gdt) {
         if (SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
             Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
                 (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
-            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            if (srDone < 2) srRes[srDone++] = SrFinishTop(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hold_sss, g_cfg_sr_hitpen);
             SrReset(&g_sr); SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS); varReset = 2;
             Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
         }
+        SrBossChr(&g_sr, srHit[i], srChr[i]);
     }
     if (!srWas && g_sr.on) varReset = 2;  // a boss fight started with this tick's hit: the run starts here (before the hit is scored)
     if (varReset && g_sm.varN > 0) { Log("STYLE VARIETY: new run (%s), %d distinct moves, %u milestones so far", varReset == 2 ? "boss fight start" : "death / load", g_sm.varN, g_sm.varBonuses); SmVarietyReset(&g_sm); }
     const uint32_t vb0 = g_sm.varBonuses; const float vp0 = g_sm.varPts; const int vers0 = SmVersPct(&g_sm, &g_smc);
+    SmKeepD(&g_sm, g_sr.on && !g_sr.ending);  // human 2026-11-26: D is the floor during a boss fight (not unranked)
     const int r0 = g_sm.rank, a0 = g_sm.active;
     int avoid = SmDodgeStepEx(&g_sm.dodge, g_sm_enemy, ifr, taken > 0, deflectNow, skillNow);  // may be taken by a burst counter below
     static double avHurtT = -1e18; if (taken > 0) avHurtT = g_sm_clock;
@@ -930,9 +1051,22 @@ static void SmFeed(double gdt) {
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (crouchCancel) g_sm.crouchCancels++;
     if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
-    const LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    {   // 1.8.48: the grapple row (skill word GrappleSkill) landing on a boss = one grapple per throw. The finisher-state path (KiBreakTick) above
+        // missed a real one (Takeda); both can see the same grapple, so one pays and the other is dropped within 3 s.
+        static uint64_t grapRun; static double grapT = -1e18;
+        const int rowHit = pl && run && skill > 0 && skw == g_cfg_grapple_skill && bbPl != 0 && run != grapRun;
+        if (rowHit) grapRun = run;
+        const int recent = g_sm_clock - grapT < 3000.0;
+        if (grapN > 0 && recent) { Log("STYLE GRAPPLE: finisher state after the grapple row already paid: not paid twice"); grapN = 0; }
+        if (rowHit) {
+            if (grapN > 0 || recent) Log("STYLE GRAPPLE: grapple row act %u landed (already paid by the finisher state)", (unsigned)act);
+            else { grapN = 1; Log("STYLE GRAPPLE: grapple row act %u (skill 0x%X) landed on a boss", (unsigned)act, skw); }
+        }
+        if (grapN > 0) grapT = g_sm_clock;
+    }
     for (LONG i = 0; i < grapN && i < 8; ++i) pgrap += SmOnGrapple(&g_sm, &g_smc, g_sm_clock);
-    if (grapN) Log("STYLE GRAPPLE: Ki-break grapple finisher x%ld +%.0f", (long)grapN, pgrap);
+    if (grapN) Log("STYLE GRAPPLE: grapple x%ld +%.0f", (long)grapN, pgrap);
     const float pflux = SmOnFlux(&g_sm, &g_smc, g_sm_clock, fluxDone);  // human 2026-11-26: +15 / +25 within 3 s of a hit
     if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain) +%.0f%s", fluxDone, (unsigned)act, pflux, pflux > 0.f ? "" : " (no hit in the last 3 s: no points)"); }
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
@@ -1076,7 +1210,7 @@ static void SmFeed(double gdt) {
         if (st == 1) Log("STYLE RESULT: every boss of the fight is down (bosses:%s), card in %d ms unless its next form is hit", bl, g_cfg_sr_delay);
         else if (st == 2) {
             if (!wasEnding) Log("STYLE RESULT: %s with every boss of the fight down (bosses:%s): card now", !me ? "the player character went away" : "a load started", bl);
-            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            if (srDone < 2) srRes[srDone++] = SrFinishTop(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hold_sss, g_cfg_sr_hitpen);
             SrReset(&g_sr);
         }
         else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s; %.1f s in; bosses:%s)", sr_drop_name[g_sr.drop], g_sr.ms / 1000.0, bl); SrReset(&g_sr); }
@@ -1084,6 +1218,7 @@ static void SmFeed(double gdt) {
     ReleaseSRWLockExclusive(&g_sm_lock);
     if (!srWas && g_sr.on) Log("STYLE RESULT: fight started (first hit on a boss, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
     for (int i = 0; i < srDone; ++i) {
+        ScRecordResult(&srRes[i]);  // human 2026-11-26: the boss name (card title) and the best scores per boss
         char b[900]; SrFmt(b, sizeof b, &srRes[i]); Log("STYLE RESULT: %s", b);
         SrFmtPts(b, sizeof b, &srRes[i]); Log("STYLE RESULT POINTS: %s", b);  // human 2026-11-26: card page 2
         AcquireSRWLockExclusive(&g_smfx_lock); g_sr_card = srRes[i]; g_sr_cardT = SmWallMs(); g_sr_cardGen++; ReleaseSRWLockExclusive(&g_smfx_lock);

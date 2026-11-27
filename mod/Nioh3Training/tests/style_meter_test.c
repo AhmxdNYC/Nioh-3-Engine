@@ -17,7 +17,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
-    c->versStep = 0; c->decayLowPct = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
+    c->versStep = 0; c->decayLowPct = 100; c->decayHighPct = 100; c->decayTopPct[0] = c->decayTopPct[1] = c->decayTopPct[2] = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
     c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
     c->slowMs = 0;  // slow-move multiplier / drain pause (human 2026-11-26) came later: covered by SlowMove()
 }
@@ -168,11 +168,11 @@ static void Clamp(void) {
 // human #126755: shipped tuning is 2.5x the first (#126785); #127568: now the human's Main PC tuning.
 static void Tuning(void) {
     SmCfg c; RealDefaults(&c);
-    CHECK(near(c.rankPts[0], 120.f) && near(c.rankPts[1], 180.f) && near(c.deflect, 23.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
+    CHECK(near(c.rankPts[0], 156.f) && near(c.rankPts[1], 234.f) && near(c.deflect, 23.f) && near(c.rankPts[SM_RANKS - 1], 500.f) && near(c.decayPerS, 30.f) && c.decayDelayMs == 500);
     CHECK(near(c.hit, 20.f) && near(c.dodge, 45.f) && near(c.ki, 30.f) && c.repeatPct == 80 && c.repeatFloorPct == 40 && c.multiPct == 100 && c.decayRankPct == 50 && c.decayRampPct == 150);
     SmState s; SmReset(&s);
     for (uint32_t i = 0; i < 8; ++i) SmOnHit(&s, &c, 10.0 * i, 3000 + i, i);
-    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 74.4f / 180.f));  // 8 different moves = 4 x 20 + 4 x 22 (x1.10 from the 5th) + 24 x 1.10 (5 distinct moves): D (120) full, 74.4 into C (180)
+    CHECK(s.rank == 1 && near(SmGauge(&s, &c), 38.4f / 234.f));  // 8 different moves = 194.4 points: D (156, 1.8.48) full, 38.4 into C (234)
 }
 // #126821 startup scaling: x1 at <= min, x(1+pct) at >= max, linear between; unknown = x1; multi-hit keeps the use's factor.
 static void Startup(void) {
@@ -962,13 +962,14 @@ static void MoveVariety(void) {
 // human 2026-11-26: getting hit costs half a rank drop (this rank's points + the rank below's bar, x DamagePenaltyPct 50 %).
 static void DamageHalf(void) {
     SmCfg c; RealDefaults(&c); CHECK(c.damagePct == 50);
-    SmState s; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f;   // A 60 / 180, B bar = 130: full drop 190, half 95
+    SmState s; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f;   // A 60, B bar = rankPts[2]: half the full drop (60 + B) comes off
+    const float b1 = c.rankPts[2] - ((60.f + c.rankPts[2]) * 0.5f - 60.f);  // 1.8.48: from the config (was 95 with B 130)
     SmOnDamaged(&s, &c, 1);
-    CHECK(s.rank == 2 && near(s.pts, 95.f) && s.active && s.damaged == 1 && s.combo == 0);
+    CHECK(s.rank == 2 && near(s.pts, b1) && s.active && s.damaged == 1 && s.combo == 0);
     SmOnDamaged(&s, &c, 2);  // same combo (grace): nothing more
-    CHECK(s.rank == 2 && near(s.pts, 95.f));
-    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // B 95, C bar = rankPts[1]: half of (95 + C)
-    { const float want = 95.f - (95.f + c.rankPts[1]) * 0.5f; CHECK(s.rank == 1 && near(s.pts, want + c.rankPts[1])); }
+    CHECK(s.rank == 2 && near(s.pts, b1));
+    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // B b1, C bar = rankPts[1]: half of (b1 + C)
+    { const float want = b1 - (b1 + c.rankPts[1]) * 0.5f; CHECK(s.rank == 1 && near(s.pts, want + c.rankPts[1])); }
     // at D: half the gauge, still active; an empty D goes idle
     SmReset(&s); s.active = 1; s.rank = 0; s.pts = 40.f; SmOnDamaged(&s, &c, 1); CHECK(s.rank == 0 && near(s.pts, 20.f) && s.active);
     SmReset(&s); s.active = 1; s.rank = 0; s.pts = 0.f; SmOnDamaged(&s, &c, 1); CHECK(!s.active);
@@ -1003,7 +1004,7 @@ static void Versatility(void) {
 }
 // human 2026-11-26: D..B drain 40 % slower (DecayLowPct 60), A+ unchanged.
 static void DecayLow(void) {
-    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 60);
+    SmCfg c; RealDefaults(&c); CHECK(c.decayLowRank == 2 && c.decayLowPct == 78);
     SmCfg f = c; f.decayLowPct = 100;
     for (int r = 0; r < SM_RANKS; ++r) {
         SmState a, b; SmReset(&a); SmReset(&b); a.active = b.active = 1; a.rank = b.rank = r; a.pts = b.pts = c.rankPts[r] - 1.f; a.lastScore = b.lastScore = 0;
@@ -1011,7 +1012,7 @@ static void DecayLow(void) {
         SmTick(&a, &c, t, 100); SmTick(&b, &f, t, 100);
         const float la = c.rankPts[r] - 1.f - a.pts, lb = c.rankPts[r] - 1.f - b.pts;
         CHECK(lb > 0.f && a.rank == r && b.rank == r);
-        if (r <= 2) CHECK(near(la, lb * 0.6f)); else CHECK(near(la, lb));
+        if (r <= 2) CHECK(near(la, lb * 0.78f)); else CHECK(near(la, lb));
     }
 }
 // human 2026-11-26: slow move. Time from the use's start to its first landed hit >= SlowMoveMs (500) = x2 on the use's hits, never below

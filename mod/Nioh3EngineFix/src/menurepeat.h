@@ -55,7 +55,11 @@ struct Debounce {
         return shown;
     }
 };
-inline bool ControlOff(bool readOk, uint32_t aggregate) { return readOk && aggregate != 0; }
+// human 2026-11-27: boss fights keep two control-off reasons the whole fight while the player plays (9C mask 1800, 9F mask 2040,
+// aggregate 3840 in every Boss Match of the log). Counting them as a menu turned a held left stick into D-pad pulses mid fight and
+// fired soul cores / summon seals on their own. Only bits outside these count.
+constexpr uint32_t kFightCtlMask = 0x3840u;
+inline bool ControlOff(bool readOk, uint32_t aggregate) { return readOk && (aggregate & ~kFightCtlMask) != 0; }
 
 // One pad poll. raw = what the player holds now; active = a game menu is open and the mod menu is closed.
 // Returns the bits to report as released for THIS poll (0 = pass the pad through unchanged).

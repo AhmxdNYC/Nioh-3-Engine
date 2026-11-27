@@ -42,6 +42,7 @@
 #define SR_BOSSES 8
 #define SR_ACTS 192             // distinct move ids remembered per fight (more just stop counting)
 #define SR_HOLD_PCT 50          // [StyleMeter] ResultHoldPct (human 2026-11-26: 50 with rule 3; 2026-11-25 was 45)
+#define SR_HOLD_SSS_PCT 50      // [StyleMeter] ResultHoldPctSSS: % of the fight at SSS an SSS grade needs (other grades ResultHoldPct). human 2026-11-27: back to 50 (60 was too hard)
 #define SR_END_DELAY_MS 3000    // [StyleMeter] ResultEndDelayMs: wait after the last boss death for a next form
 #define SR_FORM_MS 1500         // [StyleMeter] ResultFormMs: a boss first seen this long after the fight went down is still its next form
 #define SR_FORM_SLACK_MS 500    // ... or this long before it (the next form's bar can show a frame before the old HP reads 0)
@@ -86,10 +87,15 @@ typedef struct {
     int moves, maMoves;          // distinct move ids that landed a hit / distinct martial art moves that scored
     int bosses;                  // bosses killed in this fight
     int hold;                    // rule 2 share used (ResultHoldPct)
+    int holdTop;                 // ... for the SSS grade (ResultHoldPctSSS)
     SrCount n;                   // event counts during the fight
     uint32_t comboBest;          // longest combo during the fight (shown, not graded)
     uint32_t inputs;             // human 2026-11-25: button presses during the fight (pad buttons / triggers, keys, mouse buttons)
     float apm;                   // ... per minute of fight time (shown, not graded)
+    uint32_t chr[SR_BOSSES]; int nChr;  // human 2026-11-26: the fight's boss character ids (0 = not known: HUD-only boss), for its name and best scores
+    char name[96];               // ... the bosses' names (glue: Nioh3Training_BossName), empty = not known: card title '<name>: Results'
+    int place;                   // ... 1..3 = this score's place in that boss's best scores (style_scores.h), 0 = not in them / not kept
+    char note[64];               // ... a saved card viewed again from the mod menu: '#2 best, build 1.8.48, 2026-11-26 19:40' (replaces the place text)
 } SrResult;
 
 typedef struct {
@@ -104,6 +110,7 @@ typedef struct {
     uint32_t comboBest;
     uint64_t boss[SR_BOSSES]; int dead[SR_BOSSES], hp0[SR_BOSSES]; int nBoss;  // hp0: HP was 0 when last seen (a later disappearance = killed)
     uint64_t tag[SR_BOSSES];     // HUD-only boss identity (handle / HP block), 0 = a boss slot (see SrBossHitTag)
+    uint32_t chr[SR_BOSSES];     // human 2026-11-26: character id of each boss (SrBossChr; 0 = not known)
     uint32_t acts[SR_ACTS]; int nActs;
     uint32_t maActs[SR_ACTS]; int nMa;
     SrCount c0;
@@ -171,6 +178,8 @@ static inline int SrBossHitTag(SrFight* f, const SmState* s, uint64_t a, uint64_
     if (r == 0 && tag && (i = SrBossIdx(f, a)) >= 0 && !f->tag[i]) f->tag[i] = tag;
     return r;
 }
+// human 2026-11-26: the character id of boss `a` of the fight (first one known wins; 0 = not known).
+static inline void SrBossChr(SrFight* f, uint64_t a, uint32_t chr) { const int i = a && chr ? SrBossIdx(f, a) : -1; if (i >= 0 && !f->chr[i]) f->chr[i] = chr; }
 // Old entry (tests): every new boss in the end wait is a next form.
 static inline void SrBossHit(SrFight* f, const SmState* s, uint64_t a) { SrBossHitEx(f, s, a, f->endWall, SR_FORM_MS); }
 // One tick of fight time: dt game ms with the meter at state s (after this tick's events). Nothing counts while ending.
@@ -202,28 +211,31 @@ static inline int SrGrade(const double* atRank, double ms, double area, int hold
 // of the holdPct % it needs (SSS: how far past holdPct % the SSS share went, out of the rest: 100 % SSS = 7.00). Then the hit penalty comes
 // off (0.125 per hit: 8 hits = one grade). grade = floor(score). holdPct 0: the old average (no hold rule).
 static inline float SrShareUp(const double* atRank, double ms, int r) { double up = 0; for (int i = r; i < SM_RANKS; ++i) up += atRank[i]; return (float)(up * 100.0 / ms); }
-static inline float SrGradeScore(const double* atRank, double ms, int holdPct, int* held, float* nextPct) {
+// topPct (1.8.48): the share the SSS grade needs (ResultHoldPctSSS); the decimal toward SSS is out of it too.
+static inline float SrGradeScoreEx(const double* atRank, double ms, int holdPct, int topPct, int* held, float* nextPct) {
     *held = 0; *nextPct = 0.f;
     if (!(ms > 0.0)) return 0.f;
+    if (topPct <= 0) topPct = holdPct;
     int h = SM_RANKS - 1;
-    for (; h > 0; --h) if (SrShareUp(atRank, ms, h) >= (float)holdPct) break;
+    for (; h > 0; --h) if (SrShareUp(atRank, ms, h) >= (float)(h == SM_RANKS - 1 ? topPct : holdPct)) break;
     *held = h;
     float d;
-    if (h < SM_RANKS - 1) { *nextPct = SrShareUp(atRank, ms, h + 1); d = *nextPct / (float)holdPct; }
-    else { *nextPct = SrShareUp(atRank, ms, h); d = holdPct >= 100 ? 1.f : (*nextPct - (float)holdPct) / (100.f - (float)holdPct); }
+    if (h < SM_RANKS - 1) { *nextPct = SrShareUp(atRank, ms, h + 1); d = *nextPct / (float)(h + 1 == SM_RANKS - 1 ? topPct : holdPct); }
+    else { *nextPct = SrShareUp(atRank, ms, h); d = topPct >= 100 ? 1.f : (*nextPct - (float)topPct) / (100.f - (float)topPct); }
     d = d < 0.f ? 0.f : d > 0.999f ? 0.999f : d;
     if (h == SM_RANKS - 1 && *nextPct >= 99.95f) d = 1.f;
     return (float)h + d;
 }
+static inline float SrGradeScore(const double* atRank, double ms, int holdPct, int* held, float* nextPct) { return SrGradeScoreEx(atRank, ms, holdPct, holdPct, held, nextPct); }
 // hitPenaltyCenti: average lost per hit taken, in hundredths (0 = none).
-static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPct, float hitPenaltyCenti) {
+static inline SrResult SrFinishTop(const SrFight* f, const SmState* s, int holdPct, int topPct, float hitPenaltyCenti) {
     SrResult r; uint8_t* p = (uint8_t*)&r; for (unsigned i = 0; i < sizeof r; ++i) p[i] = 0;
     r.n = SrCountSub(SrCountOf(s), f->c0);
     r.rawAvg = f->ms > 0 ? (float)(f->area / f->ms) : 0.f;
     r.penalty = hitPenaltyCenti > 0 ? (float)r.n.damaged * hitPenaltyCenti / 100.f : 0.f;
-    r.grade = SrGrade(f->atRank, f->ms, f->area, holdPct, r.penalty, &r.avg, &r.byAvg); r.hold = holdPct;
+    r.grade = SrGrade(f->atRank, f->ms, f->area, holdPct, r.penalty, &r.avg, &r.byAvg); r.hold = holdPct; r.holdTop = topPct > 0 ? topPct : holdPct;
     if (holdPct > 0) {
-        r.rawScore = SrGradeScore(f->atRank, f->ms, holdPct, &r.byHold, &r.nextPct);
+        r.rawScore = SrGradeScoreEx(f->atRank, f->ms, holdPct, r.holdTop, &r.byHold, &r.nextPct);
         r.score = r.rawScore - r.penalty; if (r.score < 0.f) r.score = 0.f;
         r.grade = (int)r.score; if (r.grade > SM_RANKS - 1) r.grade = SM_RANKS - 1;
     } else { r.rawScore = r.rawAvg; r.score = r.avg; r.byHold = r.grade; }  // ResultHoldPct 0: the average alone
@@ -233,8 +245,10 @@ static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPc
     for (int i = 0; i < SM_PL_N; ++i) r.lostTotal += r.n.lost[i] > 0.f ? r.n.lost[i] : 0.f;
     r.inputs = f->inputs; r.apm = f->ms > 0 ? (float)(f->inputs * 60000.0 / f->ms) : 0.f;
     for (int i = 0; i < f->nBoss; ++i) r.bosses += f->dead[i] || f->hp0[i];
+    for (int i = 0; i < f->nBoss; ++i) r.chr[i] = f->chr[i]; r.nChr = f->nBoss;
     return r;
 }
+static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPct, float hitPenaltyCenti) { return SrFinishTop(f, s, holdPct, holdPct, hitPenaltyCenti); }
 static inline SrResult SrFinish(const SrFight* f, const SmState* s, int holdPct) { return SrFinishEx(f, s, holdPct, 0); }
 // Per tick boss check. For each engaged boss: gone = no longer in the actor table, dead = death applied, hp0 = HP is 0 now (for a gone boss:
 // the last hit seen on it was lethal). loading = a load started / no player character (the mission ended or was left).

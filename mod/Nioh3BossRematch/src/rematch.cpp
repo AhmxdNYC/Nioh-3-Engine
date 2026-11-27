@@ -608,6 +608,57 @@ int CallRequestById(uint16_t id, uint8_t slot, uint32_t start) {
         return 1;
     }
 }
+// ---- Level sync (user 2026-11-26): the native replay confirm's "level sync" choice for Boss Matches ----
+// MissionReplayMenu_Decide (F1FD80): choice 1 (sync) makes the same MissionRequestById call as choice 0, then writes
+// [[G 4751848]+8]+0xCF8 = 1 (F2040A). The readers (550938, 552AA4, 6235A9, 118D848, 218DD3C) test it next to the co-op checks,
+// so the stats are synced while it is set; 2160096 clears it. User test 2026-11-26, Demon of Pride (0xA0CB), same move first hit:
+// 1270 HP damage with sync off, 982 with it on. The add-on writes the byte the same way, right after its own request, and keeps it
+// at the menu choice while its Boss Match is live (a toggle in the arena applies at once). Solo / offline only: the byte shares
+// the readers with co-op sync. When the match ends outside a mission, a 1 we wrote is put back to 0.
+std::atomic<int> g_lvSyncWant{-1};   // menu choice ([Rematch] LevelSync): 0 off, 1 on; -1 = not read yet
+std::atomic<bool> g_lvSyncOwn{false}; // a Boss Match the add-on started is live: keep the byte at the choice
+ULONGLONG g_lvSyncSwapAt = 0;        // in-place swap start (no mission state to follow): grace before the Training session shows live
+bool g_lvSyncWrote = false;          // we wrote a 1 during this match
+uint64_t LvSyncAddr() {
+    uint64_t g = 0, o = 0;
+    if (!g_img.base || !Grva(0x4751848) || !Rd(g_img.base + Grva(0x4751848), g) || !g || !Rd(g + 8, o) || !o) return 0;
+    return o + 0xCF8;
+}
+bool LvSyncSupported() { return g_img.base && Grva(0x4751848); }  // menu row shown whenever the flag's global resolves
+int LvSyncRead() {
+    uint8_t v = 0;
+    const uint64_t a = LvSyncAddr();
+    return a && Rd(a, v) ? v : -1;
+}
+bool LvSyncWrite(uint8_t v, const char* why) {  // game thread
+    const uint64_t a = LvSyncAddr();
+    if (!a || !WrBytes(a, &v, 1)) { Log("Rematch: level sync %s NOT written (%s): flag unreadable", v ? "ON" : "OFF", why); return false; }
+    if (v) g_lvSyncWrote = true;
+    Log("Rematch: level sync %s (%s)", v ? "ON" : "OFF", why);
+    return true;
+}
+int LvSyncWant() {
+    int v = g_lvSyncWant.load();
+    if (v < 0) { v = IniInt(L"Rematch", L"LevelSync", 0) ? 1 : 0; g_lvSyncWant.store(v); }
+    return v;
+}
+DWORD WINAPI LvSyncSaveThread(void* p) {
+    const wchar_t* ini = IniPath();
+    if (ini && ini[0]) WritePrivateProfileStringW(L"Rematch", L"LevelSync", p ? L"1" : L"0", ini);
+    return 0;
+}
+void LvSyncToggle(int dir) {  // menu: A flips, Right on, Left off; saved at once, applied by LvSyncTick
+    const int v = dir ? (dir > 0 ? 1 : 0) : !LvSyncWant();
+    g_lvSyncWant.store(v);
+    if (HANDLE h = CreateThread(nullptr, 0, LvSyncSaveThread, v ? (void*)1 : nullptr, 0, nullptr)) CloseHandle(h);
+    Log("Rematch: menu Level sync -> %s%s", v ? "ON" : "OFF", g_lvSyncOwn.load() ? " (Boss Match live: applies now)" : " (applies at the next Boss Match)");
+}
+void LvSyncBegin(const char* why) {  // game thread, right after the add-on's own request / in-place swap
+    g_lvSyncOwn.store(true);
+    g_lvSyncWrote = false;
+    LvSyncWrite((uint8_t)LvSyncWant(), why);
+}
+
 // #12444 teleport fast load: the same two native calls Nioh3Training's [ArenaSwap] LoadingScreenEndMs (lsfade, #9182) makes for a cross-world Fight now
 // (UiLoadingScreenEnd 3B1B6C closes the loading-screen widget; BlackFadeIn 345508(0, 30, 0) lifts the black fader that seq 0x12 would lift later). Game thread.
 int CallLoadingScreenEnd() {
@@ -1634,6 +1685,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
             Log("Rematch: F %s: arena swap in place by Nioh3Training (no mission load)", r.id);
             ResumeArm(s.ms28, s.ms28, t, true);
             g_swappedInPlace.store(true);
+            g_lvSyncSwapAt = t ? t : 1;
+            LvSyncBegin("arena swap in place");
             Result("started %s (fight now, in place)", r.id);
             ToastF(cGreen, 6000, "Boss Matches: into the fight with %s...", r.name);
             return;
@@ -1663,6 +1716,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         AttemptMatch(nullptr, false, false);
         return Refuse("native request outcome uncertain after exception; restart game");
     }
+    LvSyncBegin(fight ? "Fight now request, as the replay confirm's level sync choice" : "direct replay request");
     const uint8_t* q = after + freeSlot * 0x58;
     uint32_t qid = 0;
     uint64_t mode = 0;
@@ -3306,11 +3360,35 @@ void ExecField(int row, const Snap& s) {
 }
 
 void AutoMovesTick();  // pc2 #23907, end of file
+bool PracticeSessionLive();
+// Level sync upkeep (game thread, every 250 ms while an add-on Boss Match is live): keeps the byte at the menu choice, so a toggle in
+// the arena applies at once and a retry reload that cleared it gets it back. Ends with the match; a 1 we wrote outside a mission is reset.
+void LvSyncTick(const Snap& s, ULONGLONG t) {
+    if (!g_lvSyncOwn.load()) return;
+    static ULONGLONG nx = 0;
+    if (t < nx) return;
+    nx = t + 250;
+    if (g_lvSyncSwapAt && t - g_lvSyncSwapAt >= 15000 && !TrainingOwnsFight() && !fight::g_active && !PracticeSessionLive()) g_lvSyncSwapAt = 0;
+    const bool live = g_state.load() != kIdle || g_lvSyncSwapAt != 0;
+    const bool solo = s.onlineOk && !s.online;
+    if (!live || !solo) {
+        g_lvSyncOwn.store(false);
+        g_lvSyncSwapAt = 0;
+        if (g_lvSyncWrote && LvSyncRead() == 1 && (!solo || !s.ms28)) LvSyncWrite(0, !solo ? "online session: Boss Match sync removed" : "Boss Match ended");
+        g_lvSyncWrote = false;
+        return;
+    }
+    if (s.st[2]) return;  // loading: apply once it ends
+    const int want = LvSyncWant(), cur = LvSyncRead();
+    if (cur >= 0 && cur != want) LvSyncWrite((uint8_t)want, "Boss Match live, menu choice");
+}
+
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     { static ULONGLONG nx; if (t >= nx) { nx = t + 1000; AutoMovesTick(); } }
     Snap s = ReadSnap();
+    LvSyncTick(s, t);
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
@@ -3760,6 +3838,8 @@ constexpr int kItFightAgain = -24;
 constexpr int kItAutoRetry = -25;
 // user #7465: KiBreakNoFinisher (Nioh3Training [Summon]): no grapple finisher on a Ki-broken boss, gold Ki bar, HP-0 window
 constexpr int kItNoFin = -26;
+// user 2026-11-26: Level sync (the native replay confirm's choice) for every Boss Match the add-on starts; live in the arena too
+constexpr int kItLevelSync = -35;
 // user #9585: sliders for Nioh3Training [Summon] FinisherKillTimeoutMs (CutsceneOnKill finisher window) and KiBreakHp0WindowMs (HP-0 no-hit window).
 // Live + saved through Nioh3Training_Get/SetTuning; the kill toggles themselves are not touched.
 constexpr int kItFinT = -27, kItHp0W = -28;
@@ -3831,11 +3911,12 @@ constexpr int uFightOpts = 908, kItFightOpts = -50  /* -49 = kItLeaveArena */;
 template <class Add> void AddBossFightItems(Add&& add) {  // shared by Boss Rematch, Boss fight settings and the Rematch Return gate
     if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
     /* #13229: auto retry always on, row removed */
+    if (LvSyncSupported()) add(kItLevelSync);
     if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
     if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
 }
 bool BossFightItemsAvailable() {
-    return TrainingExport("Nioh3Training_SetDeathCfg") || TrainingExport("Nioh3Training_SetNoFinisher") || TrainingExport("Nioh3Training_SetTuning");
+    return LvSyncSupported() || TrainingExport("Nioh3Training_SetDeathCfg") || TrainingExport("Nioh3Training_SetNoFinisher") || TrainingExport("Nioh3Training_SetTuning");
 }
 int GateMode() {  // 0 = unknown / no session (old 2-option page), 1 = Boss Rematch fight, 2 = Training
     using Fn = int (*)();
@@ -4239,6 +4320,7 @@ void NoFinToggle(int dir) {
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
 #include "sub_pages_menu.h"  // TASK #137249 (human #137196): Soul cores / Style meter / Player stats / Boss damage and Ki pages
+#include "style_scores_menu.h"  // human 2026-11-26: Style meter > Best scores (3 per boss, delete)
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
@@ -4414,6 +4496,8 @@ int ItemsBase(int* out, int cap) {
         add(kItBack);
         return n;
     }
+    if (ScoresAddPage(add)) { add(kItBack); return n; }  // human 2026-11-26: Best scores pages
+    if (g_uiPages.page == uStyle) ScoresAddOpenRow(add);  // human 2026-11-26: 'Best scores   A: open' first on the Style meter page
     if (SubAddPage(add)) { add(kItBack); return n; }  // TASK #137249
 #if BR_SOULCORE
     if (g_uiPages.page == uSoulTune) { SctAddPage(add); add(kItBack); return n; }  // human #58117
@@ -4991,6 +5075,7 @@ void UiChange(int dir) {
     }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
+    if (item == kItLevelSync) { LvSyncToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, dir); return; }
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
@@ -5011,6 +5096,7 @@ void UiChange(int dir) {
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (BvChange(item, dir)) return;  // user #14320
     if (SubOpenChange(item, dir)) return;  // TASK #137249
+    if (ScoresAct(item, dir)) return;  // human 2026-11-26
     if (PstChange(item, dir)) return;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, dir)) return;  // human #58117
@@ -5262,6 +5348,7 @@ bool UiAct() {
     if (item == kItStagedStart) { UiChange(0); return false; }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
+    if (item == kItLevelSync) { LvSyncToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
@@ -5289,6 +5376,7 @@ bool UiAct() {
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
     if (SubOpenChange(item, 0)) return false;  // TASK #137249: opens the page
+    if (const int sa = ScoresAct(item, 0)) return sa == 2;  // human 2026-11-26: open / view the card (closes the menu) / delete all (twice)
     if (PstChange(item, 0)) return false;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, 0)) return false;  // human #58117: opens the page / A = one step up
@@ -5530,6 +5618,7 @@ const char* PageTitle(const char* movesTitle) {
     if (p == uGate) return GateMode() == 2 ? "Return - Training" : GateMode() == 1 ? "Return - Boss Match" : "Return gate";
     if (p >= uSettingFirst && p < uSettingFirst + kConfigGroupN) return kConfigGroupLabels[p - uSettingFirst];
     if (const char* st = SubPageTitle(p)) return st;  // TASK #137249
+    if (const char* sct = ScoresTitle(p)) return sct;  // human 2026-11-26
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Training - Choose an arena" : p == uPracticeHub ? "Training"
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
@@ -5541,17 +5630,18 @@ const char* PageTitle(const char* movesTitle) {
 #endif  // BR_SOULCORE
         p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
-bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
+bool IsFightRule(int item) { return item == kItLevelSync || item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
 const char* ItemGroup(int item) {
     if (item == kItPageDefaults) return "Page defaults";
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
-    if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
+    if (p == uRematch) return item == kItLevelSync ? "Boss Match rules" : IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsSubOpenItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389, TASK #137249
     if (p == uPlayer) return item == kItCantDie ? "Health" : IsSubOpenItem(item) ? "Settings pages (A: open)" : nullptr;  // TASK #137249
-    if (IsSubPage(p)) return SubPageGroup(p, item);  // TASK #137249
+    if (IsSubPage(p)) return item == kItScoresOpen ? "Your results" : SubPageGroup(p, item);  // TASK #137249
+    if (p == uScores || p == uScoreBoss) return ScoresGroup(p, item);  // human 2026-11-26
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
@@ -5634,7 +5724,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             continue;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
-        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || SubOpenRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || SubOpenRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || ScoresRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #if BR_SOULCORE
             || SctRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #endif  // BR_SOULCORE
@@ -5754,6 +5844,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const auto g = (G)TrainingExport("Nioh3Training_GetAutoRetry");
             const int v = g ? g() : -1;
             add(sel ? cWhite : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "Auto retry on death:", v < 0 ? "?" : v ? "ON" : "OFF");
+        }
+        else if (it[i] == kItLevelSync) {
+            const bool on = LvSyncWant() != 0;
+            const int cur = g_lvSyncOwn.load() ? LvSyncRead() : -1;
+            add(sel ? cWhite : cGray, sel, "%s %-24s %s   A / Left / Right%s", mk, "Level sync:", on ? "ON" : "OFF",
+                cur < 0 ? "" : cur == (int)on ? "   (active now)" : "   (applying...)");
         }
         else if (it[i] == kItNoFin) {
             using G = int (*)();
@@ -5945,6 +6041,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItStagedStart) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Full climb plays every staged wave in order. Final wave requests only the last one and sets that boss's health to the script's pre-final fraction for this session. Nothing is written to the save.");
         else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* sbf = SubOpenFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : sbf);  // TASK #137249
+        else if (const char* scf2 = ScoresFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf2);  // human 2026-11-26
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
         else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
@@ -6058,6 +6155,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItReturnHome && NativeGateMission()) snprintf(footer, nf, "Return to where you entered this Boss Match.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the arena session (boss removed) and puts you back where you stood before it started, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItAutoRetry) snprintf(footer, nf, "Training and arena Boss Matches retry in place after defeat. Auto retry is always enabled.");
+        else if (item == kItLevelSync) snprintf(footer, nf, "Boss Matches: start with the game's level sync, like the replay menu's level sync option. Changing it in the arena applies at once. Saved.");
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
         else if (item == kItFinT) snprintf(footer, nf, "Death animation / Boss loot: kill when the first final-blow animation ends, or after this timeout. Left / Right: 0.5 s. Saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "With No grapple ON, a zero-HP boss dies after this long without a hit. Left / Right: 0.1 s. Shared by Training and spawned Boss Matches. Saved.");

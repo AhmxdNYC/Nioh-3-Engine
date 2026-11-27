@@ -79,7 +79,10 @@ int main() {
     {   // #137478 control-off gate: unreadable or zero = off; nonzero aggregate = on
         CHECK(!ControlOff(false, 0x40));
         CHECK(!ControlOff(true, 0));
-        CHECK(ControlOff(true, 0x40));
+        CHECK(ControlOff(true, 0x4));
+        CHECK(!ControlOff(true, 0x3840));  // boss fight reasons 9C + 9F only: the player plays, no menu
+        CHECK(!ControlOff(true, 0x1800) && !ControlOff(true, 0x2040));
+        CHECK(ControlOff(true, 0x3847) && ControlOff(true, 0x3FD4));  // a real control-off on top of them still counts
     }
     {   // debounce: a short blip (< 120 ms) never arms; 120 ms continuous does; off ~150 ms after it clears
         Debounce d; uint64_t t = 1000; bool any = false;
@@ -95,7 +98,7 @@ int main() {
     }
     {   // shrine case end to end: control-off on, menu getters off -> a held D-down repeats; field (aggregate 0) never
         Debounce d; State s; uint64_t t = 1000; uint32_t r = 0;
-        for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, d.Update(ControlOff(true, 0x40), t), t, 1);
+        for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, d.Update(ControlOff(true, 0x4), t), t, 1);
         CHECK(r == kDDown && s.repeats >= 8);
         State g; Debounce e; uint32_t q = 0;
         for (int i = 0; i < 200; ++i, t += 8) q |= Step(g, kDDown, e.Update(ControlOff(true, 0), t), t, 1);

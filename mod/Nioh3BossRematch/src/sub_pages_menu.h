@@ -38,7 +38,7 @@ template <class Add> void SubAddOpenRow(Add&& add, int which) { if (SubPageHasRo
 // The rows of the open sub page. false = the current page is not a sub page.
 template <class Add> bool SubAddPage(Add&& add) {
     const int p = g_uiPages.page;
-    if (p == uStyle) { PstAddStyleRows(add); return true; }
+    if (p == uStyle) { PstAddStyleRows(add); return true; }  // human 2026-11-26: rematch.cpp adds the 'Best scores' row (style_scores_menu.h) before these
     if (p == uPlayerStats) { PstAddPlayerStatRows(add); return true; }
     if (p == uBossKi) { PstAddBossRows(add); return true; }
 #if BR_SOULCORE
