@@ -125,6 +125,8 @@
 #define SM_VERS_INC_PCT 5     // ... VersatilityIncPct: each later tier adds this much (10 moves +15 %, 15 +20 %, ..)
 #define SM_DECAY_LOW_RANK 2   // [StyleMeter] DecayLowRank: ranks D..this (B) drain at DecayLowPct % (human 2026-11-26: casual friendly)
 #define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
+#define SM_DECAY_HIGH_RANK 3  // [StyleMeter] DecayHighRank: ranks this (A) and up drain at DecayHighPct % (human 2026-11-26, 1.8.48: top ranks too easy to hold)
+#define SM_DECAY_HIGH_PCT 130 // ... DecayHighPct: 130 = 30 % faster; 100 = off
 #define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
 #define SM_SLOW_STEP_PCT 100  // ... SlowMoveStepPct: + this % per second past SlowMoveMs (100 = +1x a second; 0 = flat x2), human 2026-11-26
 #define SM_SLOW_TOP_PCT 300   // ... SlowMoveTopPct: the curve stops here (human 2026-11-26: 300 = x3, at 1.5 s)
@@ -161,7 +163,9 @@ static const char* const sm_rank_name[SM_RANKS] = {"D", "C", "B", "A", "S", "SS"
 // Words of the approved sprite set (Temp/rank126376/sprites/sprites.py RANKS).
 static const char* const sm_rank_word[SM_RANKS] = {"Dull", "Cunning", "Bold", "Ardent", "Asura", "Sword Saint", "Heavenly"};
 // human #126755 too easy (SS in ~40 hits), #126766 4x, #126785 4x too hard (C after 52 hits): 2.5x {40, 60, 80, 100, 130, 160, 200}
-static const float sm_rank_pts_default[SM_RANKS] = {120.f, 180.f, 130.f, 180.f, 250.f, 350.f, 500.f};  // human 2026-11-25: D and C twice as long (was 60 90; #127568 was 100 150 200 250 325 400 500)
+// human 2026-11-26 (1.8.48): ranking up too easy: every rank up costs 30 % more (D..SS x1.3, was 120 180 130 180 250 350). SSS is the top bar, not a
+// rank up: kept at 500 (a bigger SSS bar would make SSS easier to keep under the same drain).
+static const float sm_rank_pts_default[SM_RANKS] = {156.f, 234.f, 169.f, 234.f, 325.f, 455.f, 500.f};  // human 2026-11-25: D and C twice as long (was 60 90; #127568 was 100 150 200 250 325 400 500)
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
@@ -185,7 +189,7 @@ typedef struct {
     int loopHalfRank, loopFullRank, loopHalfPct;  // human: rank tiers of the loop penalty (below half = none; 7 = never)
     float burst; int burstMs, burstSkill; // human: Burst Break bonus / hit -> action end window / 1 = only skill / guardian spirit hits count
     uint32_t burstCtrAct;                 // the player's burst counter action id (its hit breaks a red attack that is already out; 0 = off)
-    int versStep, versBasePct, versIncPct; int decayLowRank, decayLowPct;  // human 2026-11-26: versatility multiplier / slower D..B drain
+    int versStep, versBasePct, versIncPct; int decayLowRank, decayLowPct, decayHighRank, decayHighPct;  // human 2026-11-26: versatility multiplier / slower D..B drain
     int varStep, varBase, varInc, varMax, varGrow, varPct; // human: move variety milestone size / first bonus / bonus step / last milestone (distinct moves)
     int blockPct;                         // a hit the enemy guarded is worth this % of a hit (0 = blocked hits score nothing)
     float fluxPts, flux2Pts;  // human 2026-11-26: Flux bonus (SmOnFlux)
@@ -265,7 +269,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT; c->fluxPts = (float)SM_FLUX_PTS; c->flux2Pts = (float)SM_FLUX2_PTS; c->grapplePts = (float)SM_GRAPPLE_PTS;
     c->slowStepPct = SM_SLOW_STEP_PCT; c->slowTopPct = SM_SLOW_TOP_PCT;
     c->slowMs = SM_SLOW_MS; c->slowPct = SM_SLOW_PCT; c->slowCm = SM_SLOW_CM; c->slowMaxMs = SM_SLOW_MAX_MS;
-    c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT;
+    c->versStep = SM_VERS_STEP; c->versBasePct = SM_VERS_BASE_PCT; c->versIncPct = SM_VERS_INC_PCT; c->decayLowRank = SM_DECAY_LOW_RANK; c->decayLowPct = SM_DECAY_LOW_PCT; c->decayHighRank = SM_DECAY_HIGH_RANK; c->decayHighPct = SM_DECAY_HIGH_PCT;
     c->varStep = SM_VAR_STEP; c->varBase = SM_VAR_BASE; c->varInc = SM_VAR_INC; c->varMax = SM_VAR_MAX; c->varGrow = SM_VAR_GROW; c->varPct = SM_VAR_PCT;
     for (int i = 0; i < SM_RANKS; ++i) c->rankPts[i] = sm_rank_pts_default[i];
 }
@@ -307,6 +311,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->versStep < 0) c->versStep = 0; if (c->versBasePct < 0) c->versBasePct = 0; if (c->versIncPct < 0) c->versIncPct = 0;
     if (c->versBasePct > 1000) c->versBasePct = 1000; if (c->versIncPct > 1000) c->versIncPct = 1000;
     if (c->decayLowPct < 0) c->decayLowPct = 0; if (c->decayLowPct > 1000) c->decayLowPct = 1000; if (c->decayLowRank < -1) c->decayLowRank = -1; if (c->decayLowRank > SM_RANKS - 1) c->decayLowRank = SM_RANKS - 1;
+    if (c->decayHighPct < 0) c->decayHighPct = 0; if (c->decayHighPct > 1000) c->decayHighPct = 1000; if (c->decayHighRank < 0) c->decayHighRank = 0; if (c->decayHighRank > SM_RANKS) c->decayHighRank = SM_RANKS;
     for (int i = 0; i < SM_RANKS; ++i) if (!(c->rankPts[i] >= 1.f)) c->rankPts[i] = 1.f;
 }
 static inline void SmReset(SmState* s) {
@@ -884,6 +889,7 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     float d = c->decayPerS * (1.f + (float)s->rank * (float)c->decayRankPct / 100.f) * (float)(idle / 1000.0);
     if (c->decayRampPct > 0) d *= 1.f + (float)c->decayRampPct / 100.f * (float)(idleAll / 1000.0);
     if (s->rank <= c->decayLowRank) d *= (float)c->decayLowPct / 100.f;
+    if (s->rank >= c->decayHighRank) d *= (float)c->decayHighPct / 100.f;  // human 2026-11-26 (1.8.48): A and up drain 30 % faster
     if (s->drainFar) d *= (float)c->farPct / 100.f;  // human 2026-11-26: the boss is far away (e.g. ran across the arena): half drain
     { const float h = SmHeld(s, c); s->lost[SM_PL_DRAIN] += d < h ? d : h; }  // human 2026-11-26: points breakdown
     s->pts -= d;

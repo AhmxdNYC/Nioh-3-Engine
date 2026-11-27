@@ -71,4 +71,15 @@ static void DFloor(void) {
     SrBossChr(&f, 0x10, 0x2B); SrBossChr(&f, 0x10, 0x99); SrBossChr(&f, 0x20, 0x5);  // first id wins; unknown boss ignored
     const SrResult r = SrFinish(&f, &s, SR_HOLD_PCT); CHECK(r.nChr == 1 && r.chr[0] == 0x2B);
 }
-int main(void) { Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }
+// human 2026-11-26 (1.8.48): rank ups cost 30 % more (SSS bar kept), A and up drain 30 % faster.
+static void Tuning48(void) {
+    SmCfg c; SmCfgDefaults(&c);
+    static const float was[SM_RANKS] = {120, 180, 130, 180, 250, 350, 500};
+    for (int r = 0; r < SM_RANKS - 1; ++r) CHECK(c.rankPts[r] > was[r] * 1.299f && c.rankPts[r] < was[r] * 1.301f);
+    CHECK(c.rankPts[SM_RANKS - 1] == 500.f && c.decayHighRank == 3 && c.decayHighPct == 130);
+    c.decayRankPct = 0; c.decayRampPct = 0; c.decayLowPct = 100; c.decayDelayMs = 0;
+    float lost[SM_RANKS];
+    for (int r = 2; r <= 4; ++r) { SmState s; SmReset(&s); s.active = 1; s.rank = r; s.pts = c.rankPts[r]; s.lastScore = 0; SmTick(&s, &c, 1000, 1000); lost[r] = c.rankPts[r] - s.pts; }
+    CHECK(lost[3] > lost[2] * 1.299f && lost[3] < lost[2] * 1.301f && lost[4] > lost[2] * 1.299f && lost[4] < lost[2] * 1.301f);  // B normal, A / S x1.3
+}
+int main(void) { Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }

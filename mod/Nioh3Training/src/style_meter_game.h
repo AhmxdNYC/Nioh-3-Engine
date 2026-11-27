@@ -243,6 +243,8 @@ static void SmReadIni(const char* ini, int reset) {
     c.damagePct = (int)GetPrivateProfileIntA("StyleMeter", "DamagePenaltyPct", SM_DAMAGE_PCT, ini);  // human 2026-11-26
     c.decayLowRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowRank", SM_DECAY_LOW_RANK, ini);  // human 2026-11-26: D..B drain slower
     c.decayLowPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayLowPct", SM_DECAY_LOW_PCT, ini);
+    c.decayHighRank = (int)GetPrivateProfileIntA("StyleMeter", "DecayHighRank", SM_DECAY_HIGH_RANK, ini);  // human 2026-11-26 (1.8.48): A+ drain faster
+    c.decayHighPct = (int)GetPrivateProfileIntA("StyleMeter", "DecayHighPct", SM_DECAY_HIGH_PCT, ini);
     c.versStep = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityStep", SM_VERS_STEP, ini);  // human 2026-11-26: versatility multiplier
     c.versBasePct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityBasePct", SM_VERS_BASE_PCT, ini);
     c.versIncPct = (int)GetPrivateProfileIntA("StyleMeter", "VersatilityIncPct", SM_VERS_INC_PCT, ini);
