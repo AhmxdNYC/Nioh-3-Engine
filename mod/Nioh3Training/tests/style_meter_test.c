@@ -17,7 +17,7 @@ static void PinnedDefaults(SmCfg* c) {
     c->hit = 10.f; c->dodge = 30.f; c->ki = 20.f; c->repeatPct = 60; c->repeatFloorPct = 10; c->multiPct = 50; c->decayRankPct = 35; c->decayRampPct = 0;
     c->loopReps = 0; c->multiHitCap = 0;  // loop penalty / multi-hit cap came later: off here, covered by Loop() / MultiCap()
     c->varBase = 0;  // move variety bonus came later: off here, covered by MoveVariety()
-    c->versStep = 0; c->decayLowPct = 100; c->decayHighPct = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
+    c->versStep = 0; c->decayLowPct = 100; c->decayHighPct = 100; c->decayTopPct[0] = c->decayTopPct[1] = c->decayTopPct[2] = 100; c->farPct = 100;  // versatility multiplier / slower D..B drain came later: off here, covered by Versatility() / DecayLow()
     c->damagePct = 100;  // the half penalty (human 2026-11-26) came later: covered by DamageHalf()
     c->slowMs = 0;  // slow-move multiplier / drain pause (human 2026-11-26) came later: covered by SlowMove()
 }
