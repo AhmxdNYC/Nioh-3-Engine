@@ -16,6 +16,7 @@
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
+    if (what == PS_SOUL_DMG) return "SoulCoreDamagePct";  // TASK #136492
     if (what == PS_PLAYER_INF_SOUL) return "PlayerInfiniteSoulCore";  // pc #57367 (before the PS_FRAME_PROW.. table: it is past that range)
     if (what == PS_FRAME_STYLE) return "FrameMeterStyle";
     if (what == PS_FRAME_SIZE) return "FrameMeterRingSize";
@@ -267,8 +268,10 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
         PstLog("PRACTICE Ki damage: player hit on %s, Ki %.1f, Ki damage %.1f -> %.1f (x%d.%02d%s)", slot >= 0 ? "a Training boss" : "a non-Training target", cur, amt, r, pct / 100, pct % 100, r > PstScaleKi(amt, pct) ? ", ONE-HIT Ki BREAK" : "");
     return r;
 }
+static void SmKiEvent(uint64_t K, float amt, uint64_t hit);  // style_meter_game.h: blocked hits (BlockPct), read only
 static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
     const float amt0 = amt; float c0 = 0.0f, s0 = 0.0f;
+    __try { SmKiEvent(K, amt0, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { amt = BvKiDmgFloor(K, amt); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #127382: delayed infinite boss Ki, no break from small hits
     const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss
@@ -612,6 +615,7 @@ static void PstTick(void) {
     }
     if (g_pst.v[PS_PLAYER_INF_SOUL] || g_cfg_sm) PstPlayerSoul(g_pst.v[PS_PLAYER_INF_SOUL] != 0);  // pc #57367: everywhere (+ #126913 style meter, read only)
     else memset(g_soul_have, 0, sizeof g_soul_have);
+    if (g_pst.v[PS_SOUL_DMG] != 100 && !g_hpdmg_hooked) HpDmgHookInstall("soul core damage (TASK #136492)");  // everywhere, like infinite soul core
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
@@ -656,7 +660,7 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
         if (!v) g_pst.v[PS_KI_WINDOW] = 0;
     }
     if (what == PS_PLAYER_INF_KI) g_pst_kiFail = 0, g_pst_kiSeen = 0;
-    if (what == PS_DMG_DEALT || what == PS_DMG_TAKEN) InterlockedExchange(&g_pst_dmg_logs, 0);
+    if (what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_SOUL_DMG) InterlockedExchange(&g_pst_dmg_logs, 0);
     if (what == PS_KI_DEALT || what == PS_ONE_HIT_KI) InterlockedExchange(&g_pst_ki_logs, 0);
     if (what == PS_BOSS_KI_DRAIN) for (int s = 0; s < N3T_SLOTS; ++s) g_pst_drainOn[s] = 0;
     if (what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);

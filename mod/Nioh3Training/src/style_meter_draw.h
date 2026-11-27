@@ -202,6 +202,8 @@ typedef struct {
     double upMs; int prevRank;   // #127299 ms since the shown rank stepped up (<0 / large = none), the rank before it
     int combo; float comboA;     // human: combo count shown under the pop-ups (< 2 = none) and its opacity (fades after the combo ends)
     int mile, milePts; float mileA; double mileMs;  // human: last combo milestone banner (hits, bonus), its opacity, ms since it was reached
+    int versPct;                 // human 2026-11-26: versatility multiplier % for a variety banner (0 = none)
+    int mileKind;                // human: 1 = the banner is a move variety milestone ("Variety x10! +30", mile = distinct moves)
 } SmDrawSt;
 // #127289 pop-up text size as a share of pf (human: in proportion with the shorter bar, #127273 SM_BAR_WK)
 #ifndef SM_POP_K
@@ -879,7 +881,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
                 float in = 1.f; const float a = SmPopAlpha(&st->pops[i], st->now, st->lifeMs, &in);
                 if (a <= 0.f) continue;
                 char t[48], tb2[24]; const SmPop* pp = &st->pops[i];  // #127171 value first, then the bonus if it has one
-                snprintf(t, sizeof t, "%s +%.0f", pp->label, pp->pts); tb2[0] = 0;
+                snprintf(t, sizeof t, pp->pts < 0.f ? "%s %.0f" : "%s +%.0f", pp->label, pp->pts); tb2[0] = 0;  // a loss (loop penalty) shows "-N"
                 if (pp->bonus > 0.5f) snprintf(tb2, sizeof tb2, " +%.0f", pp->bonus);
                 SIZE s1 = {0, 0}, s2 = {0, 0}; GetTextExtentPoint32A(tdc, t, (int)strlen(t), &s1);
                 if (tb2[0]) GetTextExtentPoint32A(tdc, tb2, (int)strlen(tb2), &s2);
@@ -890,7 +892,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
                     memset(tpx, 0, (size_t)TW * TH * 4);
                     RECT r = {x0 + (part ? (int)s1.cx : 0), 0, TW, TH}; DrawTextA(tdc, str, -1, &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX); GdiFlush();
                     SmMaskOver(px, w, h, tpx, TW, TH, ox + 2, oy + 2, 0x000000, a * 0.75f);   // shadow
-                    SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0xE6EAF0u : 0xFFD27Au, a);  // value warm gold, bonus white-silver (#127191)
+                    SmMaskOver(px, w, h, tpx, TW, TH, ox, oy, part ? 0xE6EAF0u : pp->pts < 0.f ? 0xFF5A4Au : 0xFFD27Au, a);  // value warm gold (a loss red), bonus white-silver (#127191)
                 }
                 ++line;
             }
@@ -933,7 +935,7 @@ static void SmCompose(HDC mem, uint32_t* px, const SmCanvas* c, const SmDrawSt* 
             }
             if (st->mileA > 0.f && st->mile > 0) {  // "20 Hit Combo! +40": hits in gold, bonus in white-silver, under the counter
                 SelectObject(tdc, fm);
-                char l1[40], l2[16]; snprintf(l1, sizeof l1, "%d Hit Combo!", st->mile); snprintf(l2, sizeof l2, " +%d", st->milePts);
+                char l1[40], l2[16]; if (st->mileKind == 1 && st->versPct > 0) snprintf(l1, sizeof l1, "Variety x%d! x%.2f", st->mile, 1.0 + st->versPct / 100.0); else if (st->mileKind == 1) snprintf(l1, sizeof l1, "Variety x%d!", st->mile); else snprintf(l1, sizeof l1, "%d Hit Combo!", st->mile); snprintf(l2, sizeof l2, " +%d", st->milePts);
                 SIZE a1 = {0, 0}, a2 = {0, 0}; GetTextExtentPoint32A(tdc, l1, (int)strlen(l1), &a1); GetTextExtentPoint32A(tdc, l2, (int)strlen(l2), &a2);
                 const float in = st->mileMs < 180 ? (float)(st->mileMs / 180.0) : 1.f;
                 const int mx0 = (TW - (int)(a1.cx + a2.cx)) / 2, my = oy + (int)(c->cp * 1.2f) + (int)((1.f - in) * c->pp * 0.6f);

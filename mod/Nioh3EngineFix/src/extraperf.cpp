@@ -80,7 +80,8 @@ const int kPresetLv[kNumPresets][kNumOpts] = {
 // #67206 XRES level per preset (not a menu row; [ExtraPerf] XRES in the ini, a preset wins)
 const int kPresetRes[kNumPresets] = {0, 0, 0, 0, 3, 0};
 const float kResMul[kResLevels] = {1.0f, 0.9f, 0.8f, 0.7f, 0.6f};
-volatile LONG g_res = 0;
+volatile LONG g_res = 0;          // scale this process is running
+volatile LONG g_resPending = 0;   // scale a save writes; preset picks do not copy it into g_res (#80507)
 bool g_resInst = false;
 bool g_rdChars = false;  // GH #142: [ExtraPerf] RenderDistanceCharacters (default 0)
 volatile LONG g_rdPct = 100;  // #67225: 50..100, step 5. 100 = the game's distance. Not part of any preset.
@@ -273,6 +274,7 @@ void Configure(const StartInfo& si) {
     // draw distance. Scaled to 0.50, a far camera (battle-scroll / cutscene camera) switched the player's own character off
     // and it stayed invisible. Characters keep the game's distance unless the ini asks for the old behaviour.
     g_rdChars = GetPrivateProfileIntW(L"ExtraPerf", L"RenderDistanceCharacters", 0, ini) != 0;
+    g_resPending = g_res;
     UpdateCaveData();
 }
 
@@ -319,11 +321,14 @@ void SetSharpLevel(int l) {
     if (old != l) XLOG("EXTRA: XSHARP -> %d (FSR sharpness %s)%s", l, kSharpName[l], g_rco ? "" : " - not installed");
 }
 int ResLevel() { return (int)g_res; }
+int PendingRes() { return (int)g_resPending; }
+bool ResRestartNeeded() { return g_resPending != g_res; }
 bool ResAvailable() { return g_resInst; }
 void SetResLevel(int l) {
     if (l < 0) l = 0;
     if (l >= kResLevels) l = kResLevels - 1;
     const LONG old = InterlockedExchange(&g_res, l);
+    InterlockedExchange(&g_resPending, l);
     UpdateCaveData();
     if (old != l) XLOG("EXTRA: XRES -> %d (render size x%.2f)%s", l, (double)kResMul[l], g_resInst ? "" : " - not installed");
 }
@@ -398,13 +403,24 @@ const char* PresetName(int p) { return p >= 0 && p < kNumPresets ? kPresetName[p
 void ApplyPreset(int p) {
     if (p < 0 || p >= kNumPresets) return;
     for (int o = 0; o < kNumOpts; ++o) InterlockedExchange(&g_level[o], kPresetLv[p][o]);
-    InterlockedExchange(&g_res, kPresetRes[p]);
+    // #80507: do not change the running render scale. Nioh3.exe+131CA9 is
+    // `mov rdx, [rcx+8]` in the engine block coalescer at 0x131c50. rcx is the
+    // neighbor header of the block being freed. A live XRES change makes
+    // RenderDimsGet return a new size, the engine reallocates those targets, and
+    // a fast preset switch plus a save faults here on a bad header. The chosen
+    // XRES stays pending and is what the menu saves.
+    const int want = kPresetRes[p];
+    InterlockedExchange(&g_resPending, want);
     UpdateCaveData();
-    XLOG("EXTRA: preset %s", kPresetName[p]);
+    if (want != (int)g_res)
+        XLOG("EXTRA: preset %s; render size stays x%.2f until restart (saved XRES %d)", kPresetName[p],
+             (double)ep_resMul, want);
+    else
+        XLOG("EXTRA: preset %s", kPresetName[p]);
 }
 int MatchPreset() {
     for (int p = 0; p < kNumPresets; ++p) {
-        bool eq = g_res == kPresetRes[p];
+        bool eq = g_resPending == kPresetRes[p];
         for (int o = 0; o < kNumOpts && eq; ++o) eq = g_level[o] == kPresetLv[p][o];
         if (eq) return p;
     }

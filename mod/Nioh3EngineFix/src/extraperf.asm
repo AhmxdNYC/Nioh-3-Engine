@@ -83,10 +83,10 @@ caveFxDraw PROC
     ret
 caveFxDraw ENDP
 
-; XRES: XRS1-4 `call RenderDimsGet 5AC428` (rcx = out {u32 w, u32 h}, returns rax = out). Calls the original, then
+; #67206 XRES: XRS1-4 `call RenderDimsGet 5AC428` (rcx = out {u32 w, u32 h}, returns rax = out). Calls the original, then
 ; ExtraPerfResC(out) scales w / h by ep_resMul (1.0 = untouched).
 caveRenderDims PROC
-    ; The game keeps live values in volatile registers across this call (FsrConfigApply 2998D48 keeps its config
+    ; #67915: the game keeps live values in volatile registers across this call (FsrConfigApply 2998D48 keeps its config
     ; pointer in r10 and writes [r10+20B8] right after; RenderDimsGet itself only touches rax/rcx/rdx/r8/r9). ExtraPerfResC
     ; is C code and clobbers r10/r11/xmm, which crashed Preset 4 at boot (write to 0x20F8 = r10 0x40 + 20B8). So every
     ; volatile register except rax is saved around the whole cave; rax = out on return like the original.
@@ -125,7 +125,7 @@ caveRenderDims PROC
     ret
 caveRenderDims ENDP
 
-; RenderDistance. Both call caves return the original xmm0 multiplied by ep_rdMul (1.0 = stock).
+; #67225 RenderDistance. Both call caves return the original xmm0 multiplied by ep_rdMul (1.0 = stock).
 ; Callers of GetDrawDistanceLimit / GetPlaceableDrawDistance consume xmm0 as a distance and keep nothing else.
 caveDrawLimit PROC
     sub     rsp, 28h

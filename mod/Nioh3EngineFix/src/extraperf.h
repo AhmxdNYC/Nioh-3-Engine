@@ -82,9 +82,11 @@ void SetGiInstalled(uintptr_t giScaleLookup);           // original callee of th
 void SetLodInstalled(uintptr_t applyMeshletLodScales);  // original callee of EPL1 (2353C0)
 void SetFxInstalled(void* simFraction, void* drawFraction);  // the two globals the EPF1 / EPF2 stores write
 void SetResInstalled(uintptr_t renderDimsGet);           // #67206 original callee of the 4 XRS sites (5AC428)
-int ResLevel();
+int ResLevel();                      // the scale this process is running (boot, or SetResLevel)
+int PendingRes();                    // the scale a save will write; a preset pick does not apply it live
+bool ResRestartNeeded();             // pending render size differs from the running one (#80507)
 bool ResAvailable();
-void SetResLevel(int lvl);           // live; logs
+void SetResLevel(int lvl);           // live; logs. The preset row does not call this.
 
 // #67225 Render distance. Percent 50..100 (100 = stock). Presets do not read or write it.
 int RdPct();
@@ -118,7 +120,7 @@ bool Available(int opt);             // its hook is installed this session
 int Level(int opt);
 void SetLevel(int opt, int lvl);     // clamps; logs "EXTRA: <key> -> <level>"
 const char* PresetName(int p);
-void ApplyPreset(int p);             // sets every option the preset lists (logs)
+void ApplyPreset(int p);             // sets every option the preset lists except the running render size (#80507)
 int MatchPreset();                   // the preset the current levels equal, -1 = custom
 bool AnyAvailable();
 

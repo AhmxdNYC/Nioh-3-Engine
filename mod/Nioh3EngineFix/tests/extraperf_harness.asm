@@ -5,7 +5,11 @@
 OPTION CASEMAP:NONE
 EXTERN caveFxSim:PROC
 EXTERN caveFxDraw:PROC
-PUBLIC fxSimProbe, fxDrawProbe
+EXTERN caveCharLod:PROC
+EXTERN cavePropDist:PROC
+EXTERN ep_charFall:QWORD
+EXTERN ep_charTake:QWORD
+PUBLIC fxSimProbe, fxDrawProbe, charLodProbe, charLodScaled, propProbe
 
 .data
 ALIGN 4
@@ -43,5 +47,50 @@ fxDrawProbe PROC
     pop     rbx
     ret
 fxDrawProbe ENDP
+
+; charLodProbe(float limit in xmm0, float camera in xmm1) -> eax 1 = fall (visible), 2 = take (culled).
+; charLodScaled is xmm8 after caveCharLod multiplies the limit.
+PUBLIC charLodScaled
+.data
+ALIGN 4
+charLodScaled REAL4 0.0
+.code
+charLodProbe PROC
+    push    rbp
+    sub     rsp, 40h
+    movaps  xmmword ptr [rsp], xmm6
+    movaps  xmmword ptr [rsp+10h], xmm8
+    movaps  xmm8, xmm0
+    movaps  xmm6, xmm1
+    lea     rax, rdFall
+    mov     qword ptr [ep_charFall], rax
+    lea     rax, rdTake
+    mov     qword ptr [ep_charTake], rax
+    jmp     caveCharLod
+rdFall:
+    mov     eax, 1
+    jmp     rdDone
+rdTake:
+    mov     eax, 2
+rdDone:
+    movss   dword ptr [charLodScaled], xmm8
+    movaps  xmm8, xmmword ptr [rsp+10h]
+    movaps  xmm6, xmmword ptr [rsp]
+    add     rsp, 40h
+    pop     rbp
+    ret
+charLodProbe ENDP
+
+; propProbe(dst, src, n, key). The key is what PropTableReadParamsBatch16 compared at [rsi].
+propProbe PROC
+    push    rsi
+    sub     rsp, 20h
+    mov     dword ptr [rsp+18h], r9d
+    lea     rsi, [rsp+18h]
+    call    cavePropDist
+    add     rsp, 20h
+    pop     rsi
+    ret
+propProbe ENDP
 
 END

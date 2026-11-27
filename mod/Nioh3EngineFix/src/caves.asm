@@ -31,6 +31,7 @@ PUBLIC tg_cap
 PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
 PUBLIC caveHold, vrr_hold60
 PUBLIC vrr_dtShift
+PUBLIC caveHitStop, vrr_hsK, vrr_hsOn, hs_callee
 PUBLIC vrr_teArm, vrr_ovrFrames, vrr_ovrVal, vrr_teFrames, vrr_clampFrames, vrr_clampLostNs
 
 .data
@@ -42,15 +43,15 @@ vrr_last        dq 0            ; last clamped interval (ns), diagnostics
 ; Tier120Floor (GitHub #98): in the 120 tier, after HoldNs of frames slower than the floor the caves act as the
 ; 60 tier (60 cap, fps 60, tier 60 to GetFps) for ProbeNs, then re-measure. 0 = off.
 vrr_floorNs      dq 0           ; 1e9 / floor fps; 0 = off
-; GovFpsFix (GitHub #98): P8d feeds the frame governor 0x5AF670 threshold edi = fps*1000/30.
+; GovFpsFix (GitHub #98, DeepSeek #112015): P8d feeds the frame governor 0x5AF670 threshold edi = fps*1000/30.
 gov_getFps       dq 0           ; the game GetFps (stock call target at P8d)
 gov_obj          dq 0           ; governor object (rbx at P8d), read by the trace
 gov_fix          dd 0           ; 1 = call the stock GetFps instead of returning the tier
 gov_fps          dd 0           ; last value handed to the threshold
-; HoldWindowFix (GitHub #98): real 60 Hz ticks this frame (own carry), read by caveHold @P10
+; HoldWindowFix (GitHub #98, DeepSeek #112736): real 60 Hz ticks this frame (own carry), read by caveHold @P10
 vrr_accH         REAL8 0.0
 vrr_hold60       dd 1
-; DtSmooth (GitHub #98): EMA of the clamped frame interval; 0 = raw interval (stock VRR)
+; DtSmooth (GitHub #98, pc/1 #113171): EMA of the clamped frame interval; 0 = raw interval (stock VRR)
 vrr_ema          dq 0
 ; GH #155: frames the armed tier fell back to stock because the game overrode G[620] (event / time effect), frames
 ; armed anyway under TimeEffectArm (120 tier, G[620] == 60 = the time effect's tier/2), frames whose interval was
@@ -62,6 +63,13 @@ vrr_ovrVal       dd 0           ; last overriding G[620]
 vrr_teFrames     dd 0
 vrr_clampFrames  dd 0
 vrr_dtShift      dd 0
+; HitStopFix (GH #159): the motion hit-stop timers (ctrl+0x3C8 / +0x3D0, drained by 0x7D13EC from the motion step 0x20DAD4)
+; lose a fixed amount per engine frame, sized for the stock frame (1/tier s). While VRR is armed a frame is the real
+; interval, so the drain is scaled by tier * interval: hit-stop then lasts the stock time at any fps instead of N frames.
+vrr_hsK          REAL4 1.0      ; drain scale this frame (1.0 = stock)
+vrr_hsOn         dd 0           ; [VRR] HitStopFix
+hs_callee        dq 0           ; 0x7D13EC (taken from the P11 original call)
+c_tiers          REAL8 30.0, 60.0, 120.0
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
 vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
@@ -143,7 +151,7 @@ lOvrOk:
     sub     rax, rcx
     cmp     r9d, 2
     jne     fNo
-    test    edx, edx                            ; the floor's 60 tier would turn the effect's
+    test    edx, edx                            ; regression #127782: the floor's 60 tier would turn the effect's
     jne     fNo                                 ; half-rate step (tier/G[620] = 2) into 1; keep the 120 tier
     cmp     qword ptr [vrr_floorNs], 0
     je      fNo
@@ -215,6 +223,11 @@ sm0:
     mov     dword ptr [vrr_capCur], edx
     cvtsi2sd xmm1, rax
     divsd   xmm1, qword ptr [c_1e9]             ; xmm1 = interval seconds
+    lea     rdx, c_tiers                        ; HitStopFix: k = tier * interval (r9 = this frame's tier index)
+    movsd   xmm0, qword ptr [rdx+r9*8]
+    mulsd   xmm0, xmm1
+    cvtsd2ss xmm0, xmm0
+    movss   dword ptr [vrr_hsK], xmm0
     movsd   xmm0, qword ptr [c_1e9]
     cvtsi2sd xmm2, rax
     divsd   xmm0, xmm2
@@ -263,6 +276,7 @@ l60z:
 lStock:
     mov     qword ptr [vrr_ema], 0              ; DtSmooth restarts from the next armed frame
     mov     dword ptr [vrr_scale], 3F800000h
+    mov     dword ptr [vrr_hsK], 3F800000h
     mov     dword ptr [vrr_fpsOut], 0
     mov     dword ptr [vrr_capCur], r8d
     mov     dword ptr [rdi+614h], r8d           ; the replaced instruction
@@ -338,6 +352,16 @@ caveTier PROC
     ret
 caveTier ENDP
 
+; ---- caveHitStop (P11, GH #159): replaces `call 0x7D13EC` (hit-stop drain, xmm1 = this step's local time) ----------------
+; Same call semantics: scale xmm1 by vrr_hsK (1.0 on stock frames or with HitStopFix=0), then tail-jump to the stock callee.
+caveHitStop PROC
+    cmp     dword ptr [vrr_hsOn], 0
+    je      hsGo
+    mulss   xmm1, dword ptr [vrr_hsK]
+hsGo:
+    jmp     qword ptr [hs_callee]
+caveHitStop ENDP
+
 ; ---- caveHold (P10, HoldWindowFix, GitHub #98): replaces `mov ecx,[rbx+20h]; inc ecx` in the player notice-list walk.
 ; The game ages each notice by 1 per walk (once per frame) and drops it after 30, a window of 0.5 s at 60 fps but only
 ; ~0.27 s at 112 fps, so a held attack's notice can expire before its transition. While VRR is armed the age grows by
@@ -347,7 +371,7 @@ caveHold PROC
     mov     ecx, dword ptr [rbx+20h]
     cmp     dword ptr [vrr_fpsOut], 0
     je      hInc
-    cmp     dword ptr [vrr_hold60], 0   ; min(ticks,1): never faster than stock (sub-60 fps keeps the stock window)
+    cmp     dword ptr [vrr_hold60], 0   ; min(ticks,1): never faster than stock (sub-60 fps keeps the stock window, regression-pc #112892)
     jne     hInc
     ret
 hInc:
@@ -2271,7 +2295,7 @@ caveRDWake PROC FRAME
 caveRDWake ENDP
 
 ; =================================================================================================================
-; FWP: frame-wait park. Site 19B2726 = cold block of RenderWaitForFrame's job spin 4A4F1C
+; FWP (#101247, note 480): frame-wait park. Site 19B2726 = cold block of RenderWaitForFrame's job spin 4A4F1C
 ; (`mov rcx,[rdi+1C8h]` 7 bytes -> jmp here). rdi = wait object (GfxDevice+1EE360), rbx/rsi/rdi callee-saved and
 ; preserved by FwpRound; volatile registers are dead (the native loop head 4A4F3B reloads rdx/eax). JMP-entered: rsp is
 ; 16-aligned in the spin's body and its 20h outgoing home area is dead, so the call reuses it (no own stack). The unwind

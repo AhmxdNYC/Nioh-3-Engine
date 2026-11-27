@@ -5241,6 +5241,7 @@ static __attribute__((noinline)) void Exec(char* line) {
 // Every pump frame, for each actor that has a boss HP/Ki bar (gauge rows hud+0x3C0, 0x60 B, +4 id -> FindWrapper, as BossGaugeRowsUpdate 1D21EF8 does) plus the
 // boss-mode actor, log: Ki-break start/end, finisher (grapple) state on/off and every HP hit during a break or a finisher state, with the raw bits for in-game RE.
 static int g_cfg_kibreak_log = 1; static volatile LONG g_kb_lines;
+static volatile LONG g_sm_grappleEv;  // human 2026-11-26: Ki-break grapple finishers seen by KiBreakTick (style meter +GrapplePts)
 #define KB_MAX 4
 #include "kb_slot.h"
 static struct { uint64_t a; uint32_t who; int broken, fin, valid; uint64_t hp, hm; DWORD tBreak, tFin, tLastWin, seen; uint64_t dmgBreak; int hitsBreak, finInBreak, nBreaks; } g_kb[KB_MAX];
@@ -5519,6 +5520,7 @@ static __attribute__((noinline)) void KiBreakTick(void) {
         if (fin && !g_kb[s].fin) {
             g_kb[s].tFin = now; int inBreak = broken || g_kb[s].broken || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1500);
             if (inBreak) g_kb[s].finInBreak++;
+            if (inBreak && hc > 1) InterlockedIncrement(&g_sm_grappleEv);  // human 2026-11-26: a grapple on a Ki-broken boss (not the HP-floor death blow)
             KbLog("KIFINISHER state on boss %p: 35=%d B0=%d 2C=%d, HP %llu/%llu, Ki %.1f/%.1f, %s bits1060 %016llX 1068 %016llX",
                   (void*)a, s35, sB0, s2C, hc, hm, kc, km, hc <= 1 ? "HP floor (death blow)" : inBreak ? "Ki broken -> GRAPPLE (Ki-break finisher)" : "not Ki broken (down/other finisher)", w0, w1);
         }
@@ -5742,14 +5744,29 @@ static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Pract
 // RVAs and byte signatures that are not RE'd yet; hooking 787268 itself would also catch heals and our own call. They stay unscaled.
 static int PstIsBossActor(uint64_t a);  // practice_stats_game.h
 static volatile LONG g_pst_atk_ok;  // 1 = the 325F40 bytes match (HpDmgHookInstall); otherwise no attacker = no scaling
+// TASK #136492: Boss Rematch knows which chrs are soul-core yokai (its seal spawn note); 0 when BR is missing or too old.
+static int PstSoulActor(uint64_t atk) {
+    static int (*f)(uint64_t); static int tried;
+    if (!f && tried < 20) { ++tried; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); f = rm ? (int (*)(uint64_t))GetProcAddress(rm, "Nioh3BossRematch_SoulCoreActorIs") : 0; }
+    return f && atk ? f(atk) : 0;
+}
 static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t hit) {
-    const int dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
-    if (!g_pst_live || (dealt == 100 && boss == 100) || dmg <= 0 || !hp || !hit || !g_pst_atk_ok) return dmg;
+    const int dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN], soul = g_pst.v[PS_SOUL_DMG];
+    const int practice = g_pst_live && (dealt != 100 || boss != 100);  // 'Damage I deal' / 'Boss damage' stay Practice-only
+    if ((!practice && soul == 100) || dmg <= 0 || !hp || !hit || !g_pst_atk_ok) return dmg;
     uint64_t me = PlayerChar(), st = 0; if (me) Rd64(me + 0x3A0, &st);
     const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
-    const int atkPlayer = me && atk == me, atkBoss = !atkPlayer && PstIsBossActor(atk), vicPlayer = st && st + 0x38 == hp;
-    const int pct = PstDmgPct(atkPlayer, atkBoss, vicPlayer, dealt, boss), r = PstScaleDmg(dmg, pct);
-    if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d (attacker %p)", pct / 100, pct % 100, atkPlayer ? "player deals" : "boss deals", dmg, r, (void*)atk);
+    const int atkPlayer = me && atk == me, vicPlayer = st && st + 0x38 == hp;
+    const int atkBoss = practice && !atkPlayer && PstIsBossActor(atk);
+    int pct = practice ? PstDmgPct(atkPlayer, atkBoss, vicPlayer, dealt, boss) : 100, atkSoul = 0;
+    if (soul != 100 && me && atk && !atkPlayer && !vicPlayer) {  // TASK #136492: a soul-core yokai's hit (live: not the player's own hit)
+        const int tm = ActorTeam(me);
+        atkSoul = tm != -999 && ActorTeam(atk) == tm && PstSoulActor(atk);
+        if (atkSoul) pct = PstSoulDmgPct(1, vicPlayer, soul);
+        else if (tm != -999 && ActorTeam(atk) == tm && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("SOULDMG: ally hit %d by %p is not a soul-core yokai (Boss Rematch list): unscaled", dmg, (void*)atk);
+    }
+    const int r = PstScaleDmg(dmg, pct);
+    if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d (attacker %p)", pct / 100, pct % 100, atkSoul ? "soul core yokai deals" : atkPlayer ? "player deals" : "boss deals", dmg, r, (void*)atk);
     return r;
 }
 static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hit);  // #35391 frame_meter_game.h (IFrameProbe)

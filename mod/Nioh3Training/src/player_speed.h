@@ -9,6 +9,7 @@
 #ifndef N3_PLAYER_SPEED_H
 #define N3_PLAYER_SPEED_H
 #include <stdint.h>
+#include <stdio.h>
 #define PLSPD_WIN 6          // frames in the rolling rate window
 #define PLSPD_SLOW 0.80      // rate below this starts a slow stretch
 #define PLSPD_BACK 0.90      // rate above this ends it
@@ -70,5 +71,106 @@ static int PlSpdFrame(PlSpd* s, uint32_t act, float anim, float step60, uint32_t
         if (rate > PLSPD_BACK) return PlSpdEnd(s, e);
     }
     return 0;
+}
+// GH #178 SPDW: name the cause of a slow stretch. Static RE (Nioh3.dump.exe, notes in the GH #178 findings):
+//   [ctrl+0x40] = [ctrl+0xdc4] x [ctrl+0xdc0] (FUN 0x6860b8): channel 0 of the 6 speed channels [ctrl+0xdc4+ch*4] times the
+//   global step, so step 0.69x with anim 0.71x = channel 0 itself is ~0.7. Channel 0 = MoveSpeedBase(ctrl, 0, 0) (0x134e68) =
+//   product of the active modifier slots x MoveSpeedWorldScale(ctrl) (0x13555c, 'base') x [ai+0x684] (only when chr+0xacc8
+//   is set and the action flag bit 0x400000000000000), with overrides (mount / linked char, 0 when frozen).
+//   Slots: [ctrl+0x6b8+i*8], i 0..19, each -> a 0x18-byte object {vtbl, f32 timer +8, f32 rate +0xc, u8 fresh +0x10}
+//   (constructed at ctrl+0x4d8+i*0x18 by 0x74dc40). Active = vfunc +0x18 (default = timer > 0); rate = vfunc +0x20
+//   (= [+0xc]; one vtable returns 1.0 while the fresh byte is set). Channel ch counts slots 0-5, 6+ch and 13+ch; slot 12 is the
+//   flag-1 channel ([ctrl+0xddc]), slot 19 is never in the product. Slot 6+ch / 12 = the move-data speed event (0x9b8034:
+//   rate = percent / 100 for N frames; 0x66c814 event 0x65: gauge-gated rate x stat x percent).
+// Everything below is pure (tests/player_speed_test.c); player_log.h fills PlSpdMods with SEH reads, no game calls.
+#define PLSPD_SLOTS 20
+enum { PLSPD_OFF = 0, PLSPD_ON = 1, PLSPD_UNK = 2 };  // slot state: inactive, active with a known rate, code not recognised
+typedef struct {
+    float total, dc0;            // [ctrl+0xdc4] channel 0, [ctrl+0xdc0] global step
+    float f684, mdl; int on684;  // [ai+0x684] and whether the getter applies it now; mdl = [[chr+0x3a0]+0x3018] (guess)
+    uint32_t vt[PLSPD_SLOTS];    // slot vtable rva (0 = no object)
+    float timer[PLSPD_SLOTS], rate[PLSPD_SLOTS];
+    uint8_t st[PLSPD_SLOTS];
+} PlSpdMods;
+// Does slot i count in channel ch (flag 0)? Mirrors the 0x134e68 loop filter.
+static int PlSpdSlotCounts(int i, int ch) { return i >= 0 && i <= 18 && (i < 6 || i == 6 + ch || i == 13 + ch); }
+// Product of the active channel-0 slots; *unk = number of active counted slots whose code was not recognised (rate unknown).
+static double PlSpdModsProduct(const PlSpdMods* m, int* unk) {
+    double p = 1.0; int u = 0;
+    for (int i = 0; i < PLSPD_SLOTS; ++i) {
+        if (!PlSpdSlotCounts(i, 0)) continue;
+        if (m->st[i] == PLSPD_ON) p *= m->rate[i]; else if (m->st[i] == PLSPD_UNK) ++u;
+    }
+    if (unk) *unk = u;
+    return p;
+}
+// 'base' = what is left of the total after the slots and 684 (MoveSpeedWorldScale or an override); < 0 = cannot say.
+static double PlSpdModsBase(const PlSpdMods* m) {
+    int u = 0; const double p = PlSpdModsProduct(m, &u) * (m->on684 ? (double)m->f684 : 1.0);
+    return (u || !(p > 1e-6)) ? -1.0 : (double)m->total / p;
+}
+// Code shape of a slot vfunc (the bytes at its address). Active check +0x18: movss xmm0,[rcx+8]; comiss xmm0,[rip+d]; seta al;
+// ret -> 1 and *disp = d (the caller checks that [fn+12+d] is 0.0). Rate +0x20: movss xmm0,[rcx+0xc]; ret -> 1;
+// cmp byte [rcx+0x10],0; jne +6; movss xmm0,[rcx+0xc]; ret; movss xmm0,[rip+d]; mov byte [rcx+0x10],0; ret -> 2 (*disp = d,
+// constant at fn+20+d returned while the fresh byte is set). 0 = unknown.
+static int PlSpdCodeActive(const uint8_t* b, int32_t* disp) {
+    static const uint8_t h[8] = {0xF3, 0x0F, 0x10, 0x41, 0x08, 0x0F, 0x2F, 0x05}, t[4] = {0x0F, 0x97, 0xC0, 0xC3};
+    for (int i = 0; i < 8; ++i) if (b[i] != h[i]) return 0;
+    for (int i = 0; i < 4; ++i) if (b[12 + i] != t[i]) return 0;
+    *disp = (int32_t)((uint32_t)b[8] | (uint32_t)b[9] << 8 | (uint32_t)b[10] << 16 | (uint32_t)b[11] << 24);
+    return 1;
+}
+static int PlSpdCodeRate(const uint8_t* b, int32_t* disp) {  // b: 25 bytes
+    static const uint8_t r[6] = {0xF3, 0x0F, 0x10, 0x41, 0x0C, 0xC3};
+    static const uint8_t f[16] = {0x80, 0x79, 0x10, 0x00, 0x75, 0x06, 0xF3, 0x0F, 0x10, 0x41, 0x0C, 0xC3, 0xF3, 0x0F, 0x10, 0x05};
+    static const uint8_t g[5] = {0xC6, 0x41, 0x10, 0x00, 0xC3};
+    int i;
+    for (i = 0; i < 6 && b[i] == r[i]; ++i) {}
+    if (i == 6) { *disp = 0; return 1; }
+    for (i = 0; i < 16; ++i) if (b[i] != f[i]) return 0;
+    for (i = 0; i < 5; ++i) if (b[20 + i] != g[i]) return 0;
+    *disp = (int32_t)((uint32_t)b[16] | (uint32_t)b[17] << 8 | (uint32_t)b[18] << 16 | (uint32_t)b[19] << 24);
+    return 2;
+}
+// Samples over one slow stretch, kept in time order; when full, every other one is dropped and the stride doubles, so
+// s[n/2] stays near the middle of the stretch (the steady part, not the hit-stop at either end).
+#define PLSPD_SAMP 32
+typedef struct { PlSpdMods s[PLSPD_SAMP]; int n, stride, tick; float minTotal; } PlSpdSamp;
+static void PlSpdSampReset(PlSpdSamp* z) { z->n = 0; z->stride = 1; z->tick = 0; z->minTotal = 1e30f; }
+static void PlSpdSampAdd(PlSpdSamp* z, const PlSpdMods* m) {
+    if (z->stride < 1) z->stride = 1;
+    if (m->total < z->minTotal) z->minTotal = m->total;
+    if (z->tick++ % z->stride) return;
+    if (z->n == PLSPD_SAMP) {
+        for (int i = 0; i < PLSPD_SAMP / 2; ++i) z->s[i] = z->s[2 * i];
+        z->n = PLSPD_SAMP / 2; z->stride *= 2; z->tick = 1;
+    }
+    z->s[z->n++] = *m;
+}
+static const PlSpdMods* PlSpdSampMid(const PlSpdSamp* z) { return z->n ? &z->s[z->n / 2] : 0; }
+// One SPDW line body: "0x61D7  total 0.71x = mods [6 0.71x t 41 vt 38FEF30] x base 1.00x x 684 1.00x  step 0.69x  (...)"
+static int PlSpdWFormat(char* o, size_t cap, uint32_t act, const PlSpdMods* m, double step, float minTotal) {
+    int n = snprintf(o, cap, "0x%X  total %.2fx = mods", act, m->total), any = 0;
+#define PLW_ADD(...) do { if (n >= 0 && (size_t)n < cap) n += snprintf(o + n, cap - n, __VA_ARGS__); } while (0)
+    for (int i = 0; i < PLSPD_SLOTS; ++i) {
+        if (!PlSpdSlotCounts(i, 0) || m->st[i] == PLSPD_OFF) continue;
+        if (m->st[i] == PLSPD_ON) PLW_ADD(" [%d %.2fx t %.0f vt %X]", i, m->rate[i], m->timer[i], m->vt[i]);
+        else PLW_ADD(" [%d ? vt %X]", i, m->vt[i]);
+        any = 1;
+    }
+    if (!any) PLW_ADD(" none");
+    const double base = PlSpdModsBase(m);
+    if (base >= 0.0) PLW_ADD(" x base %.2fx", base); else PLW_ADD(" x base ?");
+    if (m->on684) PLW_ADD(" x 684 %.2fx", m->f684); else PLW_ADD(" x 684 off");
+    PLW_ADD("  step %.2fx  (min total %.2fx  mdl %.2f  dc0 %.2f", step, minTotal, m->mdl, m->dc0);
+    any = 0;
+    for (int i = 0; i < PLSPD_SLOTS; ++i) {
+        if (PlSpdSlotCounts(i, 0) || m->st[i] == PLSPD_OFF) continue;
+        if (!any) PLW_ADD("  other"); any = 1;
+        if (m->st[i] == PLSPD_ON) PLW_ADD(" [%d %.2fx]", i, m->rate[i]); else PLW_ADD(" [%d ?]", i);
+    }
+    PLW_ADD(")");
+#undef PLW_ADD
+    return n;
 }
 #endif

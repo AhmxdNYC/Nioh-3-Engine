@@ -10,6 +10,7 @@ load=src[src.index('    const int lastHitMs = IniInt'):src.index('    g_plFadeMs
 counts=src[src.index('const wchar_t* SecHits()'):src.index('// pc #57269',src.index('const wchar_t* SecHits()'))].replace('SealHitsFor(', 'ReadLearnedHits(')
 pre=r'''
 #include <windows.h>
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include <atomic>
 #include <algorithm>
 #include <vector>
@@ -22,6 +23,7 @@ pre=r'''
 #include <map>
 #include <set>
 #include <cassert>
+#include "seal_data_hits.h"
 std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;std::map<std::wstring,std::wstring> legacyIni;
 std::wstring FakeKey(const wchar_t* section,const wchar_t* key){return wcsncmp(section,L"SealHelperLast",14)?std::wstring(key):std::wstring(L"H:")+key;}
 BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){if(wcsncmp(section,L"SealHelperLast",14))writtenSection=section;ini[FakeKey(section,key)]=value;return TRUE;}
@@ -38,6 +40,15 @@ namespace bosslog {
 struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
+// TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
+std::atomic<int> g_sealHitsData{0},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_fastSpeed{0};int dataHits=-1;
+std::atomic<float> g_fastStartMul{6.f},g_fastEndMul{6.f};  // TASK #137323
+SdhDurTable g_sealDurs;
+SdhDurTable g_sealLastHit;int lastHitNotes=0;  // TASK #136328
+float SealMulNow();
+void SealLastHitNote(uint32_t sid,double lc,double bs,const char*){if(!sid||lc<=0||bs<0||lc<=bs)return;++lastHitNotes;g_sealLastHit.Note(sid,(int)((lc-bs)*1000.0),SealMulNow());}
+std::atomic<int> g_exitSettleMs{-1};SdhResult g_sdhLastRead;bool g_sdhLastReadOk=false;  // TASK #135803: settle off unless a case sets it
+int SealDataHits(uint64_t,uint32_t,char* d,size_t n){snprintf(d,n,"stub");return dataHits;}
 
 std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_exitOnHelperMs{-1},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400},g_fccMs{250};
 std::atomic<int> g_frz[2];std::atomic<int> g_fxrRepeatMs{0};
@@ -45,6 +56,7 @@ std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
 std::atomic<uint64_t> g_tailSeal{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_ghostReq{0};
 std::atomic<double> g_tailT0{0},g_ghostT{0},g_ghostHideAt{0},g_ghostReqAt{0},g_fxrT0{0};
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{100},g_fxrFwd{0},g_fxrSide{0};
+float SealMulNow(){return g_sealMul.load();}
 std::atomic<float> g_ftMul{0};std::atomic<int> g_rtMaxMs{1200};  // #129115: FastThrow / RunThrow rows (human #128855)
 bool g_sieNativeEnd=true;
 uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]={};
@@ -94,6 +106,9 @@ pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.in
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
 bool FormCorePendingSet(int,bool b){return b;}bool FormCoreTransforms(uint32_t){return true;}bool FormCoreToggle(uint32_t){return false;}
+int g_stubCall=SC_CALL_TRANSFORM;bool g_stubMoved=false;
+int FormCoreCallGet(uint32_t){return g_stubCall;}int FormCoreCallSet(uint32_t,int c){return c;}  // TASK #136197
+bool FormCoreMoved(uint32_t){return g_stubMoved;}bool FormCoreEquippedIds(uint32_t o[2]){o[0]=o[1]=0;return false;}  // TASK #137000
 bool SoulCoreFormsSet(int,bool*){return true;}bool SoulCoreForms(bool*){return true;}
 void LoadExitSetting(){
 '''+load+r'''}
@@ -101,6 +116,7 @@ void LoadExitSetting(){
 char g_msg[512];int g_sel=0,g_confirm=0;constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
 struct {void Enter(int,int){}} g_uiPages;
 void* TrainingExport(const char*){return nullptr;}  // human #129277 Equip core rows: no Nioh3Training.asi here
+constexpr uint32_t cGreen=5;ULONGLONG Ms(){return 0;}void ToastF(uint32_t,ULONGLONG,const char*,...){}void Command(const char*,char* r,size_t n){if(n)r[0]=0;}  // human #135018 pair keys
 #include "soul_core_tuning_menu.h"
 using namespace bosslog;
 int checks=0;double base=0;
@@ -124,7 +140,10 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
- check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
+ check(g_exitSettleMs==200);ini[L"SealExitSettleMs"]=L"-7";LoadExitSetting();check(g_exitSettleMs==-1);ini[L"SealExitSettleMs"]=L"9000";LoadExitSetting();check(g_exitSettleMs==3000);ini.clear();LoadExitSetting();  // TASK #135803
+ check(g_exitEndPct==80);g_exitEndPct=0;  // TASK #135613 / #137035: shipped 80 (human settings); the cases below pin the old rule (0), the new rule is checked further down
+ check(g_exitAfterShotMs==700);g_exitAfterShotMs=-1;  // TASK #136113: shipped 700; the older cases keep the EndPct hold
+ check(g_exitOnHelperMs==0);g_exitOnHelperMs=150; // #137035: shipped 0 (human settings); #108189: the rule stays ON at 150 ms for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
  check(std::abs(g_ghostReqAt.load()-(base+1.6))<.00001);step(1.6,true);step(1.7,false);check(smokes==1);
@@ -444,11 +463,72 @@ int main(){
   else step(1.6,false);
   check(ini[L"5B402"]==L"4"&&!ini.count(L"A65A1"));
  }
+ // TASK #135613 (live 80D5F, d5bb22d5): data 0 (not certain) + learned 1 -> no exit at hit 1 (1.337 s) alone.
+ g_exitEndPct=90;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();ini.clear();
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!smokes&&!g_ghostReq);step(1.4,false);step(3.0,false);check(!g_ghostReq);
+ clockNow=base+3.83;g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";  // use 1 plays in full, gives the duration
+ check(std::abs(g_sealDurs.Get(0x80D5F)-5362)<=2&&std::abs(g_sealDurs.At(0x80D5F,1.4f)-3830)<=1);
+ // use 2: TASK #138952 (human #138946): a count that is not certain plays to the yokai's own end, a learned duration no longer cuts it at 90 %
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!smokes&&!g_ghostReq);step(1.4,false);step(3.44,false);check(!g_ghostReq);
+ step(3.45,false);check(!g_ghostReq);g_sieFireSeal=456;step(3.9,false);check(g_ghostReq==456);
+ // a known attack shorter than the hit exit: still the yokai's own end
+ g_sealDurs.Note(0x80D61,1000,1.4f);start(1,0,true,false,0x80D61);step(1.337,true);check(!g_ghostReq);
+ // no duration yet: the live idle edge ends the form (and gives the duration)
+ start(1,0,true,false,0x80D62);step(1.337,true);step(1.4,false);check(!g_ghostReq);g_sieFireSeal=456;step(2.0,false);
+ check(g_ghostReq==456&&g_sealDurs.Get(0x80D62)==2800);
+ // certain data: unchanged (exit at hit 1)
+ dataHits=1;g_sealDurs.Reset();start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // TASK #135803 (live 80D5F on d37fc753): seal data has no own window and 1 spawn -> hit 1 closed + settle ends the hold, not EndPct
+ {SdhResult sh;sh.chain=2;sh.spawns=1;g_sdhLastRead=sh;g_sdhLastReadOk=true;g_exitSettleMs=200;dataHits=0;g_sealDurs.Reset();g_sealDurs.Note(0x80D5F,3830,1.4f);
+  start(1,0,true,false,0x80D5F);step(1.086,true);check(!g_ghostReq);step(2.042,false);check(!g_ghostReq);step(2.2,false);check(!g_ghostReq);
+  // TASK #138952: a spawn can still hit after a quiet gap (live C383D settled at 1.549 s of a 3.146 s attack) -> no settle, no EndPct
+  step(2.25,false);check(!g_ghostReq);step(3.45,false);check(!g_ghostReq);g_sieFireSeal=456;step(3.9,false);check(g_ghostReq==456);
+  g_exitSettleMs=-1;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(!g_ghostReq);
+  sh.bursts=2;g_sdhLastRead=sh;g_exitSettleMs=200;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);step(3.45,false);check(!g_ghostReq);
+  // read failed at bind: no early release
+  g_sdhLastReadOk=false;sh.bursts=0;g_sdhLastRead=sh;start(1,0,true,false,0x80D5F);step(1.086,true);step(2.042,false);step(2.5,false);check(!g_ghostReq);
+  g_exitSettleMs=-1;g_sdhLastReadOk=false;}
+ // data unread (SealHitsData off or no file): low confidence too
+ dataHits=-1;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
+ // SealExitEndPct=0: the old rule (exit at hit 1)
+ dataHits=0;g_exitEndPct=0;start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
+ // live from the menu: row 18 is the atomic the tick reads
+ {bool lv=false;check(SoulTune(18,0,&lv)==0&&lv);check(SoulTune(18,1,&lv)==5&&g_exitEndPct==5&&ini[L"SealExitEndPct"]==L"5");}
+ g_exitEndPct=100;start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);
+ ini.clear();LoadExitSetting();check(g_exitEndPct==80);ini[L"SealExitEndPct"]=L"150";LoadExitSetting();check(g_exitEndPct==100);
+ ini[L"SealExitEndPct"]=L"-5";LoadExitSetting();check(g_exitEndPct==0);
+ g_exitEndPct=0;g_sealHitsData=0;dataHits=-1;g_sealDurs.Reset();ini.clear();g_exitOnHelperMs=-1;
+ // TASK #136113: last hit closed, EndPct would hold, AfterShot 700 turns back at close+700. OFF (-1) keeps the hold.
+ // TASK #136328: only once a full form of this core showed its last hit no later than this close (count not certain).
+ g_exitEndPct=90;g_exitAfterShotMs=700;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();g_sealLastHit.Reset();
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(!g_ghostReq);  // no full form yet: the hold decides
+ g_sealLastHit.Note(0x80D5F,60000,1.4f);  // a full form had a later hit: this close is not the last one (early escape case)
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);step(2.6,false);check(!g_ghostReq);
+ g_sealLastHit.Reset();g_sealLastHit.Note(0x80D5F,1,1.4f);  // full form's last hit closed at or before this one
+ start(1,0,true,false,0x80D5F);step(1.337,true);check(!g_ghostReq);step(1.4,false);check(!g_ghostReq);
+ step(2.09,false);check(!g_ghostReq);step(2.11,false);check(!g_ghostReq);  // TASK #138952: not certain never turns back early
+ dataHits=1;g_sealLastHit.Reset();  // certain data count: unchanged, no full form needed
+ start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(g_ghostReq==456);dataHits=0;g_sealLastHit.Note(0x80D5F,1,1.4f);
+ g_exitAfterShotMs=-1;start(1,0,true,false,0x80D5F);step(1.337,true);step(1.4,false);step(2.11,false);check(!g_ghostReq);
+ {bool lv=false;g_exitAfterShotMs=-1;check(SoulTune(19,1,&lv)==0&&g_exitAfterShotMs==0&&ini[L"SealExitAfterShotMs"]==L"0");
+  check(SoulTune(19,1,&lv)==50);check(SoulTune(19,-1,&lv)==0);check(SoulTune(19,-1,&lv)==-1);
+  char tx[512];uint32_t co=0;g_exitAfterShotMs=700;SctRowText(kItSctBase+19,false,"",tx,sizeof tx,&co);check(strstr(tx,"After last projectile:")&&strstr(tx,"700 ms"));
+  check(strstr(SctFooter(kItSctBase+19),"SealExitAfterShotMs"));g_exitAfterShotMs=-1;ini.clear();}
+ // TASK #135613 exit rows: SealGhostExit / SealIdleMinMs / SealExitOnHelperMs / SealExitEndPct are live atomics
+ {bool lv=false;g_ghostOn=1;check(SoulTune(15,-1,&lv)==0&&lv&&g_ghostOn==0&&ini[L"SealGhostExit"]==L"0");check(SoulTune(15,1,&lv)==1&&g_ghostOn==1);
+  g_sieMinMs=300;check(SoulTune(16,1,&lv)==350&&g_sieMinMs==350&&ini[L"SealIdleMinMs"]==L"350");g_sieMinMs=300;
+  g_exitOnHelperMs=-1;check(SoulTune(17,1,&lv)==0&&g_exitOnHelperMs==0);check(SoulTune(17,-1,&lv)==-1&&g_exitOnHelperMs==-1);
+  g_exitOnHelperMs=150;check(SoulTune(17,1,&lv)==200&&ini[L"SealExitOnHelperMs"]==L"200");g_exitOnHelperMs=-1;
+  check(SoulTune(14,1,&lv)==0);  // the Start + end speed row has no own value
+  char tx[512];uint32_t co=0;g_exitEndPct=90;SctRowText(kItSctBase+18,false,"",tx,sizeof tx,&co);check(strstr(tx,"Exit at % of attack:")&&strstr(tx,"90 %"));
+  g_exitEndPct=0;SctRowText(kItSctBase+18,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF"));
+  SctRowText(kItSctBase+17,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF"));
+  SctChange(kItSctBase+18,1);check(g_exitEndPct==5);check(strstr(SctFooter(kItSctBase+18),"SealExitEndPct"));g_exitEndPct=0;ini.clear();}
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==15&&rows.back()==kItSctBase+14);  // #129070: 15 rows by design
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==24&&rows.back()==kItSctBase+23);  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");
@@ -459,13 +539,26 @@ int main(){
  SctChange(kItSctBase+10,1);check(g_fccMs==300&&ini[L"FormCrouchCancel"]==L"300");g_fccMs=0;SctRowText(kItSctBase+10,false,"",text,sizeof text,&color);check(strstr(text,"OFF"));
  g_fccMs=250;
  g_ftHooked=true;
- const double shipped[]={100,100,0,0,400,1.4,4,0,0,0,200};
+ const double shipped[]={100,100,0,0,400,1.6,2,0,0,0,200};  // #137035 human settings
  for(int w=0;w<11;++w) for(int j=0;j<4;++j) SoulTune(w,1,nullptr);
  SoulTuneReset();
  for(int w=0;w<11;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
  check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
+ check(g_ghostOn==1&&g_sieMinMs==0&&g_exitOnHelperMs==0&&g_exitEndPct==80&&ini[L"SealExitEndPct"]==L"80"&&g_exitAfterShotMs==700&&ini[L"SealExitAfterShotMs"]==L"700");  // TASK #135613 / #136113 rows reset to the shipped ini
  g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
- check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
+ check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.6"&&ini[L"SealTailSpeed"]==L"2.0");
+ {// TASK #137000: soul core overlay row (default ON, A flips, Left OFF, Right ON, saved) and the S / T / TM tag
+  ini.clear();g_scOverlay=-1;check(ScOverlayOn());char tx[512];uint32_t co=0;
+  check(ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co)&&strstr(tx,"Soul core overlay: ON"));
+  check(ScEqChange(kItScOverlay,0)&&!ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"0");
+  ScEqRowText(kItScOverlay,false,"",tx,sizeof tx,&co);check(strstr(tx,"OFF")!=nullptr);
+  ScEqChange(kItScOverlay,1);check(ScOverlayOn()&&ini[L"SoulCoreOverlay"]==L"1");ScEqChange(kItScOverlay,-1);check(!ScOverlayOn());
+  g_scOverlay=-1;check(!ScOverlayOn());ini[L"SoulCoreOverlay"]=L"1";g_scOverlay=-1;check(ScOverlayOn());
+  check(strstr(SctFooter(kItScOverlay),"SoulCoreOverlay")!=nullptr&&IsScEqItem(kItScOverlay));
+  g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;check(!strcmp(ScOverlayTag(0x5129B,true),"T"));
+  g_stubMoved=true;check(!strcmp(ScOverlayTag(0x5129B,true),"TM"));check(!strcmp(ScOverlayTag(0x5129B,false),"S"));
+  g_stubCall=SC_CALL_GAME;check(!strcmp(ScOverlayTag(0x5129B,true),"S"));g_stubCall=SC_CALL_FAST_SUMMON;check(!strcmp(ScOverlayTag(0x5129B,true),"FS"));check(!strcmp(ScOverlayTag(0x5129B,false),"FS"));
+  check(!strcmp(ScOverlayTag(0,true),"?"));g_stubCall=SC_CALL_TRANSFORM;g_stubMoved=false;ini.clear();}
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }
 '''

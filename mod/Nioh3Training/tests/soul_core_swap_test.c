@@ -41,6 +41,17 @@ int main(void) {
 
     char b[16];
     expect(!strcmp(ScwSlotName(0, b, sizeof b), "Yang 1") && !strcmp(ScwSlotName(1, b, sizeof b), "Yang 2") && !strcmp(ScwSlotName(2, b, sizeof b), "Yin 1"), "slot names");
+
+    uint16_t catalog[4] = {0x10, 0x20, 0x30, 0x40};
+    expect(ScwCheckId(0, 0x20, 1, 0xFFFF) == 0, "catalog id is ok even when the save does not own it");
+    expect(ScwCheckId(0, 0x20, 1, 0x20) == SCW_SAME, "same item id refused before the game");
+    expect(ScwCheckId(0, 0x99, 0, 0xFFFF) == SCW_NOT_CORE, "id outside the item master refused");
+    expect(ScwCheckId(8, 0x20, 1, 0xFFFF) == SCW_BAD_SLOT, "catalog slot range");
+    expect(ScwStepId(SCW_EMPTY, 1, 0x10, catalog, 4) == 0x20, "Right from nothing skips the equipped id");
+    expect(ScwStepId(SCW_EMPTY, -1, 0x10, catalog, 4) == 0x40, "Left from nothing = last other id");
+    expect(ScwStepId(0x40, 1, 0x10, catalog, 4) == 0x20 && ScwStepId(0x20, -1, 0x10, catalog, 4) == 0x40, "wraps past the equipped id");
+    uint16_t only[1] = {0x10};
+    expect(ScwStepId(SCW_EMPTY, 1, 0x10, only, 1) == SCW_EMPTY, "only the equipped id: nothing to pick");
     if (!g_fail) printf("soul_core_swap_test PASS\n");
     return g_fail;
 }

@@ -24,6 +24,7 @@
 // Every game call and every write runs on the game thread (the per-frame pump); the UI / pipe only post a request word. No story
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include "gamerva.h"
 #include "native_entry_gates_gen.h"
 #include "native_entry_waves_gen.h"
@@ -4237,6 +4238,7 @@ void NoFinToggle(int dir) {
 #if BR_SOULCORE
 #include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
 #endif  // BR_SOULCORE
+#include "sub_pages_menu.h"  // TASK #137249 (human #137196): Soul cores / Style meter / Player stats / Boss damage and Ki pages
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 static_assert(kItRepFlow != kItListFilter && kItBossLast != kItListFilter && kItStanceTimer != kItListFilter, "#126768: Training boss row ids must not reuse the arena list filter id");
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
@@ -4405,20 +4407,19 @@ int ItemsBase(int* out, int cap) {
     }
     if (g_uiPages.page == uPlayer) {  // user #14267: player options (infinite health for now)
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
-#if BR_SOULCORE
-        add(kItScForms);  // human #61869: Soul core transformations ON / OFF
-        SctAddCoreRows(add);  // human #81220: per-core transformation ON / OFF
-        ScEqAddRows(add);  // human #129277: Equip core slot / Equip core
-        SctAddHubRow(add); // Player > Soul core tuning
-#endif  // BR_SOULCORE
-        PstAddPlayerRows(add);  // user #22389
+        // TASK #137249 (human #137196): each feature with 3+ settings is its own page (sub_pages_menu.h)
+        SubAddOpenRow(add, kSubSoulCores);  // human #61869 / #81220 / #129277 / #58117 rows
+        SubAddOpenRow(add, kSubStyle);  // human #126804
+        SubAddOpenRow(add, kSubPlayerStats);  // user #22389
         add(kItBack);
         return n;
     }
+    if (SubAddPage(add)) { add(kItBack); return n; }  // TASK #137249
 #if BR_SOULCORE
     if (g_uiPages.page == uSoulTune) { SctAddPage(add); add(kItBack); return n; }  // human #58117
+    if (g_uiPages.page == uScOverlay) { add(kItScOverlay); for (int i = 0; i < kScOvN; ++i) add(kItScOvBase + i); add(kItBack); return n; }  // TASK #137007
 #endif  // BR_SOULCORE
-    if (g_uiPages.page == uBossVitals) { BvAddPage(add); PstAddBossRows(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
+    if (g_uiPages.page == uBossVitals) { BvAddPage(add); SubAddOpenRow(add, kSubBossKi); add(kItBack); return n; }  // TASK #137249: boss stat rows on their own page  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
         AddBossFightItems(add);
         add(kItBack);
@@ -4629,6 +4630,15 @@ void AutoMovesTick() {
 }
 
 }  // namespace
+
+// human #135018: F2 / Shift+F2 / F6 soul core pair keys (UI worker, ~33 ms)
+void SoulPairTick(bool next, bool prev, bool flag) {
+#if BR_SOULCORE
+    ScPairTickImpl(next, prev, flag);
+#else
+    (void)next; (void)prev; (void)flag;
+#endif
+}
 
 // #79955: called by the UI worker every ~33 ms, outside the game's frame pump (which may not run at the title).
 void TitleWatchdog() {
@@ -5000,6 +5010,7 @@ void UiChange(int dir) {
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (BvChange(item, dir)) return;  // user #14320
+    if (SubOpenChange(item, dir)) return;  // TASK #137249
     if (PstChange(item, dir)) return;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, dir)) return;  // human #58117
@@ -5277,6 +5288,7 @@ bool UiAct() {
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
+    if (SubOpenChange(item, 0)) return false;  // TASK #137249: opens the page
     if (PstChange(item, 0)) return false;  // user #22389
 #if BR_SOULCORE
     if (SctChange(item, 0)) return false;  // human #58117: opens the page / A = one step up
@@ -5517,6 +5529,7 @@ const char* PageTitle(const char* movesTitle) {
     const int p = g_uiPages.page;
     if (p == uGate) return GateMode() == 2 ? "Return - Training" : GateMode() == 1 ? "Return - Boss Match" : "Return gate";
     if (p >= uSettingFirst && p < uSettingFirst + kConfigGroupN) return kConfigGroupLabels[p - uSettingFirst];
+    if (const char* st = SubPageTitle(p)) return st;  // TASK #137249
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Training - Choose an arena" : p == uPracticeHub ? "Training"
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
@@ -5524,6 +5537,7 @@ const char* PageTitle(const char* movesTitle) {
          : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings" : p == uBossVitals ? BvTitle() :
 #if BR_SOULCORE
         p == uSoulTune ? "Soul core tuning - LEFT form (live, saved)" :
+        p == uScOverlay ? "Soul core overlay look (live, saved)" :
 #endif  // BR_SOULCORE
         p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
@@ -5535,12 +5549,9 @@ const char* ItemGroup(int item) {
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
-    if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsStyItem(item) ? "Style meter" : IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
-#if BR_SOULCORE
-        item == kItScForms || IsScCoreItem(item) || IsScEqItem(item) ? "Soul cores" :
-#endif  // BR_SOULCORE
-        nullptr;  // user #22389, human #61869
+    if (p == uBossVitals) return IsSubOpenItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389, TASK #137249
+    if (p == uPlayer) return item == kItCantDie ? "Health" : IsSubOpenItem(item) ? "Settings pages (A: open)" : nullptr;  // TASK #137249
+    if (IsSubPage(p)) return SubPageGroup(p, item);  // TASK #137249
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossLast || item == kItRepFlow || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
@@ -5623,7 +5634,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             continue;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
-        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || SubOpenRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #if BR_SOULCORE
             || SctRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #endif  // BR_SOULCORE
@@ -5933,6 +5944,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (item == kItPageDefaults) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Restore this page to shipped defaults. Other pages stay unchanged; startup settings apply after restart.");
         else if (item == kItStagedStart) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Full climb plays every staged wave in order. Final wave requests only the last one and sets that boss's health to the script's pre-final fraction for this session. Nothing is written to the save.");
         else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        else if (const char* sbf = SubOpenFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : sbf);  // TASK #137249
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
         else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
@@ -6115,6 +6127,33 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     return k;
 }
 
+#if BR_SOULCORE
+// TASK #137000: the soul core overlay lines (UI overlay thread). 0 = nothing to show (off, or no save / equipment not readable).
+int ScOverlayLines(char (*lines)[64], uint32_t* colors, int max) {
+    if (max < 2 || !ScOverlayOn()) return 0;
+    if (ReadSnap().st[2]) return 0;  // TASK #138303 (human #138301): hidden on loading screens, the same game-state byte the style meter and the status 'loading=' use
+    const uint16_t items[2] = {ScSlotItem(0), ScSlotItem(1)};
+    uint32_t chr[2] = {};
+    const bool eq = bosslog::FormCoreEquippedIds(chr);
+    const bool forms = bosslog::SoulCoreForms(nullptr);
+    const uint32_t* th = kScOvTheme[ScOvGet(kScOvColors)];  // TASK #137007
+    int n = 0;
+    for (int y = 0; y < 2; ++y) {
+        if (items[y] == 0xFFFF || !items[y]) continue;
+        const char* tag = ScOverlayTag(eq ? chr[y] : 0, forms);
+        char name[48];  // TASK #137305 (human #137303): the yokai's name from the game's tables; 'Core <id>' until it is known
+        if (ScCoreName(items[y], name, sizeof name)) snprintf(lines[n], 64, "%s | %s", name, tag);
+        else snprintf(lines[n], 64, "Core %X | %s", items[y], tag);
+        colors[n] = (tag[0] == 'S' || tag[0] == 'F') ? th[0] : tag[1] && tag[0] != '?' ? th[2] : th[1];  // TASK #137543: '?' (not detected) white like #137000
+        ++n;
+    }
+    return n;
+}
+// TASK #137007: the overlay look for the overlay thread: size %, x / y per-mille, opacity %, box, colors, font, then the panel COLORREF.
+void ScOverlayLook(int* v) { for (int w = 0; w < kScOvN; ++w) v[w] = ScOvGet(w); v[kScOvN] = (int)kScOvTheme[ScOvGet(kScOvColors)][3]; }
+// TASK #137007: F3 / F4 (UI worker, ~33 ms); TASK #138484: Shift+F3 / Shift+F4
+void SoulCallKeyTick(bool f3, bool f4, bool shift) { if (f3) ScCallKey(0, shift); if (f4) ScCallKey(1, shift); }  // TASK #138484: Shift = Fast summon on / off
+#endif
 bool Toast(char* buf, size_t n, uint32_t& color) {
     bool on = false;
     AcquireSRWLockShared(&g_lock);
@@ -6524,6 +6563,15 @@ void Command(const char* line, char* reply, size_t n) {
             unsigned long long m = 0;
             if (sscanf_s(line + 12, "%llx", &m) == 1 && m) g_spMgr.store(m);
             snprintf(reply, n, "ok");
+            return;
+        }
+        if (!strcmp(arg, "corecall")) {  // spirit corecall <hex core> [call 0-3] : TASK #136502 test hook, the menu row's FormCoreCallSet (saved)
+            unsigned id = 0; int call = -1;
+            const char* q = strstr(line, "corecall");
+            const int k = q ? sscanf_s(q + 8, "%x %d", &id, &call) : 0;
+            if (k < 1 || !id) { snprintf(reply, n, "error usage: spirit corecall <hex core> [0-3]"); return; }
+            const int now = k >= 2 ? bosslog::FormCoreCallSet(id, call) : bosslog::FormCoreCallGet(id);
+            snprintf(reply, n, "ok core %X call %d %s", id, now, sc_call_name(now) ? sc_call_name(now) : "?");
             return;
         }
         if (!strcmp(arg, "formkey")) {  // spirit formkey on [hex X]|off|status : log the summon body key, then one SetForm with that key (pc/soulcore-formkey)

@@ -35,6 +35,8 @@ int main(){
  soulcamera::Spring s;
  for(int i=0;i<120;++i){ms+=16;SoulCameraVerticalTick(123);check(s.Step(Nioh3BossRematch_CameraVerticalTarget(),1.f/60)==0);}
  seal[1]=300;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==200);
+ seal[1]=106;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0); // TASK #136113: under 20 is the tiny hop
+ seal[1]=300;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==200);
  float prev=0;for(int i=0;i<180;++i){float y=s.Step(200,1.f/60);check(y>=prev&&y<=200);prev=y;}check(std::fabs(s.y-200)<.01f);
  // Both eye and target shift along WORLD Y; x/z, distance and view direction preserved.
  alignas(float) unsigned char out[64]={};float eye[4]={10,30,40,1},tgt[4]={12,45,80,1};

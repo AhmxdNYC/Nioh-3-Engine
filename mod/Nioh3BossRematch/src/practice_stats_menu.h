@@ -14,7 +14,7 @@ constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' 
 constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
 constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
 // human #126804 Style meter rows (Player page): Nioh3Training_StyleGet / _StyleSet, what 0 on/off, 1 rank size %, 2 drain speed %, 3 drain delay ms.
-constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 25;  // 24 = boss fight result card; human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
+constexpr int kItStyBase = kItPstBase + 0x90, kStyN = 26;  // human 2026-11-26: 25 = show the meter (card only when OFF); 24 = boss fight result card; human #129172: 23 = always on; human #128855: 20..22 = X, Y, opacity;  // #127075: 4 = Perfect Ki bonus; human #127379: 5..19 full control (see kSty)
 bool IsStyItem(int item) { return item >= kItStyBase && item < kItStyBase + kStyN; }
 bool IsPstItem(int item) { return IsStyItem(item) || (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
 // the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
@@ -44,7 +44,7 @@ int StySet(int what, int v) { using F = int (*)(int, int); const auto f = (F)Tra
 // human #127379 one row per Nioh3Training [StyleMeter] key (#127568: defs = TR SM_* defaults) (same order as Nioh3Training's sm_menu_keys). kind: 0 on/off, 1 %, 2 ms, 3 points
 struct StyRow { const char* label; int def, kind; int steps[12]; const char* foot; };
 const StyRow kSty[kStyN] = {
-    {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit drops a rank. Saved."},
+    {"Style meter:", 0, 0, {}, "Rank D to SSS for your play in any fight: landed hits (less for repeating a move), Ki pulse within 3 s of a hit, clean i-frame dodges. Getting hit costs half a rank. Saved."},
     {"Style rank size:", 100, 1, {25, 50, 75, 100, 125, 150, 200, 250, 300, 400, -1}, "Points each rank needs. 100% = default; higher = harder to rank up, lower = easier. Changes apply at once. Saved."},
     {"Style drain speed:", 100, 1, {0, 25, 50, 75, 100, 125, 150, 200, 300, 500, -1}, "How fast the meter drains after you stop scoring. 100% = default; 0% = it never drains. Changes apply at once. Saved."},
     {"Style drain delay:", 500, 2, {500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, -1}, "How long the meter waits after your last scoring hit before it drains. Changes apply at once. Saved."},
@@ -69,6 +69,7 @@ const StyRow kSty[kStyN] = {
     {"Style meter opacity:", 100, 1, {20, 30, 40, 50, 60, 70, 80, 90, 100, -1}, "How see-through the whole style meter is. 100% = solid. Applies at once. Saved."},
     {"Style meter always on:", 0, 0, {}, "ON = the meter stays on screen all the time (rank D, empty bar when idle). OFF = it shows only while you fight. Applies at once. Saved."},  // human #129172
     {"Boss fight result card:", 1, 0, {}, "ON = when a boss dies, a card shows your average style rank for the fight (first hit on the boss to its death) and what you used, until you press A or Enter. Needs the style meter ON. Fight length is never scored. Saved."},
+    {"Show style meter:", 1, 0, {}, "OFF = no style meter on screen during fights (no pop-ups or combo counter), but your play is still scored and the boss fight result card still shows at the end. Needs the style meter ON. Saved."},  // human 2026-11-26
 };
 const char* StyLabel(int what) { return kSty[what].label; }
 int StyDefault(int what) { return kSty[what].def; }
@@ -99,16 +100,23 @@ bool StyChange(int item, int dir) {
     char t[24]; StyValueText(what, v, t, sizeof t);
     Log("Rematch: menu %s -> %d (#126804)", StyLabel(what), v);
     if (what == 0) snprintf(g_msg, sizeof g_msg, v ? "Style meter ON: rank D to SSS for landed hits, Ki pulses after a hit and clean dodges, shown in any fight. Saved." : "Style meter OFF. Saved.");
+    else if (what == 25) snprintf(g_msg, sizeof g_msg, v ? "Style meter shown on screen. Saved." : "Style meter hidden: still scored, the boss fight result card still shows. Saved.");
     else snprintf(g_msg, sizeof g_msg, "%s %s. Applies now. Saved. Tell us what feels right with Report a problem.", StyLabel(what), t);
     return true;
 }
-template <class Add> void PstAddPlayerRows(Add&& add) {
+// TASK #137249: Player > Style meter page rows (were flat on Player).
+int StyKeysKnown() { using K = int (*)(); const auto f = (K)TrainingExport("Nioh3Training_StyleKeys"); const int n = f ? f() : 5; return n < kStyN ? n : kStyN; }
+template <class Add> void PstAddStyleRows(Add&& add) {
     if (TrainingExport("Nioh3Training_StyleSet")) {  // human #126804; #127379 rows 5+ only when Training knows those keys
-        using K = int (*)(); const auto f = (K)TrainingExport("Nioh3Training_StyleKeys"); const int n = f ? f() : 5;
-        for (int i = 0; i < kStyN && i < n; ++i) add(kItStyBase + i);
+        const int n = StyKeysKnown();
+        const int show = 25;  // human 2026-11-26 (Zack7214 1.8.43): 'Show style meter' sits right under the 'Style meter' switch
+        for (int i = 0; i < n; ++i) { if (i == show) continue; add(kItStyBase + i); if (i == 0 && show < n) add(kItStyBase + show); }
     }
+}
+// TASK #137249: Player > Player stats page rows (were flat on Player).
+template <class Add> void PstAddPlayerStatRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); if (PstGet(PS_SOUL_DMG) >= 0) add(kItPstBase + PS_SOUL_DMG); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
 // Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
 // Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
@@ -146,7 +154,7 @@ const char* PstLabel(int what) {
     if (what == PS_KI_FLOOR) return "Negative Ki depth:";
     if (what == PS_KI_LOG) return "Log Ki breaks:";
     if (what == PS_NEG_KI_METER) return "Negative Ki meter:";  // user #23400
-    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Player Ki damage:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss animation speed:" : what == PS_PLAYER_SPEED ? "Player animation speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki:" : what == PS_DMG_DEALT ? "Player damage:" : what == PS_DMG_TAKEN ? "Boss damage:" : "Boss Ki drain:";
+    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Player Ki damage:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss animation speed:" : what == PS_PLAYER_SPEED ? "Player animation speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki:" : what == PS_DMG_DEALT ? "Player damage:" : what == PS_SOUL_DMG ? "Soul core damage:" : what == PS_DMG_TAKEN ? "Boss damage:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
@@ -212,6 +220,7 @@ bool PstChange(int item, int dir) {
     else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player animation speed %s, from your next move. Training / spawned Boss Matches. Saved.", t);
     else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved for Training; not applied during Boss Matches.", t);
     else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved for Training; not applied during Boss Matches." : "Boss Ki drain OFF. Saved for Training; not applied during Boss Matches.", t);
+    else if (what == PS_SOUL_DMG) snprintf(g_msg, sizeof g_msg, "Soul core damage %s: every soul core's yokai hits (transform or the game's own summon), everywhere. 100%% = normal, default 200%% (2x). Saved.", t);  // TASK #136492
     else snprintf(g_msg, sizeof g_msg, "%s %s: scales HP and Ki damage of hits%s. Training / spawned Boss Matches. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " spawned bosses land");
     return true;
 }
@@ -268,6 +277,7 @@ const char* PstFooter(int item) {
     case PS_FRAME_STYLE: return "Choose straight rows or concentric rings. Each lane keeps its own visibility switch. Display only. Saved.";
     case PS_FRAME_SIZE: return "Ring size: Small, Medium, or Large. Applies only to Ring style; timing and lane settings stay the same. Saved.";
     case PS_PLAYER_INF_KI: return "Training / spawned Boss Matches: keep your Ki full. Does not apply to ordinary story fights. Saved.";
+    case PS_SOUL_DMG: return "Every soul core: scales the HP damage its yokai deals (one value for all cores, everywhere). Your own hits use Player damage. 100% = normal, default 200% (2x). [Practice] SoulCoreDamagePct. Saved.";  // TASK #136492
     case PS_DMG_DEALT: return "Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.";
     case PS_DMG_TAKEN: return "All spawned bosses in Training / Boss Matches: scale HP damage and Ki damage against you. 100% = normal; 0% = none. Saved.";
     case PS_KI_DEALT: return "Training / spawned Boss Matches: extra multiplier for your Ki damage only. 100% = normal; 0% = none. Combines with Player damage, capped at 1000%. Saved.";

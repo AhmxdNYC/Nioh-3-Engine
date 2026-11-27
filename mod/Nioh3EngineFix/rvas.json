@@ -1797,6 +1797,15 @@
    ]
   },
   {
+   "rva": "0x23AB184",
+   "kind": "code",
+   "pattern": "48 8B 0D ?? ?? ?? ?? B2 48 84 C0 74",
+   "offset": 0,
+   "used_in": [
+    "menu.cpp"
+   ]
+  },
+  {
    "rva": "0x2978718",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 48 8B F0 8A 48 02 F3",
@@ -2318,6 +2327,20 @@
    "used_in": [
     "osd.cpp",
     "pmode.cpp"
+   ]
+  },
+  {
+   "rva": "0x45BBD58",
+   "kind": "global",
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 06 8A 40 34 24 01 C3 C3 CC",
+   "offset": 0,
+   "anchor": "0x27A8B8",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "mov rax, qword ptr [rip + 0x4341499]",
+   "used_in": [
+    "menu.cpp"
    ]
   },
   {

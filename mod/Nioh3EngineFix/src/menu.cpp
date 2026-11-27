@@ -48,7 +48,9 @@
 #include "osd.h"
 #include "crashreport.h"
 #include "reportsend.h"
+#include "crashupload.h"
 #include "menu_style.h"
+#include "menurepeat.h"
 #include "pad_family.h"
 #include "padcard.h"
 #include "btnstyle_migrate.h"
@@ -80,6 +82,12 @@ constexpr uint32_t kOffFrameCounter = 0x610;
 // "a game menu is open" (1.7.13): the two getters ApplyGraphicsSettings (0x39A39C) ORs into the FG pause flag S+0x2055.
 // 0x5A37D4: [g_45C84A8+0x170] screen object, vfunc 0x100 && vfunc 0x48; 0xD63C0: tail-jumps to vfunc 8 of [0x4758BA0].
 constexpr uint32_t kRvaMenuA = 0x5A37D4, kRvaMenuB = 0xD63C0;
+// #137478: the game's player control-off manager (notes/fight-transition-control-read.md). Player::SetControlOff loads it at
+// 0x23AB184 (`48 8B 0D rel32`, then `B2 48` = reason 0x48); manager+0x34 = OR of the masks of every active control-off reason
+// (menus that take the pad from the player: shrine, blacksmith, ... set one even where game time keeps running).
+constexpr uint32_t kRvaCtlMgrPtr = 0x45BBD58, kRvaCtlOffWrap = 0x23AB184;
+constexpr uint32_t kOffCtlAggregate = 0x34, kOffCtlReason = 0x30, kOffCtlPrimary = 0x18, kOffCtlCount = 0x20;
+const uint8_t kCtlOffWrap[] = {0x48, 0x8B, 0x0D, 0xCD, 0x0B, 0x21, 0x02, 0xB2, 0x48, 0x84, 0xC0};  // known build only (rel32 = 45BBD58)
 const uint8_t kMenuABytes[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x05, 0xC7, 0x4C, 0x02, 0x04, 0x48, 0x8B, 0x98, 0x70, 0x01,
                                0x00, 0x00, 0x48, 0x85, 0xDB, 0x74, 0x1D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x90, 0x00, 0x01, 0x00,
                                0x00, 0x84, 0xC0, 0x74, 0x0D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x48, 0x84, 0xC0, 0x75, 0x08,
@@ -120,6 +128,8 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat, a held left stick pulses the D-pad (#138311; stick + triggers values untouched, #137566) in the game's own menus (#137069)
+    int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
 Cfg g_cfg;
@@ -209,6 +219,11 @@ struct PadSlot {
     uint32_t modalSnap = 0;       // UO #14: bits held when the input modality switched to keyboard; inert for the menu until released
 };
 PadSlot g_pad[4];
+menurepeat::State g_mrep[4];       // #137071 hold-to-repeat in game menus (pad input thread only)
+menurepeat::StickState g_mstk[4];  // #138311 left stick = D-pad in game menus (pad input thread only)
+volatile LONG g_mstkLogged = 0;
+volatile LONG g_gameMenuOpen = 0;  // PauseDetect (Present thread): a game menu is open (menu signal or pause stop flags)
+volatile LONG g_mrepLogged = 0;
 // UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
 // hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
 // scripted pad or keys (they ride on the game's reads; vpad.cpp InputVirtual tells which read carried them). They still drive
@@ -423,6 +438,29 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         else { s.maskHeld = (WORD)(s.maskHeld & g.wButtons); mk = s.maskHeld; }
         if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; dbgBlock |= paddebug::kMaskLease; }
     }
+    {   // #137071: hold-to-repeat in the game's own menus (menurepeat.h); never while the mod menu or a latch owns the pad
+        const bool act = g_cfg.gmRepeat && g_gameMenuOpen && !g_open && !s.latch;
+        const uint32_t rel = menurepeat::Step(g_mrep[idx], raw, act, t, g_cfg.gmRepeatSpeed);
+        if (rel) {
+            g.wButtons &= (WORD)~(rel & 0xFFFFu);
+            if (rel & menurepeat::kLT) g.bLeftTrigger = 0;
+            if (rel & menurepeat::kRT) g.bRightTrigger = 0;
+            if (rel & (menurepeat::kSU | menurepeat::kSD)) g.sThumbLY = 0;
+            if (rel & (menurepeat::kSL | menurepeat::kSR)) g.sThumbLX = 0;
+            st->dwPacketNumber += 0x40000000u;
+            if (g_mrep[idx].repeats == 1 && !InterlockedExchange(&g_mrepLogged, 1))
+                MLOG("game menu hold-repeat: first repeat (pad %lu, bits %06X, speed %s)", idx, rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
+        // #138311: a held left stick direction pulses the matching D-pad button (stick values untouched, map pans as before)
+        const uint32_t dp = menurepeat::StickStep(g_mstk[idx], menurepeat::StickDominant(raw, g.sThumbLX, g.sThumbLY),
+                                                  raw & (menurepeat::kDUp | menurepeat::kDDown | menurepeat::kDLeft | menurepeat::kDRight), act, t, g_cfg.gmRepeatSpeed);
+        if (dp) {
+            g.wButtons |= (WORD)dp;
+            st->dwPacketNumber += 0x40000000u;
+            if (g_mstk[idx].pulses == 1 && !InterlockedExchange(&g_mstkLogged, 1))
+                MLOG("game menu left stick as D-pad: first pulse (pad %lu, bits %04X, speed %s)", idx, dp, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
+    }
     bool blank = g_open != 0;
     if (blank) dbgBlock |= paddebug::kMenuOpen;
     if (s.latch) {
@@ -604,6 +642,26 @@ void GameInputLogSafe(const uint8_t* keys) {
     }
 }
 
+// TASK #138323 (human #138321): held keyboard directions repeat in the game's own menus, like the pad (#137071). The game reads
+// the keyboard with GetDeviceState and moves its cursor once per key press (live 11-26: arrows and S held 2 s = 1 row). Same
+// gate, delay and rate as the pad (menurepeat::Step on the D-pad bits): arrows and W/A/S/D map to up/down/left/right, and a
+// repeat clears those keys for one short window so the game sees a fresh press. Off outside game menus and while the mod menu
+// is open; other keys (confirm, back, tabs) never repeat.
+menurepeat::State g_krep;  // keyboard read thread only
+volatile LONG g_krepLogged = 0;
+void KeyMenuRepeat(uint8_t* keys) {
+    struct K { uint8_t dik; uint32_t bit; };
+    static const K map[] = {{0xC8, menurepeat::kDUp}, {0x11, menurepeat::kDUp}, {0xD0, menurepeat::kDDown}, {0x1F, menurepeat::kDDown},
+                            {0xCB, menurepeat::kDLeft}, {0x1E, menurepeat::kDLeft}, {0xCD, menurepeat::kDRight}, {0x20, menurepeat::kDRight}};
+    uint32_t raw = 0;
+    for (const K& k : map) if (keys[k.dik] & 0x80) raw |= k.bit;
+    const bool act = g_cfg.gmRepeat && g_gameMenuOpen && !g_open;
+    const uint32_t rel = menurepeat::Step(g_krep, raw, act, Now(), g_cfg.gmRepeatSpeed);
+    if (!rel) return;
+    for (const K& k : map) if (rel & k.bit) keys[k.dik] = 0;
+    if (g_krep.repeats == 1 && !InterlockedExchange(&g_krepLogged, 1))
+        MLOG("game menu hold-repeat: first keyboard repeat (bits %06X, speed %s)", rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+}
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
     HRESULT hr = orig(self, cb, data);
@@ -614,6 +672,7 @@ HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
+        KeyMenuRepeat(static_cast<uint8_t*>(data));
         GameInputLogSafe(static_cast<uint8_t*>(data));
     }
     return hr;
@@ -842,7 +901,7 @@ bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
 }
 
 // ---- items ----------------------------------------------------------------------------------------------------------
-enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
+enum Id { kVrr, kHitStop, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA, kXBPO, kXW1B, kXRPA, kXAS, kXPJH, kXTR,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
@@ -877,6 +936,7 @@ struct ItemDef {
 #define E_CPU_NEXT "Picture unchanged. Applies at the next launch (save to ini). CPU only: no fps change on the Ally."
 const ItemDef kItems[kCount] = {
     {"Smoother frame pacing", "(VRR)", "Game speed stays real below the fps cap instead of the whole game slowing down.", "Changes timing, not the picture. Applies now. Auto-suspended while an online session is detected (VRROnline)."},
+    {"Fix hit slow-mo", "(HitStopFix)", "After a hit, the short freeze (hit-stop) lasts the game's normal time at any fps instead of longer below the cap.", "Only matters while Smoother frame pacing is on. Changes timing, not the picture. Applies now."},
     {"Message thread sleeps, not spins", "(W3)", "The window-message thread sleeps (<=1 ms) instead of spinning a CPU core.", E_CPU},
     {"Message wait style (Proton)", "(W3 mode)", "Proton only. Sleep 1 ms = few wake-ups; MsgWait = Windows wait (~24k wakes/s on Wine).", "Picture unchanged. Applies now."},
     {"Render wait timeout", "(R1)", "The game thread waits for the GPU with a timeout per round. 0 = stock busy poll.", "Picture unchanged. Applies now. CPU only: no fps change on the Ally."},
@@ -1009,7 +1069,7 @@ const OrderEnt kOrder[] = {
     {kVrs, "Extra performance (changes the look)"}, {kEpPre, nullptr}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
     {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr}, {kEp10, nullptr},
     {kEp11, nullptr}, {kRd, nullptr}, {kSharp, nullptr},
-    {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
+    {kVrr, "Performance fixes (safe)"}, {kHitStop, nullptr}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
     {kXX1, nullptr}, {kXE1, nullptr}, {kXM2, nullptr}, {kXJ1, nullptr}, {kXS1, nullptr}, {kXWG, nullptr}, {kXTG, nullptr},
@@ -1332,13 +1392,17 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 // #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
 bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
 // #121260: the held attack fix row also lives on Settings > Game in layout 0, where the General catalog page is not reachable
-bool IsGameFixKey(const char* section, const char* key) { return section && key && strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0; }
+bool IsGameFixKey(const char* section, const char* key) {
+    if (!section || !key) return false;
+    if (!strcmp(section, "Menu")) return !strcmp(key, "GameMenuRepeat") || !strcmp(key, "GameMenuRepeatSpeed");  // #137071
+    return strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0;
+}
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
     if (id == kRd || id == kSharp) return pSGpu;  // #67225 / #67772: with the other look rows, not on the camera page
-    if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
+    if (id == kVrr || id == kHitStop || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine || id == kFwp) return (id == kL1Wine || id == kFwp) ? pSCpu : -1;
     const int sp = SettingsPage(id);
     if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
@@ -1494,14 +1558,16 @@ int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
-    int n = 3 + PageRowsBody(out + 3, selectable);
+    int top = 3;
+    if (g_pages.page == pRoot) out[top++] = kShareDataRow;  // 1.8.41: data-sharing opt-in at the top of the first page
+    int n = top + PageRowsBody(out + top, selectable);
     bool reset = false, ownReset = false;
-    for (int i = 3; i < n; ++i) {
+    for (int i = top; i < n; ++i) {
         reset |= ResettableRow(out[i]);
         ownReset |= out[i] == kCamRowFirst + kCamReset || out[i] == kVrsRowFirst + vrsmenu::kRowReset;
     }
     if (g_pages.page != pRoot && reset && !ownReset) {
-        const bool back = n > 3 && (out[n - 1] == kBackRow || out[n - 1] == kClose);
+        const bool back = n > top && (out[n - 1] == kBackRow || out[n - 1] == kClose);
         if (back) out[n] = out[n - 1];
         out[back ? n - 1 : n] = kResetPageRow; ++n;
     }
@@ -1510,7 +1576,10 @@ int PageRows(int* out, bool selectable) {
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
     return n;
 }
-int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
+int FirstOwnRow(const int* rows, int n) {  // never lands on 'Share data': opting in takes a deliberate move onto it
+    const int i = n > 3 && rows[3] == kShareDataRow ? 4 : 3;
+    return n > i ? rows[i] : n ? rows[0] : kBackRow;
+}
 int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
 
 void EnterPage(int page) {
@@ -1526,6 +1595,7 @@ bool Available(int id) {
     if (id == kVrs) return gpuopt::VrsSupport() == 1;
     switch (id) {
         case kVrr: return g_host.vrrEnable != nullptr;
+        case kHitStop: return g_host.hitStopOn != nullptr;  // GH #159: P11 installed
         case kW3: return g_host.w3Enable != nullptr;
         case kW3Mode: return g_host.w3Enable && g_host.w3UseSleep;
         case kR1: return g_host.r1Timeout != nullptr;
@@ -1566,6 +1636,7 @@ const char* NaText(int id) {
     if (id == kRd) return "render-distance hook was not found - see the log";
     if (id == kEpPre || IsEp(id) || id == kSharp) return "extra-performance hook was not found - see the log";
     if (id == kAutoCont) return "tip-page hook was not found - see the log";
+    if (id == kHitStop) return "hit-stop patch (P11) not installed: needs VRR - see the log";
     if (!g_host.knownBuild) return "this game version is not supported";
     return "hook was not found - see the log";
 }
@@ -1573,6 +1644,7 @@ const char* NaText(int id) {
 bool LiveBool(int id) {
     switch (id) {
         case kVrr: return *g_host.vrrEnable != 0;
+        case kHitStop: return *g_host.hitStopOn != 0;
         case kW3: return *g_host.w3Enable != 0;
         case kW3Mode: return *g_host.w3UseSleep != 0;
         case kL1: return *g_host.l1Enable != 0;
@@ -1696,8 +1768,13 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     }
     if (id == kEpPre) {
         const int m = extraperf::MatchPreset();
-        snprintf(buf, n, "%s", extraperf::PresetName(m));
-        color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        if (extraperf::ResRestartNeeded()) {
+            snprintf(buf, n, "%s (restart needed)", extraperf::PresetName(m));
+            color = cYellow;
+        } else {
+            snprintf(buf, n, "%s", extraperf::PresetName(m));
+            color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        }
         return;
     }
     if (id == kRd) {
@@ -1721,7 +1798,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = changed ? cYellow : (v ? cGreen : cGray);
     };
     switch (id) {
-        case kVrr: case kW3: case kL1: case kF1: case kWk: onoff(LiveBool(id)); break;
+        case kVrr: case kHitStop: case kW3: case kL1: case kF1: case kWk: onoff(LiveBool(id)); break;
         case kW3Mode:
             snprintf(buf, n, "%s", *g_host.w3UseSleep ? "Sleep 1 ms" : "MsgWait");
             color = *g_host.w3UseSleep ? cGreen : cYellow;
@@ -1814,6 +1891,7 @@ void StartSave() {
     };
     auto b = [](bool v) { return std::wstring(v ? L"1" : L"0"); };
     if (Available(kVrr)) add(L"Patches", L"VRR", b(LiveBool(kVrr)));
+    if (Available(kHitStop)) add(L"VRR", L"HitStopFix", b(LiveBool(kHitStop)));  // GH #159
     if (Available(kW3)) add(L"Patches", L"W3", b(LiveBool(kW3)));
     if (Visible(kW3Mode) && Available(kW3Mode)) add(L"Patches", L"W3WineSleep", b(LiveBool(kW3Mode)));
     if (Available(kR1)) {
@@ -1846,7 +1924,7 @@ void StartSave() {
                 (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, g_ini.c_str()),
                 GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, g_ini.c_str()) == 1);
             add(L"ExtraPerf", L"XHALF", std::to_wstring(half));
-            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::ResLevel()));
+            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::PendingRes()));  // #80507: running scale stays; save the pick for next launch
             add(L"ExtraPerf", L"Preset", L"0");
         }
         wchar_t rd[16];
@@ -2050,6 +2128,7 @@ void SetAutoContinue(bool on) {
 void SetLiveBool(int id, bool v) {
     switch (id) {
         case kVrr: *g_host.vrrEnable = v ? 1u : 0u; break;
+        case kHitStop: InterlockedExchange(reinterpret_cast<volatile LONG*>(g_host.hitStopOn), v ? 1 : 0); break;
         case kW3: InterlockedExchange(g_host.w3Enable, v ? 1 : 0); break;
         case kW3Mode: InterlockedExchange(g_host.w3UseSleep, v ? 1 : 0); break;
         case kL1: InterlockedExchange(g_host.l1Enable, v ? 1 : 0); break;
@@ -2077,6 +2156,7 @@ void SyncConfigFromLive(int id) {
 }
 char g_configReply[256] = "";
 int g_configReplyRow = -1;
+void LogItem(int id);
 void ApplyConfigValue(int index) {
     if (index < 0 || index >= kConfigN) return;
     const auto& d = kConfigSettings[index];
@@ -2091,7 +2171,14 @@ void ApplyConfigValue(int index) {
         else if (!strcmp(d.key, "StartupPopupDelay")) o.popupDelay = (float)atof(v.c_str());
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
-        if (!strcmp(d.key, "ButtonStyle")) {
+        if (!strcmp(d.key, "HitStopFix")) {  // GH #159: catalog row (and 'menu set HitStopFix') -> vrr_hsOn live
+            if (Available(kHitStop)) {
+                SetLiveBool(kHitStop, atoi(v.c_str()) != 0);
+                LogItem(kHitStop);
+                snprintf(g_configReply, sizeof(g_configReply), LiveBool(kHitStop) ? "Hit slow-mo fix on now. Save to keep it." : "Hit slow-mo fix off now. Save to keep it.");
+            } else
+                snprintf(g_configReply, sizeof(g_configReply), "Hit-stop patch (P11) is not installed this session; save for the next launch.");
+        } else if (!strcmp(d.key, "ButtonStyle")) {
             g_btnStyleIni = pad_family::ParseStyle(v.c_str());  // UO #10: Auto or an override
             RefreshButtonStyle();
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
@@ -2128,6 +2215,12 @@ void ApplyConfigValue(int index) {
             const int on = atoi(v.c_str()) ? 1 : 0;
             hudhide::g_elemOn[hudhide::ElemIndex(d.key)] = on;
             snprintf(g_configReply, sizeof(g_configReply), (hudhide::g_idsBad || !hudhide::ElementAvailable(hudhide::ElemIndex(d.key))) ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
+        } else if (!strcmp(d.key, "GameMenuRepeat")) {  // #137071
+            g_cfg.gmRepeat = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), g_cfg.gmRepeat ? "Held buttons repeat in game menus now. Save to keep it." : "Game menu hold-repeat off. Save to keep it.");
+        } else if (!strcmp(d.key, "GameMenuRepeatSpeed")) {
+            g_cfg.gmRepeatSpeed = !_stricmp(v.c_str(), "Slow") ? 0 : !_stricmp(v.c_str(), "Fast") ? 2 : 1;
+            snprintf(g_configReply, sizeof(g_configReply), "Game menu repeat speed %s applies now. Save to keep it.", menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -2297,6 +2390,12 @@ void Change(int id, int dir) {
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
     if (id == kPlayerLogRow) { ChangePlayerLog(dir); return; }
+    if (id == kShareDataRow) {  // A flips, Right = ON, Left = OFF
+        const bool on = dir > 0 ? true : dir < 0 ? false : !crashupload::ShareData();
+        if (on != crashupload::ShareData()) crashupload::SetShareData(on);
+        MLOG("Share data row -> %d", on ? 1 : 0);
+        return;
+    }
     if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
     if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
         if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
@@ -2381,7 +2480,7 @@ void Change(int id, int dir) {
             o.maxLatency = v;
             break;
         }
-        case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: SetLiveBool(id, !LiveBool(id)); break;
+        case kVrr: case kHitStop: case kW3: case kW3Mode: case kL1: case kF1: case kWk: SetLiveBool(id, !LiveBool(id)); break;
         case kR1: {
             int v = (int)*g_host.r1Timeout;
             if (dir == 0) v = v ? 0 : (int)(g_host.r1Default ? g_host.r1Default : 2);
@@ -2621,6 +2720,7 @@ bool RemoteValue(int id, int& v) {
     }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
+        case kHitStop: v = LiveBool(kHitStop) ? 1 : 0; return true;  // GH #159 live vrr_hsOn
         case kR1: v = (int)*g_host.r1Timeout; return true;
         case kLat: v = o.maxLatency; return true;
         case kGpu: v = gpuopt::Batching() ? 1 : 0; return true;
@@ -2708,6 +2808,11 @@ void RunRemote(RemoteReq& q) {
                 g_cfg.freezeGame = q.value ? 1 : 0;
                 g_dirty = true;
                 LogItem(id);
+                break;
+            case kHitStop:  // GH #159: 'menu set HitStopFix 0|1' writes vrr_hsOn live
+                SetLiveBool(kHitStop, q.value != 0);
+                g_dirty = true;
+                LogItem(kHitStop);
                 break;
             case kHint:
                 g_cfg.pauseHint = std::clamp(q.value, 0, 2);
@@ -2905,6 +3010,31 @@ bool CallGameBool(uint32_t rva) {
     }
 }
 
+bool g_ctlSigOk = false;      // the control-off manager anchor verified at Configure (#137478)
+menurepeat::Debounce g_ctlDeb;
+uint32_t g_ctlLogged = 0xFFFFFFFFu;
+int g_ctlLogs = 0;
+volatile LONG g_ctlOff = 0;    // vpad state / tests: 1 = the game holds a control-off reason (debounced)
+
+// manager+0x34 (aggregate) and the active primary reasons (for the log); false = unreadable (signal treated as off)
+bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n) {
+    uint64_t m = 0, prim = 0, cnt = 0;
+    agg = 0; r30 = 0;
+    if (list && n) list[0] = 0;
+    if (!Rd(g_host.base + Grva(kRvaCtlMgrPtr), m) || m < 0x10000) return false;
+    const uint8_t* M = reinterpret_cast<const uint8_t*>((uintptr_t)m);
+    if (!Rd(M + kOffCtlAggregate, agg) || !Rd(M + kOffCtlReason, r30)) return false;
+    if (list && n && agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
+        const uint8_t* P = reinterpret_cast<const uint8_t*>((uintptr_t)prim);
+        for (uint64_t i = 0; i < cnt; ++i) {
+            uint8_t k = 0, a = 0;
+            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) break;
+            if (a) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
+        }
+    }
+    return true;
+}
+
 void PauseDetect(ULONGLONG t) {
     if (!g_host.knownBuild || !g_host.base) return;
     uint64_t gp = 0;
@@ -2971,6 +3101,27 @@ void PauseDetect(ULONGLONG t) {
     }
     g_menuShown = (g_menuSince && t - g_menuSince >= 120) || (g_menuShown && t - g_menuLastOpen < 150);
     g_pauseReason = g_menuShown ? 1 : g_stopPaused ? 2 : (haveFlags && (flags & 0x04)) ? 3 : 0;
+    // #137478: menus that keep game time running (shrine, blacksmith) raise neither signal above, but they take control from the
+    // player: any active control-off reason counts. Gameplay has none (Boss Rematch's fight readiness requires aggregate 0).
+    bool ctlNow = false;
+    if (g_ctlSigOk) {
+        uint32_t agg = 0;
+        uint8_t r30 = 0;
+        char list[96];
+        const bool ok = ReadControlOff(agg, r30, list, sizeof(list));
+        ctlNow = menurepeat::ControlOff(ok, agg);
+        if (ok) {
+            if (agg != g_ctlLogged) {
+                if (g_ctlLogs < 200)
+                    MLOG("game control-off now %s (mask %X, reason30 %02X, active:%s)%s", agg ? "ON" : "off", agg, r30, list[0] ? list : " none",
+                         ++g_ctlLogs == 200 ? " (no further lines)" : "");
+                g_ctlLogged = agg;
+            }
+        }
+    }
+    const bool ctlShown = g_ctlDeb.Update(ctlNow, t);
+    g_ctlOff = ctlShown ? 1 : 0;
+    g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
     const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
@@ -3008,6 +3159,7 @@ void RowLabel(int id, char* out, int cap) {
     else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
     else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
     else if (id == kPlayerLogRow) snprintf(out, (size_t)cap, "Player log");
+    else if (id == kShareDataRow) snprintf(out, (size_t)cap, "Share data");
     else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
     else snprintf(out, (size_t)cap, "row");
 }
@@ -3789,6 +3941,13 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kShareDataRow) {
+            if (id == g_sel) selRow = nb;
+            const bool on = crashupload::ShareData();
+            put(body, nb, 128, id == g_sel ? "> Share data" : "  Share data", "", on ? "ON" : "OFF (default)",
+                id == g_sel ? cWhite : cGray, on ? cGreen : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kPlayerLogRow) {  // human #128100
             if (id == g_sel) selRow = nb;
             const int v = PlayerLogGet();
@@ -3945,7 +4104,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it. Needs Share data ON." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kResetPageRow) {
         snprintf(what, sizeof(what), "Restore this page's editable settings to the values shipped with the mod.");
@@ -3969,7 +4128,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_reverseNote);
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
-        snprintf(what, sizeof(what), "%s", g_reportNote);
+        snprintf(what, sizeof(what), "%s", crashupload::ShareData() ? g_reportNote : "Sending needs 'Share data' ON (top of the first mod menu page). It is off by default.");
         snprintf(effect, sizeof(effect), "A / Enter opens a text box (keyboard, controller key grid or Steam keyboard). A copy stays in Nioh3Reports beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
@@ -3987,6 +4146,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kShareDataRow) {
+        snprintf(what, sizeof(what), "Off by default: nothing is sent. On: crash reports go to the mod's feedback site automatically, and the Report box can send.");
+        snprintf(effect, sizeof(effect), "Sends: crash details, game/mod versions and settings, PC specs (CPU, GPU, RAM, OS), fps, recent mod logs and button presses, a random ID. No names, paths or Steam ID.");
     } else if (g_sel == kPlayerLogRow) {  // human #128100
         snprintf(what, sizeof(what), "%s", g_plogNote[0] ? g_plogNote : "Writes Nioh3PlayerLog.txt in the game folder: your button presses, moves, fps on every line, and a once-a-second game clock line that shows slow motion.");
         snprintf(effect, sizeof(effect), "A switches; Right = ON, Left = OFF. Starts and stops at once. Off by default. Send the file with a report.");
@@ -4417,6 +4579,9 @@ void Configure(const Host& h) {
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
     g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 2, f);
     g_cfg.freezeGame = GetPrivateProfileIntW(L"Menu", L"FreezeGame", 1, f) != 0;
+    g_cfg.gmRepeat = GetPrivateProfileIntW(L"Menu", L"GameMenuRepeat", 1, f) ? 1 : 0;  // #137071
+    GetPrivateProfileStringW(L"Menu", L"GameMenuRepeatSpeed", L"Normal", b, 96, f);
+    g_cfg.gmRepeatSpeed = !_wcsicmp(b, L"Slow") ? 0 : !_wcsicmp(b, L"Fast") ? 2 : 1;
     GetPrivateProfileStringW(L"Menu", L"PauseHintSource", L"Both", b, 96, f);
     g_cfg.pauseSrc = !_wcsicmp(b, L"Menu") ? 0 : !_wcsicmp(b, L"StopFlags") ? 1 : 2;
     GetPrivateProfileStringW(L"Menu", L"KeyTripleTap", L"Escape", b, 96, f);
@@ -4426,6 +4591,8 @@ void Configure(const Host& h) {
     }
     g_menuSigOk = g_host.knownBuild && g_host.base && BytesAt(kRvaMenuA, kMenuABytes, sizeof(kMenuABytes)) &&
                   BytesAt(kRvaMenuB, kMenuBBytes, sizeof(kMenuBBytes));
+    g_ctlSigOk = g_host.knownBuild && g_host.base && BytesAt(kRvaCtlOffWrap, kCtlOffWrap, sizeof(kCtlOffWrap));
+    MLOG("game control-off signal (45BBD58 via 23AB184): %s", g_ctlSigOk ? "bytes verified" : "not available");
     MLOG("game menu signal (5A37D4 / D63C0): %s; pause hint source %s", g_menuSigOk ? "bytes verified" : "not available (stop flags only)",
          g_cfg.pauseSrc == 0 ? "Menu" : g_cfg.pauseSrc == 1 ? "StopFlags" : "Both");
     GetPrivateProfileStringW(L"Menu", L"PauseHintFlags", L"58B 58C", b, 96, f);
@@ -4548,6 +4715,7 @@ bool CoverTipAllowed() {
 }
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
+int GameMenuRepeatGate() { return (g_gameMenuOpen ? 1 : 0) | (g_ctlOff ? 2 : 0); }  // #137478 vpad state
 void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state the menu is in
     InterlockedExchange(&g_open, 0);
     for (int i = 0; i < 100 && InterlockedCompareExchange(&g_freezeBusy, 1, 0) != 0; ++i) Sleep(1);

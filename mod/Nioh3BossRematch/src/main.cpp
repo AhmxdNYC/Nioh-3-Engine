@@ -192,6 +192,11 @@ void Boot() {
     swprintf_s(mx, L"Local\\Nioh3BossRematch.%lu", GetCurrentProcessId());
     HANDLE m = CreateMutexW(nullptr, TRUE, mx);
     if (!m || GetLastError() == ERROR_ALREADY_EXISTS) return;  // a second copy (renamed ASI): the first one owns every site
+    {  // #139042: keep the previous run as .old, so a crash log survives the next launch (two sweep crashes lost theirs)
+        wchar_t prev[MAX_PATH];
+        swprintf_s(prev, L"%s.old", g_logPath);
+        MoveFileExW(g_logPath, prev, MOVEFILE_REPLACE_EXISTING);
+    }
     g_logFile = CreateFileW(g_logPath, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     g_img.base = (uintptr_t)GetModuleHandleW(nullptr);
     const auto* dos = (const IMAGE_DOS_HEADER*)g_img.base;

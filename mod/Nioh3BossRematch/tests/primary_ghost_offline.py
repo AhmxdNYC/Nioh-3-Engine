@@ -24,13 +24,14 @@ double clockNow=10;double Now(){return clockNow;}uint64_t FkPlayer(){return 123;
 void Log(const char*,...){}
 struct {double t=10;} g_pressSnap;std::atomic<double> g_pickT{10};std::atomic<uint32_t> g_pickCore{0x16127};
 std::set<uint64_t> oldActors,dead;bool AliveAtPress(uint64_t a){return oldActors.count(a)!=0;}
-uint64_t ActorTableGlobal(){return 1;}int FormHideSealPresent(uint64_t,uint64_t a){return dead.count(a)?0:1;}
+uint64_t ActorTableGlobal(){return 1;}std::set<uint64_t> unread;int FormHideSealPresent(uint64_t,uint64_t a){return dead.count(a)?0:unread.count(a)?-1:1;}
 SRWLOCK g_fh4Lock=SRWLOCK_INIT;
 struct {uint64_t owner=123,seal=0;double capT=0;bool keepSeal=false;} g_fh4;
 std::atomic<uint64_t> g_ghostReq{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_tailSeal{0};
 std::atomic<double> g_ghostHideAt{0},g_ghostT{0},g_tailT0{0};
 std::atomic<int> g_ghostHideMs{0};int g_ghostFadeMs=250;float g_ghostFade0=1;
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{250};
+float FastActorMul(uint64_t){return 1.f;}  // TASK #136502 stub: no Fast summon yokai here
 bool enabled=true;bool ScOn(){return enabled;}int binds=0;void FormHideEndBegin(uint64_t,uint64_t){++binds;}
 """
 code=pre+between('struct PressHitSource','void SealEndOnHitNoteSpawn')+between('struct PressGhost','void Fh4KeepSeal')+between('float SealRateMul(','std::atomic<uint32_t> g_ftActs')+between('void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {','struct SealTailHitWatch')
@@ -79,6 +80,13 @@ int main(){
  actor(456,0x16127,10000);PressGhostBegin({456},false);check(g_pressGhosts.back().tail==2.f);PressGhostForget(456);
  actor(456,0x16127,10000);g_ghostKeepSpeed=true;PressGhostBegin({456},false);g_ghostKeepSpeed=false;check(g_pressGhosts.back().tail==g_pressGhosts.back().base);PressGhostForget(456);check(g_pressGhosts.empty());
  actor(456,0x16127,10000);PressGhostBegin({456},true);clockNow=33;PressGhostTick();check(g_pressGhosts.empty());
+ // TASK #136075 (crash 11-25 4:54 pm after E0E94's native despawn): a despawned actor gets no ghost and no +0x248 write
+ actor(456,0x16127,10000);{const float one=1.f;WrBytes(10000+0x248,&one,4);}dead.insert(456);PressGhostBegin({456},true);check(g_pressGhosts.empty()&&fade(10000)==1);dead.clear();
+ // TASK #138995: a ghost whose actor-table walk is unreadable (-1, table mid-change at despawn) is not written; a gone seal is never written by GhostHideSeal.
+ clockNow=12.5;actor(456,0x16127,10000);{const float one=1.f;WrBytes(10000+0x248,&one,4);}PressGhostBegin({456},false);check(fade(10000)==0);
+ {const float one=1.f;WrBytes(10000+0x248,&one,4);}unread.insert(456);PressGhostTick();check(fade(10000)==1&&g_pressGhosts.size()==1);unread.clear();PressGhostForget(456);
+ {const float one=1.f;WrBytes(10000+0x248,&one,4);}dead.insert(456);g_ghostHideAt=0;GhostHideSeal(456);check(fade(10000)==1);unread.insert(456);dead.clear();GhostHideSeal(456);check(fade(10000)==1);unread.clear();
+ GhostHideSeal(456);check(fade(10000)==0);
  clockNow=40;check(SealExitReplayQueue(456,123)==1);const double firstAt=g_fxPlay[0].at;const float firstX=g_fxPlay[0].r.blk[12];
  clockNow=40.1;check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==1);
  check(g_fxPlay[0].at==firstAt&&g_fxPlay[0].r.blk[12]==firstX);

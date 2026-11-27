@@ -6,9 +6,13 @@ root = Path(__file__).resolve().parent.parent
 src = (root / 'src/bosslog.cpp').read_text(encoding='utf-8')
 state = src[src.index('std::atomic<bool> g_scForms{true};'):src.index('std::atomic<int> g_fkSwap{0};')]
 api = src[src.index('int FormCoreSeen('):src.index('bool SoulCoreForms(bool*')]
+# TASK #137000: the real moved-core table (FormCoresMoved) and its two public calls
+moved = src[src.index('ScCallTable g_movedTab;'):src.index('static bool FormSteerForCore()')]
+moved += 'bool FormCoreMoved(uint32_t id) { return FormCoreMovedImpl(id); }\nbool FormCoreEquippedIds(uint32_t out[2]) { return FormCoreEquippedIdsImpl(out); }\n'
 pre = r'''
 #include <windows.h>
 #include "press_queue.h"
+#include "../../shared/soul_core_api.h"  // TASK #136197
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -35,6 +39,11 @@ double clockNow=10; WORD buttons=0;
 double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
+double PressSnapT(){return -100;}  // #136367 stub: no press snapshot
+void CorePreloadTick(){} bool CoreResReady(uint32_t){return false;}  // #136368 stubs: no game resources
+void FastActorsClear(){}  // TASK #136502 stub: no yokai registry here
+std::atomic<int> g_fastFxLog{0};  // TASK #137013 stub: fx log cap (defined with g_fastSmoke in bosslog.cpp)
+std::atomic<int> g_formSteer{0};  // TASK #136197: global FormSteer stub (FormCoreCallGet default)
 WORD PickPadButtons(){return buttons;}
 bool formActive=false;bool PickFormActive(){return formActive;}
 bool ghostAlive=false;bool PickGhostAlive(){return ghostAlive;}
@@ -49,6 +58,7 @@ char g_msg[512]; int g_sel=0,g_confirm=0;
 constexpr uint32_t cWhite=1,cDim=2,cGray=3,cYellow=4;
 struct {void Enter(int,int){}} g_uiPages;
 void* TrainingExport(const char*){return nullptr;}  // human #129277 Equip core rows: no Nioh3Training.asi here
+constexpr uint32_t cGreen=5;ULONGLONG Ms(){return 0;}void ToastF(uint32_t,ULONGLONG,const char*,...){}void Command(const char*,char* r,size_t n){if(n)r[0]=0;}  // human #135018 pair keys (stub was missing)
 #include "soul_core_tuning_menu.h"
 } }
 using namespace addon::bosslog;
@@ -65,7 +75,7 @@ void reset(bool clearIni=true) {
  g_equippedReady=false;for(auto& v:g_equippedCore)v=0;
  for(auto& v:g_pendingPick)v=-1;
  for(auto& v:g_seen){v.id=0;v.dir=0;}
- CoreOffLoad();
+ CoreOffLoad();CoreCallLoad();
 }
 void press(int dir){buttons=0;PickPoll();clockNow+=.5;buttons=dir==1?4:2;PickPoll();}
 std::string row(int slot){char b[512];uint32_t c=0;SctRowText(kItScCore+slot,false,"",b,sizeof b,&c);return b;}
@@ -103,7 +113,26 @@ int main(){
  press(1);PickLearn(0x5B402);check(ScOn()&&FormCoreTransforms(0x5B402)&&!FormCoreTransforms(0x5129B));
  check(FormCoreSeen(ids,dirs,10)==3&&ids[0]==0x5B402&&ids[1]==0x5129B);
  SctChange(kItScCore+1,1);check(FormCoreTransforms(0x5129B));
- SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B));
+ check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM&&row(1).find("moveable")==std::string::npos);  // TASK #136987: no Transform moveable choice
+ // TASK #136502 / #136987: A after Transform = Fast summon: an OFF core (game's own summon) with call 3, saved in both keys
+ SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON&&ini[L"FormCoresOff"].find(L"5129B")!=std::wstring::npos&&ini[L"FormCoreCalls"].find(L"5129B:3")!=std::wstring::npos);
+ check(row(1).find("Fast summon")!=std::string::npos);
+ press(2);check(!ScOn()&&FastPress());clockNow+=11;press(1);press(2);check(FastPress());  // a Fast summon press: vanilla gates + the fast flag
+ CoreCallLoad();check(FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON);
+ check(FormCoreToggle(0x5129B)&&FormCoreCallGet(0x5129B)!=SC_CALL_FAST_SUMMON&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);  // a flip ends Fast summon
+ check(!FormCoreToggle(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);  // OFF again = plain Game's own, not a stale Fast summon
+ check(FormCoreCallSet(0x5129B,SC_CALL_FAST_SUMMON)==SC_CALL_FAST_SUMMON);
+ SctChange(kItScCore+1,0);check(!FormCoreTransforms(0x5129B)&&FormCoreCallGet(0x5129B)==SC_CALL_GAME&&ini[L"FormCoreCalls"].find(L"5129B")==std::wstring::npos);
+ press(2);check(!ScOn()&&!FastPress());  // Game's own: no fast flag
+ SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_FAST_SUMMON);
+ SctChange(kItScCore+1,-1);check(FormCoreCallGet(0x5129B)==SC_CALL_TRANSFORM&&FormCoreTransforms(0x5129B));
+ check(FormCoreCallSet(0x5129B,SC_CALL_GAME)==SC_CALL_GAME&&!FormCoreTransforms(0x5129B));
+ // same path for any id; reload keeps the calls; an unknown call is refused
+ check(FormCoreCallSet(0xABCDE,SC_CALL_TRANSFORM_MOVE)==SC_CALL_TRANSFORM&&FormCoreCallSet(0xABCDE,9)==SC_CALL_TRANSFORM);  // TASK #136987: 2 = Transform
+ check(ini[L"FormCoreCalls"].find(L"ABCDE:1")!=std::wstring::npos&&ini[L"FormCoreCalls"].find(L":2")==std::wstring::npos);
+ ini[L"FormCoreCalls"]=L"ABCDE:2";CoreCallLoad();check(FormCoreCallGet(0xABCDE)==SC_CALL_TRANSFORM&&FormCoreCallGet(0x5129B)==SC_CALL_GAME);  // an old saved 2 loads as Transform
+ g_formSteer=1;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);g_formSteer=0;check(FormCoreCallGet(0x777)==SC_CALL_TRANSFORM);
+ FormCoreCallSet(0xABCDE,-1);
  // Cached last-session directions never masquerade as equipped/current-session cores.
  reset(false);check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0&&ids[1]==0);
  check(!FormCorePendingTransforms(2));
@@ -173,13 +202,20 @@ int main(){
  for(uint32_t id=1;id<=16;++id)check(FormCoreTransforms(id));
  check(g_pendingPick[1]==-1&&g_pendingPick[2]==-1&&!ini.count(L"FormCorePendingLeft")&&!ini.count(L"FormCorePendingDown"));
  check(g_slotCore[1]==0x5129B&&g_slotSeen[1]&&g_pickOff); // learned identity and ongoing press retained
+ // TASK #137000: a core the detection saw move is remembered (overlay TM), saved, read back after a restart; others stay T
+ ini.erase(L"FormCoresMoved");g_movedLoaded=false;sc_table_clear(&g_movedTab);
+ check(!FormCoreMoved(0x5129B)&&!FormCoreMoved(0));FormCoreMarkMoved(0x5129B);FormCoreMarkMoved(0x5129B);FormCoreMarkMoved(0);
+ check(FormCoreMoved(0x5129B)&&!FormCoreMoved(0x5216E)&&ini[L"FormCoresMoved"]==L"5129B:1");
+ FormCoreMarkMoved(0xCF875);check(ini[L"FormCoresMoved"]==L"5129B:1,CF875:1");
+ g_movedLoaded=false;sc_table_clear(&g_movedTab);check(FormCoreMoved(0xCF875)&&FormCoreMoved(0x5129B)&&!FormCoreMoved(0xA2ACB));
+ {uint32_t e[2]={9,9};g_equippedCore[0]=0x5129B;g_equippedCore[1]=0;g_equippedReady=true;check(FormCoreEquippedIds(e)&&e[0]==0x5129B&&e[1]==0);g_equippedReady=false;check(!FormCoreEquippedIds(e));}
  printf("form-core picker + menu: %d checks PASS (offline; no game)\n",checks);
 }
 '''
 out = root / 'build' / 'form-core-test'
 out.mkdir(parents=True, exist_ok=True)
 unit = out / 'picker.cpp'
-unit.write_text(pre + state + api + ui, encoding='utf-8')
+unit.write_text(pre + state + api + moved + ui, encoding='utf-8')
 setup = Path('C:/nioh3-engine/tools/msvc/setup_x64.bat')
 exe = out / 'picker.exe'
 cmd = f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /I"{root / "src"}" /Fo"{out / "picker.obj"}" /Fe"{exe}" "{unit}"'

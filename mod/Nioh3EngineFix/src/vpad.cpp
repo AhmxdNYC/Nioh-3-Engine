@@ -560,10 +560,11 @@ int Exec(const char* line, char* r, size_t n) {
                          g.stop[2], (g.stop[3] | g.stop[4]) ? 1u : 0u, g.player ? 1 : 0, g.pos[0], g.pos[1], g.pos[2],
                          (g.player && !g.stop[2] && !(g.stop[3] | g.stop[4]) && mp == 0) ? 1 : 0);
             return Reply(r, n, 0, "%s menu_pause=%d fg=%d armed=%ld pad_reads=%llu pad_age_ms=%lld key_age_ms=%lld held=%04X lx=%d ly=%d "
-                         "unfocused=%s/%ld clients=%ld", gs, mp, ForegroundIsGame() ? 1 : 0,
+                         "unfocused=%s/%ld clients=%ld menu_repeat=%d", gs, mp, ForegroundIsGame() ? 1 : 0,
                          (long)g_armed, (unsigned long long)reads, lp ? (long long)((now - lp) / 1000) : -1LL,
                          lk ? (long long)((now - lk) / 1000) : -1LL, h.buttons, h.lx, h.ly,
-                         g_kruSwitch && *g_kruSwitch ? "on" : "off", g_kruCount ? *g_kruCount : 0L, (long)g_clients);
+                         g_kruSwitch && *g_kruSwitch ? "on" : "off", g_kruCount ? *g_kruCount : 0L, (long)g_clients,
+                         g_info.menuRepeatGate ? g_info.menuRepeatGate() : -1);
         }
     }
     return Reply(r, n, 1, "unhandled");
