@@ -160,6 +160,20 @@ int main() {
         ScValTable m{};
         CHECK(sc_vtab_parse(&m, L"8D402:1,5129B:0,1361D:2", 0, 1) == 2 && sc_vtab_get(&m, 0x8D402, 0) == 1 && sc_vtab_get(&m, 0x5129B, 7) == 0);
     }
+    // TASK #142414: Fast summon pose hold
+    CHECK(sc_fast_pose_ms_clamp(-5) == 0 && sc_fast_pose_ms_clamp(0) == 0 && sc_fast_pose_ms_clamp(500) == 500 && sc_fast_pose_ms_clamp(99999) == SC_FAST_POSE_MS_MAX);
+    CHECK(sc_fast_pose_mul(0, 240.0) == 1.f && sc_fast_pose_mul(500, 0.0) == 1.f);  // off / not learned yet = game's own
+    CHECK(std::fabs(sc_fast_pose_mul(120, 240.0) - 2.f) < 1e-4f);   // shorter hold = faster pose
+    CHECK(std::fabs(sc_fast_pose_mul(480, 240.0) - 0.5f) < 1e-4f);  // longer hold = slower pose
+    CHECK(sc_fast_pose_mul(1, 240.0) == SC_FAST_POSE_MUL_MAX && sc_fast_pose_mul(3000, 10.0) == SC_FAST_POSE_MUL_MIN);
+    CHECK(sc_fast_pose_learn(0.0, 236.0, 1.f) == 236.0 && sc_fast_pose_learn(236.0, 57.0, 1.f) == 236.0);  // a stick cut never shrinks it
+    CHECK(std::fabs(sc_fast_pose_learn(236.0, 480.0, 0.5f) - 240.0) < 1e-9);  // slowed pose: time x rate
+    // TASK #142704: the toss freezes in its last quarter for FastSummonPoseMs; before the tail / off / unlearned = normal
+    CHECK(sc_fast_pose_tail_rate(0, 640.0, 600.0) == 0.f && sc_fast_pose_tail_rate(2000, 0.0, 600.0) == 0.f);
+    CHECK(sc_fast_pose_tail_rate(2000, 640.0, 400.0) == 0.f);
+    CHECK(sc_fast_pose_tail_rate(2000, 640.0, 480.0) == SC_FAST_POSE_FREEZE);          // in the last quarter: frozen
+    CHECK(sc_fast_pose_tail_rate(400, 640.0, 700.0, 100.0) == SC_FAST_POSE_FREEZE);     // past its learned end, still frozen until the hold time
+    CHECK(sc_fast_pose_tail_rate(400, 640.0, 630.0, 400.0) == 0.f);  // hold time reached: normal speed again
     printf(g_fail ? "soul_core_api_test: %d FAIL\n" : "soul_core_api_test: PASS%.0d\n", g_fail);
     return g_fail ? 1 : 0;
 }

@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 25;  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 26;  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -31,8 +31,8 @@ const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke for
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
                                       "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:", "Move sensitivity:", "Fast summon speed:",
-                                      "Fast summon startup:", "Fast summon end pose:", "Move speed:"};  // human #141255 Move speed (24)  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500};
+                                      "Fast summon startup:", "Fast summon end pose:", "Move speed:", "Fast summon pose hold:"};  // TASK #142639 (25)  // human #141255 Move speed (24)  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500, 200};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -54,6 +54,7 @@ void SctValueText(int w, double v, char* b, size_t n) {
     else if (w == 21) { if (v <= 0) snprintf(b, n, "90%% of Transform"); else snprintf(b, n, "x%.1f", v); }  // TASK #136502
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
     else if (w == 12 && v <= 0) snprintf(b, n, "OFF");
+    else if (w == 25 && v <= 0) snprintf(b, n, "OFF (game)");  // TASK #142639
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
     else if (w == 3 && v <= 0) snprintf(b, n, "OFF (once)");
     else snprintf(b, n, "%d ms", (int)v);
@@ -678,6 +679,7 @@ const char* SctFooter(int item) {
     case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). 90% of Transform: a tiny bit slower than Transform speed, and no smoke ([Spirit] FastSummonSmoke=1 keeps it). x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 22: return "Every Fast summon soul core: speed of the yokai's startup (appear / wind-up before its first hit, from the game's own action data). Its attack keeps Fast summon speed. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonStartSpeed. Live, saved.";  // TASK #137323
     case 23: return "Every Fast summon soul core: speed of the yokai's end pose: the recovery after its last hit (past the hit's data frames) and its end action, until the game removes it. Hit frames never change. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonEndSpeed. Live, saved.";
+    case 25: return "Every Fast summon soul core: how long the player holds the body pose after the toss, in ms. OFF (0) = the game's own toss, default 200. 100 ms steps, 0-3000. [Spirit] FastSummonPoseMs. Live, saved.";  // TASK #142639 (human #142609)
     case 24: return "Every soul core yokai that moves: the speed the left stick moves it at, in cm/s. Each core is scaled from its own live speed toward this one value (Move sensitivity is the most it may boost). OFF (0) = the flat Move sensitivity step. 100 steps, 0-5000, default 1500. [Spirit] FormSteerSpeed. Live, saved.";  // human #141255
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";

@@ -83,6 +83,39 @@ inline float sc_fast_speed_mul(int x10, float sealMul) {
 #define SC_FAST_EDGE_MAX 12.f
 inline const char* sc_fast_phase_name(int p) { return p == SC_FAST_PH_START ? "start" : p == SC_FAST_PH_END ? "end" : "attack"; }
 inline float sc_fast_edge_clamp(float v) { return !(v > 1.f) ? 1.f : v > SC_FAST_EDGE_MAX ? SC_FAST_EDGE_MAX : v; }
+// TASK #142414 (human #142412): [Spirit] FastSummonPoseMs = how long the player holds the body pose after the Fast summon toss.
+// 0 = the game's own length. The pose's own length is learned live (longest pose seen, measured time x the rate it played at); until one
+// is seen the pose plays at x1. The pose rate is natural / wanted, so a longer hold slows it, a shorter one speeds it.
+#define SC_FAST_POSE_MS_MAX 3000
+#define SC_FAST_POSE_MUL_MIN 0.05f
+#define SC_FAST_POSE_MUL_MAX 30.f
+inline int sc_fast_pose_ms_clamp(int v) { return v <= 0 ? 0 : v > SC_FAST_POSE_MS_MAX ? SC_FAST_POSE_MS_MAX : v; }
+inline float sc_fast_pose_mul(int wantMs, double naturalMs) {
+    if (wantMs <= 0 || !(naturalMs > 0.0)) return 1.f;
+    const double m = naturalMs / (double)wantMs;
+    return m < SC_FAST_POSE_MUL_MIN ? SC_FAST_POSE_MUL_MIN : m > SC_FAST_POSE_MUL_MAX ? SC_FAST_POSE_MUL_MAX : (float)m;
+}
+// natural length of a pose that played durMs at rate mul (x1 when no setting); the learned value only grows (a stick cut ends it early).
+inline double sc_fast_pose_learn(double learnedMs, double durMs, float mul) {
+    const double n = durMs * (double)(mul > 0.f ? mul : 1.f);
+    return n > learnedMs ? n : learnedMs;
+}
+// TASK #142704 (human #142702): the visible Fast summon pose is the END of the last toss action (e.g. 0x28FB, sped up by FastThrow), not the
+// action after it (0x28AF only blends back to idle, so slowing it held nothing on screen). The hold plays the toss normally up to its last
+// SC_FAST_POSE_TAIL of its own length (learned live in animation ms = time x the rate it played at, kept in the ini), then freezes that
+// tail as a held pose for FastSummonPoseMs. Returns the rate for the tail, or 0 = not in the tail / held long enough (normal rate).
+#define SC_FAST_POSE_TAIL 0.25
+#define SC_FAST_POSE_FREEZE 0.01f
+inline float sc_fast_pose_tail_rate(int wantMs, double lenMs, double progMs, double heldMs = 0.0) {
+    if (wantMs <= 0 || !(lenMs > 0.0)) return 0.f;
+    if (progMs < lenMs * (1.0 - SC_FAST_POSE_TAIL)) return 0.f;
+    if (heldMs >= (double)wantMs) return 0.f;  // held long enough: the rest of the toss plays at its normal speed
+    // TASK #142748: the pose is FROZEN where the toss entered its tail (it enters at FastThrow speed, ~130 anim ms per frame at x8) for exactly
+    // FastSummonPoseMs, then the rest plays at normal speed. Live: stretching the rest over the hold ended 15-20% early (the game leaves the
+    // toss before its full animation length), a freeze does not depend on the length at all.
+    (void)lenMs;
+    return SC_FAST_POSE_FREEZE;
+}
 inline float sc_fast_phase_mul(int phase, float attackMul, float startMul, float endMul) {
     const float m = phase == SC_FAST_PH_START ? startMul : phase == SC_FAST_PH_END ? endMul : 0.f;
     return m > 1.f ? m : attackMul;

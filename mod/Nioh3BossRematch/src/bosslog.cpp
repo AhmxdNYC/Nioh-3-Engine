@@ -1402,6 +1402,14 @@ int CoreSpeedX10(uint32_t core) {
     return x;
 }
 float CoreSpeedFor(uint32_t core, float universal) { return sc_core_speed(CoreSpeedX10(core), universal); }
+// TASK #142639 (human #142602): the core of a live yokai is its own descriptor id (seal+0 >> 4, as SealMotion logs it).
+// g_pickCore is only set by the mod's d-pad press, so a soul core used through the game's own input kept the
+// previous core there and Enenra's FormCoreSpeed / FormCoresMove never applied. Prefer the yokai's own id.
+uint32_t FormCoreOf(uint64_t seal) {
+    uint32_t k = 0;
+    if (seal && Rd(seal, k) && (k >> 4)) return k >> 4;
+    return g_pickCore.load(std::memory_order_relaxed);
+}
 bool CoreMoveForced(uint32_t core) {
     if (!core) return false;
     AcquireSRWLockShared(&g_coreEditLock);
@@ -2879,8 +2887,8 @@ static bool FormCoreEquippedIdsImpl(uint32_t out[2]) {
     out[0] = g_equippedCore[0].load(); out[1] = g_equippedCore[1].load();
     return g_equippedReady.load();
 }
-static bool FormSteerForCore() {
-    const uint32_t core = g_pickCore.load(std::memory_order_relaxed);
+static bool FormSteerForCore(uint64_t seal) {
+    const uint32_t core = FormCoreOf(seal);  // TASK #142639
     int c = -1;
     if (core) { AcquireSRWLockShared(&g_coreEditLock); c = sc_table_get(&g_callTab, core); ReleaseSRWLockShared(&g_coreEditLock); }
     return sc_call_moveable(c, g_formSteer.load(std::memory_order_relaxed) > 0);
@@ -3535,7 +3543,7 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    if (FormSteerForCore() && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted || g_fh4.steerRootD > 0.5f))
+    if (FormSteerForCore(g_fh4.seal) && g_fh4.owner && !g_fh4.steer && (g_fh4.steerD > 0.5f || g_fh4.steerAtkNoted || g_fh4.steerRootD > 0.5f))
         Log("FormSteer: stick stayed off (body %.0f cm, root %.0f cm, need %d, travel %d, attack-only=%d)",
             g_fh4.steerD, g_fh4.steerRootD, g_formSteerCm.load(), g_formSteerTravelCm.load(), g_fh4.steerAtkNoted ? 1 : 0);
     g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
@@ -3944,6 +3952,18 @@ std::atomic<double> g_fastAt[kFastMax];
 std::atomic<int> g_fastN{0};
 // TASK #137323 (human #137208): [Spirit] FastSummonStartSpeed / FastSummonEndSpeed (<= 1 = off). FastSummonPhaseTick (game thread) sets the
 // press phase; FastActorMul applies start / attack / end rate (soul_core_api.h sc_fast_phase_mul).
+std::atomic<int> g_fastPoseMs{200};  // TASK #142414 [Spirit] FastSummonPoseMs (0 = off; default 200, human #142804)
+std::atomic<uint32_t> g_poseActId{0xFFFFFFFF};  // TASK #142704: the Fast summon pose toss action (learned) and its own length in anim ms
+std::atomic<double> g_poseLenMs{0};
+void FastPoseSave() {
+    wchar_t b[48]; swprintf_s(b, L"%X:%.0f", g_poseActId.load(), g_poseLenMs.load());
+    WritePrivateProfileStringW(L"Spirit", L"FastSummonPoseLearned", b, IniPath());
+}
+void FastPoseLoad() {
+    wchar_t b[48] = {}; GetPrivateProfileStringW(L"Spirit", L"FastSummonPoseLearned", L"", b, 48, IniPath());
+    wchar_t* c = nullptr; const unsigned long id = wcstoul(b, &c, 16);
+    if (c && *c == L':' && id) { g_poseActId.store((uint32_t)id); g_poseLenMs.store(wcstod(c + 1, nullptr)); }
+}
 std::atomic<float> g_fastStartMul{1.f}, g_fastEndMul{SC_FAST_EDGE_DEFAULT};  // TASK #137616: startup off by default
 std::atomic<int> g_fastPhase{SC_FAST_PH_ATTACK};  // #137323 press phase, unused since #137616
 std::atomic<int> g_fastChrPh[kFastMax];  // TASK #137616: per-chr phase (FastSummonPhaseTick); every write path sets ATTACK first, never START by default
@@ -3997,7 +4017,7 @@ float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     const bool mine = (ts && a == ts) || (g_fh4.owner && a == g_fh4.seal);
     if (!mine) return 1.f;
     // human #141378: the form's core may have its own speed ([Spirit] FormCoreSpeed) in place of Transform speed
-    const float base = sm0 > 0.f ? CoreSpeedFor(g_pickCore.load(std::memory_order_relaxed), sm0) : 1.f;
+    const float base = sm0 > 0.f ? CoreSpeedFor(FormCoreOf(a), sm0) : 1.f;  // TASK #142639: this yokai's own core
     if (ts && a == ts) {
         const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
         const double e = ms > 0.f ? (Now() - g_tailT0.load()) * 1000.0 / ms : 1.0;
@@ -4219,6 +4239,45 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
             Log("FtLayer: player layer %u flag %u rate %.3f act0 0x%X pad %04X t=%.3f", layer, flag, r, PlayerActId(a), PadButtons(nullptr, nullptr), Now());
         }
     }
+    // TASK #142414/#142704 (human #142412/#142702): FastSummonPoseMs holds the END of the last toss action of a Fast summon (the action the
+    // player leaves straight into a same-category non-toss action, live 28FD -> 28FB -> 28AF: 28FB is the pose, 28AF only blends to idle).
+    // Its own length is learned in animation ms (time x the rate it played at) and kept in the ini; its last quarter plays over the hold.
+    if (a == FkPlayer()) {
+        static uint32_t poseLast = 0xFFFFFFFF; static double actT0 = 0, lastT = 0, prog = 0; static float lastRate = 1.f; static int intLayer = -1;
+        static bool held = false; static double holdT0 = 0;
+        const uint32_t id = PlayerActId(a);
+        const double now = Now();
+        if (id != poseLast && id != 0xFFFFFFFF) {
+            if (poseLast != 0xFFFFFFFF && UseFamilyAct(poseLast) && UseCategoryAct(id) && !UseFamilyAct(id) && FastPress()) {
+                const uint32_t was = g_poseActId.load();
+                const double old = g_poseLenMs.load(), len = was == poseLast ? (std::max)(old, prog) : prog;  // anim ms, true whether held or not
+                g_poseActId.store(poseLast); g_poseLenMs.store(len);
+                if (was != poseLast || std::fabs(len - old) > 0.5) FastPoseSave();
+                Log("FastSummon pose: toss 0x%X ended after %.0f ms (%s %.0f ms, own length %.0f anim ms, hold %d ms) -> 0x%X t=%.3f", poseLast,
+                    (now - actT0) * 1000.0, held ? "held" : "not held", held ? (now - holdT0) * 1000.0 : 0.0, len, g_fastPoseMs.load(), id, now);
+            }
+            poseLast = id; actT0 = lastT = now; prog = 0; lastRate = 1.f; intLayer = -1; held = false;
+        }
+        if (intLayer < 0) intLayer = layer;
+        if ((int)layer == intLayer) {
+            const double dt = now - lastT;
+            if (dt > 0 && dt < 0.25) prog += dt * 1000.0 * lastRate;
+            lastT = now;
+        }
+        if (id == g_poseActId.load() && FastPress()) {
+            if (const float tr = sc_fast_pose_tail_rate(g_fastPoseMs.load(std::memory_order_relaxed), g_poseLenMs.load(), prog, held ? (now - holdT0) * 1000.0 : 0.0); tr > 0.f) {
+                if (!held) { held = true; holdT0 = now;
+                    Log("FastSummon pose: holding toss 0x%X end at %.0f/%.0f anim ms for %d ms (rate %.3f) t=%.3f", id, prog, g_poseLenMs.load(), g_fastPoseMs.load(), tr, now); }
+                if ((int)layer == intLayer) lastRate = tr;
+                return tr;
+            }
+        }
+        if ((int)layer == intLayer) {
+            bool ft = false;
+            for (int i = 0, n = g_ftN.load(); i < n; ++i) ft = ft || g_ftActs[i].load() == id;
+            lastRate = (m > 1.f && ft) ? r * m : r;
+        }
+    }
     if (m <= 1.f || a != FkPlayer()) return r;
     const uint32_t id = PlayerActId(a);
     bool hit = false;
@@ -4248,6 +4307,10 @@ void FastThrowInstall() {
     g_fastTrace.store(IniInt(L"Spirit", L"FastSummonTrace", 0)); g_fastTraceQuietMs.store(IniInt(L"Spirit", L"FastSummonTraceQuietMs", 0));  // TASK #137616  // TASK #137013: 0 = Fast summon has no smoke
     { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"FastSummonStartSpeed", L"1", tb, 32, IniPath()); g_fastStartMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr)));
       GetPrivateProfileStringW(L"Spirit", L"FastSummonEndSpeed", L"6", tb, 32, IniPath()); g_fastEndMul.store(sc_fast_edge_clamp((float)wcstod(tb, nullptr))); }  // TASK #137323
+    g_fastPoseMs.store(sc_fast_pose_ms_clamp(IniInt(L"Spirit", L"FastSummonPoseMs", 200)));  // TASK #142414 (human #142412)
+    FastPoseLoad();  // TASK #142704
+    Log("FastSummon pose: hold %d ms (FastSummonPoseMs, 0 = off), toss 0x%X own length %.0f anim ms (%s) (TASK #142748)", g_fastPoseMs.load(),
+        g_poseActId.load(), g_poseLenMs.load(), g_poseActId.load() == 0xFFFFFFFF ? "not learned yet: the first Fast summon measures it" : "learned");
     const bool fastEdge = g_fastStartMul.load() > 1.f || g_fastEndMul.load() > 1.f;
     Log("FastSummon: yokai speed %s (x%.2f now) [Spirit] FastSummonSpeed (TASK #136502), smoke %s (FastSummonSmoke, TASK #137013)",
         g_fastSpeed.load() > 0 ? "own value" : "= 90% of Transform speed", FastSummonMul(), g_fastSmoke.load() ? "kept" : "off");
@@ -4653,13 +4716,13 @@ static bool FormSteerBodyPos(uint64_t seal, float* p) {
 }
 // human #130495. True once this form's yokai body has moved FormSteerCm from its first spot. Does not move anyone.
 static bool FormSteerTick(double now) {
-    if (!FormSteerForCore() || !g_fh4.seal) {  // TASK #136987: Transform steers only once detection arms it
+    if (!FormSteerForCore(g_fh4.seal) || !g_fh4.seal) {  // TASK #136987: Transform steers only once detection arms it
         if (g_fh4.steer) { g_fh4.steer = false; g_fbLS.store(g_fbLSIni); }
         return false;
     }
     if (g_fh4.steer) return true;
     // human #141372: [Spirit] FormCoresMove - this core steers from the start, no travel detection.
-    if (const uint32_t core = g_pickCore.load(std::memory_order_relaxed); CoreMoveForced(core)) {
+    if (const uint32_t core = FormCoreOf(g_fh4.seal); CoreMoveForced(core)) {  // TASK #142639
         g_fh4.steer = true;
         Log("FormSteer: core %X in FormCoresMove -> left stick steers from the start t=%.3f", core, now);
         return true;
@@ -5985,6 +6048,40 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
 std::atomic<int> g_sehAtk{1};
 // #82127: old aggregate/appearance counts must never seed the corrected observer.
 const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA4" : L"SealHits4"; }
+// TASK #142009: lowest burst count of COMPLETE forms (idle edge / own despawn) only; caps the tail-watch raise (SdhTailRaise).
+const wchar_t* SecHitsFull() { return g_sehAtk.load() > 0 ? L"SealHitsFullA4" : L"SealHitsFull4"; }
+int SealFullMinFor(uint32_t id) { wchar_t k[16]; swprintf_s(k, L"%X", id); return (int)GetPrivateProfileIntW(SecHitsFull(), k, 0, IniPath()); }
+void SealFullMinNote(uint32_t id, int bursts, const char* why) {
+    if (!id) return;
+    const int was = SealFullMinFor(id), v0 = SdhFullMinNote(was, bursts);
+    if (!v0) return;
+    wchar_t k[16], v[16]; swprintf_s(k, L"%X", id); swprintf_s(v, L"%d", v0);
+    WritePrivateProfileStringW(SecHitsFull(), k, v, IniPath());
+    Log("SealEndOnHit learn core %X: complete-form minimum %d hit bursts (was %d) -> [%ls] (%s)", id, v0, was, SecHitsFull(), why);
+}
+// TASK #142146: highest complete count ([SealHitsFullMax*]); with [SealHitsFull*] it tells a constant core from a variable one (SdhCountAgreed).
+const wchar_t* SecHitsFullMax() { return g_sehAtk.load() > 0 ? L"SealHitsFullMaxA4" : L"SealHitsFullMax4"; }
+int SealFullMaxFor(uint32_t id) { wchar_t k[16]; swprintf_s(k, L"%X", id); return (int)GetPrivateProfileIntW(SecHitsFullMax(), k, 0, IniPath()); }
+void SealFullMaxNote(uint32_t id, int bursts, const char* why) {
+    if (!id) return;
+    const int was = SealFullMaxFor(id), v0 = SdhFullMaxNote(was, bursts);
+    if (!v0) return;
+    wchar_t k[16], v[16]; swprintf_s(k, L"%X", id); swprintf_s(v, L"%d", v0);
+    WritePrivateProfileStringW(SecHitsFullMax(), k, v, IniPath());
+    Log("SealEndOnHit learn core %X: complete-form maximum %d hit bursts (was %d) -> [%ls] (%s)", id, v0, was, SecHitsFullMax(), why);
+}
+// TASK #142184: lowest complete count from ALL complete sources (idle edge, own despawn, tail up to the despawn), the pair of
+// [SealHitsFullMax*] for SdhCountAgreed. [SealHitsFull*] (idle edge / own despawn only) stays the cap of the tail raise.
+const wchar_t* SecHitsFullLow() { return g_sehAtk.load() > 0 ? L"SealHitsFullLowA4" : L"SealHitsFullLow4"; }
+int SealFullLowFor(uint32_t id) { wchar_t k[16]; swprintf_s(k, L"%X", id); return (int)GetPrivateProfileIntW(SecHitsFullLow(), k, 0, IniPath()); }
+void SealFullLowNote(uint32_t id, int bursts, const char* why) {
+    if (!id) return;
+    const int was = SealFullLowFor(id), v0 = SdhFullMinNote(was, bursts);
+    if (!v0) return;
+    wchar_t k[16], v[16]; swprintf_s(k, L"%X", id); swprintf_s(v, L"%d", v0);
+    WritePrivateProfileStringW(SecHitsFullLow(), k, v, IniPath());
+    Log("SealEndOnHit learn core %X: complete-form lowest %d hit bursts (was %d) -> [%ls] (%s)", id, v0, was, SecHitsFullLow(), why);
+}
 int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
     return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
@@ -6645,7 +6742,7 @@ void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
         if (!Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
         float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
         g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
-        g.base=g_sealMul.load()>0?CoreSpeedFor(g_pickCore.load(),g_sealMul.load()):1.f; g.ramp=g_tailRampMs.load();  // human #141378
+        g.base=g_sealMul.load()>0?CoreSpeedFor(FormCoreOf(actor),g_sealMul.load()):1.f;  /* TASK #142639 */ g.ramp=g_tailRampMs.load();  // human #141378
         if (g_ghostKeepSpeed.load()) g.tail=g.base;
         PressGhostForget(actor);
         AcquireSRWLockExclusive(&g_pressGhostLock); g_pressGhosts.push_back(g); ReleaseSRWLockExclusive(&g_pressGhostLock);
@@ -6695,13 +6792,16 @@ void SealTailHitTick() {
                 present == 0 ? "despawn" : "identity/30s guard");
             // TASK #139948 (98AB/55141: data 2 windows, 7 more hits after the exit): the seal's own despawn closes the attack, so every
             // burst it dealt up to then is the core's count; raise the learned count so the next use ends at the real last hit's spawn.
+            if (present == 0 && w.sid) { SealFullMaxNote(w.sid, w.bursts, "tail up to the despawn"); SealFullLowNote(w.sid, w.bursts, "tail up to the despawn"); }  // TASK #142146 max, #142184 low
             if (present == 0 && w.sid && w.bursts > w.atExit && w.bursts <= 32) {
-                const int had = SealHitsFor(w.sid);
-                if (w.bursts > had) {
-                    wchar_t k[16], v[16]; swprintf_s(k, L"%X", w.sid); swprintf_s(v, L"%d", w.bursts);
+                const int had = SealHitsFor(w.sid), full = SealFullMinFor(w.sid), to = SdhTailRaise(had, w.bursts, full);  // TASK #142009
+                if (to) {
+                    wchar_t k[16], v[16]; swprintf_s(k, L"%X", w.sid); swprintf_s(v, L"%d", to);
                     WritePrivateProfileStringW(SecHits(), k, v, IniPath());
-                    Log("SealTailHits learn core %X: %d hit bursts up to the seal's despawn (was %d, exit at %d) -> [%ls]", w.sid, w.bursts, had, w.atExit, SecHits());
-                }
+                    Log("SealTailHits learn core %X: %d hit bursts up to the seal's despawn (was %d, exit at %d, complete-form minimum %d) -> %d [%ls]",
+                        w.sid, w.bursts, had, w.atExit, full, to, SecHits());
+                } else if (w.bursts > had)
+                    Log("SealTailHits core %X: %d bursts up to the despawn not learned: complete forms of this core land %d (was %d)", w.sid, w.bursts, full, had);
             }
             it = g_tailHitWatches.erase(it); continue;
         }
@@ -6848,6 +6948,7 @@ void SealEndOnHitTick() {
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
             }
+            SealFullMinNote(sid, bursts, "own despawn"); SealFullMaxNote(sid, bursts, "own despawn"); SealFullLowNote(sid, bursts, "own despawn");  // TASK #142009 min, #142146 max, #142184 low
             SealHelperLastLearn(sid, lastBurstOwner, "seal despawn");
         }
         if (const uint64_t ts = g_tailSeal.load(); ts && ts != g_ghostSeal.load()) {
@@ -7185,12 +7286,48 @@ void SealEndOnHitTick() {
     // hold waited for the yokai's idle edge, the recovery time after its last hit. Needs a real hit this form; SealEndMinMs still applies.
     bool zeroFire = false;
     static double zeroSess = -1; static bool zeroSeen = false; static std::set<uint64_t> zeroHit; static int zeroWhy = -1;
-    if (zeroSess != sess) { zeroSess = sess; zeroSeen = false; zeroHit.clear(); zeroWhy = -1; }
+    // TASK #141883: the map the proof uses. It is the bind map until the seal is live in an action that map does not name (the finish
+    // link is not the chain the seal plays: CA2E9 C56 cut -> plays C57; 16127 C80 -> C81 -> C82); then it is rebuilt from that live action.
+    static SdhResult zmap; static bool zmapOk = false, zmapLive = false, zPassed = false; static uint32_t zmapTried = 0xFFFFFFFF;
+    static int zFullMin = 0, zFullMax = 0; static uint32_t zFullSid = 0; static bool zAgreeSaid = false;
+    if (zeroSess != sess) { zeroSess = sess; zeroSeen = false; zeroHit.clear(); zeroWhy = -1; zmapLive = false; zPassed = false; zmapTried = 0xFFFFFFFF;
+                            zFullSid = 0; zAgreeSaid = false; }
+    if (sid && sid != zFullSid) { zFullSid = sid; zFullMin = SealFullLowFor(sid); zFullMax = SealFullMaxFor(sid); }  // TASK #142146: once per form and core
     for (const auto& a : freshActors) if (a.second > 0) zeroHit.insert(a.first);
-    if (g_exitZero.load() > 0 && !fire && !idleOnly && seal && poolOk && !n && !open && bursts > 0 && lastClose > 0) {
+    // TASK #141883: a frame / hit exit that SealEndMinMs holds back (30744, D839B, BE8D9: every 1-hit core turned back at 0.70 s, 370 ms
+    // after its hitbox closed) must not stop the 0 ms proof from being checked: before, '!fire' skipped it on every held tick.
+    const bool minHeld = fire && now - sess < g_sealEndMinMs.load() / 1000.0;
+    if (g_exitZero.load() > 0 && !idleOnly && seal && (!fire || minHeld)) {
         SieSample zs; SieRead(seal, zs);
-        if (shapeOk && shape.srcIdx >= 0 && zs.act == shape.ids[shape.srcIdx]) zeroSeen = true;
-        int why = SdhSealSourcesDone(shapeOk, shape, zs.act, zs.f, zeroSeen, bursts, want) ? 0 : 1;
+        if (!zmapLive) { zmap = shape; zmapOk = shapeOk; }
+        if (zs.act != zmapTried && SdhNeedsRemap(zmapOk, zmap, zs.act)) {
+            zmapTried = zs.act;
+            char zd[320]; SealDataHits(seal, sid, zd, sizeof zd);
+            if (g_sdhLastReadOk && g_sdhLastRead.chain > 0 && g_sdhLastRead.ids[0] == zs.act) {
+                zmap = g_sdhLastRead; zmapOk = zmapLive = true; zeroSeen = false;
+                Log("SealExitZero core %X: seal plays act %X, not in the mapped chain - map rebuilt from it: %s t=%.3f", sid, zs.act, zd, now - sess);
+            } else Log("SealExitZero core %X: seal plays act %X, not in the mapped chain - rebuild failed (%s) t=%.3f", sid, zs.act, zd, now - sess);
+        }
+        if (zmapOk) for (int i = 0; i < zmap.chain && i <= zmap.srcIdx; ++i)
+            if (zs.act == zmap.ids[i] && (zmap.perAct[i] > 0 || i == zmap.srcIdx)) zPassed = true;
+        if (zmapOk && zmap.srcIdx >= 0 && zs.act == zmap.ids[zmap.srcIdx]) zeroSeen = true;
+    }
+    if (g_exitZero.load() > 0 && (!fire || minHeld) && !idleOnly && seal && poolOk && !n && !open && bursts > 0 && lastClose > 0) {
+        SieSample zs; SieRead(seal, zs);
+        static double zWant0Sess = -1;  // TASK #141995: a rebuilt map needs a known hit count; say once per form when it cannot prove the end
+        if (zmapLive && want <= 0 && zWant0Sess != sess) {
+            zWant0Sess = sess;
+            Log("SealExitZero core %X: map rebuilt from the live action, hit count unknown (want %d) - no 0 ms proof, the yokai's own end decides t=%.3f",
+                sid, want, now - sess);
+        }
+        const bool zAgreed = SdhCountAgreed(zFullMin, zFullMax, want);  // TASK #142184: zFullMin = [SealHitsFullLow*]
+        if (zmapLive && want > 0 && !zAgreed && !zAgreeSaid) {
+            zAgreeSaid = true;
+            Log("SealExitZero core %X: map rebuilt from the live action, complete forms land %d..%d (want %d) - no 0 ms proof in the source action, waits for the action to change t=%.3f",
+                sid, zFullMin, zFullMax, want, now - sess);
+        }
+        int why = (zmapLive ? SdhRemapDone(zmapOk, zmap, zs.act, zs.f, zeroSeen, zPassed, bursts, want, zAgreed)
+                            : SdhSealSourcesDone(zmapOk, zmap, zs.act, zs.f, zeroSeen, bursts, want)) ? 0 : 1;
         uint64_t blocker = 0;
         if (!why) {
             const uint64_t tbl = ActorTableGlobal();
@@ -7205,12 +7342,13 @@ void SealEndOnHitTick() {
         if (why != zeroWhy) {
             zeroWhy = why;
             if (why == 2) Log("SealExitZero core %X: seal data done (act %X f%.1f, last source act %X f%u), hit %d closed at %.3f s - waits for source %llX to be gone t=%.3f",
-                              sid, zs.act, zs.f, shape.ids[shape.srcIdx], shape.srcEnd, bursts, lastClose, (unsigned long long)blocker, now - sess);
+                              sid, zs.act, zs.f, zmap.srcIdx >= 0 ? zmap.ids[zmap.srcIdx] : 0, zmap.srcEnd, bursts, lastClose, (unsigned long long)blocker, now - sess);
         }
         if (!why) {
             fire = zeroFire = true;
-            Log("SealExitZero core %X: last hitbox closed at %.3f s (hit %d, want %d%s), seal act %X f%.1f past its last source f%u in act %X, no thrown actor left - turning back %.3f s after the press (+%d ms)",
-                sid, lastClose, bursts, want, lowConf ? ", count not certain" : "", zs.act, zs.f, shape.srcEnd, shape.ids[shape.srcIdx], now - sess,
+            Log("SealExitZero core %X: last hitbox closed at %.3f s (hit %d, want %d%s), seal act %X f%.1f past its last source f%u in act %X%s, no thrown actor left - turning back %.3f s after the press (+%d ms)",
+                sid, lastClose, bursts, want, lowConf ? ", count not certain" : "", zs.act, zs.f, zmap.srcEnd, zmap.srcIdx >= 0 ? zmap.ids[zmap.srcIdx] : 0,
+                zmapLive ? " (map rebuilt from the live action)" : "", now - sess,
                 (int)((now - sess - lastClose) * 1000.0));
         }
     }
@@ -7234,6 +7372,7 @@ void SealEndOnHitTick() {
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
                     sid, bursts, had, SecHits(), g_sieWhy);
             }
+            SealFullMinNote(sid, bursts, "idle edge"); SealFullMaxNote(sid, bursts, "idle edge"); SealFullLowNote(sid, bursts, "idle edge");  // TASK #142009 min, #142146 max, #142184 low
         }
         // #108189: the owner of the last burst needs no closed window (Kasha's cart burst is still open at the idle edge)
         if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid)) {
@@ -8347,16 +8486,17 @@ double SoulTune(int which, int dir, bool* live) {
                           {L"FormSteerMove", 1, 1, 8, false},
                           {L"FastSummonSpeed", .1, 0, 3, true},
                           {L"FastSummonStartSpeed", .5, 1, 12, true}, {L"FastSummonEndSpeed", .5, 1, 12, true},
-                          {L"FormSteerSpeed", 100, 0, 5000, false}};  // human #141255: 24 Move speed  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
+                          {L"FormSteerSpeed", 100, 0, 5000, false},
+                          {L"FastSummonPoseMs", 100, 0, SC_FAST_POSE_MS_MAX, false}};  // TASK #142639 (human #142609): 25 Fast summon pose hold  // human #141255: 24 Move speed  // TASK #137323 (human #137208): 22 / 23 Fast summon startup / end pose speed, 1 = off  // TASK #136502 (human #136500): 21 = Fast summon yokai speed, 0 = same as Transform speed  // TASK #136492 (human #136487): one move sensitivity for every Transform moveable core  // TASK #135613 / #136113 exit knobs, live atomics
     if (which < 0 || which >= (int)(sizeof k / sizeof *k) || !k[which].key) return 0;
-    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || which == 24 || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
+    if (live) *live = which < 5 || (which >= 7 && which < 11) || (which >= 15 && which < 21) || which == 24 || which == 25 || g_ftHooked.load();  // 22 / 23 ride the speed hooks too (TASK #137323)  // 21 rides the speed hooks  // 11..13 ride the FastThrow speed hooks too
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
              : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load()
              : which == 10 ? g_fccMs.load() : which == 11 ? (double)g_ftMul.load() : which == 12 ? (double)g_rtMaxMs.load()
              : which == 13 ? (double)g_tailRampMs.load() : which == 15 ? (double)g_ghostOn.load() : which == 16 ? (double)g_sieMinMs.load()
              : which == 17 ? (double)g_exitOnHelperMs.load() : which == 18 ? (double)g_exitEndPct.load()
              : which == 19 ? (double)g_exitAfterShotMs.load() : which == 20 ? (double)g_formSteerMove.load()
-             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load() : which == 24 ? (double)g_formSteerSpeed.load()
+             : which == 21 ? g_fastSpeed.load() / 10.0 : which == 22 ? (double)g_fastStartMul.load() : which == 23 ? (double)g_fastEndMul.load() : which == 24 ? (double)g_formSteerSpeed.load() : which == 25 ? (double)g_fastPoseMs.load()
              : g_frz[which - 7].load();
     if (which == 11 && v <= 1) v = 1;  // g_ftMul 0 = off = x1
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
@@ -8366,7 +8506,7 @@ double SoulTune(int which, int dir, bool* live) {
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
-        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500};
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500, 200};
         v = shipped[which];
     } else if ((which == 17 || which == 19) && v < 0) v = dir > 0 ? 0 : -1;  // -1 = off: Right turns it on at 0 ms
     else if (which == 21 && v <= 0) v = dir > 0 ? SC_FAST_SPEED_MIN / 10.0 : 0;  // TASK #136502: 0 (= Transform speed) <-> x1.0 <-> .. x3.0
@@ -8396,7 +8536,8 @@ double SoulTune(int which, int dir, bool* live) {
     case 21: g_fastSpeed.store(sc_fast_speed_clamp((int)std::lround(v * 10))); break;  // TASK #136502: FastActorMul reads it per frame
     case 22: g_fastStartMul.store(sc_fast_edge_clamp((float)v)); break;  // TASK #137323: FastActorMul reads it per frame
     case 23: g_fastEndMul.store(sc_fast_edge_clamp((float)v)); break;
-    case 24: g_formSteerSpeed.store((int)v); break;  // human #141255: FormSteerBoost reads it per step
+    case 24: g_formSteerSpeed.store((int)v); break;
+    case 25: g_fastPoseMs.store(sc_fast_pose_ms_clamp((int)v)); break;  // TASK #142639: the Fast summon pose tick reads it per frame  // human #141255: FormSteerBoost reads it per step
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];

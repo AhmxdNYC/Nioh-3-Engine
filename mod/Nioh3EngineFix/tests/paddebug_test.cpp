@@ -19,6 +19,9 @@ int main() {
     paddebug::RecordBlock(paddebug::kMenuOpen | paddebug::kLatch);
     paddebug::Format(paddebug::Read(), 1200, 1, a, sizeof a, b, sizeof b);
     CHECK(!strcmp(b, "Mod blocking pad: yes (menu open, release latch, FormBlockPad)"));
+    paddebug::RecordBlock(paddebug::kGameMenuStick);  // #140978 left stick centred in a time-running game menu
+    paddebug::Format(paddebug::Read(), 1200, 0, a, sizeof a, b, sizeof b);
+    CHECK(!strcmp(b, "Mod blocking pad: yes (game menu stick)"));
     paddebug::Record(2, 9, 0, 0, 0, 0, 0, 0, 0, true, 1000);  // own polling: EF hides nothing from a game that is not reading
     paddebug::Format(paddebug::Read(), 1200, 0, a, sizeof a, b, sizeof b);
     CHECK(!strncmp(a, "P2* #9 ", 7)); CHECK(!strcmp(b, "Mod blocking pad: no"));

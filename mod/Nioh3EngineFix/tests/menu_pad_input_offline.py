@@ -103,7 +103,7 @@ void ResetAll() {
     g_virtLogged = 0; g_modalityLogged = 0; g_mlog[0] = 0; g_mlogLen = 0; g_mlogLines = 0;
     g_keyMsgEdge = 0; for (int i = 0; i < 16; ++i) { g_keyMsgAt[i] = 0; g_keySeenDownAt[i] = 0; }
     g_cfg = Cfg{};
-    for (auto& r : g_mrep) r = menurepeat::State{}; for (auto& r : g_mstk) r = menurepeat::StickState{}; g_gameMenuOpen = 0; g_mrepLogged = 0;
+    for (auto& r : g_mrep) r = menurepeat::State{}; for (auto& r : g_mstk) r = menurepeat::StickState{}; g_gameMenuOpen = 0; g_gameMenuStick = 0; g_mrepLogged = 0; g_mstkLogged = 0; g_mstkBlockLogged = 0;
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
 }
@@ -177,6 +177,47 @@ int main() {
     { bool allDown = true; for (ULONGLONG t = 1000; t < 3000; t += 8) allDown &= (Feed(t, DD).Gamepad.wButtons & DD) != 0; CHECK(allDown); }
     ResetAll(); g_gameMenuOpen = 1; g_open = 1;  // the mod menu is open: it owns the pad (blank), no repeat bookkeeping
     { for (ULONGLONG t = 1000; t < 2000; t += 8) Feed(t, DD); CHECK(g_mrep[0].repeats == 0); }
+
+    // ---- #140978 a game menu that keeps game time running: the left stick never reaches the game (character stays still),
+    // the menu still steps from the stick D-pad pulses (fresh tilt at once, hold repeats); right stick + triggers untouched ----
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1;
+    { Feed(1000, 0);  // menu open, stick centred
+      bool stickSeen = false, rsBad = false, ltBad = false; int edges = 0; bool prev = false, firstDown = false;
+      for (ULONGLONG t = 1008; t < 2400; t += 8) {
+          const auto st = Feed(t, 0, 3000, -30000, 5000, 6000, 200, 0);
+          stickSeen |= st.Gamepad.sThumbLX != 0 || st.Gamepad.sThumbLY != 0;
+          rsBad |= st.Gamepad.sThumbRX != 5000 || st.Gamepad.sThumbRY != 6000; ltBad |= st.Gamepad.bLeftTrigger != 200;
+          const bool d = (st.Gamepad.wButtons & DD) != 0;
+          if (t == 1008) firstDown = d;
+          if (d && !prev) ++edges;
+          prev = d;
+          CHECK(st.dwPacketNumber != 7);  // a changed state gets its own packet number
+      }
+      CHECK(!stickSeen && !rsBad && !ltBad && firstDown && edges >= 10 && edges <= 14);
+      CHECK((Blocked() & paddebug::kGameMenuStick) != 0);
+      CHECK(strstr(g_mlog, "left stick held back from the game") != nullptr);
+      const char* first = strstr(g_mlog, "left stick held back"); CHECK(first && !strstr(first + 1, "left stick held back"));  // logged once
+      // a small tilt under the D-pad threshold is centred too (no creeping walk), and gives no step
+      const auto sm = Feed(2400, 0, 0, -9000); CHECK(sm.Gamepad.sThumbLY == 0 && !(sm.Gamepad.wButtons & DD));
+      // centred stick: nothing to hold back, the pad passes through unchanged
+      const auto c = Feed(2408, A); CHECK(c.Gamepad.wButtons == A && c.dwPacketNumber == 7 && !(Blocked() & paddebug::kGameMenuStick)); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1;  // stick already held when the menu signal arrives: centred at once, no step before 400 ms
+    { bool stickSeen = false, early = false;
+      for (ULONGLONG t = 1000; t < 1390; t += 8) { const auto st = Feed(t, 0, 0, 30000); stickSeen |= st.Gamepad.sThumbLY != 0; early |= (st.Gamepad.wButtons & DU) != 0; }
+      CHECK(!stickSeen && !early); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 0;  // time stopped (58B/58C) or control-off only: the stick passes (analog screens)
+    { const auto st = Feed(1000, 0, 3000, -30000); CHECK(st.Gamepad.sThumbLX == 3000 && st.Gamepad.sThumbLY == -30000 && !(Blocked() & paddebug::kGameMenuStick)); }
+    ResetAll(); g_gameMenuStick = 1;  // gate off (gameplay): never touched even if the stick flag were stale
+    { const auto st = Feed(1000, 0, 3000, -30000); CHECK(st.Gamepad.sThumbLY == -30000 && st.dwPacketNumber == 7); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1; g_cfg.gmRepeat = 0;  // row off: the stick passes as before
+    { const auto st = Feed(1000, 0, 3000, -30000); CHECK(st.Gamepad.sThumbLY == -30000 && st.Gamepad.sThumbLX == 3000); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1;  // overlay stalled (no Present for > 1 s): never leaves the stick stuck
+    { Feed(1000, 0); const auto st = Feed(2600, 0, 0, -30000, 0, 0, 0, 0, false, false); CHECK(st.Gamepad.sThumbLY == -30000); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1;  // own polling (menu input only) is never rewritten
+    { const auto st = Feed(1000, 0, 0, -30000, 0, 0, 0, 0, true); CHECK(st.Gamepad.sThumbLY == -30000); }
+    ResetAll(); g_gameMenuOpen = 1; g_gameMenuStick = 1; g_open = 1;  // mod menu (also the hosted Boss Rematch / Practice pages): blank, camera live
+    { const auto st = Feed(1000, 0, 3000, -30000, 5000, 6000, 200, 0);
+      CHECK(!st.Gamepad.sThumbLX && !st.Gamepad.sThumbLY && st.Gamepad.sThumbRX == 5000 && !st.Gamepad.bLeftTrigger && (Blocked() & paddebug::kMenuOpen)); }
 
     // ---- closed menu: the game sees the pad unchanged, no menu edges ----
     ResetAll();

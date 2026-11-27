@@ -153,6 +153,12 @@ int main() {
         StickStep(s, 0, 0, true, t += 8, 1);
         CHECK(StickStep(s, kSR, 0, true, t += 8, 1) == kDRight);
     }
+    {   // #140978 the left stick is held back from the game only while the menu signal is on and game time runs
+        CHECK(StickHeldBack(true, false));    // pause / inventory menu, game time running: the character could walk
+        CHECK(!StickHeldBack(true, true));    // game time stopped (58B/58C): the player cannot move, analog screens keep the stick
+        CHECK(!StickHeldBack(false, true));   // stop flags only
+        CHECK(!StickHeldBack(false, false));  // gameplay, or control-off only (shrine / blacksmith: the game takes control itself)
+    }
     {   // dominant axis: a mostly-down diagonal pulses only D-down
         CHECK(StickDominant(kSD | kSR, 22000, -30000) == kSD);
         CHECK(StickDominant(kSD | kSR, 30000, -22000) == kSR);

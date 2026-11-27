@@ -203,5 +203,101 @@ int main() {
         uint8_t* b0 = &o7[0]; b0[0x14] = 3; std::fill(memo.begin(), memo.end(), 0);                        // byte +0x14 > 2: may hit
         SdhMarkSpawnHits(m, 3, o7.data(), 3, o8.data(), 1, memo.data()); assert(m[0].evHits[0] == 1);
     }
+    {   // TASK #141883 CA2E9 (live 09:48, BR 9b5f673e): bound in C56 (no hits, finish link outside the file = cut), plays C57 (its hit) -> idle
+        std::vector<uint8_t> c7h; Row(c7h, 40, 46, 50);
+        SdhAction ca[3]; ca[0].id = 0xC56; ca[0].next = 0xC99; ca[1].id = 0xC57; ca[1].next = 1; ca[1].hb = c7h.data(); ca[1].nhb = 1; ca[2].id = 1; ca[2].next = 1;
+        SdhResult bound = SdhCount(ca, 3, 0xC56); assert(bound.cut && bound.srcIdx < 0);
+        assert(!SdhSealSourcesDone(true, bound, 0xC57, 100.f, true, 1, 1));        // the bind map can never prove it (the old idle wait)
+        assert(!SdhNeedsRemap(true, bound, 0xC56) && SdhNeedsRemap(true, bound, 0xC57));
+        assert(!SdhNeedsRemap(true, bound, 1) && !SdhNeedsRemap(true, bound, 0xFFFFFFFF) && !SdhNeedsRemap(true, bound, 0xFFFF));
+        SdhResult live = SdhCount(ca, 3, 0xC57); assert(!live.cut && live.srcIdx == 0 && live.srcEnd == 46);
+        assert(!SdhRemapDone(true, live, 0xC57, 45.f, true, true, 1, 1, true));         // its hitbox is still due
+        assert(SdhRemapDone(true, live, 0xC57, 46.f, true, true, 1, 1, true));          // past it: 0 ms turn-back, no idle wait
+        assert(SdhRemapDone(true, live, 1, 2.f, true, true, 1, 1, true));               // idle after the source action
+        assert(!SdhRemapDone(true, live, 0xC57, 46.f, true, true, 1, 2, true));         // live count below the wanted count: not done
+        ca[1].next = 0xC57; live = SdhCount(ca, 3, 0xC57); assert(live.loopHits);  // the hit action loops: never done from data
+        assert(!SdhRemapDone(true, live, 0xC57, 99.f, true, true, 1, 1, true));
+    }
+    {   // TASK #141883 16127: map C80 > 1, live C80 -> C81 (hit-free) -> despawn. A rebuilt map with no source is done only after a source action.
+        SdhAction ta[2]; ta[0].id = 0xC81; ta[0].next = 0xFFFF; ta[1].id = 1; ta[1].next = 1;
+        SdhResult tail = SdhCount(ta, 2, 0xC81); assert(!tail.cut && !tail.loopHits && tail.srcIdx < 0);
+        assert(SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 9, 9, true));
+        assert(!SdhRemapDone(true, tail, 0xC81, 3.f, false, false, 9, 9, true));       // never in a source action: no proof (3B1AB rule)
+        assert(!SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 8, 9, true));
+        ta[0].next = 0xC99; tail = SdhCount(ta, 2, 0xC81); assert(tail.cut && !SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 9, 9, true));
+    }
+    {   // TASK #141995: want == 0 (no data count, nothing learned) on a rebuilt map never proves the end - the seal already left its finish
+        // links once (16127 C80 -> C81), so a later hit reached by a non-link change could be cut. The bind map keeps its old rule.
+        std::vector<uint8_t> h1; Row(h1, 10, 20, 30);
+        SdhAction ra[3]; ra[0].id = 0xC80; ra[0].next = 0xC81; ra[0].hb = h1.data(); ra[0].nhb = 1; ra[1].id = 0xC81; ra[1].next = 1; ra[2].id = 1; ra[2].next = 1;
+        SdhResult live = SdhCount(ra, 3, 0xC80); assert(!live.cut && !live.loopHits && live.srcIdx == 0 && live.srcEnd == 20);
+        assert(SdhRemapDone(true, live, 0xC80, 20.f, true, true, 1, 1, true));          // known count met: fires
+        assert(!SdhRemapDone(true, live, 0xC80, 20.f, true, true, 1, 0, true));         // want 0, past the source frame: no proof
+        assert(!SdhRemapDone(true, live, 0xC81, 3.f, true, true, 3, 0, true));          // want 0, in the hit-free tail after 3 hits: no proof
+        assert(!SdhRemapDone(true, live, 1, 2.f, true, true, 1, 0, true));              // want 0, idle: no proof (the yokai's own end decides)
+        assert(!SdhRemapDone(true, live, 0xC81, 3.f, true, true, 1, -1, true));         // unknown count
+        SdhAction ta[2]; ta[0].id = 0xC81; ta[0].next = 0xFFFF; ta[1].id = 1; ta[1].next = 1;
+        SdhResult tail = SdhCount(ta, 2, 0xC81); assert(tail.srcIdx < 0);
+        assert(!SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 1, 0, true));        // source-free rebuilt tail, want 0: passedSrc + 1 burst is not enough
+        assert(SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 1, 1, true));
+        assert(SdhSealSourcesDone(true, live, 0xC80, 20.f, true, 1, 0));          // the bind map (not rebuilt) is unchanged for want 0
+    }
+    {   // TASK #142009: the tail raise never goes above the complete-form minimum (16127 full 9, tail 10; 1DCD1 full 3, tail 4)
+        assert(SdhTailRaise(9, 10, 9) == 0 && SdhTailRaise(3, 4, 3) == 0);
+        assert(SdhTailRaise(2, 7, 0) == 7);                       // 98AB: no complete form seen yet - the #139948 raise stays
+        assert(SdhTailRaise(2, 7, 5) == 5 && SdhTailRaise(5, 5, 0) == 0 && SdhTailRaise(4, 3, 0) == 0);
+        assert(SdhFullMinNote(0, 3) == 3 && SdhFullMinNote(4, 3) == 3 && SdhFullMinNote(3, 4) == 0 && SdhFullMinNote(3, 0) == 0);
+    }
+    {   // TASK #142146 BEF02 (live A/B 11-27 11:23, BR 995feb67): 50E4 > 50E2 > 50F4 > 5014 > idle, every link '> 1'; lands 2 or 3 bursts.
+        // The map rebuilt from 50F4 (source ends f83) proved the end at f83.2 with the learned 2; burst 3 came in 5014 at +2.969.
+        std::vector<uint8_t> h4, h5; Row(h4, 70, 83, 90); Row(h5, 20, 40, 50);
+        SdhAction ba[3]; ba[0].id = 0x50F4; ba[0].next = 1; ba[0].hb = h4.data(); ba[0].nhb = 1; ba[1].id = 1; ba[1].next = 1;
+        SdhResult m4 = SdhCount(ba, 2, 0x50F4); assert(!m4.cut && !m4.loopHits && m4.srcIdx == 0 && m4.srcEnd == 83);
+        assert(SdhCountAgreed(2, 2, 2) && !SdhCountAgreed(2, 3, 2) && !SdhCountAgreed(0, 0, 2) && !SdhCountAgreed(0, 3, 3));
+        assert(!SdhCountAgreed(2, 0, 2) && !SdhCountAgreed(3, 0, 3) && !SdhCountAgreed(3, 2, 2));  // #142162: low without max / max below low
+        assert(!SdhCountAgreed(3, 3, 2) && !SdhCountAgreed(2, 2, 3) && !SdhCountAgreed(2, 2, 0));  // #142184: the agreed count must be the wanted count
+        assert(SdhRemapDone(true, m4, 0x50F4, 83.2f, true, true, 2, 2, true));    // the failing case, had the counts agreed
+        assert(!SdhRemapDone(true, m4, 0x50F4, 83.2f, true, true, 2, 2, false));  // complete forms 2..3: past the source frame is no proof
+        assert(!SdhRemapDone(true, m4, 0x50F4, 200.f, true, true, 2, 2, false));  // nor any later frame of the source action
+        assert(SdhNeedsRemap(true, m4, 0x5014));                                  // 5014 is not mapped: rebuilt again, no proof there
+        assert(!SdhRemapDone(true, m4, 0x5014, 1.f, true, true, 2, 2, false));
+        assert(SdhRemapDone(true, m4, 1, 1.f, true, true, 2, 2, false));          // changed into the mapped next (idle): done
+        assert(!SdhRemapDone(true, m4, 1, 1.f, false, true, 2, 2, false));        // never seen in the source action: no proof
+        ba[0].id = 0x5014; ba[0].hb = h5.data(); SdhResult m5 = SdhCount(ba, 2, 0x5014); assert(m5.srcIdx == 0);
+        assert(!SdhRemapDone(true, m5, 0x5014, 41.f, true, true, 3, 2, false) && SdhRemapDone(true, m5, 1, 1.f, true, true, 3, 2, false));
+        SdhAction ta[2]; ta[0].id = 0xC81; ta[0].next = 0xFFFF; ta[1].id = 1; ta[1].next = 1;   // source-free rebuilt tail
+        SdhResult tail = SdhCount(ta, 2, 0xC81); assert(tail.srcIdx < 0);
+        assert(SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 3, 3, true) && !SdhRemapDone(true, tail, 0xC81, 3.f, false, true, 3, 3, false));
+        assert(SdhRemapDone(true, tail, 1, 3.f, false, true, 3, 3, false));      // variable: only after the action changed
+        // TASK #142162: a sourced map that ends at a despawn (idle not in the map). A variable core that changes into idle after the
+        // source action is done; never seen in the source action, or below the wanted count, it is not.
+        SdhAction da[1]; da[0].id = 0x50F4; da[0].next = 0xFFFF; da[0].hb = h4.data(); da[0].nhb = 1;
+        SdhResult md = SdhCount(da, 1, 0x50F4); assert(md.srcIdx == 0 && md.chain == 1 && !md.cut);
+        assert(SdhRemapDone(true, md, 1, 1.f, true, true, 3, 2, false));
+        assert(!SdhRemapDone(true, md, 1, 1.f, false, true, 3, 2, false) && !SdhRemapDone(true, md, 1, 1.f, true, true, 1, 2, false));
+        assert(!SdhRemapDone(true, md, 0x50F4, 200.f, true, true, 3, 2, false));
+    }
+    {   // TASK #142146 78F80 (constant, 2 every form): fires mid-C55 f68 and despawns 0.7 s later with no hit - keeps the 0 ms end
+        std::vector<uint8_t> h; Row(h, 50, 68, 80);
+        SdhAction ca[2]; ca[0].id = 0xC55; ca[0].next = 1; ca[0].hb = h.data(); ca[0].nhb = 1; ca[1].id = 1; ca[1].next = 1;
+        SdhResult m = SdhCount(ca, 2, 0xC55); assert(m.srcIdx == 0 && m.srcEnd == 68);
+        const bool agreed = SdhCountAgreed(2, 2, 2);
+        assert(agreed && SdhRemapDone(true, m, 0xC55, 68.f, true, true, 2, 2, agreed) && !SdhRemapDone(true, m, 0xC55, 67.f, true, true, 2, 2, agreed));
+    }
+    {   // TASK #142146: the complete-form maximum (idle edge, own despawn, tail up to the despawn)
+        assert(SdhFullMaxNote(0, 2) == 2 && SdhFullMaxNote(2, 3) == 3 && SdhFullMaxNote(3, 2) == 0 && SdhFullMaxNote(3, 3) == 0);
+        assert(SdhFullMaxNote(0, 0) == 0 && SdhFullMaxNote(0, 33) == 0);
+        int mn = 0, mx = 0; for (int b : {2, 3, 2, 3}) { if (int v = SdhFullMinNote(mn, b)) mn = v; if (int v = SdhFullMaxNote(mx, b)) mx = v; }
+        assert(mn == 2 && mx == 3 && !SdhCountAgreed(mn, mx, 2));              // BEF02 history: variable
+        mn = mx = 0; for (int b : {2, 2, 2}) { if (int v = SdhFullMinNote(mn, b)) mn = v; if (int v = SdhFullMaxNote(mx, b)) mx = v; }
+        assert(SdhCountAgreed(mn, mx, 2));                                     // 78F80 history: constant
+        // #142184: an ini with no [SealHitsFullLow*] / [SealHitsFullMax*] (the human's, or the A/B's) is not agreed; the tail watch of one
+        // ghost-exited use (the only complete source while the exit is on) writes both, so the 2nd use of a constant core is agreed.
+        mn = 0; mx = 0; assert(!SdhCountAgreed(mn, mx, 2));
+        if (int v = SdhFullMinNote(mn, 2)) mn = v; if (int v = SdhFullMaxNote(mx, 2)) mx = v; assert(SdhCountAgreed(mn, mx, 2));  // 78F80 use 1 tail 2
+        if (int v = SdhFullMinNote(mn, 3)) mn = v; if (int v = SdhFullMaxNote(mx, 3)) mx = v; assert(!SdhCountAgreed(mn, mx, 2));  // BEF02: then 3
+        mn = 0; mx = 0; if (int v = SdhFullMinNote(mn, 3)) mn = v; if (int v = SdhFullMaxNote(mx, 3)) mx = v;
+        assert(!SdhCountAgreed(mn, mx, 2));                                    // BEF02 3 and 3 but [SealHits] 2: never cut at 2
+    }
     puts("seal_data_hits_test PASS"); return 0;
 }

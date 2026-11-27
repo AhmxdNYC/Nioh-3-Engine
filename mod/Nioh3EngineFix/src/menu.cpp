@@ -128,7 +128,7 @@ struct Cfg {
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
-    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat, a held left stick pulses the D-pad (#138311; stick + triggers values untouched, #137566) in the game's own menus (#137069)
+    int gmRepeat = 1;          // [Menu] GameMenuRepeat: held D-pad / bumpers repeat, a held left stick pulses the D-pad (#138311; triggers untouched, #137566) in the game's own menus (#137069); the left stick is centred for the game while a time-running game menu is open (#140978)
     int gmRepeatSpeed = 1;     // [Menu] GameMenuRepeatSpeed: 0 Slow, 1 Normal (= mod menu 400 / 90 ms), 2 Fast
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
@@ -223,6 +223,8 @@ menurepeat::State g_mrep[4];       // #137071 hold-to-repeat in game menus (pad 
 menurepeat::StickState g_mstk[4];  // #138311 left stick = D-pad in game menus (pad input thread only)
 volatile LONG g_mstkLogged = 0;
 volatile LONG g_gameMenuOpen = 0;  // PauseDetect (Present thread): a game menu is open (menu signal or pause stop flags)
+volatile LONG g_gameMenuStick = 0;  // #140978 PauseDetect: the game menu signal is on and game time runs (the player could walk): centre the left stick
+volatile LONG g_mstkBlockLogged = 0;
 volatile LONG g_mrepLogged = 0;
 // UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
 // hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
@@ -451,7 +453,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             if (g_mrep[idx].repeats == 1 && !InterlockedExchange(&g_mrepLogged, 1))
                 MLOG("game menu hold-repeat: first repeat (pad %lu, bits %06X, speed %s)", idx, rel, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
         }
-        // #138311: a held left stick direction pulses the matching D-pad button (stick values untouched, map pans as before)
+        // #138311: a held left stick direction pulses the matching D-pad button (the stick itself: #140978 below)
         const uint32_t dp = menurepeat::StickStep(g_mstk[idx], menurepeat::StickDominant(raw, g.sThumbLX, g.sThumbLY),
                                                   raw & (menurepeat::kDUp | menurepeat::kDDown | menurepeat::kDLeft | menurepeat::kDRight), act, t, g_cfg.gmRepeatSpeed);
         if (dp) {
@@ -459,6 +461,17 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             st->dwPacketNumber += 0x40000000u;
             if (g_mstk[idx].pulses == 1 && !InterlockedExchange(&g_mstkLogged, 1))
                 MLOG("game menu left stick as D-pad: first pulse (pad %lu, bits %04X, speed %s)", idx, dp, menurepeat::SpeedName(g_cfg.gmRepeatSpeed));
+        }
+        // #140978: the game's menu keeps game time running and its player movement still reads the left stick, so a held stick
+        // walked the character behind the menu. Centre it for the game; the menu still steps from the D-pad pulses above (the
+        // StickStep input is the raw stick, read before this). Time-stopped / control-off-only screens keep the stick (menurepeat.h).
+        if (act && alive && g_gameMenuStick && (g.sThumbLX || g.sThumbLY)) {  // alive: a stalled overlay never leaves the stick stuck
+            if (!InterlockedExchange(&g_mstkBlockLogged, 1))
+                MLOG("game menu open (game time running): left stick held back from the game so the character stays still; menu steps come from the stick D-pad pulses (pad %lu, stick %d,%d, #140978)",
+                     idx, (int)g.sThumbLX, (int)g.sThumbLY);
+            g.sThumbLX = 0; g.sThumbLY = 0;
+            st->dwPacketNumber += 0x40000000u;
+            dbgBlock |= paddebug::kGameMenuStick;
         }
     }
     bool blank = g_open != 0;
@@ -3129,6 +3142,7 @@ void PauseDetect(ULONGLONG t) {
     const bool ctlShown = g_ctlDeb.Update(ctlNow, t);
     g_ctlOff = ctlShown ? 1 : 0;
     g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
+    g_gameMenuStick = menurepeat::StickHeldBack(g_menuShown, g_stopPaused) ? 1 : 0;  // #140978 left stick centred for the game (pad thread)
     const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
@@ -4722,7 +4736,7 @@ bool CoverTipAllowed() {
 }
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
-int GameMenuRepeatGate() { return (g_gameMenuOpen ? 1 : 0) | (g_ctlOff ? 2 : 0); }  // #137478 vpad state
+int GameMenuRepeatGate() { return (g_gameMenuOpen ? 1 : 0) | (g_ctlOff ? 2 : 0) | (g_gameMenuStick ? 4 : 0); }  // #137478 vpad state; bit2 #140978
 void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state the menu is in
     InterlockedExchange(&g_open, 0);
     for (int i = 0; i < 100 && InterlockedCompareExchange(&g_freezeBusy, 1, 0) != 0; ++i) Sleep(1);

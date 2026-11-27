@@ -7,7 +7,7 @@ src = (root / 'src/bosslog.cpp').read_text(encoding='utf-8')
 state = src[src.index('std::atomic<bool> g_scForms{true};'):src.index('std::atomic<int> g_fkSwap{0};')]
 api = src[src.index('int FormCoreSeen('):src.index('bool SoulCoreForms(bool*')]
 # TASK #137000: the real moved-core table (FormCoresMoved) and its two public calls
-moved = src[src.index('ScCallTable g_movedTab;'):src.index('static bool FormSteerForCore()')]
+moved = src[src.index('ScCallTable g_movedTab;'):src.index('static bool FormSteerForCore(')]
 moved += 'bool FormCoreMoved(uint32_t id) { return FormCoreMovedImpl(id); }\nbool FormCoreEquippedIds(uint32_t out[2]) { return FormCoreEquippedIdsImpl(out); }\n'
 pre = r'''
 #include <windows.h>
@@ -24,6 +24,7 @@ pre = r'''
 #include <cstring>
 #include <cassert>
 std::map<std::wstring,std::wstring> ini;
+template<class T> bool Rd(uint64_t,T&){return false;}  // TASK #142639 stub: no live yokai, FormCoreOf falls back to the d-pad pick
 DWORD FakeRead(const wchar_t*,const wchar_t* key,const wchar_t* def,wchar_t* out,DWORD n,const wchar_t*) {
  auto it=ini.find(key); const wchar_t* v=it==ini.end()?def:it->second.c_str();
  wcsncpy_s(out,n,v,_TRUNCATE);return (DWORD)wcslen(out);

@@ -8,6 +8,7 @@
 #include "sites_gen.h"
 #include "spirit_upgrade.h"
 #include "../../shared/known_build.h"
+#include "ini_defaults_gen.h"  // TASK #142228: shipped default changes reach an updated ini
 
 #include <cstdarg>
 #include <cstdio>
@@ -198,6 +199,13 @@ void Boot() {
         MoveFileExW(g_logPath, prev, MOVEFILE_REPLACE_EXISTING);
     }
     g_logFile = CreateFileW(g_logPath, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    {   // TASK #142228 (human #142225): the updater never rewrites an ini, so carry changed/added shipped defaults in before any setting is read
+        const int n = IniDefaultsApply(g_ini, kIniDefaults, INI_DEFAULTS_N, INI_DEFAULTS_REV,
+            [](const wchar_t* sec, const wchar_t* key, const wchar_t* from, const wchar_t* to, const char* why) {
+                Log("IniDefaults: [%ls] %ls %ls -> %ls (%s)", sec, key, from, to, why);
+            });
+        if (n > 0) Log("IniDefaults: %d key(s) moved to the shipped defaults (rev %d)", n, INI_DEFAULTS_REV);
+    }
     g_img.base = (uintptr_t)GetModuleHandleW(nullptr);
     const auto* dos = (const IMAGE_DOS_HEADER*)g_img.base;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(g_img.base + dos->e_lfanew);

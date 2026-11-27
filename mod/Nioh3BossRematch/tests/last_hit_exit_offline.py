@@ -25,8 +25,8 @@ pre=r'''
 #include <cassert>
 #include "seal_data_hits.h"
 std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;std::map<std::wstring,std::wstring> legacyIni;
-std::wstring FakeKey(const wchar_t* section,const wchar_t* key){return wcsncmp(section,L"SealHelperLast",14)?std::wstring(key):std::wstring(L"H:")+key;}
-BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){if(wcsncmp(section,L"SealHelperLast",14))writtenSection=section;ini[FakeKey(section,key)]=value;return TRUE;}
+std::wstring FakeKey(const wchar_t* section,const wchar_t* key){if(!wcsncmp(section,L"SealHitsFull",12))return std::wstring(L"F:")+section+L":"+key;return wcsncmp(section,L"SealHelperLast",14)?std::wstring(key):std::wstring(L"H:")+key;}
+BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){if(wcsncmp(section,L"SealHelperLast",14)&&wcsncmp(section,L"SealHitsFull",12))writtenSection=section;ini[FakeKey(section,key)]=value;return TRUE;}
 #define WritePrivateProfileStringW FakeWrite
 int IniInt(const wchar_t*,const wchar_t* key,int d){auto i=ini.find(key);return i==ini.end()?d:std::stoi(i->second);}
 const wchar_t* IniPath(){return L"memory-only";}
@@ -41,7 +41,7 @@ struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
 // TASK #135148/#135613: seal data count stub (dataHits: >0 certain, 0 not certain, <0 unread) and the end-% rule; both off = the old rule
-std::atomic<int> g_sealHitsData{0},g_sealEndFrame{1},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_formSteerSpeed{1300},g_fastSpeed{0},g_exitZero{1};int dataHits=-1;
+std::atomic<int> g_sealHitsData{0},g_sealEndFrame{1},g_exitEndPct{0},g_exitAfterShotMs{-1},g_formSteerMove{5},g_formSteerSpeed{1300},g_fastSpeed{0},g_exitZero{1},g_fastPoseMs{200};int dataHits=-1;
 std::atomic<float> g_fastStartMul{6.f},g_fastEndMul{6.f};  // TASK #137323
 SdhDurTable g_sealDurs;
 SdhDurTable g_sealLastHit;int lastHitNotes=0;  // TASK #136328
@@ -550,7 +550,7 @@ int main(){
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
  g_exitAtLastHitMs=1000;check(SoulTune(9,1,&live)==1000);g_exitAtLastHitMs=-9999;check(SoulTune(9,1,&live)==50);
- std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==25&&rows.back()==kItSctBase+24);  // TASK #141682: +1 Move speed row (3d55fd27, human #141255)  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
+ std::vector<int> rows;SctAddPage([&](int i){rows.push_back(i);});check(rows.size()==26&&rows.back()==kItSctBase+25);  // TASK #142639: +1 Fast summon pose hold row 25  // TASK #141682: +1 Move speed row (3d55fd27, human #141255)  // TASK #137323: +2 Fast summon startup / end pose rows  // TASK #136502: +1 Fast summon speed row  // TASK #136113: +1 after-last-projectile row; #136492: +1 Move sensitivity row
  char text[512];uint32_t color=0;g_exitAtLastHitMs=0;SctRowText(kItSctBase+9,true,">",text,sizeof text,&color);
  check(strstr(text,"Exit after last hit starts:")&&strstr(text,"0 ms"));printf("PREVIEW|%s\n",text);
  SctChange(kItSctBase+9,1);check(g_exitAtLastHitMs==50&&ini[L"SealExitAtLastHitMs"]==L"50");

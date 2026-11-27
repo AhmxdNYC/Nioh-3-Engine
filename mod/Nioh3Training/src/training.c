@@ -43,6 +43,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
+#include "ini_defaults_gen.h"  // TASK #142228: shipped default changes reach an updated ini
 
 static uintptr_t B;
 static char g_dir[MAX_PATH];
@@ -6632,7 +6633,17 @@ static int HookPump(void) {
     return 1;
 }
 
+static void IniDefLog(const wchar_t* sec, const wchar_t* key, const wchar_t* from, const wchar_t* to, const char* why) {
+    Log("IniDefaults: [%ls] %ls %ls -> %ls (%s)", sec, key, from, to, why);
+}
 static DWORD WINAPI Worker(LPVOID x) {
+    {   // TASK #142228 (human #142225): the updater never rewrites an ini, so carry changed/added shipped defaults in before any setting is read
+        wchar_t wini[MAX_PATH]; char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+        if (MultiByteToWideChar(CP_ACP, 0, ini, -1, wini, MAX_PATH) > 0) {
+            int n = IniDefaultsApply(wini, kIniDefaults, INI_DEFAULTS_N, INI_DEFAULTS_REV, IniDefLog);
+            if (n > 0) Log("IniDefaults: %d key(s) moved to the shipped defaults (rev %d)", n, INI_DEFAULTS_REV);
+        }
+    }
     Sleep(45000);  // let the loader + BossRematch finish patching, then chain
     GrVerify();  // .text is decrypted by now: log how many rvas.json entries are found (game RVAs ...)
     ArLoadGame();  // immutable facts loaded before installing any hook that can publish AutoMoves

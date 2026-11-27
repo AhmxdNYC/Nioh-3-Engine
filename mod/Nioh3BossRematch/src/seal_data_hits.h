@@ -372,3 +372,78 @@ static inline bool SdhSealSourcesDone(bool shapeOk, const SdhResult& r, uint32_t
     for (int i = r.srcIdx + 1; i < r.chain; ++i) if (act == r.ids[i]) return true;  // a later, source-free action of the mapped chain
     return false;  // back in an earlier source action, or in an action the chain does not name
 }
+
+// TASK #141883 (live 11-27 09:30-09:54, BR 9b5f673e, #141865: idle-pose exits median 721 / max 1144 ms after the last hitbox closed).
+// The chain map follows the finish link (+0xE0) from the bind action, but the seal does not always play that chain: Mujina-like CA2E9 is
+// bound in C56 (finish link outside the file = cut), then plays C57 (its hit) -> idle; 16127 maps C76 > C77 > C78 > C80 > 1 but plays
+// C80 -> C81 -> C82 -> despawn. A cut or wrong map can never prove the data done, so every such form waited for the yokai's idle edge /
+// despawn (the recovery animation after the last hit). Fix: when the seal is live in a readable action that the current map does not
+// name, the map is rebuilt from that live action (same SdhCount walk, the action the seal is in IS the chain start from then on).
+// No map, an unreadable action, the idle action (0x1: the attack is over there) and an action already mapped need no rebuild.
+static inline bool SdhNeedsRemap(bool shapeOk, const SdhResult& r, uint32_t act) {
+    if (act == 0xFFFFFFFF || act == 0xFFFF || act == SDH_IDLE_ACT) return false;
+    if (!shapeOk) return true;
+    for (int i = 0; i < r.chain && i < SDH_MAXCHAIN; ++i) if (act == r.ids[i]) return false;
+    return true;
+}
+// Done check on a map rebuilt from the live action. A rebuilt map with a source action: SdhSealSourcesDone. A rebuilt map with NO source
+// action at all (the seal left its hitting actions into a mapped, hit-free tail) is done only if the seal was seen in a source action of an
+// earlier map this form (passedSrc) - a chain that never named a source says nothing about the hits (3B1AB data 0/0/0, #138494).
+// TASK #141995 (regression risk on 94320abf): a rebuilt map exists only because the seal already left the finish-link chain once, so its
+// finish links are no proof the seal stays in them (16127 C80 -> C81 is such a leave). A later hit reached by an action change the links do
+// not name would be cut. So a rebuilt map proves the end only with a known hit count (want > 0) that the live count has reached; with
+// want == 0 (no data count, nothing learned yet) it never fires and the form keeps the yokai's own end, as before 94320abf.
+// TASK #142146 (live A/B 11-27 11:23, BR 995feb67, #142107): BEF02 plays 50E4 > 50E2 > 50F4 > 5014 > idle and every file link says '> 1', so
+// each rebuilt map ends at idle. It lands 2 or 3 bursts (D: logs: 11 despawns at 2, 11 at 3): with the learned 2 the map from 50F4 proved
+// the end at f83.2 and burst 3 came in 5014 at +2.969. One learned count cannot prove the end of a core whose complete forms differ.
+// countAgreed = every complete count seen (idle edge, own despawn, tail up to the despawn) is the same (SdhCountAgreed). Without it a
+// rebuilt map never proves the end inside the source action: the seal must change into a later mapped action (idle / the mapped next).
+// Constant cores (78F80: C55 f68 -> despawn 0.7 s later, no hit) keep the 0 ms end; nothing per core.
+static inline bool SdhRemapDone(bool shapeOk, const SdhResult& r, uint32_t act, float f, bool seenSrcAct, bool passedSrc, int bursts, int want,
+                                bool countAgreed) {
+    if (!shapeOk || r.chain <= 0 || r.loopHits || r.cut) return false;
+    if (want <= 0 || bursts < want) return false;
+    if (r.srcIdx >= 0) {
+        if (!countAgreed && act == r.ids[r.srcIdx]) return false;  // variable count: past the source frame is no proof, the action must change
+        if (!countAgreed && act == SDH_IDLE_ACT && seenSrcAct && bursts >= want) return true;  // changed into idle (map link may be a despawn)
+        return SdhSealSourcesDone(shapeOk, r, act, f, seenSrcAct, bursts, want);
+    }
+    if (!passedSrc || act == 0xFFFFFFFF) return false;
+    if (act == SDH_IDLE_ACT) return true;  // the seal changed into idle after its sources: the attack is over
+    for (int i = countAgreed ? 0 : 1; i < r.chain; ++i) if (act == r.ids[i]) return true;  // variable: not the action the map was rebuilt from
+    return false;
+}
+
+// TASK #142009 (sweep 141816 / live 141908, BR 9b5f673e: 1DCD1 learned 4, live 3; 16127 learned 10, live 9; every run learns the lower count
+// at the idle edge / own despawn). [SealHits] is the LOWEST count of complete forms (idle edge / own despawn), but e21a9efb (TASK #139948)
+// also RAISES it from the tail watch of a ghost-exited form (bursts up to the seal's despawn, counted after the exit while the seal runs on
+// invisible at tail speed: the post-exit count b7e8d7e1 had ruled out as count poisoning). 16127 was 9 on 11-26 16:01 (before e21a9efb,
+// 21:58) and 10 after it. So the two writers fight: a complete form lowers the count, the next early exit's tail raises it again, and the
+// raised count is above what the attack lands: the 0 ms proof (live count >= wanted count) never holds and that form waits for the idle edge.
+// Fix: complete forms also keep their own minimum ([SealHitsFull*], fullMin). A tail raise may not go above it; with no complete form seen
+// yet (98AB: every use exits early, #139948) the raise stays as it was. Returns the value to write, 0 = no write.
+static inline int SdhTailRaise(int had, int tail, int fullMin) {
+    if (tail <= 0 || tail <= had) return 0;
+    if (fullMin > 0 && tail > fullMin) tail = fullMin;
+    return tail > had ? tail : 0;
+}
+// The complete-form minimum after one more complete form of 'bursts' (0 = no write).
+static inline int SdhFullMinNote(int fullMin, int bursts) {
+    if (bursts <= 0) return 0;
+    return !fullMin || bursts < fullMin ? bursts : 0;
+}
+
+// TASK #142146: highest burst count of complete forms (idle edge, own despawn, tail watch up to the despawn); 0 = no write.
+static inline int SdhFullMaxNote(int fullMax, int bursts) {
+    if (bursts <= 0 || bursts > 32) return 0;
+    return bursts > fullMax ? bursts : 0;
+}
+// Complete forms agree on one count: the lowest (low) and the highest (max) complete count are both known and equal, and the wanted count
+// is that count. TASK #142162: a min with no max (an ini from before #142146: BEF02 min 2, no [SealHitsFullMax*]) is NOT agreed. max < low
+// is two different counts: not agreed either.
+// TASK #142184 (live A/B 11-27 1:00 pm, BR 267484b1): 'low' was [SealHitsFull*], written only by forms that end by themselves (idle edge /
+// own despawn). With the exit on nearly every use is a ghost exit and only the tail watch (up to the seal's despawn) sees the complete count,
+// and it wrote just the max: 78F80 / CA2E9 / 3E117 logged 'complete forms land 0..2' on every use and never got the 0 ms end back. So 'low'
+// is now its own key ([SealHitsFullLow*]) fed by all three complete sources, like the max; [SealHitsFull*] keeps capping the tail raise.
+// want == low: an agreed count above the wanted count (BEF02 landing 3 and 3 with [SealHits] 2) would still prove the end one burst early.
+static inline bool SdhCountAgreed(int fullLow, int fullMax, int want) { return fullLow > 0 && fullMax == fullLow && want == fullLow; }

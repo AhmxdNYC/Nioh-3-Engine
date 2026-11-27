@@ -115,8 +115,8 @@ inline uint32_t Step(State& s, uint32_t raw, bool active, uint64_t t, int speed)
     return release;
 }
 
-// #138311 (human #138299): the left stick works like the D-pad in game menus. The stick itself is never changed (the map
-// pans with it, #137566); instead, while a stick direction is held past the same first delay, the matching D-pad button is
+// #138311 (human #138299): the left stick works like the D-pad in game menus. The repeat never releases the stick (the map
+// pans with it, #137566; #140978 below may centre it for the game); instead, while a stick direction is held past the same first delay, the matching D-pad button is
 // pressed for a short pulse once per period, so the menu cursor keeps moving like a held D-pad. A real D-pad press of the
 // same direction wins (no extra pulse). Only the dominant axis counts (no diagonal pulses). Off outside game menus.
 // #138487 (human #138485): the game ignores the stick in its lists, so waiting the first delay before the first pulse
@@ -176,6 +176,16 @@ inline uint32_t StickStep(StickState& s, uint32_t stick, uint32_t dpad, bool act
     }
     return out;
 }
+// #140978 (human): with the game's own menu open (Start once), a held left stick still walked the character: that menu
+// raises the menu signal (5A37D4) but keeps game time running, and the game's player movement keeps reading the stick
+// (live 11-27: signal OPEN, then PAD move E and idle 0x7D0 -> run 0x82A while still open). The game ignores the stick in
+// its lists (#138487), so the menu cursor already moves only from the StickStep D-pad pulses above (a fresh tilt steps at
+// once, a hold repeats). So while the menu signal is on and game time runs, the left stick values are held back from the
+// game (centred); the D-pad pulses still navigate. Not when only the stop flags are on (58B/58C: game time is stopped,
+// the player cannot move, any screen there keeps its analog stick) or only control-off (shrine, blacksmith: the game itself
+// takes control from the player). Universal: decided by the game's signals only, no per-menu list.
+inline bool StickHeldBack(bool menuSignal, bool timeStopped) { return menuSignal && !timeStopped; }
+
 // dominant-axis reduction of the stick bits (|x| vs |y|)
 inline uint32_t StickDominant(uint32_t raw, int lx, int ly) {
     uint32_t st = raw & (kSU | kSD | kSL | kSR);

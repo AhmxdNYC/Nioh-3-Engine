@@ -12,7 +12,7 @@ namespace paddebug {
 
 inline volatile int g_on = 0;  // [Menu] PadDebug (default 0)
 
-enum Block : uint32_t { kMenuOpen = 1, kLatch = 2, kMaskLease = 4, kTapSwallow = 8, kFormBlock = 16 };
+enum Block : uint32_t { kMenuOpen = 1, kLatch = 2, kMaskLease = 4, kTapSwallow = 8, kFormBlock = 16, kGameMenuStick = 32 };
 
 struct Snap {
     uint32_t packet = 0, buttons = 0, slot = 0, own = 0, blocked = 0;
@@ -67,6 +67,7 @@ inline void Format(const Snap& s, uint64_t now, int formBlock, char* l1, size_t 
     if (b & kMaskLease) add("button mask");
     if (b & kTapSwallow) add("Start tap");
     if (b & kFormBlock) add("FormBlockPad");
+    if (b & kGameMenuStick) add("game menu stick");  // #140978
     snprintf(l2, n2, "Mod blocking pad: yes (%s)", why);
 }
 

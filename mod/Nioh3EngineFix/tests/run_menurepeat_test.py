@@ -9,7 +9,9 @@ mc = (ROOT / "src/menu.cpp").read_text(encoding="utf-8-sig")
 for need, why in (("menurepeat::Step(g_mrep[idx], raw, act, t, g_cfg.gmRepeatSpeed)", "pad hook must run the repeat step"),
                   ("g_cfg.gmRepeat && g_gameMenuOpen && !g_open && !s.latch", "repeat only while a game menu is open and the mod menu is closed"),
                   ("g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown)", "gate must follow the game's menu signal / pause flags / control-off (#137478)"),
-                  ('!strcmp(key, "GameMenuRepeat")', "rows must be on Settings > Game")):
+                  ('!strcmp(key, "GameMenuRepeat")', "rows must be on Settings > Game"),
+                  ("g_gameMenuStick = menurepeat::StickHeldBack(g_menuShown, g_stopPaused)", "#140978 stick hold-back must follow the menu signal and game time"),
+                  ("if (act && alive && g_gameMenuStick && (g.sThumbLX || g.sThumbLY))", "#140978 pad hook must centre the left stick in time-running game menus")):
     if need not in mc: sys.exit("FAIL: " + why)
 src = ROOT / "tests/menurepeat_test.cpp"
 exe = OUT / "menurepeat_test.exe"

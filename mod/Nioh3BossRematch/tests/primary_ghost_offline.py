@@ -32,7 +32,7 @@ std::atomic<double> g_ghostHideAt{0},g_ghostT{0},g_tailT0{0};
 std::atomic<int> g_ghostHideMs{0};int g_ghostFadeMs=250;float g_ghostFade0=1;
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{250};
 float FastActorMul(uint64_t){return 1.f;}  // TASK #136502 stub: no Fast summon yokai here
-int CoreSpeedX10(uint32_t){return 0;}float CoreSpeedFor(uint32_t,float u){return u;}  // human #141378 stub: no per-core speed override
+int CoreSpeedX10(uint32_t){return 0;}float CoreSpeedFor(uint32_t,float u){return u;}uint32_t FormCoreOf(uint64_t){return 0;}  // human #141378 stub: no per-core speed override
 bool enabled=true;bool ScOn(){return enabled;}int binds=0;void FormHideEndBegin(uint64_t,uint64_t){++binds;}
 """
 code=pre+between('struct PressHitSource','void SealEndOnHitNoteSpawn')+between('struct PressGhost','void Fh4KeepSeal')+between('float SealRateMul(','std::atomic<uint32_t> g_ftActs')+between('void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {','struct SealTailHitWatch')
