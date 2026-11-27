@@ -97,4 +97,15 @@ static void Card(void) {
     memset(u, 0, sizeof *u); CHECK(ScParseLine(u, line) && !u->b[0].r[0].hasCard && u->b[0].r[0].score == 4.25f);
     free(t); free(u);
 }
-int main(void) { Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }
+// human 2026-11-26 (1.8.48): an SSS grade needs 60 % of the fight at SSS (ResultHoldPctSSS); the other grades stay at 50 %.
+static void SssHold(void) {
+    SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f); SrBossHit(&f, &s, 0x10);
+    s.active = 1; s.rank = 6; s.pts = 100.f; for (int i = 0; i < 55; ++i) SrTick(&f, &s, &c, 100);   // 55 % SSS
+    s.rank = 5; for (int i = 0; i < 45; ++i) SrTick(&f, &s, &c, 100);                                 // 45 % SS
+    SrResult r = SrFinishTop(&f, &s, SR_HOLD_PCT, SR_HOLD_SSS_PCT, 0);
+    CHECK(SR_HOLD_SSS_PCT == 60 && r.grade == 5 && r.holdTop == 60 && r.score > 5.91f && r.score < 5.93f);  // SS + 55/60 of the way to SSS
+    CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 6);                                              // the old 50 % rule: SSS
+    s.rank = 6; for (int i = 0; i < 25; ++i) SrTick(&f, &s, &c, 100);                                 // 80 / 125 = 64 % SSS
+    r = SrFinishTop(&f, &s, SR_HOLD_PCT, SR_HOLD_SSS_PCT, 0); CHECK(r.grade == 6 && r.score > 6.09f && r.score < 6.11f);  // (64 - 60) / 40
+}
+int main(void) { SssHold(); Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }

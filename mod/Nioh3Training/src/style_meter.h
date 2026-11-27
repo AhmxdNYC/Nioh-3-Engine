@@ -937,6 +937,10 @@ static inline int SmDodgeStepEx(SmDodge* d, int enemyActive, int ifr, int tookHi
 // (no flux). One flux row = Flux 1, two back-to-back = Flux 2. Per tick: run = the player's run key, isFlux = this run's row is a flux row
 // (1), not (0), unread yet (-1). Returns the finished chain's length (1, 2, ..) on the tick it ends, else 0.
 #define SM_FLUX_SKILL 0xCEC4u
+// human 2026-11-26 (1.8.48): the grapple is the game's grapple row: skill word 0xBA40 (grab 10222 on Y near a Ki-broken enemy, then the throw
+// 5778 that lands). Takeda 20:20:29: the boss finisher states (35 / B0 / 2C) stayed 0 through a real grapple, so the throw landing on a boss
+// is what scores it ([StyleMeter] GrappleSkill).
+#define SM_GRAPPLE_SKILL 0xBA40u
 typedef struct { uint64_t run; int dec, len; } SmFluxDet;
 static inline void SmFluxReset(SmFluxDet* f) { f->run = 0; f->dec = 0; f->len = 0; }
 static inline int SmFluxStep(SmFluxDet* f, uint64_t run, int isFlux) {

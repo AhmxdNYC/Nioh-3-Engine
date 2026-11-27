@@ -27,6 +27,7 @@ __asm__(".section .rdata,\"dr\"\n\t.p2align 4\n\t.globl g_sm_png\ng_sm_png:\n\t.
 extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
 static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (human 2026-11-26)
+static uint32_t g_cfg_grapple_skill = SM_GRAPPLE_SKILL;  // [StyleMeter] GrappleSkill (human 2026-11-26, 1.8.48)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
  static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
@@ -70,7 +71,7 @@ static HWND g_sm_game;
 // Boss fight result ([StyleMeter] ResultCard, default on with the meter). g_sr: game thread only (SmFeed). The card: g_smfx_lock.
 static uint32_t g_sm_defl[SM_DEFLECT_SKILLS] = {SM_DEFLECT_SKILL}; static int g_sm_ndefl = 1;  // DeflectSkill list (low u16 of the skill word)
 static float g_cfg_sr_hitpen = SR_HIT_PENALTY;  // ResultHitPenalty, hundredths (human 2026-11-26: 12.5)
-static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
+static int g_cfg_sr_scale = SR_SCALE_PCT, g_cfg_sr = 1, g_cfg_sr_hold = SR_HOLD_PCT, g_cfg_sr_hold_sss = SR_HOLD_SSS_PCT, g_cfg_sr_delay = SR_END_DELAY_MS, g_cfg_sr_show = SR_SHOW_MS;
 static SrFight g_sr;
 static volatile LONG g_sm_versPct;  // human 2026-11-26: the versatility multiplier (%) shown on the variety banner
 static volatile LONG g_sm_mileKind;  // human: the banner under the combo counter: 0 = combo milestone, 1 = move variety milestone (g_sm_comboMile = distinct moves)
@@ -216,6 +217,7 @@ static void SmReadIni(const char* ini, int reset) {
       g_cfg_sr_hitpen = hp[0] ? (float)atof(hp) : SR_HIT_PENALTY; } if (!(g_cfg_sr_hitpen >= 0.f && g_cfg_sr_hitpen <= 700.f)) g_cfg_sr_hitpen = SR_HIT_PENALTY;
     g_cfg_sr_scale = (int)GetPrivateProfileIntA("StyleMeter", "ResultScalePct", SR_SCALE_PCT, ini); if (g_cfg_sr_scale < 50 || g_cfg_sr_scale > 300) g_cfg_sr_scale = SR_SCALE_PCT;
     g_cfg_sr_hold = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPct", SR_HOLD_PCT, ini); if (g_cfg_sr_hold < 0 || g_cfg_sr_hold > 100) g_cfg_sr_hold = SR_HOLD_PCT;
+    g_cfg_sr_hold_sss = (int)GetPrivateProfileIntA("StyleMeter", "ResultHoldPctSSS", SR_HOLD_SSS_PCT, ini); if (g_cfg_sr_hold_sss < 1 || g_cfg_sr_hold_sss > 100) g_cfg_sr_hold_sss = SR_HOLD_SSS_PCT;  // 1.8.48
     g_cfg_sr_delay = (int)GetPrivateProfileIntA("StyleMeter", "ResultEndDelayMs", SR_END_DELAY_MS, ini); if (g_cfg_sr_delay < 0 || g_cfg_sr_delay > 20000) g_cfg_sr_delay = SR_END_DELAY_MS;
     g_cfg_sr_show = (int)GetPrivateProfileIntA("StyleMeter", "ResultShowMs", SR_SHOW_MS, ini); if (g_cfg_sr_show != 0 && (g_cfg_sr_show < 2000 || g_cfg_sr_show > 600000)) g_cfg_sr_show = SR_SHOW_MS;  // 0 = until confirm
     SmCfg c; SmCfgDefaults(&c);
@@ -311,6 +313,7 @@ static void SmReadIni(const char* ini, int reset) {
         g_tmc.maxMs = (int)GetPrivateProfileIntA("StyleMeter", "TmtmMaxMs", SM_TMTM_MAX_MS, ini); if (g_tmc.maxMs < 17) g_tmc.maxMs = 17; if (g_tmc.maxMs > 500) g_tmc.maxMs = 500;
         g_tmc.needAttack = GetPrivateProfileIntA("StyleMeter", "TmtmNeedAttack", 0, ini) != 0;
         GetPrivateProfileStringA("StyleMeter", "FluxSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_flux_skill = ids[0];
+        GetPrivateProfileStringA("StyleMeter", "GrappleSkill", "", tb, sizeof tb, ini); if (SmTmtmParse(tb, ids) > 0) g_cfg_grapple_skill = ids[0];
     }
     {   // human #126968: RankPts = "D,C,B,A,S,SS,SSS" points per rank (low ranks easier, top ranks harder); empty/bad = defaults
         char buf[128] = {0}; GetPrivateProfileStringA("StyleMeter", "RankPts", "", buf, sizeof buf, ini);
@@ -1025,7 +1028,7 @@ static void SmFeed(double gdt) {
         if (SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS) == 1) {  // the next boss: this fight's card now, a fresh fight from this hit
             Log("STYLE RESULT: next boss %p hit %.1f s after the fight went down (first seen %+.1f s from it, a next form is seen within %.1f s): card now, new fight",
                 (void*)srHit[i], (srWall - g_sr.endWall) / 1000.0, (srSeen[i] - g_sr.endWall) / 1000.0, SR_FORM_MS / 1000.0);
-            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            if (srDone < 2) srRes[srDone++] = SrFinishTop(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hold_sss, g_cfg_sr_hitpen);
             SrReset(&g_sr); SrBossHitTag(&g_sr, &g_sm, srHit[i], srTag[i], srSeen[i], SR_FORM_MS); varReset = 2;
             Log("STYLE RESULT: fight started (next boss of a gauntlet, meter %s%s)", sm_rank_name[g_sm.rank], g_sm.active ? "" : " idle");
         }
@@ -1048,9 +1051,22 @@ static void SmFeed(double gdt) {
     const uint32_t c0 = g_sm.counters, hc0 = g_sm.countedHits, cap0 = g_sm.cappedHits, lp0 = g_sm.loopPens, lh0 = g_sm.loopHalfs, lf0 = g_sm.loopFrees; const float lpl0 = g_sm.loopLost, lhl0 = g_sm.loopHalfLost;
     if (crouchCancel) g_sm.crouchCancels++;
     if (fluxDone == 1) g_sm.flux1++; else if (fluxDone >= 2) g_sm.flux2++;
-    const LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    LONG grapN = InterlockedExchange(&g_sm_grappleEv, 0); float pgrap = 0.f;  // human 2026-11-26: grapple on a Ki-broken boss
+    {   // 1.8.48: the grapple row (skill word GrappleSkill) landing on a boss = one grapple per throw. The finisher-state path (KiBreakTick) above
+        // missed a real one (Takeda); both can see the same grapple, so one pays and the other is dropped within 3 s.
+        static uint64_t grapRun; static double grapT = -1e18;
+        const int rowHit = pl && run && skill > 0 && skw == g_cfg_grapple_skill && bbPl != 0 && run != grapRun;
+        if (rowHit) grapRun = run;
+        const int recent = g_sm_clock - grapT < 3000.0;
+        if (grapN > 0 && recent) { Log("STYLE GRAPPLE: finisher state after the grapple row already paid: not paid twice"); grapN = 0; }
+        if (rowHit) {
+            if (grapN > 0 || recent) Log("STYLE GRAPPLE: grapple row act %u landed (already paid by the finisher state)", (unsigned)act);
+            else { grapN = 1; Log("STYLE GRAPPLE: grapple row act %u (skill 0x%X) landed on a boss", (unsigned)act, skw); }
+        }
+        if (grapN > 0) grapT = g_sm_clock;
+    }
     for (LONG i = 0; i < grapN && i < 8; ++i) pgrap += SmOnGrapple(&g_sm, &g_smc, g_sm_clock);
-    if (grapN) Log("STYLE GRAPPLE: Ki-break grapple finisher x%ld +%.0f", (long)grapN, pgrap);
+    if (grapN) Log("STYLE GRAPPLE: grapple x%ld +%.0f", (long)grapN, pgrap);
     const float pflux = SmOnFlux(&g_sm, &g_smc, g_sm_clock, fluxDone);  // human 2026-11-26: +15 / +25 within 3 s of a hit
     if (fluxDone) { static int fxl; if (fxl++ < 2000) Log("STYLE FLUX: Flux %d (act %u ends the chain) +%.0f%s", fluxDone, (unsigned)act, pflux, pflux > 0.f ? "" : " (no hit in the last 3 s: no points)"); }
     if (swapEv) SmOnSwap(&g_sm, g_sm_clock);
@@ -1194,7 +1210,7 @@ static void SmFeed(double gdt) {
         if (st == 1) Log("STYLE RESULT: every boss of the fight is down (bosses:%s), card in %d ms unless its next form is hit", bl, g_cfg_sr_delay);
         else if (st == 2) {
             if (!wasEnding) Log("STYLE RESULT: %s with every boss of the fight down (bosses:%s): card now", !me ? "the player character went away" : "a load started", bl);
-            if (srDone < 2) srRes[srDone++] = SrFinishEx(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hitpen);
+            if (srDone < 2) srRes[srDone++] = SrFinishTop(&g_sr, &g_sm, g_cfg_sr_hold, g_cfg_sr_hold_sss, g_cfg_sr_hitpen);
             SrReset(&g_sr);
         }
         else if (st < 0) { Log("STYLE RESULT: fight dropped, no card (%s; %.1f s in; bosses:%s)", sr_drop_name[g_sr.drop], g_sr.ms / 1000.0, bl); SrReset(&g_sr); }

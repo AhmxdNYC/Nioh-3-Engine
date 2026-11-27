@@ -91,9 +91,9 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     SrText(ref, px, W, H, b, W / 2, SRX(296), SRX(17), FW_BOLD, 0, 1, r->n.damaged == 0 ? 0x9FD49Au : 0xE08A7Au);
     const int hitCost = r->hold > 0 && r->grade < r->byHold;  // the hits took the grade below the rank that was held
     if (hitCost)
-        snprintf(b, sizeof b, "Held %s for %d%%+ of the fight, but hits taken cost %d grade%s", sm_rank_name[r->byHold], r->hold, r->byHold - r->grade, r->byHold - r->grade == 1 ? "" : "s");
+        snprintf(b, sizeof b, "Held %s for %d%%+ of the fight, but hits taken cost %d grade%s", sm_rank_name[r->byHold], r->byHold == SM_RANKS - 1 && r->holdTop ? r->holdTop : r->hold, r->byHold - r->grade, r->byHold - r->grade == 1 ? "" : "s");
     else if (r->grade < SM_RANKS - 1 && r->hold > 0)
-        snprintf(b, sizeof b, "Next: %d%% of the fight at %s or higher (now %.0f%%)", r->hold, sm_rank_name[r->grade + 1], r->nextPct);
+        snprintf(b, sizeof b, "Next: %d%% of the fight at %s or higher (now %.0f%%)", r->grade + 1 == SM_RANKS - 1 && r->holdTop ? r->holdTop : r->hold, sm_rank_name[r->grade + 1], r->nextPct);
     else if (r->grade < SM_RANKS - 1) snprintf(b, sizeof b, "Next: average %d.00", r->grade + 1);
     else if (r->score >= 6.995f) snprintf(b, sizeof b, "Heavenly");
     else snprintf(b, sizeof b, "SSS for %.0f%% of the fight", r->nextPct);
