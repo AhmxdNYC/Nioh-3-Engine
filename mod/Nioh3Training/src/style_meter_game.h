@@ -339,6 +339,7 @@ static void SmReadIni(const char* ini, int reset) {
     dc.listMinCm = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListMinCm", SM_DP_LIST_MIN_CM, ini);
     dc.listAngDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListAngleDeg", SM_DP_LIST_ANG_DEG, ini);
     dc.tailMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceTailMs", SM_DP_TAIL_MS, ini);
+    dc.ctrOnly = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceCounterOnly", 1, ini) ? 1 : 0;  // human 2026-11-27 (Just Reprisal)
     {   // known displacement moves (relaxed motion test; ids that are not skill rows become eligible). Default: Swift Step Heavy.
         char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", SM_DP_DEFAULT_ACTS, buf, sizeof buf, ini);
         SmDispParseActs(&dc, buf); }
@@ -1238,14 +1239,15 @@ static void SmFeed(double gdt) {
             avHeld ? "held until the countered red attack ends (paid if it is no Burst Break)" : "same event as the Burst Break, not paid"); }
         if (avBack && bbl < 3000) { ++bbl; Log("STYLE BURST2: held avoid %d paid after all (the countered red attack ended without a Burst Break)", avBack); }
     }
+    if (dpo.ctr) Log("STYLE DISPLACE: act %u is a counter move (its avoid is a Counter!): Counter! paid, no Displacement!", dpo.act);
     if (dpr || dpo.ate || dpConv || dpQueuedNow) {  // human: Displacement! diagnosis (live test: thresholds, which moves qualify)
         static int dpl;
-        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss", "Displace turned off", "a plain dodge before the hit (the skill did not carry you out)"};
+        static const char* const why[] = {"", "damage taken", "no hit in time", "too many moves before the hit", "moved too little", "did not go around the boss", "Displace turned off", "a plain dodge before the hit (the skill did not carry you out)", "a counter move: Counter! only (DisplaceCounterOnly)"};
         if (dpl < 3000) { ++dpl;
             if (dpr == SM_DP_AWARD) Log("STYLE DISPLACE: AWARD act %u%s +%.0f: moved %.2f m, around the boss %.0f deg, boss %.2f m away when its window opened, hit %.0f ms after the window, %d move(s) later (hit by act %u)%s",
                 dpo.act, dpo.listed ? " (DisplaceActs)" : "", pdp, dpo.moved / 100.f, dpo.ang, dpo.dist0 / 100.f, dpo.ago, dpo.runs, act, dpo.replaced ? " (the window's avoid replaced)" : " (no i-frame avoid: out of reach)");
             else if (dpr == SM_DP_MISS) Log("STYLE DISPLACE: miss act %u%s: %s (moved %.2f m, around %.0f deg, %.0f ms, %d move(s) later, now act %u)%s%s", dpo.act, dpo.listed ? " (DisplaceActs)" : "",
-                dpo.why > 0 && dpo.why <= 7 ? why[dpo.why] : "?", dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, act,
+                dpo.why > 0 && dpo.why <= 8 ? why[dpo.why] : "?", dpo.moved / 100.f, dpo.ang, dpo.ago, dpo.runs, act,
                 dpBack ? dpBack == SM_AV_DEFLECT ? " -> held deflect paid" : dpBack == SM_AV_COUNTER ? " -> held counter paid" : " -> held dodge paid" : dpQueuedNow ? " -> held avoid paid next tick" : "",
                 dpo.asDodge ? " (its Counter! paid as a Dodge!: a displacement move)" : "");
             else if (dpConv && !dpo.ate) Log("STYLE DISPLACE: act %u (DisplaceActs move) avoid paid as a Dodge!, not a Counter! (no candidate: %s)", act, dps.pend ? "one is already open" : "its window was not seen in range");

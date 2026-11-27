@@ -58,15 +58,19 @@
 // 1.2-4.6 m, skill word 0xCCF6) -> 25564 (0x63DC, the slash, its hits ~850 ms in). Both are one use (same skill word, SmChainStep).
 #define SM_DP_DEFAULT_ACTS "25563,25564"
 enum { SM_DP_NONE = 0, SM_DP_AWARD = 1, SM_DP_MISS = 2 };
-enum { SM_DPM_DAMAGE = 1, SM_DPM_LATE = 2, SM_DPM_RUNS = 3, SM_DPM_MOTION = 4, SM_DPM_ANGLE = 5, SM_DPM_OFF = 6, SM_DPM_EVADE = 7 };
+enum { SM_DPM_DAMAGE = 1, SM_DPM_LATE = 2, SM_DPM_RUNS = 3, SM_DPM_MOTION = 4, SM_DPM_ANGLE = 5, SM_DPM_OFF = 6, SM_DPM_EVADE = 7, SM_DPM_COUNTER = 8 };
 
-typedef struct { int on; float pts; int triN; float triPts; int followMs, followRuns, minCm, angDeg, listMinCm, listAngDeg, threatCm, graceMs, tailMs; uint32_t acts[SM_DP_ACTS]; int nActs; } SmDispCfg;
+// ctrOnly ([StyleMeter] DisplaceCounterOnly, human 2026-11-27, Just Reprisal): 1 = a counter move (its avoid is a Counter!: a skill with
+// i-frames in the boss's window) that is not a DisplaceActs move pays its Counter! only, never a Displacement!; 0 = the old rule
+typedef struct { int on; float pts; int triN; float triPts; int followMs, followRuns, minCm, angDeg, listMinCm, listAngDeg, threatCm, graceMs, tailMs; uint32_t acts[SM_DP_ACTS]; int nActs; int ctrOnly; } SmDispCfg;
 // move: this tick's run is a move (an attack window opened / a skill row / a guardian spirit / ninjutsu), not a transition run
 // ifr: the player has i-frames this tick (a dodge run that is not part of the displacement use ends it)
 typedef struct { uint64_t run, use; uint32_t act; int elig, move, ifr; int plOk; float pl[2]; int win; int bossOk; float boss[2]; int took, hits, avoid; } SmDispIn;
 // conv: this tick's avoid (not held) is a Counter! of a DisplaceActs move: the glue pays it as a Dodge! (Counter! is for parry skills)
 // asDodge: the released held Counter! was turned into a Dodge! (a displacement move that only missed the follow-up)
-typedef struct { uint32_t act; int why, runs, release, ate, replaced, conv, asDodge, listed; double ago; float moved, ang, dist0; } SmDispOut;
+// ctr (human 2026-11-27, Just Reprisal): a Counter! of a move that is not a DisplaceActs move ended / never opened a candidate: a counter
+// move that repositions is paid its Counter! only, never a Displacement! on top
+typedef struct { uint32_t act; int why, runs, release, ate, replaced, conv, asDodge, listed, ctr; double ago; float moved, ang, dist0; } SmDispOut;
 typedef struct {
     uint64_t run, use; uint32_t act; int runOn; double lastDmg;
     int evOn; uint64_t evRun; double evT0;    // the current run is an evade run (i-frames, not a move) since evT0
@@ -76,6 +80,7 @@ typedef struct {
     int winSeen, winOk, dmg; float dist0;     // the span saw a boss window open / it was in range then / damage since the span started
     int pre; float preP[2], preB[2];          // a hit landed while the window was still open (geometry at that hit)
     int pend, runsAfter, held, pListed; double tClose; uint32_t pAct; uint64_t pUse; float pP0[2], pB0[2], pDist0, pMax, pAng;
+    uint32_t ctrActs[32]; int ctrN;           // ctrOnly: moves seen with a Counter! avoid (learned; a later use out of reach is still a counter move)
 } SmDisp;
 
 static inline int SmDispParseActs(SmDispCfg* c, const char* q) {
@@ -94,7 +99,7 @@ static inline int SmDispParseActs(SmDispCfg* c, const char* q) {
 static inline void SmDispCfgDefaults(SmDispCfg* c) {
     c->on = 1; c->pts = (float)SM_DP_PTS; c->triN = SM_DP_TRI_N; c->triPts = (float)SM_DP_TRI_PTS; c->followMs = SM_DP_FOLLOW_MS; c->followRuns = SM_DP_FOLLOW_RUNS; c->minCm = SM_DP_MIN_CM;
     c->angDeg = SM_DP_ANG_DEG; c->listMinCm = SM_DP_LIST_MIN_CM; c->listAngDeg = SM_DP_LIST_ANG_DEG; c->threatCm = SM_DP_THREAT_CM;
-    c->graceMs = SM_DP_GRACE_MS; c->tailMs = SM_DP_TAIL_MS; SmDispParseActs(c, SM_DP_DEFAULT_ACTS);
+    c->graceMs = SM_DP_GRACE_MS; c->tailMs = SM_DP_TAIL_MS; SmDispParseActs(c, SM_DP_DEFAULT_ACTS); c->ctrOnly = 1;
 }
 static inline void SmDispCfgClamp(SmDispCfg* c) {
     if (c->pts < 0) c->pts = 0; if (c->triN < 0) c->triN = 0; if (c->triPts < 0) c->triPts = 0; if (c->followMs < 100) c->followMs = 100; if (c->followMs > 3000) c->followMs = 3000;
@@ -128,7 +133,10 @@ static inline int SmDispEnd(SmDisp* d, const SmDispCfg* c, SmDispOut* o, int why
     d->held = 0; d->pend = 0;
     return SM_DP_MISS;
 }
+static inline int SmDispCtrKnown(const SmDisp* d, uint32_t act) { for (int i = 0; i < d->ctrN; ++i) if (d->ctrActs[i] == act) return 1; return 0; }
+static inline void SmDispCtrLearn(SmDisp* d, uint32_t act) { if (act && !SmDispCtrKnown(d, act)) { if (d->ctrN < 32) d->ctrActs[d->ctrN++] = act; else d->ctrActs[act % 32] = act; } }
 static inline int SmDispJudge(SmDisp* d, const SmDispCfg* c, SmDispOut* o, double t, const float* p, const float* b) {
+    if (c->ctrOnly && !d->pListed && SmDispCtrKnown(d, d->pAct)) return SmDispEnd(d, c, o, SM_DPM_COUNTER, t);  // a counter move: no Displacement!
     const float m = SmDispDist(d->pP0, p);
     o->moved = m > d->pMax ? m : d->pMax; o->ang = SmDispTurn(d->pP0, d->pB0, p, b);
     if (o->moved < (float)(d->pListed ? c->listMinCm : c->minCm)) return SmDispEnd(d, c, o, SM_DPM_MOTION, t);
@@ -141,6 +149,7 @@ static inline int SmDispJudge(SmDisp* d, const SmDispCfg* c, SmDispOut* o, doubl
 static inline int SmDispCand(SmDisp* d, const SmDispCfg* c, SmDispOut* o, double t, int avoid) {
     d->pend = 1; d->runsAfter = 0; d->tClose = t; d->pAct = d->sAct; d->pUse = d->sUse; d->pDist0 = d->dist0; d->held = 0; d->pListed = d->sListed;
     d->pP0[0] = d->p0[0]; d->pP0[1] = d->p0[1]; d->pB0[0] = d->b0[0]; d->pB0[1] = d->b0[1]; d->pMax = d->sMax; d->pAng = 0.f;
+    if (c->ctrOnly && avoid == SM_AV_COUNTER && !d->pListed) { SmDispCtrLearn(d, d->pAct); d->pend = 0; d->pre = 0; o->ctr = 1; o->act = d->pAct; return SM_DP_NONE; }  // counter move: Counter! only
     if (avoid) { d->held = avoid; o->ate = 1; }
     if (d->pre) { d->pre = 0; return SmDispJudge(d, c, o, t, d->preP, d->preB); }
     return SM_DP_NONE;
@@ -151,7 +160,7 @@ static inline void SmDispSpan(SmDisp* d, const SmDispIn* in, double t) {
     d->winSeen = d->winOk = d->pre = 0; d->dmg = in->took || d->lastDmg >= d->uT0;
 }
 static inline int SmDispStep(SmDisp* d, const SmDispCfg* c, double t, const SmDispIn* in, SmDispOut* o) {
-    o->ate = o->release = o->replaced = o->conv = o->asDodge = o->listed = 0; o->why = 0; o->moved = o->ang = 0.f;
+    o->ate = o->release = o->replaced = o->conv = o->asDodge = o->listed = o->ctr = 0; o->why = 0; o->moved = o->ang = 0.f;
     if (!c->on) { const int r = d->pend ? SmDispEnd(d, c, o, SM_DPM_OFF, t) : SM_DP_NONE; SmDispReset(d); return r; }
     int r = SM_DP_NONE;
     if (in->took) {  // damage ends everything: a candidate pays its held avoid (it was a real avoid of the earlier window)
@@ -197,6 +206,7 @@ static inline int SmDispStep(SmDisp* d, const SmDispCfg* c, double t, const SmDi
                                if (in->bossOk) d->pAng = SmDispTurn(d->pP0, d->pB0, in->pl, in->boss); }
     // a Counter! of a DisplaceActs move that is not held (no candidate: out of range, a window the span did not see open, ...) is a Dodge!
     if (in->avoid == SM_AV_COUNTER && d->sLive && d->sListed) o->conv = 1;
+    if (c->ctrOnly && in->avoid == SM_AV_COUNTER && d->sLive && !d->sListed) SmDispCtrLearn(d, d->sAct);
     if (r == SM_DP_MISS) return r;
     if (d->pend && t - d->tClose > (double)c->followMs) return SmDispEnd(d, c, o, SM_DPM_LATE, t);
     if (d->sLive && in->win) {
@@ -210,6 +220,7 @@ static inline int SmDispStep(SmDisp* d, const SmDispCfg* c, double t, const SmDi
         if (!d->pend && d->sElig && d->winOk && !d->dmg) { const int q = SmDispCand(d, c, o, t, in->avoid); if (q) return q; }
         d->pre = 0;
     }
+    if (c->ctrOnly && d->pend && in->avoid == SM_AV_COUNTER && !o->ate && !d->held && !d->pListed) { SmDispCtrLearn(d, d->pAct); d->pend = 0; o->ctr = 1; o->act = d->pAct; return r; }  // counter move: Counter! only
     if (d->pend && in->avoid && !o->ate && !d->held) { d->held = in->avoid; o->ate = 1; o->conv = 0; }  // the avoid closed a tick later
     if (d->pend && in->hits > 0 && t > d->tClose) {
         if (!in->plOk || !in->bossOk) return SmDispEnd(d, c, o, SM_DPM_MOTION, t);
