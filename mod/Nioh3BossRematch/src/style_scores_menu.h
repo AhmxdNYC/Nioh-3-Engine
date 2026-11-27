@@ -2,7 +2,8 @@
 // Nioh3Training keeps each boss's 3 best result card scores with the mod build that scored them (Nioh3Training style_scores.h, file
 // Nioh3Training_scores.tsv, local only). Pages:
 //   Best scores (uScores): one row per boss 'Demon of Pride   best SS 5.42   3 scores   A: open', in name order.
-//   <Boss> (uScoreBoss): its scores, best first, 'A: view card' (the saved result card, both pages), 'Right: delete' (press twice), and
+//   <Boss> (uScoreBoss): its scores, best first, 'A: view card' (the saved result card, both pages), 'Left: delete' (press twice; human
+//   2026-11-27: the Right hint sat at the end of a long row, off screen, so A looked like the delete button), and
 //   'Delete all scores of this boss' (press A twice).
 #pragma once
 
@@ -40,7 +41,7 @@ template <class Add> bool ScoresAddPage(Add&& add) {
     }
     return false;
 }
-// A score row: A = show its saved card again (both pages; closes the menu, the card hides while the menu is open), Right = delete (twice).
+// A score row: A = show its saved card again (both pages; closes the menu, the card hides while the menu is open), Left = delete (twice).
 // Delete all: A twice. Returns 0 = not a Best scores row, 1 = handled, 2 = handled and close the menu (the card is up).
 int ScoresAct(int item, int dir) {
     if (!IsScoresItem(item)) return 0;
@@ -58,7 +59,7 @@ int ScoresAct(int item, int dir) {
     }
     char nm[96]; ScoresBoss(g_scoreBoss, nm, sizeof nm);
     const bool row = item != kItScoreDelAll;
-    if (row && dir < 0) { g_confirm = -9; g_msg[0] = 0; return 1; }
+    if (row && dir > 0) { g_confirm = -9; g_msg[0] = 0; return 1; }  // Right: cancels a pending delete
     if (row && dir == 0) {  // view the card
         using F = int (*)(int, int); const auto f = (F)TrainingExport("Nioh3Training_ScoreShowCard");
         const int rc = f ? f(g_scoreBoss, item - kItScoreRowBase) : -2;
@@ -71,7 +72,7 @@ int ScoresAct(int item, int dir) {
     if (g_confirm != item) {
         g_confirm = item;
         if (!row) snprintf(g_msg, sizeof g_msg, "Press A again to delete every score of %s.", nm);
-        else snprintf(g_msg, sizeof g_msg, "Press Right again to delete score %d of %s.", item - kItScoreRowBase + 1, nm);
+        else snprintf(g_msg, sizeof g_msg, "Press Left again to delete score %d of %s (Right cancels).", item - kItScoreRowBase + 1, nm);
         return 1;
     }
     g_confirm = -9;
@@ -97,14 +98,14 @@ bool ScoresRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint
     if (item == kItScoreDelAll) { snprintf(buf, n, "%s Delete all scores of this boss   A (twice)", mk); *color = sel ? cWhite : g_confirm == item ? cOrange : cGray; return true; }
     const int j = item - kItScoreRowBase; char t[160];
     ScoresText(g_scoreBoss, j, t, sizeof t);
-    snprintf(buf, n, "%s %d. %s   A: view card   Right: delete", mk, j + 1, t);
+    snprintf(buf, n, "%s %d. %s", mk, j + 1, t);  // the button hints are in the group header and the footer (a long row cut them off)
     if (!sel) *color = g_confirm == item ? cOrange : j == 0 ? cYellow : cGray;
     return true;
 }
 const char* ScoresFooter(int item) {
     if (item == kItScoresOpen) return "Your 3 best boss result card scores for each boss, with the mod build and date they were scored. Kept on this PC only. Open a boss to delete scores.";
     if (item >= kItScoreBossBase && item < kItScoreBossEnd) return "A: this boss's best scores (grade, score out of 7, fight time, hits taken, mod build, date).";
-    if (item >= kItScoreRowBase && item < kItScoreRowBase + 3) return "A: show this fight's result card again (both pages: D-pad / arrows; A / Enter closes it). Right twice: delete this score. Grade, score out of 7, fight time, hits taken, mod build, date.";
+    if (item >= kItScoreRowBase && item < kItScoreRowBase + 3) return "A: show this fight's result card again (both pages: D-pad / arrows; A / Enter closes it). Left twice: delete this score (Right cancels). Grade, score out of 7, fight time, hits taken, mod build, date.";
     if (item == kItScoreDelAll) return "Deletes all of this boss's best scores (press A twice). Other bosses keep theirs.";
     return nullptr;
 }
@@ -115,6 +116,6 @@ const char* ScoresTitle(int page) {
 }
 const char* ScoresGroup(int page, int item) {
     if (page == uScores) return "Bosses (A: open)";
-    if (page == uScoreBoss) return item == kItScoreDelAll ? "Delete" : "Best first";
+    if (page == uScoreBoss) return item == kItScoreDelAll ? "Delete" : "Best first   A: view card   Left twice: delete";
     return nullptr;
 }
