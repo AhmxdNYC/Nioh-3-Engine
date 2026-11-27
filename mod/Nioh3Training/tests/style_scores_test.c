@@ -74,7 +74,7 @@ static void DFloor(void) {
 // human 2026-11-26 (1.8.48): rank ups cost 30 % more (SSS bar kept), A and up drain 30 % faster.
 static void Tuning48(void) {
     SmCfg c; SmCfgDefaults(&c);
-    static const float want[SM_RANKS] = {156, 234, 169, 257, 390, 592, 500};  // x1.3 D..SS, then A +10 %, S +20 %, SS +30 %; SSS bar kept
+    static const float want[SM_RANKS] = {156, 234, 169, 206, 312, 474, 500};  // x1.3 D..SS, A +10 %, S +20 %, SS +30 %, then A..SSS -20 % (2026-11-27); SSS bar kept
     for (int r = 0; r < SM_RANKS; ++r) CHECK(c.rankPts[r] == want[r]);
     CHECK(c.decayHighRank == 3 && c.decayHighPct == 130 && c.decayTopPct[0] == 120 && c.decayTopPct[1] == 130 && c.decayTopPct[2] == 140);
     c.decayRankPct = 0; c.decayRampPct = 0; c.decayLowPct = 100; c.decayDelayMs = 0;
@@ -102,10 +102,11 @@ static void SssHold(void) {
     SmCfg c; SmCfgDefaults(&c); SmState s; SmReset(&s); SrFight f; SrReset(&f); SrBossHit(&f, &s, 0x10);
     s.active = 1; s.rank = 6; s.pts = 100.f; for (int i = 0; i < 55; ++i) SrTick(&f, &s, &c, 100);   // 55 % SSS
     s.rank = 5; for (int i = 0; i < 45; ++i) SrTick(&f, &s, &c, 100);                                 // 45 % SS
-    SrResult r = SrFinishTop(&f, &s, SR_HOLD_PCT, SR_HOLD_SSS_PCT, 0);
-    CHECK(SR_HOLD_SSS_PCT == 60 && r.grade == 5 && r.holdTop == 60 && r.score > 5.91f && r.score < 5.93f);  // SS + 55/60 of the way to SSS
+    CHECK(SR_HOLD_SSS_PCT == 50);  // 2026-11-27: default back to 50; 60 below still tests the separate SSS share
+    SrResult r = SrFinishTop(&f, &s, SR_HOLD_PCT, 60, 0);
+    CHECK( r.grade == 5 && r.holdTop == 60 && r.score > 5.91f && r.score < 5.93f);  // SS + 55/60 of the way to SSS
     CHECK(SrFinishEx(&f, &s, SR_HOLD_PCT, 0).grade == 6);                                              // the old 50 % rule: SSS
     s.rank = 6; for (int i = 0; i < 25; ++i) SrTick(&f, &s, &c, 100);                                 // 80 / 125 = 64 % SSS
-    r = SrFinishTop(&f, &s, SR_HOLD_PCT, SR_HOLD_SSS_PCT, 0); CHECK(r.grade == 6 && r.score > 6.09f && r.score < 6.11f);  // (64 - 60) / 40
+    r = SrFinishTop(&f, &s, SR_HOLD_PCT, 60, 0); CHECK(r.grade == 6 && r.score > 6.09f && r.score < 6.11f);  // (64 - 60) / 40
 }
 int main(void) { SssHold(); Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }

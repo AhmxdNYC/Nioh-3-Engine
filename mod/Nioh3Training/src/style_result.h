@@ -42,7 +42,7 @@
 #define SR_BOSSES 8
 #define SR_ACTS 192             // distinct move ids remembered per fight (more just stop counting)
 #define SR_HOLD_PCT 50          // [StyleMeter] ResultHoldPct (human 2026-11-26: 50 with rule 3; 2026-11-25 was 45)
-#define SR_HOLD_SSS_PCT 60      // [StyleMeter] ResultHoldPctSSS (human 2026-11-26, 1.8.48): an SSS grade needs 60 % of the fight at SSS (other grades ResultHoldPct)
+#define SR_HOLD_SSS_PCT 50      // [StyleMeter] ResultHoldPctSSS: % of the fight at SSS an SSS grade needs (other grades ResultHoldPct). human 2026-11-27: back to 50 (60 was too hard)
 #define SR_END_DELAY_MS 3000    // [StyleMeter] ResultEndDelayMs: wait after the last boss death for a next form
 #define SR_FORM_MS 1500         // [StyleMeter] ResultFormMs: a boss first seen this long after the fight went down is still its next form
 #define SR_FORM_SLACK_MS 500    // ... or this long before it (the next form's bar can show a frame before the old HP reads 0)

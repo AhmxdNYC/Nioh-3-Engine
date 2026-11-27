@@ -169,7 +169,8 @@ static const char* const sm_rank_word[SM_RANKS] = {"Dull", "Cunning", "Bold", "A
 // human 2026-11-26 (1.8.48): ranking up too easy: every rank up costs 30 % more (D..SS x1.3, was 120 180 130 180 250 350). SSS is the top bar, not a
 // rank up: kept at 500 (a bigger SSS bar would make SSS easier to keep under the same drain).
 // Round 2 (same day): the climb from A is harder again: A -> S bar +10 % (257), S -> SS +20 % (390), SS -> SSS +30 % (592).
-static const float sm_rank_pts_default[SM_RANKS] = {156.f, 234.f, 169.f, 257.f, 390.f, 592.f, 500.f};  // human 2026-11-25: D and C twice as long (was 60 90; #127568 was 100 150 200 250 325 400 500)
+// human 2026-11-27: too hard now: A -> S, S -> SS and SS -> SSS need 20 % fewer points (257 390 592 -> 206 312 474).
+static const float sm_rank_pts_default[SM_RANKS] = {156.f, 234.f, 169.f, 206.f, 312.f, 474.f, 500.f};  // human 2026-11-25: D and C twice as long (was 60 90; #127568 was 100 150 200 250 325 400 500)
 
 typedef struct {
     float hit, dodge, ki;                 // base points per event
