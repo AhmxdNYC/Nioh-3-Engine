@@ -76,11 +76,11 @@ static void Tuning48(void) {
     SmCfg c; SmCfgDefaults(&c);
     static const float want[SM_RANKS] = {156, 234, 169, 234, 325, 455, 500};  // every rank flat x1.3 over 1.8.47 (2026-11-27); SSS bar kept
     for (int r = 0; r < SM_RANKS; ++r) CHECK(c.rankPts[r] == want[r]);
-    CHECK(c.decayHighRank == 3 && c.decayHighPct == 130 && c.decayTopPct[0] == 120 && c.decayTopPct[1] == 130 && c.decayTopPct[2] == 140);
+    CHECK(c.decayHighRank == 3 && c.decayHighPct == 182 && c.decayTopPct[0] == 100 && c.decayTopPct[1] == 100 && c.decayTopPct[2] == 100 && c.decayLowPct == 78);  // 2026-11-27
     c.decayRankPct = 0; c.decayRampPct = 0; c.decayLowPct = 100; c.decayDelayMs = 0;
     float lost[SM_RANKS];
     for (int r = 2; r < SM_RANKS; ++r) { SmState s; SmReset(&s); s.active = 1; s.rank = r; s.pts = c.rankPts[r]; s.lastScore = 0; SmTick(&s, &c, 1000, 1000); lost[r] = c.rankPts[r] - s.pts; }
-    static const float k[SM_RANKS] = {0, 0, 1.f, 1.3f, 1.3f * 1.2f, 1.3f * 1.3f, 1.3f * 1.4f};  // B normal, A x1.3, S x1.56, SS x1.69, SSS x1.82
+    static const float k[SM_RANKS] = {0, 0, 1.f, 1.82f, 1.82f, 1.82f, 1.82f};  // 2026-11-27: B normal, A..SSS x1.82
     for (int r = 3; r < SM_RANKS; ++r) CHECK(lost[r] > lost[2] * k[r] * 0.999f && lost[r] < lost[2] * k[r] * 1.001f);
 }
 // 1.8.48: the whole card is kept with the score and comes back from the file (both pages' data); a card of another size is dropped, not the score.

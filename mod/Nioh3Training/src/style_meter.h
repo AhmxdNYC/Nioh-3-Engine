@@ -124,12 +124,12 @@
 #define SM_VERS_BASE_PCT 10   // ... VersatilityBasePct: the first tier's multiplier (+10 % at 5 moves)
 #define SM_VERS_INC_PCT 5     // ... VersatilityIncPct: each later tier adds this much (10 moves +15 %, 15 +20 %, ..)
 #define SM_DECAY_LOW_RANK 2   // [StyleMeter] DecayLowRank: ranks D..this (B) drain at DecayLowPct % (human 2026-11-26: casual friendly)
-#define SM_DECAY_LOW_PCT 60   // ... DecayLowPct: 60 = 40 % slower (human 2026-11-26: was 70); 100 = same as A+
+#define SM_DECAY_LOW_PCT 78   // ... DecayLowPct: 78 = 22 % slower (human 2026-11-27: was 60; x1.3 so the x1.3 bars empty in the 1.8.47 time); 100 = same as A+
 #define SM_DECAY_HIGH_RANK 3  // [StyleMeter] DecayHighRank: ranks this (A) and up drain at DecayHighPct % (human 2026-11-26, 1.8.48: top ranks too easy to hold)
-#define SM_DECAY_HIGH_PCT 130 // ... DecayHighPct: 130 = 30 % faster; 100 = off
-#define SM_DECAY_S_PCT 120    // [StyleMeter] DecayPctS / DecayPctSS / DecayPctSSS (human 2026-11-26, 1.8.48): on top of DecayHighPct, S drains 20 %,
-#define SM_DECAY_SS_PCT 130   // SS 30 % and SSS 40 % faster again (100 = off)
-#define SM_DECAY_SSS_PCT 140
+#define SM_DECAY_HIGH_PCT 182 // ... DecayHighPct: 182 = 82 % faster (human 2026-11-27: was 130; a full A..SS bar empties ~15 % sooner than 1.8.47, SSS ~25 %); 100 = off
+#define SM_DECAY_S_PCT 100    // [StyleMeter] DecayPctS / DecayPctSS / DecayPctSSS (human 2026-11-26, 1.8.48): on top of DecayHighPct, S drains 20 %,
+#define SM_DECAY_SS_PCT 100   // SS 30 % and SSS 40 % faster again (100 = off)
+#define SM_DECAY_SSS_PCT 100  // human 2026-11-27: all three 100 (was 120 / 130 / 140): DecayHighPct alone sets A..SSS
 #define SM_SLOW_MS 500        // [StyleMeter] SlowMoveMs: a use that lands its first hit this long (ms) after it started is a slow move (0 = off)
 #define SM_SLOW_STEP_PCT 100  // ... SlowMoveStepPct: + this % per second past SlowMoveMs (100 = +1x a second; 0 = flat x2), human 2026-11-26
 #define SM_SLOW_TOP_PCT 300   // ... SlowMoveTopPct: the curve stops here (human 2026-11-26: 300 = x3, at 1.5 s)
