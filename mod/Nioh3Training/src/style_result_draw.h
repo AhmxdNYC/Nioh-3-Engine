@@ -53,6 +53,16 @@ static void SrText(HDC ref, uint32_t* px, int W, int H, const char* s, int x, in
     if (tb) DeleteObject(tb);
     if (tdc) DeleteDC(tdc);
 }
+// human 2026-11-26: the font size (<= fpx) at which s fits in maxW px (a long boss pair name on the title).
+static int SrFitPx(HDC ref, const char* s, int fpx, int weight, int maxW) {
+    HDC dc = CreateCompatibleDC(ref); if (!dc) return fpx;
+    for (; fpx > 8; --fpx) {
+        HFONT fn = CreateFontW(-fpx, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, 0, 0, ANTIALIASED_QUALITY, 0, L"Georgia"); if (!fn) break;
+        HGDIOBJ of = SelectObject(dc, fn); SIZE sz = {0, 0}; GetTextExtentPoint32A(dc, s, (int)strlen(s), &sz); SelectObject(dc, of); DeleteObject(fn);
+        if (sz.cx <= maxW) break;
+    }
+    DeleteDC(dc); return fpx;
+}
 static void SrClock(char* o, int n, double ms) { const int s = (int)(ms / 1000.0 + 0.5); snprintf(o, n, "%d:%02d", s / 60, s % 60); }
 // The static part of the card (panel, texts, bar): everything but the grade letter.
 static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult* r) {
@@ -65,12 +75,17 @@ static void SrComposeBase(HDC ref, uint32_t* px, const SrGeo* g, const SrResult*
     SrFill(px, W, H, 0, 0, W, SRX(2) > 1 ? SRX(2) : 1, 0xA89A6Cu, 255); SrFill(px, W, H, 0, H - (SRX(2) > 1 ? SRX(2) : 1), W, SRX(2) > 1 ? SRX(2) : 1, 0xA89A6Cu, 255);
     SrFill(px, W, H, 0, 0, SRX(2) > 1 ? SRX(2) : 1, H, 0xA89A6Cu, 255); SrFill(px, W, H, W - (SRX(2) > 1 ? SRX(2) : 1), 0, SRX(2) > 1 ? SRX(2) : 1, H, 0xA89A6Cu, 255);
     SrFill(px, W, H, SRX(8), SRX(8), W - SRX(16), 1, 0xA89A6Cu, 90); SrFill(px, W, H, SRX(8), H - SRX(8), W - SRX(16), 1, 0xA89A6Cu, 90);
-    SrText(ref, px, W, H, r->bosses > 1 ? "BOSS FIGHT  STYLE RANK" : "BOSS STYLE RANK", W / 2, SRX(17), SRX(23), FW_BOLD, 0, 1, SR_GOLD);
+    {   // human 2026-11-26: '<Boss name>: Results' (name unknown: the old title)
+        char tt[128]; if (r->name[0]) snprintf(tt, sizeof tt, "%s: Results", r->name); else snprintf(tt, sizeof tt, "%s", r->bosses > 1 ? "BOSS FIGHT  STYLE RANK" : "BOSS STYLE RANK");
+        const int fp = SrFitPx(ref, tt, SRX(23), FW_BOLD, W - SRX(48));
+        SrText(ref, px, W, H, tt, W / 2, SRX(17) + (SRX(23) - fp) / 2, fp, FW_BOLD, 0, 1, SR_GOLD);
+    }
     SrFill(px, W, H, SRX(40), SRX(58), W - SRX(80), 1, 0xA89A6Cu, 140);
     // score line under the letter
     char b[160], t[24]; SrClock(t, sizeof t, r->ms);
-    snprintf(b, sizeof b, "Score %.2f / 7     Peak %s     Fight %s", r->score, sm_rank_name[r->peak], t);  // human 2026-11-26: the grade score, not the average
-    SrText(ref, px, W, H, b, W / 2, SRX(266), SRX(21), FW_NORMAL, 0, 1, SR_VALUE);
+    snprintf(b, sizeof b, "Score %.2f / 7     Peak %s     Fight %s%s", r->score, sm_rank_name[r->peak], t,
+             r->place == 1 ? "     New best!" : r->place == 2 ? "     2nd best" : r->place == 3 ? "     3rd best" : "");  // human 2026-11-26: the grade score, not the average; its place in the boss's best scores
+    SrText(ref, px, W, H, b, W / 2, SRX(266), SrFitPx(ref, b, SRX(21), FW_NORMAL, W - SRX(40)), FW_NORMAL, 0, 1, SR_VALUE);
     if (r->n.damaged == 0) snprintf(b, sizeof b, "No hits taken: no penalty");
     else snprintf(b, sizeof b, "Style %.2f  \x96 %.2f for %u hit%s taken", r->rawScore, r->penalty, r->n.damaged, r->n.damaged == 1 ? "" : "s");
     SrText(ref, px, W, H, b, W / 2, SRX(296), SRX(17), FW_BOLD, 0, 1, r->n.damaged == 0 ? 0x9FD49Au : 0xE08A7Au);

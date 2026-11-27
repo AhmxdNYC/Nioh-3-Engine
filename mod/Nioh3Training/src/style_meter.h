@@ -203,6 +203,7 @@ typedef struct {
     int rank;               // 0 = D .. 6 = SSS
     float pts;              // points inside the rank, 0 .. rankPts[rank]
     int active;             // 0 = idle (D, empty): hidden
+    int keepD;              // human 2026-11-26: set by the glue while a boss fight runs: D is the floor (an empty D stays shown, never idle / unranked)
     double lastScore;       // game ms of the last scoring event (decay delay)
     double lastEvent;       // game ms of the last event of any kind (combat timeout)
     uint32_t hist[SM_HIST]; int histN, histPos;
@@ -339,6 +340,9 @@ static inline float SmAdd(SmState* s, const SmCfg* c, float pts, int cat) {
 // Points lost (loop penalty): drains like SmTick's decay (below 0 drops a rank, refilled from that rank's top; at D it ends empty / idle).
 // Does not touch lastScore. Nothing to lose when idle.
 // Points the meter can still lose (this rank's gauge + every lower rank's bar).
+// human 2026-11-26: a boss fight is running (glue, every tick): the meter shows at least D from the first boss hit to the fight's end, so
+// stopping or running away sits at D instead of going unranked. Off again: an empty D goes idle with the next decay as before.
+static inline void SmKeepD(SmState* s, int on) { s->keepD = on ? 1 : 0; if (on && !s->active) { s->active = 1; s->rank = 0; s->pts = 0.f; } }
 static inline float SmHeld(const SmState* s, const SmCfg* c) { float a = s->active ? s->pts : 0.f; for (int r = 0; r < s->rank; ++r) a += c->rankPts[r]; return a; }
 // lcat: the loss's source (SM_PL_*; SM_PL_NONE = not booked).
 static inline void SmSub(SmState* s, const SmCfg* c, float pts, int lcat) {
@@ -346,7 +350,7 @@ static inline void SmSub(SmState* s, const SmCfg* c, float pts, int lcat) {
     if (lcat >= 0 && lcat < SM_PL_N) { const float h = SmHeld(s, c); s->lost[lcat] += pts < h ? pts : h; }
     s->pts -= pts;
     while (s->pts < 0.f) {
-        if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
+        if (s->rank == 0) { s->pts = 0.f; s->active = s->keepD ? 1 : 0; s->useOn = 0; break; }
         s->rank--; s->pts += c->rankPts[s->rank];
     }
 }
@@ -841,11 +845,11 @@ static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     if (c->damagePct < 100) {  // human 2026-11-26: a share of the full drop (this rank's points + the rank below's bar), drained like decay
         const float full = s->pts + (s->rank > 0 ? c->rankPts[s->rank - 1] : 0.f);
         SmSub(s, c, full * (float)c->damagePct / 100.f, SM_PL_DAMAGE);
-        if (s->rank == 0 && !(s->pts > 0.f)) { s->pts = 0.f; s->active = 0; }  // an empty D goes idle (as the full drop does)
+        if (s->rank == 0 && !(s->pts > 0.f)) { s->pts = 0.f; s->active = s->keepD ? 1 : 0; }  // an empty D goes idle (as the full drop does), but not in a boss fight
         return;
     }
     if (s->rank > 0) s->rank--;
-    s->pts = 0.f; s->active = s->rank > 0;
+    s->pts = 0.f; s->active = s->rank > 0 || s->keepD;
 }
 // human: combo. n landed hits this tick (the player's and the summoned spirit's). A gap over comboMs starts a new combo; every comboStep-th
 // hit of one combo pays a milestone bonus (comboBase, +comboInc each later milestone, capped at comboMax). Returns the bonus paid;
@@ -884,7 +888,7 @@ static inline void SmTick(SmState* s, const SmCfg* c, double t, double dt) {
     { const float h = SmHeld(s, c); s->lost[SM_PL_DRAIN] += d < h ? d : h; }  // human 2026-11-26: points breakdown
     s->pts -= d;
     while (s->pts < 0.f) {
-        if (s->rank == 0) { s->pts = 0.f; s->active = 0; s->useOn = 0; break; }
+        if (s->rank == 0) { s->pts = 0.f; s->active = s->keepD ? 1 : 0; s->useOn = 0; break; }
         s->rank--; s->pts += c->rankPts[s->rank];
     }
 }

@@ -90,6 +90,9 @@ typedef struct {
     uint32_t comboBest;          // longest combo during the fight (shown, not graded)
     uint32_t inputs;             // human 2026-11-25: button presses during the fight (pad buttons / triggers, keys, mouse buttons)
     float apm;                   // ... per minute of fight time (shown, not graded)
+    uint32_t chr[SR_BOSSES]; int nChr;  // human 2026-11-26: the fight's boss character ids (0 = not known: HUD-only boss), for its name and best scores
+    char name[96];               // ... the bosses' names (glue: Nioh3Training_BossName), empty = not known: card title '<name>: Results'
+    int place;                   // ... 1..3 = this score's place in that boss's best scores (style_scores.h), 0 = not in them / not kept
 } SrResult;
 
 typedef struct {
@@ -104,6 +107,7 @@ typedef struct {
     uint32_t comboBest;
     uint64_t boss[SR_BOSSES]; int dead[SR_BOSSES], hp0[SR_BOSSES]; int nBoss;  // hp0: HP was 0 when last seen (a later disappearance = killed)
     uint64_t tag[SR_BOSSES];     // HUD-only boss identity (handle / HP block), 0 = a boss slot (see SrBossHitTag)
+    uint32_t chr[SR_BOSSES];     // human 2026-11-26: character id of each boss (SrBossChr; 0 = not known)
     uint32_t acts[SR_ACTS]; int nActs;
     uint32_t maActs[SR_ACTS]; int nMa;
     SrCount c0;
@@ -171,6 +175,8 @@ static inline int SrBossHitTag(SrFight* f, const SmState* s, uint64_t a, uint64_
     if (r == 0 && tag && (i = SrBossIdx(f, a)) >= 0 && !f->tag[i]) f->tag[i] = tag;
     return r;
 }
+// human 2026-11-26: the character id of boss `a` of the fight (first one known wins; 0 = not known).
+static inline void SrBossChr(SrFight* f, uint64_t a, uint32_t chr) { const int i = a && chr ? SrBossIdx(f, a) : -1; if (i >= 0 && !f->chr[i]) f->chr[i] = chr; }
 // Old entry (tests): every new boss in the end wait is a next form.
 static inline void SrBossHit(SrFight* f, const SmState* s, uint64_t a) { SrBossHitEx(f, s, a, f->endWall, SR_FORM_MS); }
 // One tick of fight time: dt game ms with the meter at state s (after this tick's events). Nothing counts while ending.
@@ -233,6 +239,7 @@ static inline SrResult SrFinishEx(const SrFight* f, const SmState* s, int holdPc
     for (int i = 0; i < SM_PL_N; ++i) r.lostTotal += r.n.lost[i] > 0.f ? r.n.lost[i] : 0.f;
     r.inputs = f->inputs; r.apm = f->ms > 0 ? (float)(f->inputs * 60000.0 / f->ms) : 0.f;
     for (int i = 0; i < f->nBoss; ++i) r.bosses += f->dead[i] || f->hp0[i];
+    for (int i = 0; i < f->nBoss; ++i) r.chr[i] = f->chr[i]; r.nChr = f->nBoss;
     return r;
 }
 static inline SrResult SrFinish(const SrFight* f, const SmState* s, int holdPct) { return SrFinishEx(f, s, holdPct, 0); }

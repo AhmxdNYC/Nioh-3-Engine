@@ -49,6 +49,9 @@ int main(int argc, char** argv) {
             for (int i = 0; i < SM_PC_N; ++i) { r->n.earned[i] = e[fi][i]; r->earnedTotal += e[fi][i]; }
             for (int i = 0; i < SM_PL_N; ++i) { r->n.lost[i] = l[fi][i]; r->lostTotal += l[fi][i]; } }
     }
+    // human 2026-11-26: boss names on the title + the place in the boss's best scores (sss: no name known = the old title)
+    snprintf(fights[0].r.name, sizeof fights[0].r.name, "Demon of Pride"); fights[0].r.place = 1;
+    snprintf(fights[1].r.name, sizeof fights[1].r.name, "Anayama Nobutada & Baba Nobuharu"); fights[1].r.place = 3;
     const int H = 1080; const SrGeo g = SrGeom(H, SR_SCALE_PCT);
     const int VW = g.w + 80, VH = g.h + 80;
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);

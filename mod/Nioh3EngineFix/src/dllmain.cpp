@@ -4046,6 +4046,8 @@ BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
 // #135494 (human #135492): hit-stop lines in the Player log. Nioh3Training detects the player's hit-stop (ctrl+0x3CC speed) and asks
 // EngineFix for the fix state once per episode. out[0] = HitStopFix live (vrr_hsOn), out[1] = P11 installed, out[2] = VRR armed this frame
 // (measured fps, 0 = stock frame), out[3] = VRR tier (30/60/120), out[4] = drain scale x1000 this frame. Read only. Returns 5 (fields written).
+// human 2026-11-26: the mod build for Nioh3Training (its best style scores note the build that scored them).
+extern "C" __declspec(dllexport) const char* Nioh3EngineFix_Version() { return MOD_VERSION; }
 extern "C" float vrr_hsK;
 extern "C" __declspec(dllexport) int Nioh3EngineFix_HitStopInfo(int* out, int n) {
     if (!out || n <= 0) return 0;
