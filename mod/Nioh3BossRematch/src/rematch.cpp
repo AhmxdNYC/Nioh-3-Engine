@@ -6743,9 +6743,12 @@ void Command(const char* line, char* reply, size_t n) {
             if (!p || sscanf_s(p + 11, "%d %x", &slot, &item) != 2) { snprintf(reply, n, "error spirit scequipitem <slot> <hex item>"); return; }
             using E = int (*)(int, int);
             using R = int (*)(int*);
-            const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem");
+            // human #144438/#144581: 'spirit scequipitem <slot> <item> yang' = F2's own equip (Yang slot only, refused cores put the old core back,
+            // no Yin slot / d-pad move), so the survey cycles cores exactly like F2.
+            const bool yang = strstr(p + 11, "yang") != nullptr;
+            const auto eq = (E)TrainingExport(yang ? "Nioh3Training_SoulCoreEquipItemYang" : "Nioh3Training_SoulCoreEquipItem");
             const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
-            if (!eq || !res) { snprintf(reply, n, "error no SoulCoreEquipItem export"); return; }
+            if (!eq || !res) { snprintf(reply, n, "error no SoulCoreEquipItem%s export", yang ? "Yang" : ""); return; }
             int seq0 = 0; res(&seq0);
             const int q = eq(slot, (int)item);
             if (q != 1) { snprintf(reply, n, "error queue %d slot=%d item=%X", q, slot, item); return; }
@@ -6978,7 +6981,14 @@ void Command(const char* line, char* reply, size_t n) {
         for (size_t i = 0; i < g_rows.size(); ++i)
             if (!strcmp(g_rows[i].id, arg)) {
                 const int row = (int)i;
-                if (ArenaTrainRoute(row) == rcore::kAtScroll) { snprintf(reply, n, "refused scroll route"); return; }
+                if (ArenaTrainRoute(row) == rcore::kAtScroll) {  // TASK #144260 (human #144255 Baikamo scroll sweep): the menu's scroll Training trip (StartScrollRecord, no waves)
+                    if (const char* w = Gates(ReadSnap(), true)) { snprintf(reply, n, "refused %s", w); return; }
+                    if (const char* w = CanFight(row)) { snprintf(reply, n, "refused %s", w); return; }
+                    if (!g_waveVetoOk) { snprintf(reply, n, "refused the wave guard did not install"); return; }
+                    Post(kReqEmakiTrain, row, "pipe (scroll training)");
+                    snprintf(reply, n, "queued %s scroll training (no waves)", g_rows[i].id);
+                    return;
+                }
                 if (const char* w = Gates(ReadSnap(), true)) { snprintf(reply, n, "refused %s", w); return; }
                 if (const char* w = ArenaTrainWhy(row)) { snprintf(reply, n, "refused %s", w); return; }
                 SetPracticeNext(0);

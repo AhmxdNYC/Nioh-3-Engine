@@ -6,6 +6,15 @@
  },
  "rvas": [
   {
+   "rva": "0x72730",
+   "kind": "code",
+   "pattern": "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 55 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC 90 00 00 00 F6",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
    "rva": "0xB9C74",
    "kind": "code",
    "pattern": "40 53 48 83 EC 20 48 8B 81 E8 00 00 00 48 8B D9 B2 01 48 89",
@@ -189,6 +198,24 @@
    "rva": "0x162200",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 48 8B D6 48 8B CF E8 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 49 8B 16 4C",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
+   "rva": "0x17139C",
+   "kind": "code",
+   "pattern": "48 8B 81 D0 01 00 00 48 85 C0 75 24",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
+   "rva": "0x173DD8",
+   "kind": "code",
+   "pattern": "48 8B 81 D0 01 00 00 48 85 C0 75 16",
    "offset": 0,
    "used_in": [
     "bosslog.cpp"
@@ -578,6 +605,15 @@
    "rva": "0x4CE90C",
    "kind": "code",
    "pattern": "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29 40 88 44 0F",
+   "offset": 0,
+   "used_in": [
+    "bosslog.cpp"
+   ]
+  },
+  {
+   "rva": "0x4CFA64",
+   "kind": "code",
+   "pattern": "48 83 3D ?? ?? ?? ?? 00 0F 85 ?? ?? ?? ?? 33 C0 C3 CC CC CC 48 89 5C 24 08 57 48 83",
    "offset": 0,
    "used_in": [
     "bosslog.cpp"

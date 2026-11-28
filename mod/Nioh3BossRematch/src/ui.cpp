@@ -381,7 +381,18 @@ DWORD WINAPI OvThread(void*) {
         MSG msg; while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_gameWnd || !IsWindow(g_gameWnd)) { g_gameWnd = nullptr; EnumWindows(FindGameOv, 0); }
         char lines[2][64] = {}; uint32_t colors[2] = {};
-        const bool fg = g_gameWnd && !IsIconic(g_gameWnd) && GetForegroundWindow() == g_gameWnd;
+        // human #144039 ('Soul core overlay broke not showing at all'): live 01:25 the foreground window was this overlay window itself
+        // (class Nioh3BossRematchSoulCoreOverlay, pid of the game), so 'game in front' was false and the overlay stayed hidden; keys went to it too.
+        // A launcher/focus helper that activates the game process's first visible top-level window can pick it. The overlay must never hold
+        // the focus: hand it straight back to the game window (we are the foreground process, so SetForegroundWindow is allowed).
+        HWND fgw = GetForegroundWindow();
+        if (fgw == g_wnd && g_gameWnd && IsWindow(g_gameWnd)) {
+            const BOOL back = SetForegroundWindow(g_gameWnd);
+            static int focusLogs = 0;
+            if (focusLogs < 20) { ++focusLogs; Log("SoulCoreOverlay: the overlay window had the focus; handed it back to the game window (%s)", back ? "ok" : "refused"); }
+            fgw = GetForegroundWindow();
+        }
+        const bool fg = g_gameWnd && !IsIconic(g_gameWnd) && (fgw == g_gameWnd || fgw == g_wnd);
         const int n = fg && !addon::ui::g_open.load() ? addon::rematch::ScOverlayLines(lines, colors, 2) : 0;
         if (n <= 0) { if (shown) { ShowWindow(g_wnd, SW_HIDE); shown = false; } continue; }
         RECT cr; GetClientRect(g_gameWnd, &cr); POINT o = {0, 0}; ClientToScreen(g_gameWnd, &o);

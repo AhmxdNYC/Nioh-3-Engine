@@ -154,7 +154,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.53"
+#define MOD_VERSION "1.8.54"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -615,6 +615,14 @@ Config LoadConfig() {
         if (I(L"Patches", L"RC", 2) == 0) WritePrivateProfileStringW(L"Patches", L"RC", L"2", f);
         if (I(L"Patches", L"PollFix", 1) == 0) WritePrivateProfileStringW(L"Patches", L"PollFix", L"1", f);
         WritePrivateProfileStringW(L"Patches", L"LoadFixDefaultV", L"1", f);
+    }
+    // Held attack fix default (human #143300): inis since v1.8.24 shipped [General] HoldKeyGap = 0 (opt-in). Mode 3 is live-proven
+    // (Main PC keyboard late MA 7/16 -> 0/16, pad 9/16 -> 1/32, notes/hold-re-120730.md). Flip an explicit 0 once and stamp
+    // HoldKeyGapDefaultV = 1 (same pattern as LoadFixDefaultV); with the marker present a later manual 0 sticks.
+    // Runs here, before holdkeygap reads the key at install.
+    if (I(L"Patches", L"HoldKeyGapDefaultV", 0) < 1) {
+        if (GetPrivateProfileIntW(L"General", L"HoldKeyGap", 3, f) == 0) WritePrivateProfileStringW(L"General", L"HoldKeyGap", L"3", f);
+        WritePrivateProfileStringW(L"Patches", L"HoldKeyGapDefaultV", L"1", f);
     }
     // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
     // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
@@ -3669,7 +3677,7 @@ DWORD WINAPI Worker(LPVOID) {
             agi.knownBuild = known;
             assertguard::Start(agi);
         }
-        {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
+        {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 3 default): a move branch key that falls between two uneven frames
            // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
             holdkeygap::StartInfo hki;
             hki.log = &Log;

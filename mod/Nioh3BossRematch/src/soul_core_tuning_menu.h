@@ -3,7 +3,7 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 26;  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 35;  // human #143831: row 34 = Fast summon yokai earlier  // human #143826: row 33 = Fast summon spawn left/right  // human #143782: row 32 = Fast summon spawn distance  // human #143572: row 31 = Fast summon your speed  // human #143486: row 30 = Extra shrink, huge forms  // human #143437: row 29 = Speed after last hit  // human #143310: see-through attacks row (29 Attack opacity) hidden from the menu  // TASK #143133 (human #143083/#143099/#143119/#143086): +4 form size rows (26 shrink, 27 shrink %, 28 scale attacks, 29 attack opacity)  // TASK #137323: +2 Fast summon startup / end pose speed rows (22, 23); TASK #136502: +1 Fast summon speed row (21); TASK #136492: +1 move sensitivity row (20); TASK #136113: +1 after-last-projectile row (19); TASK #135613: +4 exit rows (15-18);  // human #128855: +3 throw layers; #129070: row 14 = start + end speed together (menu-only, steps 11 and 6);  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 // human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
@@ -31,8 +31,9 @@ const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke for
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:",
                                       "Crouch cancel window:", "Core toss speed:", "Toss speed-up max time:", "Exit speed blend time:", "Start + end speed:",
                                       "Hidden yokai exit:", "Exit no earlier than:", "Exit after a projectile:", "Exit at % of attack:", "After last projectile:", "Move sensitivity:", "Fast summon speed:",
-                                      "Fast summon startup:", "Fast summon end pose:", "Move speed:", "Fast summon pose hold:"};  // TASK #142639 (25)  // human #141255 Move speed (24)  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
-const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 80, 0, 5, 0, 1, 6, 1500, 200};
+                                      "Fast summon startup:", "Fast summon end pose:", "Move speed:", "Fast summon pose hold:",
+                                      "Shrink big forms:", "Shrink by:", "Shrink attacks too:", "Speed after last hit:", "Extra shrink, huge:", "Fast summon your speed:", "Fast summon spawn distance:", "Fast summon spawn left/right:", "Fast summon yokai earlier:"};  // TASK #142639 (25)  // human #141255 Move speed (24)  // TASK #137323  // TASK #136502  // TASK #136492  // TASK #136113  // TASK #135613  // human #122288, #128855, #129054 plain names
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.6, 2, 0, 0, 0, 200, 8, 1200, 250, 0, 1, 0, 0, 100, 0, 5, 0, 1, 6, 1500, 200, 1, 20, 1, 3, 15, 2, 0, 0, 0};
 // human #129070: row 14 has no own value; it steps Core toss speed (11) and Exit tail speed (6) one notch each, same direction.
 constexpr int kSctBoth = 14;
 void SctBothText(bool* live, bool* changed, char* b, size_t n) {
@@ -55,6 +56,14 @@ void SctValueText(int w, double v, char* b, size_t n) {
     else if (w == 11) { if (v <= 1) snprintf(b, n, "x1 (off)"); else snprintf(b, n, "x%d", (int)v); }
     else if (w == 12 && v <= 0) snprintf(b, n, "OFF");
     else if (w == 25 && v <= 0) snprintf(b, n, "OFF (game)");  // TASK #142639
+    else if (w == 26 || w == 28) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");  // TASK #143133
+    else if (w == 27 || w == 30) snprintf(b, n, "%d %%", (int)v);  // human #143486
+    else if (w == 31) { if (v <= 1) snprintf(b, n, "OFF"); else snprintf(b, n, "x%.1f", v); }  // human #143572
+    else if (w == 34) { if (v <= 0) snprintf(b, n, "OFF (game)"); else snprintf(b, n, "%d frames earlier", (int)v); }  // human #143939
+    else if (w == 33) { if (v == 0) snprintf(b, n, "game"); else snprintf(b, n, "%.0f cm %s", v < 0 ? -v : v, v < 0 ? "left" : "right"); }  // human #143826
+    else if (w == 32) { if (v <= 0) snprintf(b, n, "game"); else snprintf(b, n, "+%.0f cm", v); }  // human #143782
+    else if (w == 29) { if (v <= 1) snprintf(b, n, "OFF"); else snprintf(b, n, "x%.1f", v); }  // human #143437  // TASK #143133
+    else if (w == 24) { if (v <= 0) snprintf(b, n, "OFF"); else snprintf(b, n, "%d cm/s", (int)v); }  // human screenshot #143867: Move speed is cm/s (FormSteerSpeed), was shown as ms
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
     else if (w == 3 && v <= 0) snprintf(b, n, "OFF (once)");
     else snprintf(b, n, "%d ms", (int)v);
@@ -396,7 +405,11 @@ int ScPairSend(int slot) {
     const auto eq = (E)TrainingExport("Nioh3Training_SoulCoreEquip"); const auto res = (R)TrainingExport("Nioh3Training_SoulCoreEquipResult");
     if (!eq || !res) return -1;
     if (g_scPairCat) {  // catalog step: equip by item id (an unowned core is added by the game's own item add, as the menu row does)
-        const auto eqi = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem");
+        // human #143767 ('F2 still cycles thru items as well as soul cores'): the plain item equip falls back to a Yin slot + d-pad shortcut
+        // when a Yang equip makes no usable item (#140431, live 26 of 53 F2 steps moved a d-pad item). F2 asks the Yang-only equip: slots 2-7
+        // and the shortcuts are never touched, such a core is refused and F2 skips it. Older Training without it: the plain call.
+        auto eqi = (E)TrainingExport("Nioh3Training_SoulCoreEquipItemYang");
+        if (!eqi) eqi = (E)TrainingExport("Nioh3Training_SoulCoreEquipItem");
         ScCat c; if (!eqi || !ScCatRead(&c)) return -1;
         if (c.slotItem[slot] == g_scPairItems[slot]) return 2;
         int sq = 0; res(&sq);
@@ -462,6 +475,24 @@ void ScPairStep(int dir) {
     }
     g_scPairWaitDir = 0;
     if (catOk && cat.n >= 2) {
+        // human #143767: the item master holds one yokai under many core ids (live 117 ids, 29 of 105 F2 steps were Gaki DB2B5). F2 walks
+        // one id per yokai (BR's core map: seal spawn chr): the equipped id of that yokai if any, else the first. Unmapped ids stay as they are.
+        {
+            static uint32_t chr[SCW_MAX_IDS];
+            const int mapped = bosslog::FormCoreChrOf(cat.ids, cat.n, chr);
+            int k = 0;
+            if (mapped > 0) {
+                for (int i = 0; i < cat.n; ++i) {
+                    int dup = -1;
+                    if (chr[i]) for (int j = 0; j < k; ++j) if (chr[j] == chr[i]) { dup = j; break; }
+                    const bool eq = cat.ids[i] == cat.slotItem[0] || cat.ids[i] == cat.slotItem[1];
+                    if (dup < 0) { cat.ids[k] = cat.ids[i]; chr[k] = chr[i]; ++k; }
+                    else if (eq) cat.ids[dup] = cat.ids[i];  // keep the id that is in a Yang slot, so F2 continues from it
+                }
+                if (k != cat.n) Log("Rematch: F2 list %d core ids -> %d yokai (one id per yokai, human #143767)", cat.n, k);
+                if (k >= 2) cat.n = k;
+            }
+        }
         int a = 0, b = 0;
         const int p = ScPairCatPick(cat.ids, cat.n, cat.slotItem[0], dir, &a, &b, g_scPairCatP);
         g_scPairCat = true; g_scPairCatP = p; g_scPairCatDir = dir;
@@ -679,6 +710,15 @@ const char* SctFooter(int item) {
     case 21: return "Every Fast summon soul core: the yokai's animation speed (the game's own summon, the game ends it). 90% of Transform: a tiny bit slower than Transform speed, and no smoke ([Spirit] FastSummonSmoke=1 keeps it). x0.1 steps, x1.0-x3.0. [Spirit] FastSummonSpeed. Live, saved.";  // TASK #136502
     case 22: return "Every Fast summon soul core: speed of the yokai's startup (appear / wind-up before its first hit, from the game's own action data). Its attack keeps Fast summon speed. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonStartSpeed. Live, saved.";  // TASK #137323
     case 23: return "Every Fast summon soul core: speed of the yokai's end pose: the recovery after its last hit (past the hit's data frames) and its end action, until the game removes it. Hit frames never change. OFF (x1) = no skip. x0.5 steps, x1-x12. [Spirit] FastSummonEndSpeed. Live, saved.";
+    case 26: return "Every soul core form whose body is more than FormSizeTriggerX (default 2.5) times your width or height is drawn smaller by Shrink by. Body size is read from the game. ON / OFF. [Spirit] FormShrink. Live, saved.";  // TASK #143133 (human #143083/#143119)
+    case 27: return "How much a big form shrinks: 30 % = drawn at 70 % size. 5 % steps, 5-90. [Spirit] FormShrinkPct. Live, saved.";  // TASK #143133 (human #143099)
+    case 28: return "NOT ACTIVE YET (saved only): shrink a shrunk form's attacks too. Its attack effects and hit range keep their full size for now. [Spirit] FormScaleAttacks.";  // TASK #143133 (human #143083)
+    case 29: return "Every soul core (a core without a game-data hit count from its 2nd use, after one full-speed use): from the moment its last hit ends until you turn back (a later hit puts it back to normal speed), its animation plays this fast (never slower than Transform speed), so the wait after the last hit is shorter. x0.5 steps, x1-x8 (x1 = off). [Spirit] FormAfterHitSpeed. Live, saved.";  // human #143437
+    case 34: return "Every Fast summon soul core: the yokai appears at an earlier point of your own Fast summon arm animation, so the two overlap more. Your animation keeps its speed; only the moment the game spawns the yokai moves this many animation frames earlier. 0 = the game's moment, 1-60. [Spirit] FastSummonSpawnEarlyF. Live, saved.";  // human #143939 (was FastSummonEarlySpeed, #143831)
+    case 33: return "Every Fast summon soul core: moves the yokai left (minus) or right (plus) of where it appears, seen from you, right after it appears, in cm. Works with Fast summon spawn distance. 0 = the game's spot, 25 cm steps, -300 to 300. [Spirit] FastSummonSpawnSideCm. Live, saved.";  // human #143826
+    case 32: return "Every Fast summon soul core: moves the yokai farther out from you right after it appears (the game puts it about 1.4 m away, almost inside you), along the same line, in cm. 0 = the game's spot, 25 cm steps up to 600. [Spirit] FastSummonSpawnCm. Live, saved.";  // human #143782
+    case 31: return "Every Fast summon soul core: speed of YOUR OWN animation from the press through the hand-out toss (core in your arm with its glow), so the hand comes out sooner. Transform's throw speed (FastThrow) no longer applies to Fast summon. The yokai's speed is Fast summon speed. x0.5 steps, x1-x8 (x1 = off), default x2. [Spirit] FastSummonPlayerSpeed. Live, saved.";  // human #143572
+    case 30: return "Huge forms (more than FormHugeTriggerX, default 6, times your width or height, read from the game, e.g. Otoroshi) shrink this much more on top of Shrink by. 0 = off. 5 % steps, 0-85 (total capped at 90 %). [Spirit] FormHugeShrinkPct. Live from the next form, saved.";  // human #143486  // TASK #143133 (human #143086)
     case 25: return "Every Fast summon soul core: how long the player holds the body pose after the toss, in ms. OFF (0) = the game's own toss, default 200. 100 ms steps, 0-3000. [Spirit] FastSummonPoseMs. Live, saved.";  // TASK #142639 (human #142609)
     case 24: return "Every soul core yokai that moves: the speed the left stick moves it at, in cm/s. Each core is scaled from its own live speed toward this one value (Move sensitivity is the most it may boost). OFF (0) = the flat Move sensitivity step. 100 steps, 0-5000, default 1500. [Spirit] FormSteerSpeed. Live, saved.";  // human #141255
     case 9: return "Exit smoke when the final hit starts, plus this delay. 50 ms steps, -500..1000. Negative values fire at the observed start; no prediction. Unknown counts use idle fallback. Live, saved.";

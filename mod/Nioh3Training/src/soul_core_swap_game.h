@@ -13,6 +13,7 @@ static int32_t g_scw_sc[SCW_NSLOT];      // last shortcut id 216B9D0 returned fo
 static uint8_t g_scw_sc_known[SCW_NSLOT];
 static volatile LONG g_scw_req;          // 1 = request waiting for the game thread
 static volatile LONG g_scw_slot, g_scw_idx;
+static volatile LONG g_scw_yang_only;   // human #143767: 1 = F2 equip, Yang slot only, no Yin fallback
 static volatile LONG g_scw_by_item;      // 1 = g_scw_idx is an item id (any soul core); 0 = inventory index
 static volatile LONG g_scw_result;       // SCW_* of the last request
 static volatile LONG g_scw_seq;          // bumped when a request finishes
@@ -217,6 +218,71 @@ static int ScwApplyUsable(int slot, uint32_t idx, const uint32_t slots[SCW_NSLOT
     }
     return r;
 }
+// human #143767 ('F2 still cycles thru items as well as soul cores'): F2's equip. Same Yang-slot equip; when it makes no usable item the
+// core is refused (F2 skips it) instead of the #140431 Yin slot + d-pad shortcut move, so F2 never changes slots 2-7 or the shortcuts.
+// live 11-28 07:11 (83 run try2): the equip of 1515 (in Yang slot 1) into slot 0 also moved the d-pad shortcuts (slot 0: shortcut 3 -> 2),
+// so after the slot put-back DOWN no longer pointed at slot 0 and 19 cores never threw. The refusal also gives each slot its shortcut back.
+static int32_t ScwShortcutOf(int slot) {  // the game's own lookup (+216B9D0), -1 = none / unreadable
+    uint64_t ctx = 0; if (!ScwInv(&ctx) || !ctx) return -1;
+    int32_t sc = -1;
+    __try { sc = ((ScwScFn)(B + Grva(0x216B9D0)))(ctx, (uint8_t)slot); } __except (EXCEPTION_EXECUTE_HANDLER) { sc = -1; }
+    return sc;
+}
+static int ScwShortcutSet(int slot, int32_t sc) {  // the game's own shortcut move (+2182968), as ScwApply step 6
+    uint64_t ctx = 0; if (!ScwInv(&ctx) || !ctx || sc < 0) return 0;
+    __try {
+        ((ScwCtxFn)(B + Grva(0x215F85C)))(ctx);
+        ((ScwShFn)(B + Grva(0x2182968)))(ctx, sc, (uint8_t)slot);
+        *(volatile uint8_t*)(B + Grva(0x45C6F2F)) = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static int ScwApplyYang(int slot, uint32_t idx, const uint32_t slots[SCW_NSLOT], int* stage) {
+    uint16_t was[64], mid[64];
+    const int nw = ScwUsableIds(ScwInv(0), was, 64);
+    int32_t scb[2] = {ScwShortcutOf(0), ScwShortcutOf(1)};  // Yang slots' d-pad shortcuts before the equip
+    const int r = ScwApply(slot, idx, slots, stage);
+    if (r != SCW_DONE || slot > 1 || nw < 0) return r;
+    const int nm = ScwUsableIds(ScwInv(0), mid, 64);
+    if (nm < 0 || ScwHasNewId(mid, nm, was, nw)) return r;
+    Log("SOULCORE swap: F2 idx %u made no usable item in Yang slot %d (usable %d -> %d): refused, Yin slots and d-pad left alone (human #143767)", idx, slot, nw, nm);
+    // human #144438/#144581 ('F2 still rarely cycling items'): the refused core stayed equipped in the Yang slot, so that slot held a core with
+    // no usable item and the d-pad showed the next item. Put the core that was there back (the game's own equip), so a refused core never
+    // leaves the slot changed. An empty slot before stays as the game left it.
+    if (slots[slot] != SCW_EMPTY && slots[slot] != idx) {
+        int st = 0;
+        const int rb = ScwApply(slot, slots[slot], slots, &st);
+        uint16_t now[64]; const int nn = ScwUsableIds(ScwInv(0), now, 64);
+        Log("SOULCORE swap: F2 put idx %u back in Yang slot %d after the refusal: code %d, usable %d (was %d) (human #144438)", slots[slot], slot, rb, nn, nw);
+    }
+    // live 11-28 06:58 (83-core run, core 1515 in Yang slot 1): the game's equip into slot 0 MOVED the core out of slot 1, so putting slot 0
+    // back left slot 1 empty (usable 3 -> 2) and the next 3 cores never threw. A refused core leaves every slot as it was: each other slot
+    // the equip changed gets its own core back with the same game equip.
+    const uint64_t inv = ScwInv(0);
+    if (inv) {
+        for (int o = 0; o < SCW_NSLOT; ++o) {
+            if (o == slot || slots[o] == SCW_EMPTY) continue;
+            uint32_t cur[SCW_NSLOT];
+            int ok = 1;
+            for (int q = 0; q < SCW_NSLOT && ok; ++q) ok = ScwRd32((uintptr_t)(inv + SCW_SLOTS_OFF + 4u * q), &cur[q]);
+            if (!ok || cur[o] == slots[o]) continue;
+            int st = 0;
+            const int ro = ScwApply(o, slots[o], cur, &st);
+            uint16_t now[64]; const int nn = ScwUsableIds(ScwInv(0), now, 64);
+            Log("SOULCORE swap: F2 refusal also changed slot %d (idx %d, was %u): put back, code %d, usable %d (was %d) (human #144438)", o,
+                cur[o] == SCW_EMPTY ? -1 : (int)cur[o], slots[o], ro, nn, nw);
+        }
+    }
+    for (int o = 0; o < 2; ++o) {
+        const int32_t now = ScwShortcutOf(o);
+        if (scb[o] < 0 || now == scb[o]) continue;
+        const int ok = ScwShortcutSet(o, scb[o]);
+        Log("SOULCORE swap: F2 refusal moved slot %d's d-pad shortcut %d -> %d: put back (%s), now %d (human #144438)", o, scb[o], now,
+            ok ? "ok" : "failed", ScwShortcutOf(o));
+        if (ok) { g_scw_sc[o] = scb[o]; g_scw_sc_known[o] = 1; }
+    }
+    return SCW_REFUSED;
+}
 static __attribute__((noinline)) int ScwRun(int slot, uint32_t idx, int* stage) {
     uint32_t slots[SCW_NSLOT], oidx[64]; uint16_t oit[64];
     const int n = ScwRead(slots, oidx, oit, 64);
@@ -252,7 +318,7 @@ static int ScwRunItem(int slot, uint16_t itemId, int* stage) {
         Log("SOULCORE swap: added item %X (was not owned) at idx %u, then the shrine equip", itemId, idx);
         for (int s = 0; s < SCW_NSLOT; ++s) if (!ScwRd32((uintptr_t)(inv + SCW_SLOTS_OFF + 4u * s), &slots[s])) return SCW_NO_GAME;
     }
-    return ScwApplyUsable(slot, idx, slots, stage);
+    return g_scw_yang_only ? ScwApplyYang(slot, idx, slots, stage) : ScwApplyUsable(slot, idx, slots, stage);
 }
 static void ScwTick(void) {  // game thread (pump)
     if (g_scw_want && !g_scw_ids_done) { const DWORD now = GetTickCount(); if (!g_scw_ids_t || now - g_scw_ids_t > 2000) { g_scw_ids_t = now ? now : 1; ScwBuildIds(); } }
@@ -293,7 +359,7 @@ N3T_API int Nioh3Training_SoulCoreEquip(int slot, int idx) {
     if (slot < 0 || slot >= SCW_NSLOT || idx < 0) return -1;
     if (g_scw_req) return 0;
     InterlockedExchange(&g_scw_slot, slot); InterlockedExchange(&g_scw_idx, idx);
-    InterlockedExchange(&g_scw_by_item, 0);
+    InterlockedExchange(&g_scw_by_item, 0); InterlockedExchange(&g_scw_yang_only, 0);
     InterlockedExchange(&g_scw_result, SCW_PENDING);
     InterlockedExchange(&g_scw_req, 1);
     Log("SOULCORE swap: menu asks slot %d idx %d (human #129277)", slot, idx);
@@ -330,10 +396,22 @@ N3T_API int Nioh3Training_SoulCoreEquipItem(int slot, int itemId) {
     if (slot < 0 || slot >= SCW_NSLOT || itemId < 0 || itemId > 0xFFFF) return -1;
     if (g_scw_req) return 0;
     InterlockedExchange(&g_scw_slot, slot); InterlockedExchange(&g_scw_idx, itemId);
-    InterlockedExchange(&g_scw_by_item, 1);
+    InterlockedExchange(&g_scw_by_item, 1); InterlockedExchange(&g_scw_yang_only, 0);
     InterlockedExchange(&g_scw_result, SCW_PENDING);
     InterlockedExchange(&g_scw_req, 1);
     Log("SOULCORE swap: menu asks slot %d item %X (human #136123)", slot, itemId);
+    return 1;
+}
+// human #143767: F2's equip by item id, Yang slots 0-1 only (no Yin slot / d-pad fallback; such a core is refused). 1 queued, 0 busy, -1 n/a.
+N3T_API int Nioh3Training_SoulCoreEquipItemYang(int slot, int itemId) {
+    if (!ScwResolved()) return -1;
+    if (slot < 0 || slot > 1 || itemId < 0 || itemId > 0xFFFF) return -1;
+    if (g_scw_req) return 0;
+    InterlockedExchange(&g_scw_slot, slot); InterlockedExchange(&g_scw_idx, itemId);
+    InterlockedExchange(&g_scw_by_item, 1); InterlockedExchange(&g_scw_yang_only, 1);
+    InterlockedExchange(&g_scw_result, SCW_PENDING);
+    InterlockedExchange(&g_scw_req, 1);
+    Log("SOULCORE swap: F2 asks Yang slot %d item %X (human #143767)", slot, itemId);
     return 1;
 }
 

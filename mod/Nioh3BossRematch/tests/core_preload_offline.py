@@ -12,6 +12,7 @@ assert 'L"FormPreloadCores", 1' in s
 ini = (root / 'Nioh3BossRematch.ini').read_text(encoding='utf-8')
 assert 'FormPreloadCores = 1' in ini
 rv = (root / 'rvas.json').read_text(encoding='utf-8')
+assert '"0x4CFA64"' in rv and 'FormPreloadSmoke = 1' in ini, 'TASK #143219 smoke check has a pattern and an ini key'
 assert '"0x3F9E58"' in rv and '"0x1C1DF80"' in rv, 'both game calls have a pattern for other builds'
 code = r'''
 #include <windows.h>
@@ -21,6 +22,7 @@ code = r'''
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <algorithm>
 namespace gamerva { bool g_known = true; }
 double clockNow = 0; double Now() { return clockNow; }
 int logs = 0; void Log(const char* f, ...) { ++logs; va_list a; va_start(a, f); vprintf(f, a); va_end(a); printf("\n"); }
@@ -33,22 +35,28 @@ uint64_t FkPack(uint64_t key) { auto it = res.find((uint32_t)(key - 0x300000000u
 void StubLoad(uint32_t id, uint32_t kind, uint32_t z) { if (kind != 2 || z) exit(3); ++loads; ++refs[id]; res[id].ready = 0; }
 void StubRelease(uint32_t id, uint32_t z) { if (z) exit(4); ++releases; --refs[id]; }
 bool formOn = false, ghostOn = false; bool PickFormActive() { return formOn; } bool PickGhostAlive() { return ghostOn; }
+uint32_t g_fxrCtr[12] = {0x63100}; int g_fxrCtrN = 1; uint32_t g_sxfIds[12] = {0x63056, 0x62557}; int g_sxfN = 2;  // TASK #143219 smoke ids (62557 twice: counted once)
+std::map<uint32_t, int> fxReg; int fxCalls = 0;
+uint32_t StubFx(uint64_t z, uint32_t id) { if (z) exit(6); ++fxCalls; return fxReg.count(id) ? 0x77 : 0; }
 uint64_t g_base = 0; uint32_t TestGrva(uint32_t rva) {
-  return (uint32_t)((rva == 0x3F9E58 ? (uint64_t)&StubLoad : rva == 0x1C1DF80 ? (uint64_t)&StubRelease : (exit(5), 0)) - g_base); }
+  return (uint32_t)((rva == 0x3F9E58 ? (uint64_t)&StubLoad : rva == 0x1C1DF80 ? (uint64_t)&StubRelease : rva == 0x4CFA64 ? (uint64_t)&StubFx : (exit(5), 0)) - g_base); }
 #define Grva TestGrva
 ''' + block + r'''
 int n = 0; void check(bool v, const char* w) { ++n; if (!v) { printf("FAIL %d %s\n", n, w); exit(1); } }
 void tick(double t) { clockNow = t; CorePreloadTick(); }
 int main() {
-  g_base = ((uint64_t)&StubLoad < (uint64_t)&StubRelease ? (uint64_t)&StubLoad : (uint64_t)&StubRelease) - 0x1000;
+  g_base = (std::min)({(uint64_t)&StubLoad, (uint64_t)&StubRelease, (uint64_t)&StubFx}) - 0x1000;
   const uint32_t y1 = 0x5216E, y2 = 0x80D5F, y3 = 0x5129B;
   tick(1); check(loads == 0, "no equipment map yet: nothing requested");
   res[y2].ready = 1;  // 80D5F already in memory (the game loaded it)
   g_equippedCore[0] = y1; g_equippedCore[1] = y2; g_equippedReady = true;
-  tick(2); check(loads == 1 && refs[y1] == 1, "cold Y1 core requested once"); check(refs[y2] == 0, "loaded Y2 core: no ref taken");
+  tick(2); check(loads == 1 && refs[y1] == 1, "cold Y1 core requested once");
+  check(fxCalls == 4, "TASK #143219: already loaded Y2 core: 4 distinct smoke ids checked (62557 62DF5 63100 63056)"); check(refs[y2] == 0, "loaded Y2 core: no ref taken");
   tick(2.5); tick(3); check(loads == 1, "no repeat request while loading");
   check(!CoreResReady(y1), "Y1 still loading");
+  fxReg[0x62557] = fxReg[0x62DF5] = fxReg[0x63100] = fxReg[0x63056] = 1;
   res[y1].ready = 1; tick(3.5); check(CoreResReady(y1), "Y1 ready (the first use now binds without the cold wait)");
+  check(fxCalls == 8, "TASK #143219: Y1 ready -> its smoke checked once more"); tick(4); check(fxCalls == 8, "smoke check runs once per core load, not every tick");
   g_equippedReady = false; tick(10); check(releases == 0, "load screen (equipment not ready): the ref stays");
   g_equippedReady = true; tick(11); check(loads == 1 && releases == 0, "same cores after the load: nothing new");
   g_equippedCore[0] = y3; tick(12); check(releases == 1 && refs[y1] == 0, "unequipped core: our one ref released");

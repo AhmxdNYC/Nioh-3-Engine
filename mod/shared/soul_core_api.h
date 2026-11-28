@@ -224,7 +224,7 @@ inline bool sc_call_moveable(int explicitCall, bool globalSteer) {
 }
 
 // Per-core explicit calls. id 0 is never stored. Not thread safe by itself; the caller holds its lock.
-#define SC_TABLE_MAX 64
+#define SC_TABLE_MAX 256  // human #143659: every core in the game (117 live) can carry a call; 64 filled up
 struct ScCallTable {
     uint32_t id[SC_TABLE_MAX];
     uint8_t call[SC_TABLE_MAX];

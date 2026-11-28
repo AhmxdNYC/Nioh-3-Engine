@@ -108,6 +108,7 @@ void FormCoreReset();
 // patch / speed / orb / FormSlot0 / FormKey hooks pass through); a form already up ends normally. dir 0 flips, +-1 sets; saved.
 bool SoulCoreForms(bool* hooked);
 bool SoulCoreFormsSet(int dir, bool* formUp);
+int FormCoreChrOf(const uint16_t* items, int n, uint32_t* chr);  // human #143767: yokai (seal +0x54 spawn chr) per core item, 0 unknown; returns mapped count
 int FormCoreSeen(uint32_t* ids, int* dirs, int max);  // id 0 unknown seal; flags 1 L / 2 D / 4 Yang1 / 8 Yang2; 0 history
 bool FormCoreTransforms(uint32_t id);
 bool FormCoreToggle(uint32_t id);

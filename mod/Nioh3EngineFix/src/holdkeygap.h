@@ -1,4 +1,4 @@
-// holdkeygap.h - HoldKeyGap ([General] HoldKeyGap = 0 by default; human #120716 / #120730, notes/hold-re-120730.md).
+// holdkeygap.h - HoldKeyGap ([General] HoldKeyGap = 3 by default since human #143300; human #120716 / #120730, notes/hold-re-120730.md).
 //
 // Mode 3 = THE FIX (held attack -> martial art "heavy first" at high fps under load). The MA branch key of a held windup
 // (key time ~frame 12) has the input condition "button held >= 12" (key cond: button 1, type 0, arg 12; checked by
@@ -20,7 +20,7 @@ namespace holdkeygap {
 
 struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;
-    const wchar_t* iniPath = nullptr;  // [General] HoldKeyGap (default 0)
+    const wchar_t* iniPath = nullptr;  // [General] HoldKeyGap (default 3, human #143300)
     uintptr_t base = 0;                // Nioh3.exe image base
     bool knownBuild = false;
     // GH #154: last held presses go to the report's "last mod state" (crashreport::SetState). Null = log lines only.

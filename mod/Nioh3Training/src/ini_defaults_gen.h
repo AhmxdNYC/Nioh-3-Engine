@@ -2,7 +2,7 @@
 // TASK #142228: keys whose shipped default changed or that a release did not ship (mod/shared/ini_defaults.h moves them forward).
 #pragma once
 #include "../../shared/ini_defaults.h"
-#define INI_DEFAULTS_REV 10853  /* MOD_VERSION of the source this table was built from */
+#define INI_DEFAULTS_REV 10854  /* MOD_VERSION of the source this table was built from */
 static const IniDefHist kIniDefH0[] = {{10800, 0}, {10805, L"1"}};
 static const IniDefHist kIniDefH1[] = {{10800, 0}, {10835, L"0"}};
 static const IniDefHist kIniDefH2[] = {{10800, 0}, {10835, L"0"}};
@@ -37,93 +37,93 @@ static const IniDefHist kIniDefH30[] = {{10800, 0}, {10843, L"80"}, {10848, L"10
 static const IniDefHist kIniDefH31[] = {{10800, 0}, {10843, L"3"}};
 static const IniDefHist kIniDefH32[] = {{10800, 0}, {10843, L"80"}, {10848, L"150"}};
 static const IniDefHist kIniDefH33[] = {{10800, 0}, {10849, L"1"}};
-static const IniDefHist kIniDefH34[] = {{10800, 0}, {10840, L"3000"}};
-static const IniDefHist kIniDefH35[] = {{10800, 0}, {10840, L"0"}};
-static const IniDefHist kIniDefH36[] = {{10800, 0}, {10840, L"140"}};
-static const IniDefHist kIniDefH37[] = {{10800, 0}, {10840, L"25"}, {10843, L"12.5"}};
-static const IniDefHist kIniDefH38[] = {{10800, 0}, {10840, L"45"}, {10843, L"23"}};
-static const IniDefHist kIniDefH39[] = {{10800, 0}, {10840, L"0x67D2"}};
-static const IniDefHist kIniDefH40[] = {{10800, 0}, {10843, L"50"}};
-static const IniDefHist kIniDefH41[] = {{10800, 0}, {10839, L"100"}};
-static const IniDefHist kIniDefH42[] = {{10800, 0}, {10834, L"20"}};
-static const IniDefHist kIniDefH43[] = {{10800, 0}, {10834, L"45"}};
-static const IniDefHist kIniDefH44[] = {{10800, 0}, {10834, L"30"}};
-static const IniDefHist kIniDefH45[] = {{10800, 0}, {10834, L"80"}};
-static const IniDefHist kIniDefH46[] = {{10800, 0}, {10834, L"40"}};
-static const IniDefHist kIniDefH47[] = {{10800, 0}, {10834, L"100"}};
-static const IniDefHist kIniDefH48[] = {{10800, 0}, {10843, L"4"}};
-static const IniDefHist kIniDefH49[] = {{10800, 0}, {10843, L"2"}};
-static const IniDefHist kIniDefH50[] = {{10800, 0}, {10843, L"10"}};
-static const IniDefHist kIniDefH51[] = {{10800, 0}, {10843, L"3"}};
+static const IniDefHist kIniDefH34[] = {{10800, 0}, {10853, L"1"}};
+static const IniDefHist kIniDefH35[] = {{10800, 0}, {10853, L"54"}};
+static const IniDefHist kIniDefH36[] = {{10800, 0}, {10853, L"700"}};
+static const IniDefHist kIniDefH37[] = {{10800, 0}, {10853, L"0x16DC"}};
+static const IniDefHist kIniDefH38[] = {{10800, 0}, {10840, L"3000"}};
+static const IniDefHist kIniDefH39[] = {{10800, 0}, {10840, L"0"}};
+static const IniDefHist kIniDefH40[] = {{10800, 0}, {10840, L"140"}};
+static const IniDefHist kIniDefH41[] = {{10800, 0}, {10840, L"25"}, {10843, L"12.5"}};
+static const IniDefHist kIniDefH42[] = {{10800, 0}, {10840, L"45"}, {10843, L"23"}};
+static const IniDefHist kIniDefH43[] = {{10800, 0}, {10840, L"0x67D2"}};
+static const IniDefHist kIniDefH44[] = {{10800, 0}, {10843, L"50"}};
+static const IniDefHist kIniDefH45[] = {{10800, 0}, {10839, L"100"}};
+static const IniDefHist kIniDefH46[] = {{10800, 0}, {10834, L"20"}};
+static const IniDefHist kIniDefH47[] = {{10800, 0}, {10834, L"45"}};
+static const IniDefHist kIniDefH48[] = {{10800, 0}, {10834, L"30"}};
+static const IniDefHist kIniDefH49[] = {{10800, 0}, {10834, L"80"}};
+static const IniDefHist kIniDefH50[] = {{10800, 0}, {10834, L"40"}};
+static const IniDefHist kIniDefH51[] = {{10800, 0}, {10834, L"100"}};
 static const IniDefHist kIniDefH52[] = {{10800, 0}, {10843, L"4"}};
-static const IniDefHist kIniDefH53[] = {{10800, 0}, {10843, L"50"}};
-static const IniDefHist kIniDefH54[] = {{10800, 0}, {10843, L"1"}};
-static const IniDefHist kIniDefH55[] = {{10800, 0}, {10843, L"1000"}};
-static const IniDefHist kIniDefH56[] = {{10800, 0}, {10834, L"500"}};
-static const IniDefHist kIniDefH57[] = {{10800, 0}, {10834, L"100"}};
-static const IniDefHist kIniDefH58[] = {{10800, 0}, {10834, L"150"}};
-static const IniDefHist kIniDefH59[] = {{10800, 0}, {10843, L"2"}};
-static const IniDefHist kIniDefH60[] = {{10800, 0}, {10843, L"60"}, {10848, L"78"}};
-static const IniDefHist kIniDefH61[] = {{10800, 0}, {10848, L"3"}};
-static const IniDefHist kIniDefH62[] = {{10800, 0}, {10848, L"182"}};
-static const IniDefHist kIniDefH63[] = {{10800, 0}, {10848, L"100"}};
-static const IniDefHist kIniDefH64[] = {{10800, 0}, {10848, L"100"}};
-static const IniDefHist kIniDefH65[] = {{10800, 0}, {10848, L"100"}};
-static const IniDefHist kIniDefH66[] = {{10800, 0}, {10843, L"500"}};
-static const IniDefHist kIniDefH67[] = {{10800, 0}, {10843, L"50"}};
-static const IniDefHist kIniDefH68[] = {{10800, 0}, {10834, L"100"}};
-static const IniDefHist kIniDefH69[] = {{10800, 0}, {10834, L""}};
-static const IniDefHist kIniDefH70[] = {{10800, 0}, {10834, L"3000"}};
-static const IniDefHist kIniDefH71[] = {{10800, 0}, {10834, L"30"}};
-static const IniDefHist kIniDefH72[] = {{10800, 0}, {10834, L"50"}};
-static const IniDefHist kIniDefH73[] = {{10800, 0}, {10834, L"8000"}};
-static const IniDefHist kIniDefH74[] = {{10800, 0}, {10834, L"1500"}};
-static const IniDefHist kIniDefH75[] = {{10800, 0}, {10834, L"15"}};
-static const IniDefHist kIniDefH76[] = {{10800, 0}, {10834, L"60"}};
-static const IniDefHist kIniDefH77[] = {{10800, 0}, {10834, L"100"}};
-static const IniDefHist kIniDefH78[] = {{10800, 0}, {10843, L"500"}};
-static const IniDefHist kIniDefH79[] = {{10800, 0}, {10843, L"200"}};
-static const IniDefHist kIniDefH80[] = {{10800, 0}, {10843, L"100"}};
-static const IniDefHist kIniDefH81[] = {{10800, 0}, {10843, L"300"}};
+static const IniDefHist kIniDefH53[] = {{10800, 0}, {10843, L"2"}};
+static const IniDefHist kIniDefH54[] = {{10800, 0}, {10843, L"10"}};
+static const IniDefHist kIniDefH55[] = {{10800, 0}, {10843, L"3"}};
+static const IniDefHist kIniDefH56[] = {{10800, 0}, {10843, L"4"}};
+static const IniDefHist kIniDefH57[] = {{10800, 0}, {10843, L"50"}};
+static const IniDefHist kIniDefH58[] = {{10800, 0}, {10843, L"1"}};
+static const IniDefHist kIniDefH59[] = {{10800, 0}, {10843, L"1000"}};
+static const IniDefHist kIniDefH60[] = {{10800, 0}, {10834, L"500"}};
+static const IniDefHist kIniDefH61[] = {{10800, 0}, {10834, L"100"}};
+static const IniDefHist kIniDefH62[] = {{10800, 0}, {10834, L"150"}};
+static const IniDefHist kIniDefH63[] = {{10800, 0}, {10843, L"2"}};
+static const IniDefHist kIniDefH64[] = {{10800, 0}, {10843, L"60"}, {10848, L"78"}};
+static const IniDefHist kIniDefH65[] = {{10800, 0}, {10848, L"3"}};
+static const IniDefHist kIniDefH66[] = {{10800, 0}, {10848, L"182"}};
+static const IniDefHist kIniDefH67[] = {{10800, 0}, {10848, L"100"}};
+static const IniDefHist kIniDefH68[] = {{10800, 0}, {10848, L"100"}};
+static const IniDefHist kIniDefH69[] = {{10800, 0}, {10848, L"100"}};
+static const IniDefHist kIniDefH70[] = {{10800, 0}, {10843, L"500"}};
+static const IniDefHist kIniDefH71[] = {{10800, 0}, {10843, L"50"}};
+static const IniDefHist kIniDefH72[] = {{10800, 0}, {10834, L"100"}};
+static const IniDefHist kIniDefH73[] = {{10800, 0}, {10834, L""}};
+static const IniDefHist kIniDefH74[] = {{10800, 0}, {10834, L"3000"}};
+static const IniDefHist kIniDefH75[] = {{10800, 0}, {10834, L"30"}};
+static const IniDefHist kIniDefH76[] = {{10800, 0}, {10834, L"50"}};
+static const IniDefHist kIniDefH77[] = {{10800, 0}, {10834, L"8000"}};
+static const IniDefHist kIniDefH78[] = {{10800, 0}, {10834, L"1500"}};
+static const IniDefHist kIniDefH79[] = {{10800, 0}, {10834, L"15"}};
+static const IniDefHist kIniDefH80[] = {{10800, 0}, {10834, L"60"}};
+static const IniDefHist kIniDefH81[] = {{10800, 0}, {10834, L"100"}};
 static const IniDefHist kIniDefH82[] = {{10800, 0}, {10843, L"500"}};
-static const IniDefHist kIniDefH83[] = {{10800, 0}, {10843, L"5000"}};
-static const IniDefHist kIniDefH84[] = {{10800, 0}, {10834, L"30"}};
-static const IniDefHist kIniDefH85[] = {{10800, 0}, {10834, L"15"}};
-static const IniDefHist kIniDefH86[] = {{10800, 0}, {10834, L"20"}};
-static const IniDefHist kIniDefH87[] = {{10800, 0}, {10834, L"15"}};
-static const IniDefHist kIniDefH88[] = {{10800, 0}, {10834, L"40"}};
-static const IniDefHist kIniDefH89[] = {{10800, 0}, {10834, L"1"}};
-static const IniDefHist kIniDefH90[] = {{10800, 0}, {10834, L"25"}, {10843, L"50"}};
-static const IniDefHist kIniDefH91[] = {{10800, 0}, {10840, L"3000"}};
-static const IniDefHist kIniDefH92[] = {{10800, 0}, {10834, L"25"}};
-static const IniDefHist kIniDefH93[] = {{10800, 0}, {10834, L"1000"}};
-static const IniDefHist kIniDefH94[] = {{10800, 0}, {10840, L"8000"}};
-static const IniDefHist kIniDefH95[] = {{10800, 0}, {10843, L"40"}};
-static const IniDefHist kIniDefH96[] = {{10800, 0}, {10843, L"1500"}};
-static const IniDefHist kIniDefH97[] = {{10800, 0}, {10843, L"0"}};
-static const IniDefHist kIniDefH98[] = {{10800, 0}, {10843, L"1095"}};
-static const IniDefHist kIniDefH99[] = {{10800, 0}, {10840, L"3000"}};
-static const IniDefHist kIniDefH100[] = {{10800, 0}, {10840, L"10"}};
-static const IniDefHist kIniDefH101[] = {{10800, 0}, {10840, L"25"}};
-static const IniDefHist kIniDefH102[] = {{10800, 0}, {10840, L"15"}};
-static const IniDefHist kIniDefH103[] = {{10800, 0}, {10840, L"100"}};
-static const IniDefHist kIniDefH104[] = {{10800, 0}, {10843, L"5"}};
-static const IniDefHist kIniDefH105[] = {{10800, 0}, {10843, L"20"}};
-static const IniDefHist kIniDefH106[] = {{10800, 0}, {10843, L"10"}};
-static const IniDefHist kIniDefH107[] = {{10800, 0}, {10843, L"3"}};
-static const IniDefHist kIniDefH108[] = {{10800, 0}, {10843, L"120"}};
-static const IniDefHist kIniDefH109[] = {{10800, 0}, {10843, L"60"}};
-static const IniDefHist kIniDefH110[] = {{10800, 0}, {10843, L"5"}};
-static const IniDefHist kIniDefH111[] = {{10800, 0}, {10843, L"10"}};
-static const IniDefHist kIniDefH112[] = {{10800, 0}, {10843, L"5"}};
-static const IniDefHist kIniDefH113[] = {{10800, 0}, {10834, L"1"}};
-static const IniDefHist kIniDefH114[] = {{10800, 0}, {10834, L"1"}};
-static const IniDefHist kIniDefH115[] = {{10800, 0}, {10834, L"1200"}};
-static const IniDefHist kIniDefH116[] = {{10800, 0}, {10834, L"40"}};
-static const IniDefHist kIniDefH117[] = {{10800, 0}, {10853, L"1"}};
-static const IniDefHist kIniDefH118[] = {{10800, 0}, {10853, L"54"}};
-static const IniDefHist kIniDefH119[] = {{10800, 0}, {10853, L"700"}};
-static const IniDefHist kIniDefH120[] = {{10800, 0}, {10853, L"0x16DC"}};
+static const IniDefHist kIniDefH83[] = {{10800, 0}, {10843, L"200"}};
+static const IniDefHist kIniDefH84[] = {{10800, 0}, {10843, L"100"}};
+static const IniDefHist kIniDefH85[] = {{10800, 0}, {10843, L"300"}};
+static const IniDefHist kIniDefH86[] = {{10800, 0}, {10843, L"500"}};
+static const IniDefHist kIniDefH87[] = {{10800, 0}, {10843, L"5000"}};
+static const IniDefHist kIniDefH88[] = {{10800, 0}, {10834, L"30"}};
+static const IniDefHist kIniDefH89[] = {{10800, 0}, {10834, L"15"}};
+static const IniDefHist kIniDefH90[] = {{10800, 0}, {10834, L"20"}};
+static const IniDefHist kIniDefH91[] = {{10800, 0}, {10834, L"15"}};
+static const IniDefHist kIniDefH92[] = {{10800, 0}, {10834, L"40"}};
+static const IniDefHist kIniDefH93[] = {{10800, 0}, {10834, L"1"}};
+static const IniDefHist kIniDefH94[] = {{10800, 0}, {10834, L"25"}, {10843, L"50"}};
+static const IniDefHist kIniDefH95[] = {{10800, 0}, {10840, L"3000"}};
+static const IniDefHist kIniDefH96[] = {{10800, 0}, {10834, L"25"}};
+static const IniDefHist kIniDefH97[] = {{10800, 0}, {10834, L"1000"}};
+static const IniDefHist kIniDefH98[] = {{10800, 0}, {10840, L"8000"}};
+static const IniDefHist kIniDefH99[] = {{10800, 0}, {10843, L"40"}};
+static const IniDefHist kIniDefH100[] = {{10800, 0}, {10843, L"1500"}};
+static const IniDefHist kIniDefH101[] = {{10800, 0}, {10843, L"0"}};
+static const IniDefHist kIniDefH102[] = {{10800, 0}, {10843, L"1095"}};
+static const IniDefHist kIniDefH103[] = {{10800, 0}, {10840, L"3000"}};
+static const IniDefHist kIniDefH104[] = {{10800, 0}, {10840, L"10"}};
+static const IniDefHist kIniDefH105[] = {{10800, 0}, {10840, L"25"}};
+static const IniDefHist kIniDefH106[] = {{10800, 0}, {10840, L"15"}};
+static const IniDefHist kIniDefH107[] = {{10800, 0}, {10840, L"100"}};
+static const IniDefHist kIniDefH108[] = {{10800, 0}, {10843, L"5"}};
+static const IniDefHist kIniDefH109[] = {{10800, 0}, {10843, L"20"}};
+static const IniDefHist kIniDefH110[] = {{10800, 0}, {10843, L"10"}};
+static const IniDefHist kIniDefH111[] = {{10800, 0}, {10843, L"3"}};
+static const IniDefHist kIniDefH112[] = {{10800, 0}, {10843, L"120"}};
+static const IniDefHist kIniDefH113[] = {{10800, 0}, {10843, L"60"}};
+static const IniDefHist kIniDefH114[] = {{10800, 0}, {10843, L"5"}};
+static const IniDefHist kIniDefH115[] = {{10800, 0}, {10843, L"10"}};
+static const IniDefHist kIniDefH116[] = {{10800, 0}, {10843, L"5"}};
+static const IniDefHist kIniDefH117[] = {{10800, 0}, {10834, L"1"}};
+static const IniDefHist kIniDefH118[] = {{10800, 0}, {10834, L"1"}};
+static const IniDefHist kIniDefH119[] = {{10800, 0}, {10834, L"1200"}};
+static const IniDefHist kIniDefH120[] = {{10800, 0}, {10834, L"40"}};
 static const IniDefKey kIniDefaults[] = {
     {L"ArenaSwap", L"EntryLoadScreen", L"1", kIniDefH0, 2},
     {L"Record", L"PlayerLog", L"0", kIniDefH1, 2},
@@ -159,92 +159,92 @@ static const IniDefKey kIniDefaults[] = {
     {L"StyleMeter", L"DisplaceStreakN", L"3", kIniDefH31, 2},
     {L"StyleMeter", L"DisplaceStreakPts", L"150", kIniDefH32, 3},
     {L"StyleMeter", L"DisplaceCounterOnly", L"1", kIniDefH33, 2},
-    {L"StyleMeter", L"ResultEndDelayMs", L"3000", kIniDefH34, 2},
-    {L"StyleMeter", L"ResultShowMs", L"0", kIniDefH35, 2},
-    {L"StyleMeter", L"ResultScalePct", L"140", kIniDefH36, 2},
-    {L"StyleMeter", L"ResultHitPenalty", L"12.5", kIniDefH37, 3},
-    {L"StyleMeter", L"DeflectPts", L"23", kIniDefH38, 3},
-    {L"StyleMeter", L"DeflectSkill", L"0x67D2", kIniDefH39, 2},
-    {L"StyleMeter", L"BlockPct", L"50", kIniDefH40, 2},
-    {L"StyleMeter", L"BarHeightPct", L"100", kIniDefH41, 2},
-    {L"StyleMeter", L"HitPts", L"20", kIniDefH42, 2},
-    {L"StyleMeter", L"DodgePts", L"45", kIniDefH43, 2},
-    {L"StyleMeter", L"KiPts", L"30", kIniDefH44, 2},
-    {L"StyleMeter", L"RepeatPct", L"80", kIniDefH45, 2},
-    {L"StyleMeter", L"RepeatFloorPct", L"40", kIniDefH46, 2},
-    {L"StyleMeter", L"MultiHitPct", L"100", kIniDefH47, 2},
-    {L"StyleMeter", L"MultiHitCap", L"4", kIniDefH48, 2},
-    {L"StyleMeter", L"LoopReps", L"2", kIniDefH49, 2},
-    {L"StyleMeter", L"LoopPenaltyPts", L"10", kIniDefH50, 2},
-    {L"StyleMeter", L"LoopHalfRank", L"3", kIniDefH51, 2},
-    {L"StyleMeter", L"LoopFullRank", L"4", kIniDefH52, 2},
-    {L"StyleMeter", L"LoopHalfPct", L"50", kIniDefH53, 2},
-    {L"StyleMeter", L"LoopFreeHumanZeroKi", L"1", kIniDefH54, 2},
-    {L"StyleMeter", L"LoopFreeKiMs", L"1000", kIniDefH55, 2},
-    {L"StyleMeter", L"DecayDelayMs", L"500", kIniDefH56, 2},
-    {L"StyleMeter", L"DrainPct", L"100", kIniDefH57, 2},
-    {L"StyleMeter", L"DecayRampPct", L"150", kIniDefH58, 2},
-    {L"StyleMeter", L"DecayLowRank", L"2", kIniDefH59, 2},
-    {L"StyleMeter", L"DecayLowPct", L"78", kIniDefH60, 3},
-    {L"StyleMeter", L"DecayHighRank", L"3", kIniDefH61, 2},
-    {L"StyleMeter", L"DecayHighPct", L"182", kIniDefH62, 2},
-    {L"StyleMeter", L"DecayPctS", L"100", kIniDefH63, 2},
-    {L"StyleMeter", L"DecayPctSS", L"100", kIniDefH64, 2},
-    {L"StyleMeter", L"DecayPctSSS", L"100", kIniDefH65, 2},
-    {L"StyleMeter", L"FarDrainCm", L"500", kIniDefH66, 2},
-    {L"StyleMeter", L"FarDrainPct", L"50", kIniDefH67, 2},
-    {L"StyleMeter", L"RankPtsPct", L"100", kIniDefH68, 2},
-    {L"StyleMeter", L"RankPts", L"", kIniDefH69, 2},
-    {L"StyleMeter", L"KiHitMs", L"3000", kIniDefH70, 2},
-    {L"StyleMeter", L"DecayPerSec", L"30", kIniDefH71, 2},
-    {L"StyleMeter", L"DecayRankPct", L"50", kIniDefH72, 2},
-    {L"StyleMeter", L"CombatMs", L"8000", kIniDefH73, 2},
-    {L"StyleMeter", L"DamageGraceMs", L"1500", kIniDefH74, 2},
-    {L"StyleMeter", L"StartupMinFrames", L"15", kIniDefH75, 2},
-    {L"StyleMeter", L"StartupMaxFrames", L"60", kIniDefH76, 2},
-    {L"StyleMeter", L"StartupBonusPct", L"100", kIniDefH77, 2},
-    {L"StyleMeter", L"SlowMoveMs", L"500", kIniDefH78, 2},
-    {L"StyleMeter", L"SlowMovePct", L"200", kIniDefH79, 2},
-    {L"StyleMeter", L"SlowMoveStepPct", L"100", kIniDefH80, 2},
-    {L"StyleMeter", L"SlowMoveTopPct", L"300", kIniDefH81, 2},
-    {L"StyleMeter", L"SlowMovePauseCm", L"500", kIniDefH82, 2},
-    {L"StyleMeter", L"SlowMovePauseMaxMs", L"5000", kIniDefH83, 2},
-    {L"StyleMeter", L"CounterPts", L"30", kIniDefH84, 2},
-    {L"StyleMeter", L"StyleSwitchPts", L"15", kIniDefH85, 2},
-    {L"StyleMeter", L"NinjutsuPts", L"20", kIniDefH86, 2},
-    {L"StyleMeter", L"KiPerfectPts", L"15", kIniDefH87, 2},
-    {L"StyleMeter", L"SoulCorePts", L"40", kIniDefH88, 2},
-    {L"StyleMeter", L"MoveLog", L"1", kIniDefH89, 2},
-    {L"StyleMeter", L"WeaponSwapPts", L"50", kIniDefH90, 3},
-    {L"StyleMeter", L"WeaponSwitchMs", L"3000", kIniDefH91, 2},
-    {L"StyleMeter", L"GuardianSpiritPts", L"25", kIniDefH92, 2},
-    {L"StyleMeter", L"GuardianSpiritMs", L"1000", kIniDefH93, 2},
-    {L"StyleMeter", L"GuardianSummonMs", L"8000", kIniDefH94, 2},
-    {L"StyleMeter", L"BurstBreakPts", L"40", kIniDefH95, 2},
-    {L"StyleMeter", L"BurstBreakMs", L"1500", kIniDefH96, 2},
-    {L"StyleMeter", L"BurstBreakSkillOnly", L"0", kIniDefH97, 2},
-    {L"StyleMeter", L"BurstCounterAct", L"1095", kIniDefH98, 2},
-    {L"StyleMeter", L"ComboMs", L"3000", kIniDefH99, 2},
-    {L"StyleMeter", L"ComboStep", L"10", kIniDefH100, 2},
-    {L"StyleMeter", L"ComboBonus", L"25", kIniDefH101, 2},
-    {L"StyleMeter", L"ComboBonusStep", L"15", kIniDefH102, 2},
-    {L"StyleMeter", L"ComboBonusMax", L"100", kIniDefH103, 2},
-    {L"StyleMeter", L"VarietyStep", L"5", kIniDefH104, 2},
-    {L"StyleMeter", L"VarietyBonus", L"20", kIniDefH105, 2},
-    {L"StyleMeter", L"VarietyBonusStep", L"10", kIniDefH106, 2},
-    {L"StyleMeter", L"VarietyBonusGrow", L"3", kIniDefH107, 2},
-    {L"StyleMeter", L"VarietyPct", L"120", kIniDefH108, 2},
-    {L"StyleMeter", L"VarietyMax", L"60", kIniDefH109, 2},
-    {L"StyleMeter", L"VersatilityStep", L"5", kIniDefH110, 2},
-    {L"StyleMeter", L"VersatilityBasePct", L"10", kIniDefH111, 2},
-    {L"StyleMeter", L"VersatilityIncPct", L"5", kIniDefH112, 2},
-    {L"StyleMeter", L"PopUps", L"1", kIniDefH113, 2},
-    {L"StyleMeter", L"Motion", L"1", kIniDefH114, 2},
-    {L"StyleMeter", L"PopUpMs", L"1200", kIniDefH115, 2},
-    {L"StyleMeter", L"ShakePts", L"40", kIniDefH116, 2},
-    {L"StyleMeter", L"BlockCounter", L"1", kIniDefH117, 2},
-    {L"StyleMeter", L"BlockCounterPts", L"54", kIniDefH118, 2},
-    {L"StyleMeter", L"BlockCounterMs", L"700", kIniDefH119, 2},
-    {L"StyleMeter", L"BlockCounterActs", L"0x16DC", kIniDefH120, 2},
+    {L"StyleMeter", L"BlockCounter", L"1", kIniDefH34, 2},
+    {L"StyleMeter", L"BlockCounterPts", L"54", kIniDefH35, 2},
+    {L"StyleMeter", L"BlockCounterMs", L"700", kIniDefH36, 2},
+    {L"StyleMeter", L"BlockCounterActs", L"0x16DC", kIniDefH37, 2},
+    {L"StyleMeter", L"ResultEndDelayMs", L"3000", kIniDefH38, 2},
+    {L"StyleMeter", L"ResultShowMs", L"0", kIniDefH39, 2},
+    {L"StyleMeter", L"ResultScalePct", L"140", kIniDefH40, 2},
+    {L"StyleMeter", L"ResultHitPenalty", L"12.5", kIniDefH41, 3},
+    {L"StyleMeter", L"DeflectPts", L"23", kIniDefH42, 3},
+    {L"StyleMeter", L"DeflectSkill", L"0x67D2", kIniDefH43, 2},
+    {L"StyleMeter", L"BlockPct", L"50", kIniDefH44, 2},
+    {L"StyleMeter", L"BarHeightPct", L"100", kIniDefH45, 2},
+    {L"StyleMeter", L"HitPts", L"20", kIniDefH46, 2},
+    {L"StyleMeter", L"DodgePts", L"45", kIniDefH47, 2},
+    {L"StyleMeter", L"KiPts", L"30", kIniDefH48, 2},
+    {L"StyleMeter", L"RepeatPct", L"80", kIniDefH49, 2},
+    {L"StyleMeter", L"RepeatFloorPct", L"40", kIniDefH50, 2},
+    {L"StyleMeter", L"MultiHitPct", L"100", kIniDefH51, 2},
+    {L"StyleMeter", L"MultiHitCap", L"4", kIniDefH52, 2},
+    {L"StyleMeter", L"LoopReps", L"2", kIniDefH53, 2},
+    {L"StyleMeter", L"LoopPenaltyPts", L"10", kIniDefH54, 2},
+    {L"StyleMeter", L"LoopHalfRank", L"3", kIniDefH55, 2},
+    {L"StyleMeter", L"LoopFullRank", L"4", kIniDefH56, 2},
+    {L"StyleMeter", L"LoopHalfPct", L"50", kIniDefH57, 2},
+    {L"StyleMeter", L"LoopFreeHumanZeroKi", L"1", kIniDefH58, 2},
+    {L"StyleMeter", L"LoopFreeKiMs", L"1000", kIniDefH59, 2},
+    {L"StyleMeter", L"DecayDelayMs", L"500", kIniDefH60, 2},
+    {L"StyleMeter", L"DrainPct", L"100", kIniDefH61, 2},
+    {L"StyleMeter", L"DecayRampPct", L"150", kIniDefH62, 2},
+    {L"StyleMeter", L"DecayLowRank", L"2", kIniDefH63, 2},
+    {L"StyleMeter", L"DecayLowPct", L"78", kIniDefH64, 3},
+    {L"StyleMeter", L"DecayHighRank", L"3", kIniDefH65, 2},
+    {L"StyleMeter", L"DecayHighPct", L"182", kIniDefH66, 2},
+    {L"StyleMeter", L"DecayPctS", L"100", kIniDefH67, 2},
+    {L"StyleMeter", L"DecayPctSS", L"100", kIniDefH68, 2},
+    {L"StyleMeter", L"DecayPctSSS", L"100", kIniDefH69, 2},
+    {L"StyleMeter", L"FarDrainCm", L"500", kIniDefH70, 2},
+    {L"StyleMeter", L"FarDrainPct", L"50", kIniDefH71, 2},
+    {L"StyleMeter", L"RankPtsPct", L"100", kIniDefH72, 2},
+    {L"StyleMeter", L"RankPts", L"", kIniDefH73, 2},
+    {L"StyleMeter", L"KiHitMs", L"3000", kIniDefH74, 2},
+    {L"StyleMeter", L"DecayPerSec", L"30", kIniDefH75, 2},
+    {L"StyleMeter", L"DecayRankPct", L"50", kIniDefH76, 2},
+    {L"StyleMeter", L"CombatMs", L"8000", kIniDefH77, 2},
+    {L"StyleMeter", L"DamageGraceMs", L"1500", kIniDefH78, 2},
+    {L"StyleMeter", L"StartupMinFrames", L"15", kIniDefH79, 2},
+    {L"StyleMeter", L"StartupMaxFrames", L"60", kIniDefH80, 2},
+    {L"StyleMeter", L"StartupBonusPct", L"100", kIniDefH81, 2},
+    {L"StyleMeter", L"SlowMoveMs", L"500", kIniDefH82, 2},
+    {L"StyleMeter", L"SlowMovePct", L"200", kIniDefH83, 2},
+    {L"StyleMeter", L"SlowMoveStepPct", L"100", kIniDefH84, 2},
+    {L"StyleMeter", L"SlowMoveTopPct", L"300", kIniDefH85, 2},
+    {L"StyleMeter", L"SlowMovePauseCm", L"500", kIniDefH86, 2},
+    {L"StyleMeter", L"SlowMovePauseMaxMs", L"5000", kIniDefH87, 2},
+    {L"StyleMeter", L"CounterPts", L"30", kIniDefH88, 2},
+    {L"StyleMeter", L"StyleSwitchPts", L"15", kIniDefH89, 2},
+    {L"StyleMeter", L"NinjutsuPts", L"20", kIniDefH90, 2},
+    {L"StyleMeter", L"KiPerfectPts", L"15", kIniDefH91, 2},
+    {L"StyleMeter", L"SoulCorePts", L"40", kIniDefH92, 2},
+    {L"StyleMeter", L"MoveLog", L"1", kIniDefH93, 2},
+    {L"StyleMeter", L"WeaponSwapPts", L"50", kIniDefH94, 3},
+    {L"StyleMeter", L"WeaponSwitchMs", L"3000", kIniDefH95, 2},
+    {L"StyleMeter", L"GuardianSpiritPts", L"25", kIniDefH96, 2},
+    {L"StyleMeter", L"GuardianSpiritMs", L"1000", kIniDefH97, 2},
+    {L"StyleMeter", L"GuardianSummonMs", L"8000", kIniDefH98, 2},
+    {L"StyleMeter", L"BurstBreakPts", L"40", kIniDefH99, 2},
+    {L"StyleMeter", L"BurstBreakMs", L"1500", kIniDefH100, 2},
+    {L"StyleMeter", L"BurstBreakSkillOnly", L"0", kIniDefH101, 2},
+    {L"StyleMeter", L"BurstCounterAct", L"1095", kIniDefH102, 2},
+    {L"StyleMeter", L"ComboMs", L"3000", kIniDefH103, 2},
+    {L"StyleMeter", L"ComboStep", L"10", kIniDefH104, 2},
+    {L"StyleMeter", L"ComboBonus", L"25", kIniDefH105, 2},
+    {L"StyleMeter", L"ComboBonusStep", L"15", kIniDefH106, 2},
+    {L"StyleMeter", L"ComboBonusMax", L"100", kIniDefH107, 2},
+    {L"StyleMeter", L"VarietyStep", L"5", kIniDefH108, 2},
+    {L"StyleMeter", L"VarietyBonus", L"20", kIniDefH109, 2},
+    {L"StyleMeter", L"VarietyBonusStep", L"10", kIniDefH110, 2},
+    {L"StyleMeter", L"VarietyBonusGrow", L"3", kIniDefH111, 2},
+    {L"StyleMeter", L"VarietyPct", L"120", kIniDefH112, 2},
+    {L"StyleMeter", L"VarietyMax", L"60", kIniDefH113, 2},
+    {L"StyleMeter", L"VersatilityStep", L"5", kIniDefH114, 2},
+    {L"StyleMeter", L"VersatilityBasePct", L"10", kIniDefH115, 2},
+    {L"StyleMeter", L"VersatilityIncPct", L"5", kIniDefH116, 2},
+    {L"StyleMeter", L"PopUps", L"1", kIniDefH117, 2},
+    {L"StyleMeter", L"Motion", L"1", kIniDefH118, 2},
+    {L"StyleMeter", L"PopUpMs", L"1200", kIniDefH119, 2},
+    {L"StyleMeter", L"ShakePts", L"40", kIniDefH120, 2},
 };
 #define INI_DEFAULTS_N 121

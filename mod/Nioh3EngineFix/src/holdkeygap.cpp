@@ -451,7 +451,7 @@ void Start(const StartInfo& info) {
     g_setState = info.setState;
     g_lastRelease = info.lastRelease;
     if (!g_log || !info.base || !info.iniPath || g_on) return;
-    const int want = (int)GetPrivateProfileIntW(L"General", L"HoldKeyGap", 0, info.iniPath);
+    const int want = (int)GetPrivateProfileIntW(L"General", L"HoldKeyGap", 3, info.iniPath);
     if (want == 0) {
         g_log("HOLDKEYGAP: off ([General] HoldKeyGap = 0) - move key windows are stock");
         return;
