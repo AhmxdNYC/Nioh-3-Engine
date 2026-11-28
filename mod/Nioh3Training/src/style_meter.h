@@ -979,6 +979,7 @@ static inline int SmDodgeHurtGate(int avoid, double t, double lastHurt) { return
 // 1 martial art), listed = the run's action is in BlockCounterActs. Returns SM_BC_* on the tick to pay.
 enum { SM_BC_NONE = 0, SM_BC_GUARD = 1, SM_BC_LISTED = 2 };
 #define SM_BC_MS 700
+#define SM_BC_PTS 54  // human 2026-11-28: a Counter! (DodgePts 45) + 20 %: a block costs Ki and does not stop elemental damage
 typedef struct { double guardT; uint64_t guardRun, candRun, lastRun; int cand; } SmBlkCtr;
 static inline void SmBlkCtrReset(SmBlkCtr* b) { memset(b, 0, sizeof *b); b->guardT = -1e18; }
 static inline int SmBlkCtrStep(SmBlkCtr* b, double t, uint64_t run, int guarded, int skill, int listed, int ms) {

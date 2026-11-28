@@ -30,7 +30,7 @@ static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (hu
 static uint32_t g_cfg_grapple_skill = SM_GRAPPLE_SKILL;  // [StyleMeter] GrappleSkill (human 2026-11-26, 1.8.48)
 // human 2026-11-28 Block Counter! ([StyleMeter] BlockCounter / BlockCounterPts / BlockCounterMs / BlockCounterActs; style_meter.h SmBlkCtrStep)
 #define SM_BC_ACTS 16
-static int g_cfg_bc = 1, g_cfg_bc_ms = SM_BC_MS, g_cfg_bc_nacts = 1; static float g_cfg_bc_pts = (float)SM_DODGE_PTS;
+static int g_cfg_bc = 1, g_cfg_bc_ms = SM_BC_MS, g_cfg_bc_nacts = 1; static float g_cfg_bc_pts = (float)SM_BC_PTS;
 static uint32_t g_cfg_bc_acts[SM_BC_ACTS] = {0x16DC};  // spear Bracing Breeze: the parry row (Tomoe log 2026-11-28: only ever after its stance 0x6338)
 static volatile LONG g_sm_plGuard;  // enemy hits that did Ki damage to the player since the last tick (SmKiEvent)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
@@ -347,7 +347,7 @@ static void SmReadIni(const char* ini, int reset) {
     dc.ctrOnly = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceCounterOnly", 1, ini) ? 1 : 0;  // human 2026-11-27 (Just Reprisal)
     {   // human 2026-11-28 Block Counter!
         g_cfg_bc = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounter", 1, ini) ? 1 : 0;
-        int v = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounterPts", SM_DODGE_PTS, ini); g_cfg_bc_pts = (float)(v < 0 ? 0 : v > 1000 ? 1000 : v);
+        int v = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounterPts", SM_BC_PTS, ini); g_cfg_bc_pts = (float)(v < 0 ? 0 : v > 1000 ? 1000 : v);
         v = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounterMs", SM_BC_MS, ini); g_cfg_bc_ms = v < 100 ? 100 : v > 3000 ? 3000 : v;
         char tb[256] = {0}; GetPrivateProfileStringA("StyleMeter", "BlockCounterActs", "0x16DC", tb, sizeof tb, ini);
         uint32_t ids[SM_TMTM_IDS]; int k = SmTmtmParse(tb, ids); if (k > SM_BC_ACTS) k = SM_BC_ACTS;
