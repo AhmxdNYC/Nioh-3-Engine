@@ -2,7 +2,7 @@
 // TASK #142228: keys whose shipped default changed or that a release did not ship (mod/shared/ini_defaults.h moves them forward).
 #pragma once
 #include "../../shared/ini_defaults.h"
-#define INI_DEFAULTS_REV 10854  /* MOD_VERSION of the source this table was built from */
+#define INI_DEFAULTS_REV 10855  /* MOD_VERSION of the source this table was built from */
 static const IniDefHist kIniDefH0[] = {{10800, 0}, {10805, L"1"}};
 static const IniDefHist kIniDefH1[] = {{10800, 0}, {10835, L"0"}};
 static const IniDefHist kIniDefH2[] = {{10800, 0}, {10835, L"0"}};
@@ -124,6 +124,7 @@ static const IniDefHist kIniDefH117[] = {{10800, 0}, {10834, L"1"}};
 static const IniDefHist kIniDefH118[] = {{10800, 0}, {10834, L"1"}};
 static const IniDefHist kIniDefH119[] = {{10800, 0}, {10834, L"1200"}};
 static const IniDefHist kIniDefH120[] = {{10800, 0}, {10834, L"40"}};
+static const IniDefHist kIniDefH121[] = {{10800, 0}, {10855, L"3"}};
 static const IniDefKey kIniDefaults[] = {
     {L"ArenaSwap", L"EntryLoadScreen", L"1", kIniDefH0, 2},
     {L"Record", L"PlayerLog", L"0", kIniDefH1, 2},
@@ -143,6 +144,7 @@ static const IniDefKey kIniDefaults[] = {
     {L"StyleMeter", L"AlwaysOn", L"0", kIniDefH15, 2},
     {L"StyleMeter", L"ShowMeter", L"1", kIniDefH16, 2},
     {L"StyleMeter", L"DamagePenaltyPct", L"50", kIniDefH17, 2},
+    {L"StyleMeter", L"DamageFullRank", L"3", kIniDefH121, 2},
     {L"StyleMeter", L"ResultCard", L"1", kIniDefH18, 2},
     {L"StyleMeter", L"ResultHoldPct", L"50", kIniDefH19, 2},
     {L"StyleMeter", L"ResultHoldPctSSS", L"50", kIniDefH20, 2},
@@ -247,4 +249,4 @@ static const IniDefKey kIniDefaults[] = {
     {L"StyleMeter", L"PopUpMs", L"1200", kIniDefH119, 2},
     {L"StyleMeter", L"ShakePts", L"40", kIniDefH120, 2},
 };
-#define INI_DEFAULTS_N 121
+#define INI_DEFAULTS_N 122
