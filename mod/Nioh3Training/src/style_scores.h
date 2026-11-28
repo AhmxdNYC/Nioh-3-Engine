@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include "style_result.h"
 
 #define SC_KEEP 3
@@ -22,6 +23,22 @@
 #define SC_NAME 96
 typedef struct { float score; int grade; double ms; uint32_t hits; char ver[16]; char date[20]; int hasCard; SrResult card; } ScRec;
 #define SC_LINE 4096
+// human 2026-11-28: cards saved before Block counters (1.8.48 .. 1.8.51) are SC_CARD_V1 bytes: SrCount without blockCounters and with one
+// earned[] slot fewer (no SM_PC_BLOCKCTR, which sits just before SM_PC_VERS). ScCardV1 rebuilds this build's card from one (both 0).
+#define SC_CARD_V1 488
+_Static_assert(offsetof(SrCount, blockCounters) == 19 * 4 && offsetof(SrCount, earned) == 20 * 4 && SM_PC_BLOCKCTR == SM_PC_N - 2 && SM_PC_VERS == SM_PC_N - 1,
+               "ScCardV1 assumes the 1.8.51 SrCount layout plus blockCounters / SM_PC_BLOCKCTR");
+_Static_assert(sizeof(SrResult) == SC_CARD_V1 + 8, "SrResult grew again: add a converter for the 1.8.52 cards");
+static inline void ScCardV1(const uint8_t* old, SrResult* c) {
+    const size_t on = offsetof(SrResult, n), nOld = 19 * 4 + (SM_PC_N - 1) * 4 + SM_PL_N * 4, nNew = sizeof(SrCount);
+    uint8_t* o = (uint8_t*)c; memset(c, 0, sizeof *c);
+    memcpy(o, old, on);                                                  // grade .. holdTop
+    memcpy(o + on, old + on, 19 * 4);                                    // the counts (blockCounters = 0)
+    memcpy(&c->n.earned[0], old + on + 19 * 4, (SM_PC_N - 2) * 4);         // earned up to SM_PC_GRAPPLE (SM_PC_BLOCKCTR = 0)
+    memcpy(&c->n.earned[SM_PC_VERS], old + on + 19 * 4 + (SM_PC_N - 2) * 4, 4);
+    memcpy(&c->n.lost[0], old + on + 19 * 4 + (SM_PC_N - 1) * 4, SM_PL_N * 4);
+    memcpy(o + on + nNew, old + on + nOld, sizeof *c - on - nNew);        // comboBest .. note
+}
 typedef struct { char key[SC_KEY]; char name[SC_NAME]; ScRec r[SC_KEEP]; int n; } ScBoss;
 typedef struct { ScBoss b[SC_BOSSES]; int n; } ScTable;
 
@@ -90,11 +107,12 @@ static inline int ScParseLine(ScTable* t, const char* line) {
     r.score = (float)atof(f[2]); r.grade = atoi(f[3]); r.ms = atof(f[4]); r.hits = (uint32_t)strtoul(f[5], 0, 10);
     if (!(r.score >= 0.f && r.score <= 7.01f) || r.grade < 0 || r.grade > 6) return 0;
     ScCopy(r.ver, (int)sizeof r.ver, f[6]); ScCopy(r.date, (int)sizeof r.date, f[7]);
-    if (n >= 9 && f[8][0] == 'R') {  // the card: R<size>:<hex>, only when the size is this build's SrResult
+    if (n >= 9 && f[8][0] == 'R') {  // the card: R<size>:<hex>, this build's SrResult or a 1.8.48 .. 1.8.51 one (SC_CARD_V1)
         char* c = strchr(f[8], ':'); const unsigned long sz = strtoul(f[8] + 1, 0, 10);
-        if (c && sz == sizeof r.card && strlen(c + 1) == 2 * sizeof r.card) {
-            uint8_t* o = (uint8_t*)&r.card; int ok = 1;
-            for (size_t i = 0; i < sizeof r.card && ok; ++i) { unsigned v = 0; ok = sscanf(c + 1 + 2 * i, "%2x", &v) == 1; o[i] = (uint8_t)v; }
+        if (c && (sz == sizeof r.card || sz == SC_CARD_V1) && strlen(c + 1) == 2 * sz) {
+            static uint8_t raw[sizeof(SrResult)]; int ok = 1;
+            for (size_t i = 0; i < sz && ok; ++i) { unsigned v = 0; ok = sscanf(c + 1 + 2 * i, "%2x", &v) == 1; raw[i] = (uint8_t)v; }
+            if (ok) { if (sz == sizeof r.card) memcpy(&r.card, raw, sizeof r.card); else ScCardV1(raw, &r.card); }
             r.hasCard = ok; r.card.name[sizeof r.card.name - 1] = 0; r.card.note[0] = 0;
             if (!ok) memset(&r.card, 0, sizeof r.card);
         }

@@ -54,6 +54,7 @@
 #ifndef STYLE_METER_H
 #define STYLE_METER_H
 #include <stdint.h>
+#include <string.h>
 
 #define SM_RANKS 7
 #define SM_HIST 8
@@ -149,10 +150,10 @@
 // extra to SM_PC_VERS; losses to SM_PL_* (drain, hits taken, repetition). The hit path splits a hit into its base, the startup / slow-move
 // extra and the counter bonus.
 enum { SM_PC_HIT, SM_PC_STARTUP, SM_PC_COUNTER, SM_PC_BLOCK, SM_PC_DODGE, SM_PC_DEFLECT, SM_PC_DISPLACE, SM_PC_KI, SM_PC_MA, SM_PC_NIN,
-       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_GRAPPLE, SM_PC_VERS, SM_PC_N };
+       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_GRAPPLE, SM_PC_BLOCKCTR, SM_PC_VERS, SM_PC_N };
 static const char* const sm_pc_name[SM_PC_N] = {"Hits", "Slow / startup bonus", "Counters", "Blocked hits", "Dodges", "Deflects", "Displacements",
        "Ki pulses", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Burst breaks",
-       "Combo milestones", "Variety milestones", "Flux", "Grapples", "Versatility bonus"};
+       "Combo milestones", "Variety milestones", "Flux", "Grapples", "Block counters", "Versatility bonus"};
 enum { SM_PL_NONE = -1, SM_PL_DRAIN, SM_PL_DAMAGE, SM_PL_LOOP, SM_PL_N };
 static const char* const sm_pl_name[SM_PL_N] = {"Meter drain", "Hits taken", "Repetition"};
 // pseudo move ids for non-hit moves (variety set only; real act ids are small)
@@ -235,6 +236,7 @@ typedef struct {
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
     uint32_t deflects;      // clean avoids that were deflects
     uint32_t counterAvoids; // clean avoids during a skill move that counted as that move's counter
+    uint32_t blockCounters; // human 2026-11-28: Block Counter! (a guarded hit then a martial art at once / a parry row)
     uint32_t combo, comboBest, comboBonuses;  // human: landed hits in the current combo / longest combo / milestone bonuses paid
     double comboT;          // game ms of the combo's last hit
     uint32_t lpA, lpB; int lpN1, lpN2;   // loop penalty: act of the last / the one before use, trailing period-1 / period-2 run lengths (uses)
@@ -677,6 +679,14 @@ static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, in
     if (!(p > 0.f)) return 0.f;
     const float gain_ = SmAdd(s, c, p, SM_PC_COUNTER); s->lastScore = t; return gain_;
 }
+// human 2026-11-28: Block Counter! (style_meter_game.h, SmBlkCtrStep): the avoid counter's loop / repeat rules at pts, its own card line.
+static inline float SmOnBlockCounter(SmState* s, const SmCfg* c, double t, int count, float pts, uint32_t act, uint64_t run) {
+    if (count) s->blockCounters++;
+    s->lastEvent = t;
+    const float p = SmLoopScale(s, c, SmLoopUse(s, c, act, run), pts);
+    if (!(p > 0.f)) return 0.f;
+    const float gain_ = SmAdd(s, c, p, SM_PC_BLOCKCTR); s->lastScore = t; return gain_;
+}
 static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) {
     if (count) s->counterAvoids++;
     s->lastEvent = t;
@@ -970,6 +980,32 @@ static inline int SmHurtStep(SmHurtChain* h, double t, uint64_t run, int hurt) {
     return h->run != 0 && run == h->run;
 }
 static inline int SmDodgeHurtGate(int avoid, double t, double lastHurt) { return avoid == SM_AV_DODGE && t - lastHurt < (double)SM_DODGE_HURT_MS ? SM_AV_NONE : avoid; }
+// human 2026-11-28 (Tomoe, spear Bracing Breeze 0x6338 -> parry 0x16DC -> air follow-up 0x633B ~1.5 s later): a block parry has no
+// i-frames, so it was never a Counter!, and the slow follow-up let the meter drain. Block Counter!: the player guarded an enemy hit (its Ki
+// damage on the player, no HP taken) and a martial art (skill row, not a deflect) starts within ms after it, or a listed parry row starts
+// ([StyleMeter] BlockCounterActs, the parry itself). Paid once, at that move's start; its hits score as usual.
+// Per tick: run = the player's run key (0 = none), guarded = a guarded hit this tick, skill = this run's skill row (-1 unread, 0 none,
+// 1 martial art), listed = the run's action is in BlockCounterActs. Returns SM_BC_* on the tick to pay.
+enum { SM_BC_NONE = 0, SM_BC_GUARD = 1, SM_BC_LISTED = 2 };
+#define SM_BC_MS 700
+#define SM_BC_PTS 54  // human 2026-11-28: a Counter! (DodgePts 45) + 20 %: a block costs Ki and does not stop elemental damage
+typedef struct { double guardT; uint64_t guardRun, candRun, lastRun; int cand; } SmBlkCtr;
+static inline void SmBlkCtrReset(SmBlkCtr* b) { memset(b, 0, sizeof *b); b->guardT = -1e18; }
+static inline int SmBlkCtrStep(SmBlkCtr* b, double t, uint64_t run, int guarded, int skill, int listed, int ms) {
+    if (guarded) { b->guardT = t; b->guardRun = run; }
+    const int fresh = run && run != b->lastRun;
+    b->lastRun = run;
+    if (fresh) {
+        b->cand = 0;
+        if (listed) { b->guardT = -1e18; return SM_BC_LISTED; }
+        if (run != b->guardRun && t - b->guardT <= (double)ms) { b->cand = 1; b->candRun = run; }
+    }
+    if (b->cand && run == b->candRun) {
+        if (skill > 0) { b->cand = 0; b->guardT = -1e18; return SM_BC_GUARD; }
+        if (skill == 0) b->cand = 0;  // not a martial art (a guard reaction, a step): the guard stays open for the next move
+    }
+    return SM_BC_NONE;
+}
 static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) { return SmDodgeStepEx(d, enemyActive, ifr, tookHit, 0, 0) != 0; }
 // Visible: something to show, and a boss fight is live or the last event is recent.
 static inline int SmVisible(const SmState* s, const SmCfg* c, double t, int fight) {
