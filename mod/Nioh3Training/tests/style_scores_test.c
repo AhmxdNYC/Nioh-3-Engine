@@ -75,7 +75,7 @@ static void DFloor(void) {
 // human 2026-11-26 (1.8.48): rank ups cost 30 % more (SSS bar kept), A and up drain 30 % faster.
 static void Tuning48(void) {
     SmCfg c; SmCfgDefaults(&c);
-    static const float want[SM_RANKS] = {156, 234, 169, 234, 325, 455, 500};  // every rank flat x1.3 over 1.8.47 (2026-11-27); SSS bar kept
+    static const float want[SM_RANKS] = {187.2f, 280.8f, 202.8f, 280.8f, 390.f, 546.f, 600.f};  // x1.3 over 1.8.47 (2026-11-27), then every rank incl. SSS x1.2 (2026-11-28)
     for (int r = 0; r < SM_RANKS; ++r) CHECK(c.rankPts[r] == want[r]);
     CHECK(c.decayHighRank == 3 && c.decayHighPct == 182 && c.decayTopPct[0] == 100 && c.decayTopPct[1] == 100 && c.decayTopPct[2] == 100 && c.decayLowPct == 78);  // 2026-11-27
     c.decayRankPct = 0; c.decayRampPct = 0; c.decayLowPct = 100; c.decayDelayMs = 0;
