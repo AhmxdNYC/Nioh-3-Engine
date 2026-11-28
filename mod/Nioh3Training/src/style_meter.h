@@ -54,6 +54,7 @@
 #ifndef STYLE_METER_H
 #define STYLE_METER_H
 #include <stdint.h>
+#include <string.h>
 
 #define SM_RANKS 7
 #define SM_HIST 8
@@ -970,6 +971,31 @@ static inline int SmHurtStep(SmHurtChain* h, double t, uint64_t run, int hurt) {
     return h->run != 0 && run == h->run;
 }
 static inline int SmDodgeHurtGate(int avoid, double t, double lastHurt) { return avoid == SM_AV_DODGE && t - lastHurt < (double)SM_DODGE_HURT_MS ? SM_AV_NONE : avoid; }
+// human 2026-11-28 (Tomoe, spear Bracing Breeze 0x6338 -> parry 0x16DC -> air follow-up 0x633B ~1.5 s later): a block parry has no
+// i-frames, so it was never a Counter!, and the slow follow-up let the meter drain. Block Counter!: the player guarded an enemy hit (its Ki
+// damage on the player, no HP taken) and a martial art (skill row, not a deflect) starts within ms after it, or a listed parry row starts
+// ([StyleMeter] BlockCounterActs, the parry itself). Paid once, at that move's start; its hits score as usual.
+// Per tick: run = the player's run key (0 = none), guarded = a guarded hit this tick, skill = this run's skill row (-1 unread, 0 none,
+// 1 martial art), listed = the run's action is in BlockCounterActs. Returns SM_BC_* on the tick to pay.
+enum { SM_BC_NONE = 0, SM_BC_GUARD = 1, SM_BC_LISTED = 2 };
+#define SM_BC_MS 700
+typedef struct { double guardT; uint64_t guardRun, candRun, lastRun; int cand; } SmBlkCtr;
+static inline void SmBlkCtrReset(SmBlkCtr* b) { memset(b, 0, sizeof *b); b->guardT = -1e18; }
+static inline int SmBlkCtrStep(SmBlkCtr* b, double t, uint64_t run, int guarded, int skill, int listed, int ms) {
+    if (guarded) { b->guardT = t; b->guardRun = run; }
+    const int fresh = run && run != b->lastRun;
+    b->lastRun = run;
+    if (fresh) {
+        b->cand = 0;
+        if (listed) { b->guardT = -1e18; return SM_BC_LISTED; }
+        if (run != b->guardRun && t - b->guardT <= (double)ms) { b->cand = 1; b->candRun = run; }
+    }
+    if (b->cand && run == b->candRun) {
+        if (skill > 0) { b->cand = 0; b->guardT = -1e18; return SM_BC_GUARD; }
+        if (skill == 0) b->cand = 0;  // not a martial art (a guard reaction, a step): the guard stays open for the next move
+    }
+    return SM_BC_NONE;
+}
 static inline int SmDodgeStep(SmDodge* d, int enemyActive, int ifr, int tookHit) { return SmDodgeStepEx(d, enemyActive, ifr, tookHit, 0, 0) != 0; }
 // Visible: something to show, and a boss fight is live or the last event is recent.
 static inline int SmVisible(const SmState* s, const SmCfg* c, double t, int fight) {

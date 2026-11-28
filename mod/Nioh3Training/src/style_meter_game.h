@@ -28,6 +28,11 @@ extern const unsigned char g_sm_png[], g_sm_png_end[];
 static SmTmtmCfg g_tmc;  // crouch cancel ids (ini)
 static uint32_t g_cfg_flux_skill = SM_FLUX_SKILL;  // [StyleMeter] FluxSkill (human 2026-11-26)
 static uint32_t g_cfg_grapple_skill = SM_GRAPPLE_SKILL;  // [StyleMeter] GrappleSkill (human 2026-11-26, 1.8.48)
+// human 2026-11-28 Block Counter! ([StyleMeter] BlockCounter / BlockCounterPts / BlockCounterMs / BlockCounterActs; style_meter.h SmBlkCtrStep)
+#define SM_BC_ACTS 16
+static int g_cfg_bc = 1, g_cfg_bc_ms = SM_BC_MS, g_cfg_bc_nacts = 1; static float g_cfg_bc_pts = (float)SM_DODGE_PTS;
+static uint32_t g_cfg_bc_acts[SM_BC_ACTS] = {0x16DC};  // spear Bracing Breeze: the parry row (Tomoe log 2026-11-28: only ever after its stance 0x6338)
+static volatile LONG g_sm_plGuard;  // enemy hits that did Ki damage to the player since the last tick (SmKiEvent)
 static SmCfg g_smc; static SmState g_sm; static SmDispCfg g_dpc; static volatile LONG g_sm_enemyMask;  // boss slots with a hit window open (SmCapture)
  static SRWLOCK g_sm_lock = SRWLOCK_INIT;
 #define SM_DEF_X 200  // default meter place (StyleMeterX / Y = -1), 1/1000 of the game window: top left
@@ -340,6 +345,15 @@ static void SmReadIni(const char* ini, int reset) {
     dc.listAngDeg = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceListAngleDeg", SM_DP_LIST_ANG_DEG, ini);
     dc.tailMs = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceTailMs", SM_DP_TAIL_MS, ini);
     dc.ctrOnly = (int)GetPrivateProfileIntA("StyleMeter", "DisplaceCounterOnly", 1, ini) ? 1 : 0;  // human 2026-11-27 (Just Reprisal)
+    {   // human 2026-11-28 Block Counter!
+        g_cfg_bc = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounter", 1, ini) ? 1 : 0;
+        int v = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounterPts", SM_DODGE_PTS, ini); g_cfg_bc_pts = (float)(v < 0 ? 0 : v > 1000 ? 1000 : v);
+        v = (int)GetPrivateProfileIntA("StyleMeter", "BlockCounterMs", SM_BC_MS, ini); g_cfg_bc_ms = v < 100 ? 100 : v > 3000 ? 3000 : v;
+        char tb[256] = {0}; GetPrivateProfileStringA("StyleMeter", "BlockCounterActs", "0x16DC", tb, sizeof tb, ini);
+        uint32_t ids[SM_TMTM_IDS]; int k = SmTmtmParse(tb, ids); if (k > SM_BC_ACTS) k = SM_BC_ACTS;
+        g_cfg_bc_nacts = k > 0 ? k : 0; for (int i = 0; i < g_cfg_bc_nacts; ++i) g_cfg_bc_acts[i] = ids[i];
+        Log("STYLE METER: Block Counter! %s, %.0f pts, a martial art within %d ms of a guarded hit, %d parry act(s)%s", g_cfg_bc ? "on" : "off", g_cfg_bc_pts, g_cfg_bc_ms, g_cfg_bc_nacts, g_cfg_bc_nacts ? "" : " (none)");
+    }
     {   // known displacement moves (relaxed motion test; ids that are not skill rows become eligible). Default: Swift Step Heavy.
         char buf[256] = {0}; GetPrivateProfileStringA("StyleMeter", "DisplaceActs", SM_DP_DEFAULT_ACTS, buf, sizeof buf, ini);
         SmDispParseActs(&dc, buf); }
@@ -521,10 +535,15 @@ static __attribute__((noinline)) void SmBdWatch(uint32_t act) {
 }
 // PstKiDamage (Ki damage 844604 at 329E9D, same hit apply, game thread): K = victim status + 0x98, amt = the hit's Ki damage before any mod scaling.
 static void SmKiEvent(uint64_t K, float amt, uint64_t hit) {
-    if (!g_cfg_sm || g_smc.blockPct <= 0 || g_hpdmg_hooked != 1 || !(amt > 0.f) || !K || !hit || !g_pst_atk_ok) return;  // no HP hook = no way to tell a guarded hit
+    if (!g_cfg_sm || g_hpdmg_hooked != 1 || !(amt > 0.f) || !K || !hit || !g_pst_atk_ok) return;  // no HP hook = no way to tell a guarded hit
     __try {
         const uint64_t me = PlayerChar(); uint64_t st = 0;
-        if (!me || (Rd64(me + 0x3A0, &st) && st && st + 0x98 == K)) return;  // Ki damage on the player
+        if (!me) return;
+        if (Rd64(me + 0x3A0, &st) && st && st + 0x98 == K) {  // Ki damage on the player: an enemy hit the player guarded (Block Counter!, SmFeed)
+            if (g_cfg_bc && ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) != me) InterlockedIncrement(&g_sm_plGuard);
+            return;
+        }
+        if (g_smc.blockPct <= 0) return;
         if (((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit) != me) return;
         { uint64_t v = 0; SmBdMark(K - 0x98); if (Rd64(hit + 0x1C8, &v)) SmBdHit("ki", hit, v, 0, amt); }
         if (SmBlkVictim(hit, me, K - 0x98)) SmBlkAdd(hit, K - 0x98, SM_BLK_KI, amt);
@@ -802,8 +821,9 @@ static void SmFeed(double gdt) {
     g_sm_clock += dt;
     const int pl = g_fp[FP_PL].valid;
     LONG hits = InterlockedExchange(&g_sm_hits, 0), taken = InterlockedExchange(&g_sm_taken, 0);
-    // blocked hits (BlockPct): need the HP hook (a hit that took HP must be seen) and the Ki hook (the guarded hit's Ki damage)
-    if (g_smc.blockPct > 0 && g_hpdmg_hooked == 1 && g_pst_atk_ok && !g_pst_ki_hooked) PstKiHookInstall();
+    const LONG plGuard = InterlockedExchange(&g_sm_plGuard, 0);  // human 2026-11-28 Block Counter!: guarded enemy hits (Ki damage, no HP below)
+    // blocked hits (BlockPct) / Block Counter!: need the HP hook (a hit that took HP must be seen) and the Ki hook (the guarded hit's Ki damage)
+    if ((g_smc.blockPct > 0 || g_cfg_bc) && g_hpdmg_hooked == 1 && g_pst_atk_ok && !g_pst_ki_hooked) PstKiHookInstall();
     SmBlkEv blkEv[4]; int blocked;
     AcquireSRWLockExclusive(&g_sm_blk_lock); blocked = SmBlkTake(&g_sm_blk, blkEv, 4); ReleaseSRWLockExclusive(&g_sm_blk_lock);
     if (g_smc.blockPct <= 0 || g_hpdmg_hooked != 1) blocked = 0;
@@ -1155,6 +1175,20 @@ static void SmFeed(double gdt) {
     // 25376 -> 25377 is one use keyed by 25376's run; keyed by 25377's run its avoid and hits alternated two keys, every switch a new
     // use = a new step of act 25377, so one cast (hit, avoid, hit, avoid) read as A A A A: 'Repetitive!' x2 on a single cast)
     if (avCtr) { pac = SmOnAvoidCounterUse(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, act, useKey); ctrPaidRun = run; }
+    // human 2026-11-28 Block Counter!: a guarded hit then a martial art at once, or a listed parry row (Bracing Breeze 0x16DC)
+    float pbc = -1.f; int bcKind = 0;
+    {   static SmBlkCtr bct; static int bcInit; if (!bcInit) { bcInit = 1; SmBlkCtrReset(&bct); }
+        int listed = 0; for (int i = 0; i < g_cfg_bc_nacts && pl; ++i) if (act == g_cfg_bc_acts[i]) listed = 1;
+        const int guarded = pl && plGuard > 0 && taken <= 0, ma = skill < 0 ? -1 : (skill > 0 && !deflectNow) ? 1 : 0;
+        bcKind = g_cfg_bc ? SmBlkCtrStep(&bct, g_sm_clock, pl ? run : 0, guarded, ma, listed, g_cfg_bc_ms) : SM_BC_NONE;
+        if (guarded && g_cfg_bc) { static int gl; if (gl++ < 400) Log("STYLE BLOCKCTR: guarded hit x%ld on the player (Ki damage, no HP), act %u", (long)plGuard, (unsigned)act); }
+        if (bcKind) {
+            SmCfg bc = g_smc; bc.dodge = g_cfg_bc_pts;  // the avoid counter's scoring (loop / repeat rules of this use), at BlockCounterPts
+            pbc = SmOnAvoidCounterUse(&g_sm, &bc, g_sm_clock, run != ctrPaidRun, act, useKey); ctrPaidRun = run;
+            if (pbc > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);
+            static int bl; if (bl++ < 400) Log("STYLE BLOCKCTR: Block Counter! +%.1f, act %u (%s)", pbc, (unsigned)act, bcKind == SM_BC_LISTED ? "parry row in BlockCounterActs" : "martial art right after a guarded hit");
+        }
+    }
     if (pd > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DODGE);  // human: scored non-hit moves count as distinct moves too
     if (pp > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_DEFLECT);
     if (pac > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);
@@ -1263,6 +1297,7 @@ static void SmFeed(double gdt) {
         if (pp > 0.f) { SmFxPop("Deflect!", pp); big += pp; }
         if (pb > 0.f) SmFxPop("Blocked", pb);  // human: a guarded hit (BlockPct % of the hit); plain hits have no pop-up, this one is shown so it is seen
         if (pac > 0.f) { SmFxPop("Counter!", pac); big += pac; }
+        if (pbc > 0.f) { SmFxPop("Block Counter!", pbc); big += pbc; }  // human 2026-11-28
         if (pdp > 0.f) { if (pdtri > 0.f) { SmFxPop("Displacement!", pdp - pdtri); SmFxPop("Displacement x3!", pdtri); } else SmFxPop("Displacement!", pdp); big += pdp; }
         if (pgrap > 0.f) { SmFxPop("Grapple!", pgrap); big += pgrap; }  // human 2026-11-26
         if (pn > 0.f) { SmFxPop("Ninjutsu", pn); big += pn; }
@@ -1293,7 +1328,7 @@ static void SmFeed(double gdt) {
                 (void*)blkEv[i].hit, (void*)blkEv[i].vic, !!(blkEv[i].fl & SM_BLK_KI), blkEv[i].ki, !!(blkEv[i].fl & SM_BLK_HP0), pb / (float)blocked, g_smc.blockPct, blN, (int)g_pst_ki_hooked);
         }
     }
-    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || varN || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN) {
+    if (hits > 0 || blocked > 0 || allyHits > 0 || pcombo > 0.f || varN || ki || avoid || taken > 0 || nin || sty || soul > 0 || swapEv || gsMark || pgs > 0.f || maMark || pma > 0.f || bbN || bcKind) {
         static int evl;
         if (evl++ < 4000) {
             char e[640]; int n = 0; e[0] = 0;
@@ -1322,6 +1357,7 @@ static void SmFeed(double gdt) {
             if (avoid) n += snprintf(e + n, sizeof e - n, " %s +%.0f (guard bytes ea5 %d ea7 %d ea8 %d eaa %d, moved %.2f m, skill move %d word 0x%X)", deflect ? "deflect" : avCtr ? "counter (avoid)" : "dodge", deflect ? pp : avCtr ? pac : pd,
                 avFl & 1, (avFl >> 1) & 1, (avFl >> 2) & 1, (avFl >> 3) & 1, avMove / 100.f, g_sm.dodge.sawSkill, skw);
             if (taken > 0) n += snprintf(e + n, sizeof e - n, " damaged x%ld", (long)taken);
+            if (bcKind) n += snprintf(e + n, sizeof e - n, " block counter +%.1f", pbc);
             Log("STYLE EVENT: t %.0f act %u%s -> %s%s %.0f/%.0f", g_sm_clock, act, e, sm_rank_name[r1], a1 ? "" : " (idle)", gp, g_smc.rankPts[r1]);
         }
     }

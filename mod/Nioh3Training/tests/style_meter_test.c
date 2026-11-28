@@ -1142,7 +1142,40 @@ static void Flux(void) {
     // human 2026-11-26: grapple on a Ki-broken boss: flat 100
     CHECK(near(c.grapplePts, 100.f) && near(SmOnGrapple(&s, &c, 2100), 100.f) && s.grapples == 1 && near(s.earned[SM_PC_GRAPPLE], 100.f));
 }
+// human 2026-11-28: Block Counter! (Bracing Breeze parry, and a guarded hit followed at once by a martial art)
+static void BlockCounter(void) {
+    SmBlkCtr b; SmBlkCtrReset(&b);
+    const uint64_t stance = 1, parry = 2, air = 3, step = 4, late = 5;
+    // Bracing Breeze: the hit is guarded in the stance, the parry row (a martial art row) starts right after: paid at its start, once
+    CHECK(SmBlkCtrStep(&b, 0, stance, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 100, stance, 1, 1, 0, SM_BC_MS) == SM_BC_NONE);   // the guarded hit inside the same move: not yet
+    CHECK(SmBlkCtrStep(&b, 116, parry, 0, -1, 0, SM_BC_MS) == SM_BC_NONE);   // skill row unread yet: wait
+    CHECK(SmBlkCtrStep(&b, 133, parry, 0, 1, 0, SM_BC_MS) == SM_BC_GUARD);
+    CHECK(SmBlkCtrStep(&b, 150, parry, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 400, air, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);      // the follow-up is not a second Block Counter
+    // a plain block, its guard reaction (no skill), then a martial art in time: paid at the martial art
+    SmBlkCtrReset(&b);
+    CHECK(SmBlkCtrStep(&b, 1000, stance, 1, 0, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 1016, step, 0, 0, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 1400, air, 0, 1, 0, SM_BC_MS) == SM_BC_GUARD);
+    // too late: nothing
+    SmBlkCtrReset(&b);
+    CHECK(SmBlkCtrStep(&b, 2000, stance, 1, 0, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 2000 + SM_BC_MS + 50, late, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    // no guarded hit: a martial art is not a Block Counter
+    SmBlkCtrReset(&b);
+    CHECK(SmBlkCtrStep(&b, 3000, stance, 0, 0, 0, SM_BC_MS) == SM_BC_NONE && SmBlkCtrStep(&b, 3100, air, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    // a listed parry row (BlockCounterActs) pays at its start even when no guarded-hit signal was seen
+    CHECK(SmBlkCtrStep(&b, 4000, parry, 0, -1, 1, SM_BC_MS) == SM_BC_LISTED);
+    CHECK(SmBlkCtrStep(&b, 4016, parry, 0, 1, 1, SM_BC_MS) == SM_BC_NONE);
+    // a guarded hit then a listed parry: one payment only
+    SmBlkCtrReset(&b);
+    CHECK(SmBlkCtrStep(&b, 5000, stance, 1, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    CHECK(SmBlkCtrStep(&b, 5016, parry, 0, 1, 1, SM_BC_MS) == SM_BC_LISTED);
+    CHECK(SmBlkCtrStep(&b, 5300, air, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+}
 int main(void) {
+    BlockCounter();
     SlowMove();
     MoveVariety(); Versatility(); DecayLow(); DrainFar(); Breakdown(); HurtChain(); Flux();
     DamageHalf(); Loop(); LoopAvoid(); LoopTiers(); MultiCap(); MultiChain(); LoopOneCast();
