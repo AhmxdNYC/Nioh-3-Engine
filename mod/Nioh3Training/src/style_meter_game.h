@@ -1183,8 +1183,7 @@ static void SmFeed(double gdt) {
         bcKind = g_cfg_bc ? SmBlkCtrStep(&bct, g_sm_clock, pl ? run : 0, guarded, ma, listed, g_cfg_bc_ms) : SM_BC_NONE;
         if (guarded && g_cfg_bc) { static int gl; if (gl++ < 400) Log("STYLE BLOCKCTR: guarded hit x%ld on the player (Ki damage, no HP), act %u", (long)plGuard, (unsigned)act); }
         if (bcKind) {
-            SmCfg bc = g_smc; bc.dodge = g_cfg_bc_pts;  // the avoid counter's scoring (loop / repeat rules of this use), at BlockCounterPts
-            pbc = SmOnAvoidCounterUse(&g_sm, &bc, g_sm_clock, run != ctrPaidRun, act, useKey); ctrPaidRun = run;
+            pbc = SmOnBlockCounter(&g_sm, &g_smc, g_sm_clock, run != ctrPaidRun, g_cfg_bc_pts, act, useKey); ctrPaidRun = run;  // loop / repeat rules of this use
             if (pbc > 0.f) SmVarietyMove(&g_sm, &g_smc, g_sm_clock, SM_VAR_COUNTER);
             static int bl; if (bl++ < 400) Log("STYLE BLOCKCTR: Block Counter! +%.1f, act %u (%s)", pbc, (unsigned)act, bcKind == SM_BC_LISTED ? "parry row in BlockCounterActs" : "martial art right after a guarded hit");
         }

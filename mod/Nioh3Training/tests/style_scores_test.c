@@ -1,5 +1,6 @@
 // Best style scores per boss (style_scores.h) and the D floor of a boss fight (style_meter.h SmKeepD), offline.
 //   py -m ziglang cc -target x86_64-windows-gnu -O1 -Wall -Isrc tests/style_scores_test.c -o build/t/style_scores_test.exe
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -109,4 +110,24 @@ static void SssHold(void) {
     s.rank = 6; for (int i = 0; i < 25; ++i) SrTick(&f, &s, &c, 100);                                 // 80 / 125 = 64 % SSS
     r = SrFinishTop(&f, &s, SR_HOLD_PCT, 60, 0); CHECK(r.grade == 6 && r.score > 6.09f && r.score < 6.11f);  // (64 - 60) / 40
 }
-int main(void) { SssHold(); Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }
+// human 2026-11-28: a card saved by 1.8.48 .. 1.8.51 (488 bytes, no Block counters) still loads, every field in place
+static void CardV1(void) {
+    SrResult a; memset(&a, 0, sizeof a);
+    a.grade = 5; a.score = 5.58f; a.ms = 62052.0; a.moves = 15; a.n.hits = 187; a.n.flux2 = 4; a.comboBest = 41; a.inputs = 659; a.apm = 252.f;
+    for (int i = 0; i < SM_PC_N; ++i) a.n.earned[i] = 10.f + i; a.n.earned[SM_PC_BLOCKCTR] = 0.f; a.n.lost[2] = 40.f;
+    snprintf(a.name, sizeof a.name, "Takeda Shingen");
+    uint8_t old[SC_CARD_V1]; const size_t on = offsetof(SrResult, n); const uint8_t* p = (const uint8_t*)&a;  // pack the old layout
+    memcpy(old, p, on); memcpy(old + on, p + on, 19 * 4);
+    for (int i = 0, j = 0; i < SM_PC_N; ++i) if (i != SM_PC_BLOCKCTR) { memcpy(old + on + 76 + 4 * j, &a.n.earned[i], 4); ++j; }
+    memcpy(old + on + 76 + (SM_PC_N - 1) * 4, a.n.lost, SM_PL_N * 4);
+    memcpy(old + on + 76 + (SM_PC_N - 1) * 4 + SM_PL_N * 4, p + on + sizeof(SrCount), sizeof a - on - sizeof(SrCount));
+    static char line[SC_LINE]; int k = snprintf(line, sizeof line, "c:A5D2\tTakeda Shingen\t5.58\t5\t62052\t0\t1.8.50\t2026-11-27 14:16\tR%d:", SC_CARD_V1);
+    for (int i = 0; i < SC_CARD_V1; ++i) k += snprintf(line + k, sizeof line - k, "%02x", old[i]);
+    static ScTable u; memset(&u, 0, sizeof u);
+    CHECK(ScParseLine(&u, line) && u.b[0].r[0].hasCard);
+    const SrResult* c = &u.b[0].r[0].card;
+    CHECK(c->grade == 5 && c->score == 5.58f && c->ms == 62052.0 && c->moves == 15 && c->n.hits == 187 && c->n.flux2 == 4 && c->n.blockCounters == 0);
+    CHECK(c->comboBest == 41 && c->inputs == 659 && c->apm == 252.f && !strcmp(c->name, "Takeda Shingen") && c->n.lost[2] == 40.f);
+    for (int i = 0; i < SM_PC_N; ++i) CHECK(c->n.earned[i] == a.n.earned[i]);
+}
+int main(void) { CardV1(); SssHold(); Card(); Tuning48(); Keys(); Top3(); Delete(); File(); DFloor(); printf("style scores ok: %d checks\n", g_checks); return 0; }

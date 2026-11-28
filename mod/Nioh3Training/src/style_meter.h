@@ -150,10 +150,10 @@
 // extra to SM_PC_VERS; losses to SM_PL_* (drain, hits taken, repetition). The hit path splits a hit into its base, the startup / slow-move
 // extra and the counter bonus.
 enum { SM_PC_HIT, SM_PC_STARTUP, SM_PC_COUNTER, SM_PC_BLOCK, SM_PC_DODGE, SM_PC_DEFLECT, SM_PC_DISPLACE, SM_PC_KI, SM_PC_MA, SM_PC_NIN,
-       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_GRAPPLE, SM_PC_VERS, SM_PC_N };
+       SM_PC_SOUL, SM_PC_GS, SM_PC_SWAP, SM_PC_STYLE, SM_PC_BURST, SM_PC_COMBO, SM_PC_VARIETY, SM_PC_FLUX, SM_PC_GRAPPLE, SM_PC_BLOCKCTR, SM_PC_VERS, SM_PC_N };
 static const char* const sm_pc_name[SM_PC_N] = {"Hits", "Slow / startup bonus", "Counters", "Blocked hits", "Dodges", "Deflects", "Displacements",
        "Ki pulses", "Martial arts", "Ninjutsu", "Soul cores", "Guardian spirit", "Weapon switches", "Style switches", "Burst breaks",
-       "Combo milestones", "Variety milestones", "Flux", "Grapples", "Versatility bonus"};
+       "Combo milestones", "Variety milestones", "Flux", "Grapples", "Block counters", "Versatility bonus"};
 enum { SM_PL_NONE = -1, SM_PL_DRAIN, SM_PL_DAMAGE, SM_PL_LOOP, SM_PL_N };
 static const char* const sm_pl_name[SM_PL_N] = {"Meter drain", "Hits taken", "Repetition"};
 // pseudo move ids for non-hit moves (variety set only; real act ids are small)
@@ -236,6 +236,7 @@ typedef struct {
     double lastSoul;        // game ms of the last scored soul core use (a switch inside that form counts, #126913)
     uint32_t deflects;      // clean avoids that were deflects
     uint32_t counterAvoids; // clean avoids during a skill move that counted as that move's counter
+    uint32_t blockCounters; // human 2026-11-28: Block Counter! (a guarded hit then a martial art at once / a parry row)
     uint32_t combo, comboBest, comboBonuses;  // human: landed hits in the current combo / longest combo / milestone bonuses paid
     double comboT;          // game ms of the combo's last hit
     uint32_t lpA, lpB; int lpN1, lpN2;   // loop penalty: act of the last / the one before use, trailing period-1 / period-2 run lengths (uses)
@@ -677,6 +678,14 @@ static inline float SmOnAvoidCounterUse(SmState* s, const SmCfg* c, double t, in
     const float p = SmLoopScale(s, c, SmLoopUse(s, c, act, run), c->dodge);
     if (!(p > 0.f)) return 0.f;
     const float gain_ = SmAdd(s, c, p, SM_PC_COUNTER); s->lastScore = t; return gain_;
+}
+// human 2026-11-28: Block Counter! (style_meter_game.h, SmBlkCtrStep): the avoid counter's loop / repeat rules at pts, its own card line.
+static inline float SmOnBlockCounter(SmState* s, const SmCfg* c, double t, int count, float pts, uint32_t act, uint64_t run) {
+    if (count) s->blockCounters++;
+    s->lastEvent = t;
+    const float p = SmLoopScale(s, c, SmLoopUse(s, c, act, run), pts);
+    if (!(p > 0.f)) return 0.f;
+    const float gain_ = SmAdd(s, c, p, SM_PC_BLOCKCTR); s->lastScore = t; return gain_;
 }
 static inline float SmOnAvoidCounter(SmState* s, const SmCfg* c, double t, int count) {
     if (count) s->counterAvoids++;

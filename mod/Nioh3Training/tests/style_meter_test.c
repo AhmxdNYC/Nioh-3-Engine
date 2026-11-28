@@ -1173,6 +1173,11 @@ static void BlockCounter(void) {
     CHECK(SmBlkCtrStep(&b, 5000, stance, 1, 1, 0, SM_BC_MS) == SM_BC_NONE);
     CHECK(SmBlkCtrStep(&b, 5016, parry, 0, 1, 1, SM_BC_MS) == SM_BC_LISTED);
     CHECK(SmBlkCtrStep(&b, 5300, air, 0, 1, 0, SM_BC_MS) == SM_BC_NONE);
+    // scoring: its own count and points-breakdown line, not the Counters ones
+    SmState s; SmCfg c; RealDefaults(&c); SmReset(&s);
+    CHECK(near(SmOnBlockCounter(&s, &c, 1000, 1, (float)SM_BC_PTS, 0x16DC, 77), (float)SM_BC_PTS));
+    CHECK(s.blockCounters == 1 && s.counterAvoids == 0 && near(s.earned[SM_PC_BLOCKCTR], (float)SM_BC_PTS) && s.earned[SM_PC_COUNTER] == 0.f);
+    CHECK(!strcmp(sm_pc_name[SM_PC_BLOCKCTR], "Block counters"));
 }
 int main(void) {
     BlockCounter();
