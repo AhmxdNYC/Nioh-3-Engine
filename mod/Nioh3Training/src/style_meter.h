@@ -109,6 +109,7 @@
 #define SM_LOOP_COUNTER 0xFFFFFF03u  // an avoid counter with no move key (SmOnAvoidCounter; the game glue passes the move)
 #define SM_LOOP_PTS 10      // [StyleMeter] LoopPenaltyPts: points taken off per looped use
 #define SM_DAMAGE_PCT 50    // [StyleMeter] DamagePenaltyPct (human 2026-11-26, more casual): getting hit costs half a rank drop (100 = the old full drop)
+#define SM_DAMAGE_FULL_RANK 3  // [StyleMeter] DamageFullRank (human 2026-11-28): from this rank (3 = A) a hit is the full drop; below it DamagePenaltyPct
 // human 2026-11-25: the loop penalty depends on the rank when the looped use starts: D..B none (the use scores in full), A = the use
 // scores LoopHalfPct % (no points taken off), S and up = scores 0 and costs LoopPenaltyPts. Ranks 0 D .. 6 SSS.
 #define SM_LOOP_HALF_RANK 3  // [StyleMeter] LoopHalfRank: from this rank a looped use scores LoopHalfPct % (3 = A)
@@ -181,6 +182,7 @@ typedef struct {
     int decayDelayMs; float decayPerS; int decayRankPct; int decayRampPct;
     int damageGraceMs;                    // further damage within this window after a drop costs no extra rank
     int damagePct;                        // human 2026-11-26: getting hit costs this % of a full rank drop (100 = one rank down, gauge empty)
+    int damageFullRank;                   // human 2026-11-28: at this rank and up a hit is the full drop (SM_RANKS = never)
     float kiPerfect;                      // #127075 extra points for a perfect Ki pulse (on top of ki)
     int kiHitMs;                          // a Ki pulse scores only this long after the last landed hit (0 = always)
     int combatMs;                         // the meter stays up this long after the last event when no boss fight is live
@@ -222,6 +224,7 @@ typedef struct {
     SmDodge dodge;
     double lastHit;         // game ms of the last landed hit (Ki pulse gate)
     double lastDamaged;     // game ms of the last rank drop (damage grace), <0 = none
+    int dmgFull;            // the last drop was a full drop (grace hits keep the gauge empty)
     uint32_t hitsAtStyle;   // s->hits at the last scored style switch (one switch bonus per landed hit)
     uint32_t hits, dodges, kis, damaged;   // counters (log / tests)
     uint32_t counters, nins, souls, styles;
@@ -272,7 +275,7 @@ static inline void SmCfgDefaults(SmCfg* c) {
     c->ma = c->nin;  // #127295 the martial art bonus follows the ninjutsu bonus unless set
     c->loopReps = SM_LOOP_REPS; c->loopPts = (float)SM_LOOP_PTS; c->multiHitCap = SM_MULTI_CAP;
     c->loopHalfRank = SM_LOOP_HALF_RANK; c->loopFullRank = SM_LOOP_FULL_RANK; c->loopHalfPct = SM_LOOP_HALF_PCT;
-    c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT;
+    c->combatMs = SM_COMBAT_MS; c->kiHitMs = SM_KI_HIT_MS; c->damageGraceMs = SM_DAMAGE_GRACE_MS; c->damagePct = SM_DAMAGE_PCT; c->damageFullRank = SM_DAMAGE_FULL_RANK;
     c->blockPct = SM_BLOCK_PCT;
     c->farCm = SM_FAR_CM; c->farPct = SM_FAR_PCT; c->fluxPts = (float)SM_FLUX_PTS; c->flux2Pts = (float)SM_FLUX2_PTS; c->grapplePts = (float)SM_GRAPPLE_PTS;
     c->slowStepPct = SM_SLOW_STEP_PCT; c->slowTopPct = SM_SLOW_TOP_PCT;
@@ -291,6 +294,7 @@ static inline void SmCfgClamp(SmCfg* c) {
     if (c->combatMs < 0) c->combatMs = 0;
     if (c->damageGraceMs < 0) c->damageGraceMs = 0;
     if (c->damagePct < 0) c->damagePct = 0; if (c->damagePct > 100) c->damagePct = 100;
+    if (c->damageFullRank < 0) c->damageFullRank = 0; if (c->damageFullRank > SM_RANKS) c->damageFullRank = SM_RANKS;
     if (c->kiHitMs < 0) c->kiHitMs = 0;
     if (c->startupMinF < 0) c->startupMinF = 0; if (c->startupMaxF <= c->startupMinF) c->startupMaxF = c->startupMinF + 1;
     if (c->startupPct < 0) c->startupPct = 0; if (c->startupPct > 500) c->startupPct = 500;
@@ -861,17 +865,23 @@ static inline float SmOnKi(SmState* s, const SmCfg* c, double t) {
 static inline void SmOnDamaged(SmState* s, const SmCfg* c, double t) {
     s->damaged++; s->lastEvent = t; s->combo = 0;  // getting hit breaks the combo
     if (s->dodge.inWin) s->dodge.hit = 1;
-    if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) { if (c->damagePct >= 100) s->pts = 0.f; return; }  // same combo: no second drop
+    if (s->lastDamaged >= 0 && t - s->lastDamaged < (double)c->damageGraceMs) {  // same combo: no second drop
+        if (s->dmgFull) { if (s->active && s->pts > 0.f) s->lost[SM_PL_DAMAGE] += s->pts; s->pts = 0.f; }
+        return;
+    }
     s->lastDamaged = t;
     s->useOn = 0; s->useAct = SM_ACT_NONE;
-    if (c->damagePct < 100) {  // human 2026-11-26: a share of the full drop (this rank's points + the rank below's bar), drained like decay
+    s->dmgFull = c->damagePct >= 100 || s->rank >= c->damageFullRank;  // human 2026-11-28: A..SSS full drop, D..B DamagePenaltyPct
+    if (!s->dmgFull) {  // human 2026-11-26: a share of the full drop (this rank's points + the rank below's bar), drained like decay
         const float full = s->pts + (s->rank > 0 ? c->rankPts[s->rank - 1] : 0.f);
         SmSub(s, c, full * (float)c->damagePct / 100.f, SM_PL_DAMAGE);
         if (s->rank == 0 && !(s->pts > 0.f)) { s->pts = 0.f; s->active = s->keepD ? 1 : 0; }  // an empty D goes idle (as the full drop does), but not in a boss fight
         return;
     }
+    const float held = SmHeld(s, c);
     if (s->rank > 0) s->rank--;
     s->pts = 0.f; s->active = s->rank > 0 || s->keepD;
+    s->lost[SM_PL_DAMAGE] += held - SmHeld(s, c);  // booked like the half drop (page 2 'Hits taken')
 }
 // human: combo. n landed hits this tick (the player's and the summoned spirit's). A gap over comboMs starts a new combo; every comboStep-th
 // hit of one combo pays a milestone bonus (comboBase, +comboInc each later milestone, capped at comboMax). Returns the bonus paid;

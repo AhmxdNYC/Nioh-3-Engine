@@ -960,21 +960,32 @@ static void MoveVariety(void) {
     CHECK(k.varStep == 1 && k.varMax == SM_VAR_IDS && k.varBase == 0 && k.varInc == 0);
 }
 // human 2026-11-26: getting hit costs half a rank drop (this rank's points + the rank below's bar, x DamagePenaltyPct 50 %).
+// human 2026-11-28: only at D..B; from DamageFullRank (3 = A) up a hit is the full drop (one rank down, gauge empty).
 static void DamageHalf(void) {
-    SmCfg c; RealDefaults(&c); CHECK(c.damagePct == 50);
-    SmState s; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f;   // A 60, B bar = rankPts[2]: half the full drop (60 + B) comes off
-    const float b1 = c.rankPts[2] - ((60.f + c.rankPts[2]) * 0.5f - 60.f);  // 1.8.48: from the config (was 95 with B 130)
+    SmCfg c; RealDefaults(&c); CHECK(c.damagePct == 50 && c.damageFullRank == 3);
+    SmState s; SmReset(&s); s.active = 1; s.rank = 2; s.pts = 60.f;   // B 60, C bar = rankPts[1]: half the full drop (60 + C) comes off
+    const float b1 = c.rankPts[1] - ((60.f + c.rankPts[1]) * 0.5f - 60.f);
     SmOnDamaged(&s, &c, 1);
-    CHECK(s.rank == 2 && near(s.pts, b1) && s.active && s.damaged == 1 && s.combo == 0);
+    CHECK(s.rank == 1 && near(s.pts, b1) && s.active && s.damaged == 1 && s.combo == 0);
+    CHECK(near(s.lost[SM_PL_DAMAGE], (60.f + c.rankPts[1]) * 0.5f));
     SmOnDamaged(&s, &c, 2);  // same combo (grace): nothing more
-    CHECK(s.rank == 2 && near(s.pts, b1));
-    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // B b1, C bar = rankPts[1]: half of (b1 + C)
-    { const float want = b1 - (b1 + c.rankPts[1]) * 0.5f; CHECK(s.rank == 1 && near(s.pts, want + c.rankPts[1])); }
+    CHECK(s.rank == 1 && near(s.pts, b1));
+    SmOnDamaged(&s, &c, 2 + c.damageGraceMs);  // C b1, D bar = rankPts[0]: half of (b1 + D)
+    { const float want = b1 - (b1 + c.rankPts[0]) * 0.5f; CHECK(s.rank == (want < 0.f ? 0 : 1) && near(s.pts, want < 0.f ? want + c.rankPts[0] : want)); }
     // at D: half the gauge, still active; an empty D goes idle
     SmReset(&s); s.active = 1; s.rank = 0; s.pts = 40.f; SmOnDamaged(&s, &c, 1); CHECK(s.rank == 0 && near(s.pts, 20.f) && s.active);
     SmReset(&s); s.active = 1; s.rank = 0; s.pts = 0.f; SmOnDamaged(&s, &c, 1); CHECK(!s.active);
-    // 100 % = the old rule
-    SmCfg f = c; f.damagePct = 100; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &f, 1); CHECK(s.rank == 2 && s.pts == 0.f);
+    // A..SSS: the full drop, booked as a loss; a grace hit keeps the gauge empty
+    SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &c, 1);
+    CHECK(s.rank == 2 && s.pts == 0.f && s.active && near(s.lost[SM_PL_DAMAGE], 60.f + c.rankPts[2]));
+    s.pts = 10.f; SmOnDamaged(&s, &c, 2); CHECK(s.rank == 2 && s.pts == 0.f && near(s.lost[SM_PL_DAMAGE], 70.f + c.rankPts[2]));
+    SmOnDamaged(&s, &c, 2 + c.damageGraceMs); CHECK(s.rank == 1 && s.pts > 0.f);  // now at B: half again
+    for (int r = 3; r < SM_RANKS; ++r) { SmReset(&s); s.active = 1; s.rank = r; s.pts = c.rankPts[r] - 1.f; SmOnDamaged(&s, &c, 1); CHECK(s.rank == r - 1 && s.pts == 0.f); }
+    // DamageFullRank 7 = never: A gets the half drop too (1.8.48 .. 1.8.53)
+    SmCfg h = c; h.damageFullRank = SM_RANKS; SmReset(&s); s.active = 1; s.rank = 3; s.pts = 60.f; SmOnDamaged(&s, &h, 1);
+    CHECK(s.rank == 2 && near(s.pts, c.rankPts[2] - ((60.f + c.rankPts[2]) * 0.5f - 60.f)));
+    // 100 % = the old rule everywhere
+    SmCfg f = c; f.damagePct = 100; SmReset(&s); s.active = 1; s.rank = 1; s.pts = 60.f; SmOnDamaged(&s, &f, 1); CHECK(s.rank == 0 && s.pts == 0.f);
 }
 // human 2026-11-26: versatility multiplier on every gain: 5 distinct moves +10 %, 10 +15 %, 15 +20 %, .. no cap; resets with the run.
 static void Versatility(void) {
