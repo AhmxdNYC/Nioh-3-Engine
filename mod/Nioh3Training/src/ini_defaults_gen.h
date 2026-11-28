@@ -2,7 +2,7 @@
 // TASK #142228: keys whose shipped default changed or that a release did not ship (mod/shared/ini_defaults.h moves them forward).
 #pragma once
 #include "../../shared/ini_defaults.h"
-#define INI_DEFAULTS_REV 10851  /* MOD_VERSION of the source this table was built from */
+#define INI_DEFAULTS_REV 10853  /* MOD_VERSION of the source this table was built from */
 static const IniDefHist kIniDefH0[] = {{10800, 0}, {10805, L"1"}};
 static const IniDefHist kIniDefH1[] = {{10800, 0}, {10835, L"0"}};
 static const IniDefHist kIniDefH2[] = {{10800, 0}, {10835, L"0"}};
@@ -120,6 +120,10 @@ static const IniDefHist kIniDefH113[] = {{10800, 0}, {10834, L"1"}};
 static const IniDefHist kIniDefH114[] = {{10800, 0}, {10834, L"1"}};
 static const IniDefHist kIniDefH115[] = {{10800, 0}, {10834, L"1200"}};
 static const IniDefHist kIniDefH116[] = {{10800, 0}, {10834, L"40"}};
+static const IniDefHist kIniDefH117[] = {{10800, 0}, {10853, L"1"}};
+static const IniDefHist kIniDefH118[] = {{10800, 0}, {10853, L"54"}};
+static const IniDefHist kIniDefH119[] = {{10800, 0}, {10853, L"700"}};
+static const IniDefHist kIniDefH120[] = {{10800, 0}, {10853, L"0x16DC"}};
 static const IniDefKey kIniDefaults[] = {
     {L"ArenaSwap", L"EntryLoadScreen", L"1", kIniDefH0, 2},
     {L"Record", L"PlayerLog", L"0", kIniDefH1, 2},
@@ -238,5 +242,9 @@ static const IniDefKey kIniDefaults[] = {
     {L"StyleMeter", L"Motion", L"1", kIniDefH114, 2},
     {L"StyleMeter", L"PopUpMs", L"1200", kIniDefH115, 2},
     {L"StyleMeter", L"ShakePts", L"40", kIniDefH116, 2},
+    {L"StyleMeter", L"BlockCounter", L"1", kIniDefH117, 2},
+    {L"StyleMeter", L"BlockCounterPts", L"54", kIniDefH118, 2},
+    {L"StyleMeter", L"BlockCounterMs", L"700", kIniDefH119, 2},
+    {L"StyleMeter", L"BlockCounterActs", L"0x16DC", kIniDefH120, 2},
 };
-#define INI_DEFAULTS_N 117
+#define INI_DEFAULTS_N 121
