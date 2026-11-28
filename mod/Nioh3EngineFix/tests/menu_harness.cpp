@@ -83,6 +83,7 @@ bool ReportOpenWanted() { return false; }
 bool CopyReportUrl() { return true; }
 void OpenReportUrl() { ++g_urlOpens; }
 void OpenReportFolder(const char* path) { ++g_folderOpens; snprintf(g_folderPath, sizeof g_folderPath, "%s", path ? path : ""); }
+void SetStateF(const char*, const char*, ...) {}  // #183 "game menu gate" snapshot line
 }
 namespace crashupload {  // 1.8.41 data-sharing opt-in (menu 'Share data' row)
 bool g_share = false;

@@ -42,11 +42,13 @@ double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
 double PressSnapT(){return -100;}  // #136367 stub: no press snapshot
+int FormCoreChrOf(const uint16_t*,int n,uint32_t* chr){for(int i=0;i<n;++i)chr[i]=0;return 0;}  // human #143767 stub: no seal spawn map, F2 keeps every id
 void CorePreloadTick(){} bool CoreResReady(uint32_t){return false;}  // #136368 stubs: no game resources
 void FastActorsClear(){}  // TASK #136502 stub: no yokai registry here
 std::atomic<int> g_fastFxLog{0};  // TASK #137013 stub: fx log cap (defined with g_fastSmoke in bosslog.cpp)
 std::atomic<int> g_formSteer{0};  // TASK #136197: global FormSteer stub (FormCoreCallGet default)
 WORD PickPadButtons(){return buttons;}
+int menuGate=0;int PickMenuGate(){return menuGate;}  // TASK #145294: EngineFix game menu gate stub
 bool formActive=false;bool PickFormActive(){return formActive;}
 bool ghostAlive=false;bool PickGhostAlive(){return ghostAlive;}
 void PickEquipmentTick(){} // live reads are tested independently; model delayed worker completion here
@@ -66,7 +68,8 @@ constexpr uint32_t cGreen=5;ULONGLONG Ms(){return 0;}void ToastF(uint32_t,ULONGL
 using namespace addon::bosslog;
 using namespace addon::rematch;
 int checks=0;
-void check(bool v){++checks;if(!v){printf("FAIL check %d\n",checks);abort();}}
+void check_(bool v,int line){++checks;if(!v){printf("FAIL check %d (picker.cpp line %d)\n",checks,line);fflush(stdout);abort();}}
+#define check(v) check_((v),__LINE__)
 void reset(bool clearIni=true) {
  formActive=false;ghostAlive=false;pressq::Clear(g_pressQ);buttons=0;clockNow+=20;PickPoll();
  if(clearIni)ini.clear();
@@ -82,6 +85,11 @@ void reset(bool clearIni=true) {
 void press(int dir){buttons=0;PickPoll();clockNow+=.5;buttons=dir==1?4:2;PickPoll();}
 std::string row(int slot){char b[512];uint32_t c=0;SctRowText(kItScCore+slot,false,"",b,sizeof b,&c);return b;}
 int main(){
+ // TASK #145294 (pc2 #145252): d-pad edges inside a game menu (or the mod menu) are menu navigation, never a press
+ reset();g_slotCore[1]=0x5B402;g_slotCore[2]=0xA65A1;
+ for(int g=1;g<=3;++g){menuGate=g;const double t0=g_pickT.load();press(2);check(g_pickDir==0&&g_pickT==t0&&g_pickCore==0);press(1);check(g_pickDir==0&&g_pickCore==0);}
+ menuGate=1;buttons=0;PickPoll();buttons=2;PickPoll();menuGate=0;PickPoll();check(g_pickDir==0);  // held through the menu close: no late press
+ buttons=0;PickPoll();press(2);check(g_pickDir==2&&g_pickCore==0xA65A1);  // the next real press after the menu works
  reset();g_slotCore[1]=0x5B402;g_slotCore[2]=0xA65A1;press(2);
  const double accepted=g_pickT.load();clockNow+=.133;buttons=4;PickPoll();
  check(g_pickCore==0xA65A1&&g_pickDir==2&&g_pickT==accepted);
@@ -164,10 +172,10 @@ int main(){
  int n=FormCoreSeen(ids,dirs,10);check(n<=10&&ids[0]==19&&ids[1]==18);
  for(int i=0;i<n;++i)for(int j=i+1;j<n;++j)check(!ids[i]||ids[i]!=ids[j]);
  // Capacity failure never leaves a direction permanently overriding subsequently learned core IDs.
- reset();for(uint32_t id=1;id<=16;++id)FormCoreToggle(id);
+ reset();for(uint32_t id=1;id<=(uint32_t)kOffMax;++id)FormCoreToggle(0x100000+id);  // fill to kOffMax (256 since #143659) with ids that never hit 99
  SctChange(kItScCore,-1);check(g_pendingPick[1]==-1&&std::string(g_msg).find("full")!=std::string::npos);
  ini[L"FormCorePendingLeft"]=L"0";reset(false);press(1);PickLearn(99);
- check(g_pendingPick[1]==-1&&g_offN==16&&FormCoreTransforms(99));
+ check(g_pendingPick[1]==-1&&g_offN==kOffMax&&FormCoreTransforms(99));
  // Publishing equipment requires no press. IDs dedupe with learned history and settings remain by core ID.
  reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
  check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0x5129B&&dirs[0]==4&&ids[1]==0xA2ACB&&dirs[1]==8);
@@ -197,7 +205,7 @@ int main(){
  printf("PREVIEW|After each seal is identified (simulated)|%s|%s\n",row(0).c_str(),row(1).c_str());
  reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
  printf("PREVIEW|Equipped rows after save load (simulated, no seal press)|%s|%s\n",row(0).c_str(),row(1).c_str());
- reset();for(uint32_t id=1;id<=16;++id)FormCoreToggle(id);
+ reset();for(uint32_t id=1;id<=(uint32_t)kOffMax;++id)FormCoreToggle(0x100000+id);  // fill to kOffMax (256 since #143659) with ids that never hit 99
  g_pendingPick[1]=0;g_pendingPick[2]=0;PendingPickSave(1);PendingPickSave(2);
  g_slotCore[1]=0x5129B;g_slotSeen[1]=true;g_pickOff=true;
  FormCoreReset();check(g_offN==0&&ini[L"FormCoresOff"].empty());
@@ -225,6 +233,8 @@ result = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=Tru
 print(result.stdout, end='')
 print(result.stderr, end='')
 result.check_returncode()
-result = subprocess.run([str(exe)], check=True, timeout=30, capture_output=True, text=True)
+result = subprocess.run([str(exe)], timeout=30, capture_output=True, text=True)
 print(result.stdout, end='')
+print(result.stderr, end='')
+result.check_returncode()  # print the FAIL check number before raising
 (out / 'menu-preview.txt').write_text('\n'.join(line for line in result.stdout.splitlines() if line.startswith('PREVIEW|')), encoding='utf-8')

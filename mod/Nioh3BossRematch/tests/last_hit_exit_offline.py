@@ -484,6 +484,7 @@ int main(){
   check(ini[L"5B402"]==L"4"&&!ini.count(L"A65A1"));
  }
  // TASK #135613 (live 80D5F, d5bb22d5): data 0 (not certain) + learned 1 -> no exit at hit 1 (1.337 s) alone.
+ g_afterHitMul=1.f;  // the duration checks below run with the after-hit speed-up off (a sped form notes no duration, human #143437)
  g_exitEndPct=90;g_sealHitsData=1;dataHits=0;g_sealDurs.Reset();ini.clear();
  start(1,0,true,false,0x80D5F);step(1.337,true);check(!smokes&&!g_ghostReq);step(1.4,false);step(3.0,false);check(!g_ghostReq);
  clockNow=base+3.83;g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";  // use 1 plays in full, gives the duration
@@ -496,6 +497,19 @@ int main(){
  // no duration yet: the live idle edge ends the form (and gives the duration)
  start(1,0,true,false,0x80D62);step(1.337,true);step(1.4,false);check(!g_ghostReq);g_sieFireSeal=456;step(2.0,false);
  check(g_ghostReq==456&&g_sealDurs.Get(0x80D62)==2800);
+ // human #145066: a learned count (data 0, not certain) latches the after-hit speed-up on the FIRST use, with no duration on file
+ g_afterHitMul=3.f;g_afterHitSess=-1;g_afterHitSeal=0;g_sealDurs.Reset();start(1,0,true,false,0x80D63);check(g_sealDurs.Get(0x80D63)==0);
+ step(1.337,true);check(g_afterHitSeal.load()!=456);step(1.4,false);check(g_afterHitSeal.load()==456&&g_afterHitSess.load()>0&&!g_ghostReq);
+ step(1.5,true);check(g_afterHitSeal.load()==0);  // a later burst undoes the speed-up (#143512)
+ step(1.6,false);check(g_afterHitSeal.load()==456);  // and re-arms it at the next close
+ g_sieFireSeal=456;step(2.0,false);check(g_ghostReq==456);g_afterHitSess=-1;g_afterHitSeal=0;
+ // TASK #145336 (human #145059): the last hit object stays out until idle (9B2ED, 78A8D, ...): sped once it is thrown
+ // (no new object for the 150 ms burst merge time), not only at a close that never comes; never ends the form by itself
+ g_sealDurs.Reset();start(1,0,true,false,0x80D64);step(1.337,true);check(g_afterHitSeal.load()!=456);
+ step(1.45,true);check(g_afterHitSeal.load()!=456);  // still inside the merge time: the burst may grow
+ step(1.5,true);check(g_afterHitSeal.load()==456&&g_afterHitSess.load()>0&&!g_ghostReq);  // thrown: sped, the form stays up
+ {const double t0=g_afterHitT0.load();step(1.6,true);check(g_afterHitSeal.load()==456&&g_afterHitT0.load()==t0);step(1.9,true);check(g_afterHitSeal.load()==456&&g_afterHitT0.load()==t0&&!g_ghostReq);}  // the object that stays out never undoes it (live 12:55 re-latched every tick)
+ g_afterHitSess=-1;g_afterHitSeal=0;
  // certain data: unchanged (exit at hit 1)
  dataHits=1;g_sealDurs.Reset();start(1,0,true,false,0x80D5F);step(1.337,true);check(g_ghostReq==456&&smokes==1);
  // TASK #135803 (live 80D5F on d37fc753): seal data has no own window and 1 spawn -> hit 1 closed + settle ends the hold, not EndPct

@@ -76,16 +76,20 @@ int main() {
         for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, false, t, 1);
         CHECK(r == 0);
     }
-    {   // #137478 control-off gate: unreadable or zero = off; nonzero aggregate = on
-        CHECK(!ControlOff(false, 0x40));
+    {   // #137478 control-off gate; #183: only bit 0 (the game's own getter 0x27A8B8) counts, no reason ids / mask lists
+        CHECK(!ControlOff(false, 0x7));
         CHECK(!ControlOff(true, 0));
-        CHECK(ControlOff(true, 0x4));
-        CHECK(!ControlOff(true, 0x3840));  // boss fight reasons 9C + 9F only: the player plays, no menu
-        CHECK(!ControlOff(true, 0x1800) && !ControlOff(true, 0x2040));
-        CHECK(ControlOff(true, 0x3847) && ControlOff(true, 0x3FD4));  // a real control-off on top of them still counts
-        CHECK(!ControlOff(true, 0x1AC0, true));  // after a won Boss Match: reason 39 only, the player walks again (v1.8.50 stick = D-pad bug)
-        CHECK(ControlOff(true, 0x1AC7, false));  // reason 39 + a menu reason (9A) still counts
-        CHECK(IsPlayReason(0x39) && IsPlayReason(0x9C) && IsPlayReason(0x9F) && !IsPlayReason(0x9A) && !IsPlayReason(0x17) && !IsPlayReason(0x48));
+        // real control-off reasons seen in PC1 logs: 9A load 007, FE fade-out 187, 48 SetControlOff 2905, 9A+9C 1807
+        CHECK(ControlOff(true, 0x007) && ControlOff(true, 0x187) && ControlOff(true, 0x2905) && ControlOff(true, 0x1807) && ControlOff(true, 0x2907));
+        // play reasons the game keeps on while the player plays: 9C 1800 + 9F 2040 (fights), 39 1AC0 (after a win), 17 794 (soul core form)
+        CHECK(!ControlOff(true, 0x1800) && !ControlOff(true, 0x2040) && !ControlOff(true, 0x3840));
+        CHECK(!ControlOff(true, 0x1AC0) && !ControlOff(true, 0x794));
+        CHECK(!ControlOff(true, 0x3FD4));  // form inside a boss fight (17 + 9C + 9F): still gameplay (was counted as a menu before #183)
+        CHECK(ControlOff(true, 0x3FD5) && ControlOff(true, 0x1AC7));  // a real control-off on top of play reasons still counts
+        // any play-only combination of the 13 other bits stays off: no unknown play reason can arm the gate (#183)
+        bool anyOn = false;
+        for (uint32_t m = 0; m < 0x4000u; m += 2) anyOn |= ControlOff(true, m);
+        CHECK(!anyOn);
     }
     {   // debounce: a short blip (< 120 ms) never arms; 120 ms continuous does; off ~150 ms after it clears
         Debounce d; uint64_t t = 1000; bool any = false;
@@ -101,11 +105,28 @@ int main() {
     }
     {   // shrine case end to end: control-off on, menu getters off -> a held D-down repeats; field (aggregate 0) never
         Debounce d; State s; uint64_t t = 1000; uint32_t r = 0;
-        for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, d.Update(ControlOff(true, 0x4), t), t, 1);
+        for (int i = 0; i < 200; ++i, t += 8) r |= Step(s, kDDown, d.Update(ControlOff(true, 0x7), t), t, 1);
         CHECK(r == kDDown && s.repeats >= 8);
         State g; Debounce e; uint32_t q = 0;
         for (int i = 0; i < 200; ++i, t += 8) q |= Step(g, kDDown, e.Update(ControlOff(true, 0), t), t, 1);
         CHECK(q == 0);
+    }
+    {   // #183 end to end: after the death screen / in a fight / in a soul core form a play reason stays on (bit 0 clear) and the
+        // menu signal and stop flags are off -> a spun left stick never becomes D-pad presses and a held D-pad never repeats
+        const uint32_t masks[] = {0x1800, 0x2040, 0x3840, 0x1AC0, 0x794, 0x3FD4};
+        for (uint32_t m : masks) {
+            Debounce d; StickState ss; State s; uint64_t t = 1000; uint32_t dp = 0, rel = 0;
+            const uint32_t dirs[] = {kSU, kSR, kSD, kSL};
+            for (int i = 0; i < 400; ++i, t += 8) {
+                const bool act = d.Update(ControlOff(true, m), t);
+                dp |= StickStep(ss, dirs[(i / 8) % 4], 0, act, t, 1);
+                rel |= Step(s, kDLeft, act, t, 1);
+            }
+            CHECK(dp == 0 && ss.pulses == 0 && rel == 0);
+        }
+        Debounce d; StickState ss; uint64_t t = 1000; uint32_t dp = 0;  // a real control-off menu (bit 0) still steps from the stick
+        for (int i = 0; i < 100; ++i, t += 8) dp |= StickStep(ss, (i / 30) % 2 ? kSD : 0, 0, d.Update(ControlOff(true, 0x187), t), t, 1);
+        CHECK(dp == kDDown && ss.pulses >= 1);
     }
     {   // #138311 left stick = D-pad; #138487: a fresh tilt steps at once, then nothing more before 400 ms, then ~1 press per period
         StickState s; uint64_t t = 1000; int edges = 0; bool prev = false; uint32_t any = 0;

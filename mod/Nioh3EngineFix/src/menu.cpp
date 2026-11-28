@@ -3030,26 +3030,20 @@ int g_ctlLogs = 0;
 volatile LONG g_ctlOff = 0;    // vpad state / tests: 1 = the game holds a control-off reason (debounced)
 
 // manager+0x34 (aggregate) and the active primary reasons (for the log); false = unreadable (signal treated as off)
-bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n, bool* onlyPlay) {
+bool ReadControlOff(uint32_t& agg, uint8_t& r30, char* list, size_t n) {
     uint64_t m = 0, prim = 0, cnt = 0;
     agg = 0; r30 = 0;
-    if (onlyPlay) *onlyPlay = false;
     if (list && n) list[0] = 0;
     if (!Rd(g_host.base + Grva(kRvaCtlMgrPtr), m) || m < 0x10000) return false;
     const uint8_t* M = reinterpret_cast<const uint8_t*>((uintptr_t)m);
     if (!Rd(M + kOffCtlAggregate, agg) || !Rd(M + kOffCtlReason, r30)) return false;
-    if (agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
+    if (list && n && agg && Rd(M + kOffCtlPrimary, prim) && Rd(M + kOffCtlCount, cnt) && prim >= 0x10000 && cnt && cnt <= 256) {
         const uint8_t* P = reinterpret_cast<const uint8_t*>((uintptr_t)prim);
-        bool full = true, any = false, other = false;
         for (uint64_t i = 0; i < cnt; ++i) {
             uint8_t k = 0, a = 0;
-            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) { full = false; break; }
-            if (!a) continue;
-            any = true;
-            if (!menurepeat::IsPlayReason(k)) other = true;
-            if (list && n) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
+            if (!Rd(P + 2 * i, k) || !Rd(P + 2 * i + 1, a)) break;
+            if (a) { char one[6]; snprintf(one, sizeof(one), " %02X", k); strncat_s(list, n, one, _TRUNCATE); }
         }
-        if (onlyPlay) *onlyPlay = full && any && !other;
     }
     return true;
 }
@@ -3121,21 +3115,21 @@ void PauseDetect(ULONGLONG t) {
     g_menuShown = (g_menuSince && t - g_menuSince >= 120) || (g_menuShown && t - g_menuLastOpen < 150);
     g_pauseReason = g_menuShown ? 1 : g_stopPaused ? 2 : (haveFlags && (flags & 0x04)) ? 3 : 0;
     // #137478: menus that keep game time running (shrine, blacksmith) raise neither signal above, but they take control from the
-    // player: any active control-off reason counts. Gameplay has none (Boss Rematch's fight readiness requires aggregate 0).
+    // player. #183: only the control-off bit the game's own getter reads (bit 0) counts; gameplay keeps other reasons on (menurepeat.h).
     bool ctlNow = false;
+    uint32_t ctlAgg = 0;
     if (g_ctlSigOk) {
-        uint32_t agg = 0;
         uint8_t r30 = 0;
         char list[96];
-        bool onlyPlay = false;
-        const bool ok = ReadControlOff(agg, r30, list, sizeof(list), &onlyPlay);
-        ctlNow = menurepeat::ControlOff(ok, agg, onlyPlay);
+        const bool ok = ReadControlOff(ctlAgg, r30, list, sizeof(list));
+        ctlNow = menurepeat::ControlOff(ok, ctlAgg);
         if (ok) {
-            if (agg != g_ctlLogged) {
+            if (ctlAgg != g_ctlLogged) {
                 if (g_ctlLogs < 200)
-                    MLOG("game control-off now %s (mask %X, reason30 %02X, active:%s)%s", agg ? "ON" : "off", agg, r30, list[0] ? list : " none",
+                    MLOG("game control-off now %s (mask %X, reason30 %02X, active:%s) - menu gate %s%s", ctlAgg ? "ON" : "off", ctlAgg, r30,
+                         list[0] ? list : " none", ctlNow ? "on (player control bit 0 set)" : ctlAgg ? "off (bit 0 clear: the player keeps control, #183)" : "off",
                          ++g_ctlLogs == 200 ? " (no further lines)" : "");
-                g_ctlLogged = agg;
+                g_ctlLogged = ctlAgg;
             }
         }
     }
@@ -3143,6 +3137,17 @@ void PauseDetect(ULONGLONG t) {
     g_ctlOff = ctlShown ? 1 : 0;
     g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown) ? 1 : 0;  // #137071 hold-repeat gate (pad thread)
     g_gameMenuStick = menurepeat::StickHeldBack(g_menuShown, g_stopPaused) ? 1 : 0;  // #140978 left stick centred for the game (pad thread)
+    {   // #183: the report snapshot shows which game signal holds the gate (the change lines above are capped at 200 per session)
+        static int lastGate = -1;
+        static uint32_t lastAgg = 0xFFFFFFFFu;
+        const int gate = (g_menuShown ? 1 : 0) | (g_stopPaused ? 2 : 0) | (ctlShown ? 4 : 0) | (g_gameMenuStick ? 8 : 0);
+        if (gate != lastGate || ctlAgg != lastAgg) {
+            lastGate = gate; lastAgg = ctlAgg;
+            crashreport::SetStateF("game menu gate", "%s (menu signal %d, time stop %d, control-off %d mask %X, stick held %d)",
+                                   g_gameMenuOpen ? "ON" : "off", g_menuShown ? 1 : 0, g_stopPaused ? 1 : 0, ctlShown ? 1 : 0, ctlAgg,
+                                   g_gameMenuStick ? 1 : 0);
+        }
+    }
     const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
@@ -4833,6 +4838,10 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MaskGameButtons(int mask, in
 // #9664/#9670 Nioh3EngineFix_MenuOpen(): 1 while the mod menu (host of the Boss Rematch pages) is open. Nioh3Training reads it so a pad A press
 // near the Return gate opens the gate page only when no menu is up (the A that picks a menu row must not reopen the page).
 extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuOpen() { return menu::g_open ? 1 : 0; }
+// pc2 #145252 (TASK #145294): Boss Rematch reads this game menu gate (#137071/#183: menu signal, time stop or control-off
+// bit 0, debounced in PauseDetect) so a d-pad / stick-as-d-pad pulse inside a game menu is never taken as a soul core press.
+// One gate for both mods: bit 0 = a game menu holds the pad, bit 1 = the mod menu is open.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_GameMenuGate() { return (menu::GameMenuRepeatGate() & 1) | (menu::IsOpen() ? 2 : 0); }
 // #13796 safety net: Nioh3Training asks to close the mod menu when a native modal (the game's own Yes/No box) opened at the Return object,
 // so our menu never masks the pad over a box the player must answer. Any thread; the close itself runs on the overlay's Present.
 extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuClose(const char* why) {

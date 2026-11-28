@@ -10,6 +10,8 @@ for need, why in (("menurepeat::Step(g_mrep[idx], raw, act, t, g_cfg.gmRepeatSpe
                   ("g_cfg.gmRepeat && g_gameMenuOpen && !g_open && !s.latch", "repeat only while a game menu is open and the mod menu is closed"),
                   ("g_gameMenuOpen = (g_menuShown || g_stopPaused || ctlShown)", "gate must follow the game's menu signal / pause flags / control-off (#137478)"),
                   ('!strcmp(key, "GameMenuRepeat")', "rows must be on Settings > Game"),
+                  ("ctlNow = menurepeat::ControlOff(ok, ctlAgg);", "#183 control-off gate must be the game's bit-0 predicate, no reason-id list"),
+                  ('crashreport::SetStateF("game menu gate"', "#183 report snapshot must show which game signal holds the gate"),
                   ("g_gameMenuStick = menurepeat::StickHeldBack(g_menuShown, g_stopPaused)", "#140978 stick hold-back must follow the menu signal and game time"),
                   ("if (act && alive && g_gameMenuStick && (g.sThumbLX || g.sThumbLY))", "#140978 pad hook must centre the left stick in time-running game menus")):
     if need not in mc: sys.exit("FAIL: " + why)

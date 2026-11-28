@@ -1430,6 +1430,7 @@ void CoreSeen(uint32_t id, int dir) {
 }
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
 WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
+int PickMenuGate();  // TASK #145294: EngineFix's game menu gate (bit 0 game menu, bit 1 mod menu), 0 = none / no EngineFix
 void PickEquipmentTick();
 void CorePreloadTick();  // #136368
 bool CoreResReady(uint32_t id);
@@ -1446,6 +1447,16 @@ void PickPoll() {
     const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
     const double now = Now();
     if (held && held != heldPrev) {
+        // TASK #145294 (pc2 #145252): inside a game menu (pause, shrine) the d-pad and EngineFix's stick-as-d-pad pulses
+        // navigate the menu; they are not soul core presses. Same gate as EngineFix's hold-repeat (#183), so no press state,
+        // queue or crouch-cancel window is armed from menu navigation.
+        if (const int gate = PickMenuGate()) {
+            static int menuLogs = 0;
+            if (menuLogs < 20)
+                Log("FormCore d-pad %c in a menu (%s): not a soul core press t=%.3f%s", held == 1 ? 'L' : 'D',
+                    (gate & 1) ? "game menu gate" : "mod menu", now, ++menuLogs == 20 ? " (no further lines)" : "");
+            heldPrev = held; return;
+        }
         if (g_pickDir.load() && held != g_pickDir.load() &&
             (PickFormActive() || (now >= g_pickT.load() && now - g_pickT.load() < .300))) {
             if (PickGhostAlive()) {  // #83466: the old form already ended (ghost exit): queue this press, replay it when the seal is gone
@@ -3464,6 +3475,11 @@ void** FbXInputSlot() {
 }
 // #81339: PadButtons() asks xinput's export, which the pipe pad (game IAT patch) never reaches; the pick reads the game's import
 // instead (the one below any FormBlockPad hook: no masking / style injection), falling back to PadButtons().
+int PickMenuGate() {
+    using Fn = int (*)();
+    static const Fn f = [] { HMODULE m = GetModuleHandleW(L"Nioh3EngineFix.asi"); return m ? (Fn)GetProcAddress(m, "Nioh3EngineFix_GameMenuGate") : nullptr; }();
+    return f ? f() & 3 : 0;
+}
 WORD PickPadButtons() {
     static void** slot = FbXInputSlot();
     FbXGet f = g_fbPrev ? g_fbPrev : (slot ? (FbXGet)*slot : nullptr);
@@ -7224,6 +7240,7 @@ struct SealTailHitWatch {
     double sess = 0, started = 0, sourceSince = 0;
     int bursts = 0, atExit = 0;
     bool open = false, atkOnly = true;
+    bool census = true;  // regression #145325: the form's census was complete and every tail tick read the pool
     std::vector<uint64_t> kids;
     std::map<uint64_t, uint64_t> appearance;
     std::set<uint64_t> previous;
@@ -7251,7 +7268,10 @@ void SealTailHitTick() {
             // TASK #139948 (98AB/55141: data 2 windows, 7 more hits after the exit): the seal's own despawn closes the attack, so every
             // burst it dealt up to then is the core's count; raise the learned count so the next use ends at the real last hit's spawn.
             if (present == 0 && w.sid) { SealFullMaxNote(w.sid, w.bursts, "tail up to the despawn"); SealFullLowNote(w.sid, w.bursts, "tail up to the despawn"); }  // TASK #142146 max, #142184 low
-            if (present == 0 && w.sid && w.bursts > w.atExit && w.bursts <= 32) {
+            // TASK #145111: a core with no count yet also learns here when its last hitbox was still open at the idle edge (9B2ED Koroka:
+            // 3 bursts, all open at idle, 0 learned on use 2): the seal's own despawn is the completion evidence the idle edge lacked
+            // regression #145325: the no-count learn needs the same evidence as the idle edge (complete census, readable pool every tick)
+            if (present == 0 && w.sid && (w.bursts > w.atExit || (w.census && (w.bursts > 0 && !SealHitsFor(w.sid)))) && w.bursts <= 32) {
                 const int had = SealHitsFor(w.sid), full = SealFullMinFor(w.sid), to = SdhTailRaise(had, w.bursts, full);  // TASK #142009
                 if (to) {
                     wchar_t k[16], v[16]; swprintf_s(k, L"%X", w.sid); swprintf_s(v, L"%d", to);
@@ -7263,6 +7283,7 @@ void SealTailHitTick() {
             }
             it = g_tailHitWatches.erase(it); continue;
         }
+        if (!poolOk) w.census = false;  // regression #145325: an unread tick may hide a burst
         if (present < 0 || !poolOk) { ++it; continue; }
         // Only add fresh helper candidates while this original form still owns the player.
         // A later form cannot donate its helpers to an older invisible seal.
@@ -7404,7 +7425,9 @@ void SealEndOnHitTick() {
         if (!on && seal && sid && !fired && !complete)
             Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
                 Now() - sess, bursts);
-        if (seal && sid && !fired && bursts > 0 && complete && censusComplete && SealTimingIdentityMatches(seal, sid)) {  // the seal finished the form by itself: learn this core's burst count
+        if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
+            // TASK #145111: no identity re-read here: the seal has despawned and its memory can be reused (F2527 Jailer Oni use 1 learned
+            // nothing, use 2 did); every tick of the form already checked it (a mismatch clears censusComplete)
             const int had = SealHitsFor(sid);
             if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
@@ -7705,16 +7728,31 @@ void SealEndOnHitTick() {
     // human #143437: the last hit is over and the form is still up: speed its animation until it turns back (every core, same rule)
     // regression #143512: a burst that opens after the latch (the count was short) puts the form back to its own speed at once and
     // re-arms the latch, so the speed-up starts again after the real last hit. human #143684: the game-data-only gate (sdh.fromData) left
-    // every core whose count is learned (data 0) without the speed-up; a learned count latches once the core has one full-speed duration
-    // on file (its first use plays in full and records it, a sped form records none), the undo covers a short count.
-    if (n && g_afterHitSeal.load() == seal && seal && g_afterHitSess.load() == sess) {
+    // every core whose count is learned (data 0) without the speed-up. human #145066 (first use worse than the second, 9 cores + Kasha):
+    // 7e78b059 also required a full-speed duration of the core in g_sealDurs, which is memory only (per launch) and nothing reads its value
+    // (SdhLowConfExitMs returns -1), so the first use of every learned-count core after each launch played to the yokai's own end
+    // (survey 11-28: 1361D use 1 seal-despawn 3.1 s, use 2 sped at hit 0.95 s), and a core whose full form ends by another exit than the
+    // idle fallback / own despawn (8D11D SealExitZero, CA2E9) never got one and never sped up. A count (data or learned) latches on the
+    // first use; a burst that opens after the latch puts the form back to its own speed and re-arms (#143512), as on later uses.
+    // TASK #145336: the undo needs a NEW burst after the latch, not any active hit object: a last hit whose object stays out (latched
+    // once thrown) is still active, and 'n' undid the speed-up on the same tick it started (live 12:55, 9B2ED re-latched every tick).
+    static int afterHitBursts = 0;
+    if (n && bursts > afterHitBursts && g_afterHitSeal.load() == seal && seal && g_afterHitSess.load() == sess) {
         g_afterHitSeal.store(0); g_afterHitSess.store(-1);
-        Log("FormAfterHit core %X: burst %d opened after the speed-up - back to form speed, waits for the next last hit t=%.3f", sid, bursts + 1, now);
+        Log("FormAfterHit core %X: burst %d opened after the speed-up - back to form speed, waits for the next last hit t=%.3f", sid, bursts, now);
     }
-    if (seal && want > 0 && bursts >= want && !open && (sdh.fromData || g_sealDurs.Get(sid) > 0) && lastClose > 0 && g_afterHitMul.load() > 1.f && g_fh4.owner && seal == g_fh4.seal &&
+    // TASK #145336 (human #145059 "people de transform after throwing the final hitbox whatever it is"; survey 11-28 11:54, 7 of 13 cores:
+    // 9B2ED, 78A8D, 2B9A8, 78F80, 4084E: 0 closes; ADC1B, BEF02: only earlier bursts close): their last hit object stays in the collision pool
+    // until the yokai goes idle, so 'the last hit closes' never came and the speed-up never started on any use. The last hit is thrown once
+    // burst 'want' is complete: it closed, or no new hit object joined it for the burst merge time (the same 150 ms that splits bursts above).
+    // A later burst still puts the form back to its own speed and re-arms (#143512). Same rule for every core.
+    const bool lastThrown = (!open && lastClose > 0) || (open && poolOk && lastOpen >= 0 && now >= lastNew + 0.150);
+    if (seal && want > 0 && bursts >= want && lastThrown && g_afterHitMul.load() > 1.f && g_fh4.owner && seal == g_fh4.seal &&
         g_afterHitSess.load() != sess) {
-        g_afterHitT0.store(now); g_afterHitFormT.store(g_fh4.started); g_afterHitSess.store(sess); g_afterHitSpedSess.store(sess); g_afterHitSeal.store(seal);
-        Log("FormAfterHit core %X: hit %d/%d closed at %.3f s (%s count) - form plays at x%.2f until it turns back (ramp %.0f ms) t=%.3f", sid, bursts, want, lastClose, sdh.fromData ? "data" : "learned + known duration",
+        g_afterHitT0.store(now); g_afterHitFormT.store(g_fh4.started); g_afterHitSess.store(sess); g_afterHitSpedSess.store(sess); g_afterHitSeal.store(seal); afterHitBursts = bursts;
+        if (open) Log("FormAfterHit core %X: hit %d/%d thrown at %.3f s, its hit object stays out (%s count) - form plays at x%.2f until it turns back (ramp %.0f ms) t=%.3f",
+                      sid, bursts, want, lastOpen, sdh.fromData ? "data" : "learned", (double)g_afterHitMul.load(), (double)g_tailRampMs.load(), now);
+        else Log("FormAfterHit core %X: hit %d/%d closed at %.3f s (%s count) - form plays at x%.2f until it turns back (ramp %.0f ms) t=%.3f", sid, bursts, want, lastClose, sdh.fromData ? "data" : "learned, any use #145066",
             (double)g_afterHitMul.load(), (double)g_tailRampMs.load(), now);
     }
     // human #61113/#61119/#61124: one rule for every core - end a fixed SealLastHitGraceMs after THIS form's real last hit close
@@ -7841,6 +7879,38 @@ void SealEndOnHitTick() {
                 (int)((now - sess - lastClose) * 1000.0));
         }
     }
+    // TASK #145111 (human #145066/#145106, first try slower than the second): the game's own idle edge (act->idle 0x1) is the attack's
+    // end on EVERY exit path, so it teaches this core's hit count once per form right here. Before, the count was learned only inside the
+    // idle fallback below: skipped when SealExitZero/last-hit had already fired that tick (ADC1B Demon of Pride, 9 bursts, never learned)
+    // The count still needs every window closed and an empty pool here (an idle signal over open colliders is no completion evidence,
+    // #81956); a core whose last hitbox is still open at the idle edge (9B2ED Koroka, 78F80 Waira, BEF02 Hiruko, 4084E Lesser Umi-bozu:
+    // 0 learned on use 2) learns from SealTailHits at the seal's own despawn instead (TASK #145111 there).
+    // 13-core run 11-28 10:35 am EST (sc-survey-firsttry3-145066): want=0 on both uses for those cores.
+    static double nativeLearnSess = -1;
+    if (seal && g_sieFireSeal == seal && g_sieNativeEnd && nativeLearnSess != sess && poolOk && censusComplete && sid && bursts > 0 &&
+        SealTimingIdentityMatches(seal, sid)) {
+        nativeLearnSess = sess;
+        const int had = SealHitsFor(sid);
+        const bool closedAll = !n && !open && lastClose > 0;
+        if (closedAll && (!had || bursts < had)) {
+            wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
+            WritePrivateProfileStringW(SecHits(), k, v, IniPath());
+            Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s, %s)",
+                sid, bursts, had, SecHits(), g_sieWhy, fire ? "exit already fired this tick" : "idle fallback");
+        }
+        if (closedAll) { SealFullMinNote(sid, bursts, "idle edge"); SealFullMaxNote(sid, bursts, "idle edge"); SealFullLowNote(sid, bursts, "idle edge"); }  // TASK #142009 min, #142146 max, #142184 low
+        // #108262: always visible in live logs, so an idle edge that falls between a helper and a later seal burst can be spotted
+        Log("SealHelperLast core %X: native idle edge %.3f s after the press, %d bursts, owner order %s (S seal, H helper only) -> last %s",
+            sid, now - sess, bursts, ownerOrder, lastBurstOwner == 1 ? "helper" : "seal");
+        SealHelperLastLearn(sid, lastBurstOwner, "idle edge");  // #108189: the owner of the last burst needs no closed window
+        // TASK #135613: the idle edge is the attack's live end: this core's duration for SealExitEndPct (memory only)
+        if (boundAt > 0 && g_afterHitSpedSess.load() != sess) {  // regression #143747 / human #143437: not when sped after the last hit
+            const int ms = (int)((now - boundAt) * 1000.0), was = g_sealDurs.Get(sid);
+            Log("SealExitEndPct core %X: attack duration %d ms (bind -> idle edge, x1 %d ms, was %d)", sid, ms, g_sealDurs.Note(sid, ms, g_sealMul.load()), was);
+        }
+        if (boundAt > 0 && lastClose > 0 && SealLastHitUnsped(sess, lastClose))  // TASK #144038
+            SealLastHitNote(sid, lastClose, boundAt - sess, "idle edge");  // TASK #136328
+    }
     if (helperDue && !fire) { fire = true; Log("SealExitOnHelper core %X: ending the form %.3f s after the press (burst %d)", sid, now - sess, bursts); }
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
     // TASK #141441: a SealExitZero end is proven by the seal's own action frame (past its last hitbox / spawn), not by a bind-time collider
@@ -7851,31 +7921,13 @@ void SealEndOnHitTick() {
     const bool terminalFallback = g_sieMode.load() > 0 ||
         (g_ghostOn.load() > 0 && g_coverOn.load() > 0 && poolOk && bursts > 0 && !n && !open && lastClose > 0);
     if (idleFire && terminalFallback && !fire) {
-        // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
-        // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
-        if (g_sieNativeEnd && poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0 && SealTimingIdentityMatches(seal, sid)) {
-            const int had = SealHitsFor(sid);
-            if (!had || bursts < had) {
-                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
-                WritePrivateProfileStringW(SecHits(), k, v, IniPath());
-                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
-                    sid, bursts, had, SecHits(), g_sieWhy);
-            }
-            SealFullMinNote(sid, bursts, "idle edge"); SealFullMaxNote(sid, bursts, "idle edge"); SealFullLowNote(sid, bursts, "idle edge");  // TASK #142009 min, #142146 max, #142184 low
-        }
-        // #108189: the owner of the last burst needs no closed window (Kasha's cart burst is still open at the idle edge)
-        if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid)) {
-            // #108262: always visible in live logs, so an idle edge that falls between a helper and a later seal burst can be spotted
-            Log("SealHelperLast core %X: native idle edge %.3f s after the press, %d bursts, owner order %s (S seal, H helper only) -> last %s",
-                sid, now - sess, bursts, ownerOrder, lastBurstOwner == 1 ? "helper" : "seal");
-            SealHelperLastLearn(sid, lastBurstOwner, "idle edge");
-        }
-        // TASK #135613: the idle edge is the attack's live end: this core's duration for SealExitEndPct (memory only)
-        if (censusComplete && sid && boundAt > 0 && SealTimingIdentityMatches(seal, sid) && g_afterHitSpedSess.load() != sess) {  // regression #143747: undo does not clear it  // human #143437: not when sped after the last hit
+        // TASK #145111: a native idle edge was learned above (native idle learn), on every end path; a predicted motion end (loop/hold)
+        // still gives the duration and last-hit time here, as before
+        if (nativeLearnSess != sess && censusComplete && sid && boundAt > 0 && SealTimingIdentityMatches(seal, sid) && g_afterHitSpedSess.load() != sess) {  // regression #143747, human #143437
             const int ms = (int)((now - boundAt) * 1000.0), was = g_sealDurs.Get(sid);
             Log("SealExitEndPct core %X: attack duration %d ms (bind -> idle edge, x1 %d ms, was %d)", sid, ms, g_sealDurs.Note(sid, ms, g_sealMul.load()), was);
         }
-        if (censusComplete && sid && boundAt > 0 && SealTimingIdentityMatches(seal, sid) && SealLastHitUnsped(sess, lastClose))  // TASK #144038
+        if (nativeLearnSess != sess && censusComplete && sid && boundAt > 0 && SealTimingIdentityMatches(seal, sid) && SealLastHitUnsped(sess, lastClose))  // TASK #144038
             SealLastHitNote(sid, lastClose, boundAt - sess, "idle edge");  // TASK #136328
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
@@ -7906,7 +7958,7 @@ void SealEndOnHitTick() {
         SealTailHitWatch watch;
         watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.boundId = boundId; watch.sess = sess; watch.sourceSince = sourceSince;
         watch.previous = previous; watch.lastNew = lastNew; watch.clusterOwners = clusterOwners;
-        watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
+        watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly; watch.census = censusComplete;
         for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
         watch.kids = sources;
         g_tailHitWatches.push_back(watch);

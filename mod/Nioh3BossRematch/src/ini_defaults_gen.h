@@ -2,7 +2,7 @@
 // TASK #142228: keys whose shipped default changed or that a release did not ship (mod/shared/ini_defaults.h moves them forward).
 #pragma once
 #include "../../shared/ini_defaults.h"
-#define INI_DEFAULTS_REV 10854  /* MOD_VERSION of the source this table was built from */
+#define INI_DEFAULTS_REV 10856  /* MOD_VERSION of the source this table was built from */
 static const IniDefHist kIniDefH0[] = {{10800, 0}, {10805, L"1"}};
 static const IniDefHist kIniDefH1[] = {{10800, 0}, {10807, L"0"}};
 static const IniDefHist kIniDefH2[] = {{10800, 0}, {10847, L"0"}};
@@ -13,7 +13,7 @@ static const IniDefHist kIniDefH6[] = {{10800, 0}, {10819, L"4000"}};
 static const IniDefHist kIniDefH7[] = {{10800, 0}, {10819, L""}};
 static const IniDefHist kIniDefH8[] = {{10800, 0}, {10819, L"0"}};
 static const IniDefHist kIniDefH9[] = {{10800, 0}, {10844, L"1"}};
-static const IniDefHist kIniDefH10[] = {{10800, 0}};
+static const IniDefHist kIniDefH10[] = {{10800, 0}, {10854, L"1"}};
 static const IniDefHist kIniDefH11[] = {{10800, 0}, {10811, L""}};
 static const IniDefHist kIniDefH12[] = {{10800, 0}, {10850, L"8D402:13"}};
 static const IniDefHist kIniDefH13[] = {{10800, 0}, {10850, L"8D402:1"}};
@@ -28,28 +28,28 @@ static const IniDefHist kIniDefH21[] = {{10800, 0}, {10844, L"0"}};
 static const IniDefHist kIniDefH22[] = {{10800, 0}, {10844, L"1"}};
 static const IniDefHist kIniDefH23[] = {{10800, 0}, {10844, L"6"}};
 static const IniDefHist kIniDefH24[] = {{10800, 0}, {10852, L"200"}};
-static const IniDefHist kIniDefH25[] = {{10800, 0}};
-static const IniDefHist kIniDefH26[] = {{10800, 0}};
-static const IniDefHist kIniDefH27[] = {{10800, 0}};
-static const IniDefHist kIniDefH28[] = {{10800, 0}};
+static const IniDefHist kIniDefH25[] = {{10800, 0}, {10854, L"2"}};
+static const IniDefHist kIniDefH26[] = {{10800, 0}, {10854, L"0"}};
+static const IniDefHist kIniDefH27[] = {{10800, 0}, {10854, L"0"}};
+static const IniDefHist kIniDefH28[] = {{10800, 0}, {10854, L"0"}};
 static const IniDefHist kIniDefH29[] = {{10800, L"300"}, {10844, L"0"}};
 static const IniDefHist kIniDefH30[] = {{10800, 0}, {10826, L"200"}};
 static const IniDefHist kIniDefH31[] = {{10800, 0}, {10826, L"1"}};
 static const IniDefHist kIniDefH32[] = {{10800, 0}, {10811, L"0"}};
 static const IniDefHist kIniDefH33[] = {{10800, 0}, {10821, L"150"}, {10844, L"0"}};
-static const IniDefHist kIniDefH34[] = {{10800, 0}, {10844, L"80"}};
+static const IniDefHist kIniDefH34[] = {{10800, 0}, {10844, L"80"}, {10854, L"100"}};
 static const IniDefHist kIniDefH35[] = {{10800, 0}, {10844, L"200"}};
 static const IniDefHist kIniDefH36[] = {{10800, 0}, {10844, L"700"}, {10850, L"0"}};
 static const IniDefHist kIniDefH37[] = {{10800, 0}, {10850, L"1"}};
 static const IniDefHist kIniDefH38[] = {{10800, 0}, {10850, L"60"}};
-static const IniDefHist kIniDefH39[] = {{10800, 0}};
-static const IniDefHist kIniDefH40[] = {{10800, 0}};
-static const IniDefHist kIniDefH41[] = {{10800, 0}};
-static const IniDefHist kIniDefH42[] = {{10800, 0}};
-static const IniDefHist kIniDefH43[] = {{10800, 0}};
-static const IniDefHist kIniDefH44[] = {{10800, 0}};
-static const IniDefHist kIniDefH45[] = {{10800, 0}};
-static const IniDefHist kIniDefH46[] = {{10800, 0}};
+static const IniDefHist kIniDefH39[] = {{10800, 0}, {10854, L"1"}};
+static const IniDefHist kIniDefH40[] = {{10800, 0}, {10854, L"20"}};
+static const IniDefHist kIniDefH41[] = {{10800, 0}, {10854, L"2.5"}};
+static const IniDefHist kIniDefH42[] = {{10800, 0}, {10854, L"6"}};
+static const IniDefHist kIniDefH43[] = {{10800, 0}, {10854, L"15"}};
+static const IniDefHist kIniDefH44[] = {{10800, 0}, {10854, L"1"}};
+static const IniDefHist kIniDefH45[] = {{10800, 0}, {10854, L"60"}};
+static const IniDefHist kIniDefH46[] = {{10800, 0}, {10854, L"3"}};
 static const IniDefHist kIniDefH47[] = {{10800, 0}, {10811, L"1"}};
 static const IniDefKey kIniDefaults[] = {
     {L"Rematch", L"KeepGearInArenas", L"1", kIniDefH0, 2},
@@ -62,7 +62,7 @@ static const IniDefKey kIniDefaults[] = {
     {L"Rematch", L"SelfTestPlaceAt", L"", kIniDefH7, 2},
     {L"Rematch", L"SelfTestStagedFinal", L"0", kIniDefH8, 2},
     {L"Spirit", L"FormPreloadCores", L"1", kIniDefH9, 2},
-    {L"Spirit", L"FormPreloadSmoke", L"1", kIniDefH10, 1},
+    {L"Spirit", L"FormPreloadSmoke", L"1", kIniDefH10, 2},
     {L"Spirit", L"FormCoresOff", L"", kIniDefH11, 2},
     {L"Spirit", L"FormCoreSpeed", L"8D402:13", kIniDefH12, 2},
     {L"Spirit", L"FormCoresMove", L"8D402:1", kIniDefH13, 2},
@@ -77,28 +77,28 @@ static const IniDefKey kIniDefaults[] = {
     {L"Spirit", L"FastSummonStartSpeed", L"1", kIniDefH22, 2},
     {L"Spirit", L"FastSummonEndSpeed", L"6", kIniDefH23, 2},
     {L"Spirit", L"FastSummonPoseMs", L"200", kIniDefH24, 2},
-    {L"Spirit", L"FastSummonPlayerSpeed", L"2", kIniDefH25, 1},
-    {L"Spirit", L"FastSummonSpawnCm", L"0", kIniDefH26, 1},
-    {L"Spirit", L"FastSummonSpawnSideCm", L"0", kIniDefH27, 1},
-    {L"Spirit", L"FastSummonSpawnEarlyF", L"0", kIniDefH28, 1},
+    {L"Spirit", L"FastSummonPlayerSpeed", L"2", kIniDefH25, 2},
+    {L"Spirit", L"FastSummonSpawnCm", L"0", kIniDefH26, 2},
+    {L"Spirit", L"FastSummonSpawnSideCm", L"0", kIniDefH27, 2},
+    {L"Spirit", L"FastSummonSpawnEarlyF", L"0", kIniDefH28, 2},
     {L"Spirit", L"SealIdleMinMs", L"0", kIniDefH29, 2},
     {L"Spirit", L"FormCrouchCancel", L"200", kIniDefH30, 2},
     {L"Spirit", L"FormCrouchCancelKeepCore", L"1", kIniDefH31, 2},
     {L"Spirit", L"SealExitAtLastHitMs", L"0", kIniDefH32, 2},
     {L"Spirit", L"SealExitOnHelperMs", L"0", kIniDefH33, 3},
-    {L"Spirit", L"SealExitEndPct", L"100", kIniDefH34, 2},
+    {L"Spirit", L"SealExitEndPct", L"100", kIniDefH34, 3},
     {L"Spirit", L"SealExitSettleMs", L"200", kIniDefH35, 2},
     {L"Spirit", L"SealExitAfterShotMs", L"0", kIniDefH36, 3},
     {L"Spirit", L"SealExitZero", L"1", kIniDefH37, 2},
     {L"Spirit", L"SealBodyOpacity", L"60", kIniDefH38, 2},
-    {L"Spirit", L"FormShrink", L"1", kIniDefH39, 1},
-    {L"Spirit", L"FormShrinkPct", L"20", kIniDefH40, 1},
-    {L"Spirit", L"FormSizeTriggerX", L"2.5", kIniDefH41, 1},
-    {L"Spirit", L"FormHugeTriggerX", L"6", kIniDefH42, 1},
-    {L"Spirit", L"FormHugeShrinkPct", L"15", kIniDefH43, 1},
-    {L"Spirit", L"FormScaleAttacks", L"1", kIniDefH44, 1},
-    {L"Spirit", L"FormAttackOpacity", L"60", kIniDefH45, 1},
-    {L"Spirit", L"FormAfterHitSpeed", L"3", kIniDefH46, 1},
+    {L"Spirit", L"FormShrink", L"1", kIniDefH39, 2},
+    {L"Spirit", L"FormShrinkPct", L"20", kIniDefH40, 2},
+    {L"Spirit", L"FormSizeTriggerX", L"2.5", kIniDefH41, 2},
+    {L"Spirit", L"FormHugeTriggerX", L"6", kIniDefH42, 2},
+    {L"Spirit", L"FormHugeShrinkPct", L"15", kIniDefH43, 2},
+    {L"Spirit", L"FormScaleAttacks", L"1", kIniDefH44, 2},
+    {L"Spirit", L"FormAttackOpacity", L"60", kIniDefH45, 2},
+    {L"Spirit", L"FormAfterHitSpeed", L"3", kIniDefH46, 2},
     {L"SoulCore", L"CameraFollowVertical", L"1", kIniDefH47, 2},
 };
 #define INI_DEFAULTS_N 48

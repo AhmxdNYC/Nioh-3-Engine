@@ -39,7 +39,7 @@ struct State {
 
 // #137478: a menu that keeps game time running (shrine, blacksmith) raises neither the menu getters nor the stop flags, but it
 // takes control from the player: the game's control-off manager (menu.cpp ReadControlOff, manager+0x34 = OR of the active
-// reasons' masks) is nonzero. Debounced like the menu signal: on after 120 ms continuous, off after 150 ms clear (one-frame
+// reasons' masks) has its player-control bit set (ControlOff below, #183). Debounced like the menu signal: on after 120 ms continuous, off after 150 ms clear (one-frame
 // script blips never arm the repeat; gameplay has no active reason).
 struct Debounce {
     uint64_t since = 0, lastOn = 0;
@@ -55,17 +55,15 @@ struct Debounce {
         return shown;
     }
 };
-// human 2026-11-27: boss fights keep two control-off reasons the whole fight while the player plays (9C mask 1800, 9F mask 2040,
-// aggregate 3840 in every Boss Match of the log). Counting them as a menu turned a held left stick into D-pad pulses mid fight and
-// fired soul cores / summon seals on their own. Only bits outside these count.
-constexpr uint32_t kFightCtlMask = 0x3840u;
-// human 2026-11-27 (v1.8.50): after a won Boss Match the game keeps reason 39 (mask 1AC0) on while the player walks around again.
-// Its mask overlaps real menu bits, so it is told apart by id: when every active reason is one of these, nobody is in a menu.
-inline bool IsPlayReason(uint8_t id) { return id == 0x39 || id == 0x9C || id == 0x9F; }
-// onlyPlay = the reason list was read and every active reason is a play reason (IsPlayReason).
-inline bool ControlOff(bool readOk, uint32_t aggregate, bool onlyPlay = false) {
-    return readOk && !onlyPlay && (aggregate & ~kFightCtlMask) != 0;
-}
+// #183 (human #145096): the aggregate is the OR of every active reason's mask, and the game itself keeps reasons on while the
+// player plays: boss fights (9C mask 1800, 9F mask 2040), after a won Boss Match (39 mask 1AC0), a soul core form (17 mask 794,
+// PC1 survey logs), and #183 (stick = D-pad after the death screen / in the Eternal Rift). Each one turned the left stick into D-pad presses in
+// gameplay and fired soul cores; a list of "play" reason ids / masks only ever covered the cases already reported.
+// The game's own control-off getter (0x27A8B8: [45BBD58]+0x34 & 1, the 45BBD58 anchor in rvas.json) reads bit 0 only,
+// and every reason that really takes the pad away sets it (9A load 007, FE fade-out 187, 48 Player::SetControlOff 2905), while
+// none of the play reasons above do. So the gate follows that bit, like the game: no reason ids, no mask lists.
+constexpr uint32_t kCtlPlayerOff = 0x1u;
+inline bool ControlOff(bool readOk, uint32_t aggregate) { return readOk && (aggregate & kCtlPlayerOff) != 0; }
 
 // One pad poll. raw = what the player holds now; active = a game menu is open and the mod menu is closed.
 // Returns the bits to report as released for THIS poll (0 = pass the pad through unchanged).

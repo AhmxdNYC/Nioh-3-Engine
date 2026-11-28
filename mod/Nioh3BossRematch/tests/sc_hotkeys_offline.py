@@ -82,14 +82,15 @@ int main() {
   formsOn = true; calls.clear(); ini.clear();
   // look rows
   check(ScOvStep(kScOvSize, 100, 1) == 115 && ScOvStep(kScOvSize, 100, -1) == 85, "size steps");
-  check(ScOvStep(kScOvSize, 200, 1) == 200 && ScOvStep(kScOvSize, 50, -1) == 50, "size stops at the ends");
-  check(ScOvStep(kScOvSize, 200, 0) == 50, "A past the top wraps");
+  check(ScOvStep(kScOvSize, 400, 1) == 400 && ScOvStep(kScOvSize, 50, -1) == 50, "size stops at the ends (400% top, human #144997)");
+  check(ScOvStep(kScOvSize, 200, 1) == 260 && ScOvStep(kScOvSize, 260, 1) == 400, "size steps past 200% to 260/400");
+  check(ScOvStep(kScOvSize, 400, 0) == 50, "A past the top wraps");
   check(ScOvStep(kScOvX, 92, 1) == 100 && ScOvStep(kScOvX, 92, -1) == 80, "x 1% steps from the 9.2% centre default (#138501)");
   check(ScOvStep(kScOvX, 1000, 1) == 1000 && ScOvStep(kScOvY, 0, -1) == 0, "position clamps 0..100%");
   check(ScOvStep(kScOvAlpha, 20, -1) == 20 && ScOvStep(kScOvAlpha, 90, 1) == 92 && ScOvStep(kScOvAlpha, 92, 1) == 100 && kScOv[kScOvAlpha].def == 92, "opacity steps");
   check(ScOvStep(kScOvBox, 1, -1) == 0 && ScOvStep(kScOvBox, 0, 0) == 1, "background on/off");
   check(ScOvStep(kScOvColors, 2, 1) == 0 && ScOvStep(kScOvColors, 0, -1) == 2 && ScOvStep(kScOvFont, 0, 0) == 1 && ScOvStep(kScOvFont, 3, 1) == 0 && ScOvStep(kScOvFont, 0, -1) == 3, "choices wrap (font has Game = 3, #138501)");
-  check(ScOvClamp(kScOvAlpha, 5) == 20 && ScOvClamp(kScOvColors, 9) == 2 && ScOvClamp(kScOvSize, 999) == 200, "bad ini values clamp");
+  check(ScOvClamp(kScOvAlpha, 5) == 20 && ScOvClamp(kScOvColors, 9) == 2 && ScOvClamp(kScOvSize, 999) == 400, "bad ini values clamp");
   for (int w = 0; w < kScOvN; ++w) check(ScOvClamp(w, kScOv[w].def) == kScOv[w].def && kScOv[w].foot && kScOv[w].foot[0], "defaults in range, every row has a footer");
   check(kScOv[kScOvX].def == 92 && kScOv[kScOvY].def == 970 && kScOv[kScOvSize].def == 130 && kScOv[kScOvBox].def == 0 && kScOv[kScOvColors].def == 0 && kScOv[kScOvFont].def == 3 && !wcscmp(kScOv[kScOvX].key, L"SoulCoreOverlayCenterX"),
         "defaults = #138501: centred under the left item HUD, Game letters, no panel, menu colours");
